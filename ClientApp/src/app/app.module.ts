@@ -5,10 +5,20 @@ import { HttpClientModule } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
+import { WeatherComponent } from './weather/weather.component';
+import { DailyPhraseComponent } from './daily-phrase/daily-phrase.component';
+import { CalendarEventsComponent } from './calendar-events/calendar-events.component';
+import { TrashCollectionCalendarComponent } from './trash-collection-calendar/trash-collection-calendar.component';
+import { DateComponent } from './date/date.component';
 
 @NgModule({
   declarations: [
-    AppComponent
+    AppComponent,
+    WeatherComponent,
+    DailyPhraseComponent,
+    CalendarEventsComponent,
+    TrashCollectionCalendarComponent,
+    DateComponent
   ],
   imports: [
     BrowserModule.withServerTransition({ appId: 'ng-cli-universal' }),
