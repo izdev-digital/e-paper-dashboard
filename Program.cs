@@ -13,7 +13,7 @@ builder.Services.AddSwaggerGen(config => {
 });
 
 var app = builder.Build();
-
+app.UseCors(builder => builder.WithOrigins("*"));
 app.UseSwagger().UseSwaggerUI();
 
 // Configure the HTTP request pipeline.
