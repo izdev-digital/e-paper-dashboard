@@ -7,5 +7,7 @@ namespace EPaperDashboard.Controllers;
 public class DateController : ControllerBase
 {
     [HttpGet]
-    public IActionResult Fetch() => Ok(DateTime.Now);
+    public ActionResult<DateDto> Fetch() => Ok(new DateDto(DateOnly.FromDateTime(DateTime.Now)));
 }
+
+public record DateDto(DateOnly CurrentDate);
