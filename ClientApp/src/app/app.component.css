@@ -1,7 +1,6 @@
-.column-one{
-    background-color: aqua;
-}
-
-.column-two{
-    background-color: blueviolet;
+.dashboard-container{
+    margin:var(--common-margin);
+    padding: var(--common-padding);
+    border-radius: var(--border-radius);
+    border: var(--common-border-thickness) solid var(--common-border-color);
 }
