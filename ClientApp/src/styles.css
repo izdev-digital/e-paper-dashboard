@@ -1,0 +1,17 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Provide sufficient contrast against white background */
+:root{
+    --border-radius: 4px;
+    --common-border-color: black;
+    --common-border-thickness: 1px;
+    --common-margin: 2px;
+    --common-padding: 4px;
+}
+
+.widget{
+    border-radius: var(--border-radius);
+    margin: var(--common-margin);
+    padding: var(--common-padding);
+    border: var(--common-border-thickness) solid var(--common-border-color)
+}

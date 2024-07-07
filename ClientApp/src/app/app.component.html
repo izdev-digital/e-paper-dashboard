@@ -1,0 +1,14 @@
+<div class="container-fluid d-flex flex-column min-vh-100">
+  <div class="d-flex flex-grow-1 justify-content-between dashboard-container">
+    <div class="d-flex flex-column flex-grow-1">
+      <date class="widget"></date>
+      <daily-phrase class="widget flex-grow-1"></daily-phrase>
+    </div>
+    <div class="d-flex flex-column">
+      <weather class="widget"></weather>
+      <calendar-events class="widget flex-grow-1"></calendar-events>
+      <trash-collection-calendar class="widget"></trash-collection-calendar>
+    </div>
+  </div>
+  <span>updated: {{generationTime | date:"medium"}}</span>
+</div>
