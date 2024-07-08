@@ -1,3 +1,4 @@
+using EPaperDashboard.Services;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,8 @@ builder.Services.AddSwaggerGen(config => {
         Url = "https://localhost:7297"
     });
 });
-
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IWeatherService, WeatherService>();
 var app = builder.Build();
 app.UseCors(builder => builder.WithOrigins("*"));
 app.UseSwagger().UseSwaggerUI();
