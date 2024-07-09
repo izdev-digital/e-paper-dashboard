@@ -31,7 +31,7 @@ public class WeatherService : IWeatherService
             var uri = CreateUri(new Uri("https://api.open-meteo.com"), "v1/forecast", new Dictionary<string, string>{
                 {"latitude", locationDetails.Value.Latitude.ToString()},
                 {"longitude",locationDetails.Value.Longitude.ToString()},
-                {"timezone",locationDetails.Value.TimeZone},
+                {"timezone",locationDetails.Value.TimeZone ?? "GMT"},
                 {"daily","weather_code,apparent_temperature_min,apparent_temperature_max"},
                 {"forecast_days","1"},
                 {"hourly","apparent_temperature,weather_code"}
