@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
 import { DateService } from './services/date.service';
+import { WeatherService } from './services/weather.service';
 
 /**
  * Module that provides all services and configuration.
@@ -15,6 +16,7 @@ import { DateService } from './services/date.service';
   declarations: [],
   providers: [
     DateService,
+    WeatherService,
     ApiConfiguration
   ],
 })

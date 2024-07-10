@@ -1,1 +1,34 @@
-<span>weather works!</span>
+<div>
+    <div class="d-flex align-items-center justify-content-between weather-daily-container">
+        <div>
+            <div>
+                {{ weatherInfo?.location }}
+            </div>
+            <div>
+                L: {{ weatherInfo?.daily?.temperatureMin }}
+            </div>
+            <div>
+                H: {{ weatherInfo?.daily?.temperatureMax }}
+            </div>
+        </div>
+        <div>
+            <div *ngIf="weatherInfo?.daily?.weatherCode | weatherCodeToImage; let weatherCodeImageUrl">
+                <img [src]="weatherCodeImageUrl">
+            </div>
+
+        </div>
+    </div>
+    <div class="d-flex justify-content-around">
+        <div *ngFor="let info of weatherInfo?.hourly" class="d-flex flex-column align-items-center weather-hourly-container">
+            <div>
+                {{ info.time | date: 'H:mm' }}
+            </div>
+            <div *ngIf="info.weatherCode | weatherCodeToImage; let weatherCodeImageUrl">
+                <img [src]="weatherCodeImageUrl">
+            </div>
+            <div>
+                {{ info.temperature }}
+            </div>
+        </div>
+    </div>
+</div>
