@@ -1,7 +1,8 @@
 /* tslint:disable */
 /* eslint-disable */
+import { TemperatureDto } from '../models/temperature-dto';
 export interface WeatherConditionDto {
-  temperature?: number;
+  temperature?: TemperatureDto;
   time?: string;
   weatherCode?: number;
 }

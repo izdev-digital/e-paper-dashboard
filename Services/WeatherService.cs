@@ -1,4 +1,5 @@
-﻿using System.Web;
+﻿using System.Globalization;
+using System.Web;
 using EPaperDashboard.Guards;
 using FluentResults;
 using Newtonsoft.Json;
@@ -26,8 +27,8 @@ public class WeatherService : IWeatherService
 
             var client = _httpClientFactory.CreateClient();
             var uri = CreateUri(new Uri("https://api.open-meteo.com"), "v1/forecast", new Dictionary<string, string>{
-                {"latitude", locationDetails.Value.Latitude.ToString()},
-                {"longitude",locationDetails.Value.Longitude.ToString()},
+                {"latitude", locationDetails.Value.Latitude.ToString(CultureInfo.InvariantCulture)},
+                {"longitude",locationDetails.Value.Longitude.ToString(CultureInfo.InvariantCulture)},
                 {"timezone",locationDetails.Value.TimeZone ?? "GMT"},
                 {"daily","weather_code,apparent_temperature_min,apparent_temperature_max"},
                 {"forecast_days","1"},
@@ -62,15 +63,29 @@ public class WeatherService : IWeatherService
             return Result.Fail("No hourly information is provided");
         }
 
-        var weatherConditions = weatherInformationDto.HourlyInformation.Time
-            .Zip(weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
-            .Select(item => new WeatherCondition(item.First, item.Third, item.Second))
+        if (weatherInformationDto.DailyInformationUnits is null)
+        {
+            return Result.Fail("No daily information units is provided");
+        }
+
+        if (weatherInformationDto.HourlyInformationUnits is null)
+        {
+            return Result.Fail("No hourly information units is provided");
+        }
+
+        var weatherConditions = Enumerable
+            .Zip(weatherInformationDto.HourlyInformation.Time, weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
+            .Select(item => new WeatherCondition(item.First, item.Third, new Temperature(item.Second, weatherInformationDto.HourlyInformationUnits?.TemperatureUnits ?? string.Empty)))
             .ToArray();
 
         var dailyConditions = new DailyWeatherCondition(
                 weatherInformationDto.DailyInformation.WeatherCode.First(),
-                weatherInformationDto.DailyInformation.ApparentTemperatureMin.First(),
-                weatherInformationDto.DailyInformation.ApparentTemperatureMax.First());
+                new Temperature(
+                    weatherInformationDto.DailyInformation.ApparentTemperatureMin.First(),
+                    weatherInformationDto.DailyInformationUnits.TemperatureMinUnits ?? string.Empty),
+                new Temperature(
+                    weatherInformationDto.DailyInformation.ApparentTemperatureMax.First(),
+                    weatherInformationDto.DailyInformationUnits.TemperatureMaxUnits ?? string.Empty));
         var weatherInformation = new WeatherInfo(location, dailyConditions, weatherConditions);
         return Result.Ok(weatherInformation);
     }
@@ -154,6 +169,15 @@ public class WeatherService : IWeatherService
         public List<float> ApparentTemperatureMax { get; set; } = new();
     }
 
+    internal class DailyInformationUnitsDto
+    {
+        [JsonProperty("apparent_temperature_min")]
+        public string? TemperatureMinUnits { get; set; }
+
+        [JsonProperty("apparent_temperature_max")]
+        public string? TemperatureMaxUnits { get; set; }
+    }
+
     internal class HourlyInformationDto
     {
         [JsonProperty("time")]
@@ -166,15 +190,29 @@ public class WeatherService : IWeatherService
         public List<int> WeatherCode { get; set; } = new();
     }
 
+    internal class HourlyInformationUnitsDto
+    {
+        [JsonProperty("apparent_temperature")]
+        public string? TemperatureUnits { get; set; }
+    }
+
     internal class WeatherInformationDto
     {
         [JsonProperty("hourly")]
         public HourlyInformationDto? HourlyInformation { get; set; }
 
+        [JsonProperty("hourly_units")]
+        public HourlyInformationUnitsDto? HourlyInformationUnits { get; set; }
+
         [JsonProperty("daily")]
         public DailyInformationDto? DailyInformation { get; set; }
+
+        [JsonProperty("daily_units")]
+        public DailyInformationUnitsDto? DailyInformationUnits { get; set; }
     }
 }
+
+public record Temperature(float Value, string Unit);
 
 public record WeatherInfo(
     string Location,
@@ -184,9 +222,9 @@ public record WeatherInfo(
 public record WeatherCondition(
     DateTime Time,
     int WeatherCode,
-    float Temperature);
+    Temperature Temperature);
 
 public record DailyWeatherCondition(
     int WeatherCode,
-    float TemperatureMin,
-    float TemperatureMax);
+    Temperature TemperatureMin,
+    Temperature TemperatureMax);

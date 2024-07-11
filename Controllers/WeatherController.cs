@@ -19,19 +19,24 @@ public class WeatherController : ControllerBase
 
         return result switch
         {
-            { IsFailed: true } => BadRequest(),
-            { } => Ok(ConvertToDto(result.Value)),
+            { IsFailed: true } => BadRequest(result.Errors),
+            { IsSuccess: true } => Ok(ConvertToDto(result.Value)),
             _ => NotFound()
         };
     }
 
     private static WeatherInfoDto ConvertToDto(WeatherInfo value)
     {
-        var daily = new DailyWeatherConditionDto(value.Daily.WeatherCode, value.Daily.TemperatureMin, value.Daily.TemperatureMax);
-        var hourly = value.Hourly.Select(x => new WeatherConditionDto(x.Time, x.WeatherCode, x.Temperature));
+        var daily = new DailyWeatherConditionDto(value.Daily.WeatherCode, ConvertToDto(value.Daily.TemperatureMin), ConvertToDto(value.Daily.TemperatureMax));
+        var hourly = value.Hourly.Select(x => new WeatherConditionDto(x.Time, x.WeatherCode, ConvertToDto(x.Temperature)));
         return new WeatherInfoDto(value.Location, daily, hourly.ToArray());
     }
+
+    private static TemperatureDto ConvertToDto(Temperature temperature) =>
+        new(temperature.Value, temperature.Unit);
 }
+
+public record TemperatureDto(float Value, string Units);
 
 public record WeatherInfoDto(
     string Location,
@@ -41,9 +46,9 @@ public record WeatherInfoDto(
 public record WeatherConditionDto(
     DateTime Time,
     int WeatherCode,
-    float Temperature);
+    TemperatureDto Temperature);
 
 public record DailyWeatherConditionDto(
     int WeatherCode,
-    float TemperatureMin,
-    float TemperatureMax);
+    TemperatureDto TemperatureMin,
+    TemperatureDto TemperatureMax);
