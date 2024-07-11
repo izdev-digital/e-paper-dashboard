@@ -11,6 +11,7 @@ import { CalendarEventsComponent } from './calendar-events/calendar-events.compo
 import { TrashCollectionCalendarComponent } from './trash-collection-calendar/trash-collection-calendar.component';
 import { DateComponent } from './date/date.component';
 import { WeatherCodeToImagePipe } from './weather/weather-code-to-image.pipe';
+import { WeatherCodeToDescriptionPipe } from './weather/weather-code-to-description.pipe';
 
 @NgModule({
   declarations: [
@@ -20,7 +21,8 @@ import { WeatherCodeToImagePipe } from './weather/weather-code-to-image.pipe';
     CalendarEventsComponent,
     TrashCollectionCalendarComponent,
     DateComponent,
-    WeatherCodeToImagePipe
+    WeatherCodeToImagePipe,
+    WeatherCodeToDescriptionPipe
   ],
   imports: [
     BrowserModule.withServerTransition({ appId: 'ng-cli-universal' }),

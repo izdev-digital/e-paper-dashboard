@@ -10,16 +10,19 @@
             <div>
                 H: {{ weatherInfo?.daily?.temperatureMax }}
             </div>
+            <div *ngIf="weatherInfo?.daily?.weatherCode | weatherCodeToDescription; let weatherCodeDescription">
+                {{ weatherCodeDescription }}
+            </div>
         </div>
         <div>
             <div *ngIf="weatherInfo?.daily?.weatherCode | weatherCodeToImage; let weatherCodeImageUrl">
                 <img [src]="weatherCodeImageUrl">
             </div>
-
         </div>
     </div>
     <div class="d-flex justify-content-around">
-        <div *ngFor="let info of weatherInfo?.hourly" class="d-flex flex-column align-items-center weather-hourly-container">
+        <div *ngFor="let info of weatherInfo?.hourly"
+            class="d-flex flex-column align-items-center weather-hourly-container">
             <div>
                 {{ info.time | date: 'H:mm' }}
             </div>
