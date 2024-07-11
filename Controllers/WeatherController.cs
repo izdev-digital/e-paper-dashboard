@@ -1,4 +1,5 @@
-﻿using EPaperDashboard.Services;
+﻿using EPaperDashboard.Models.Weather;
+using EPaperDashboard.Services.Weather;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EPaperDashboard.Controllers;

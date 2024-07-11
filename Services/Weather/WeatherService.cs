@@ -1,10 +1,12 @@
 ﻿using System.Globalization;
 using System.Web;
 using EPaperDashboard.Guards;
+using EPaperDashboard.Models.Weather;
+using EPaperDashboard.Services.Weather.Dto;
 using FluentResults;
 using Newtonsoft.Json;
 
-namespace EPaperDashboard.Services;
+namespace EPaperDashboard.Services.Weather;
 
 public class WeatherService : IWeatherService
 {
@@ -73,8 +75,7 @@ public class WeatherService : IWeatherService
             return Result.Fail("No hourly information units is provided");
         }
 
-        var weatherConditions = Enumerable
-            .Zip(weatherInformationDto.HourlyInformation.Time, weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
+        var weatherConditions = weatherInformationDto.HourlyInformation.Time.Zip(weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
             .Select(item => new WeatherCondition(item.First, item.Third, new Temperature(item.Second, weatherInformationDto.HourlyInformationUnits?.TemperatureUnits ?? string.Empty)))
             .ToArray();
 
@@ -132,99 +133,4 @@ public class WeatherService : IWeatherService
                 return seed;
             }).ToString()
     }.Uri;
-
-    internal class LocationDto
-    {
-        [JsonProperty("name")]
-        public string? Name { get; set; }
-
-        [JsonProperty("latitude")]
-        public float Latitude { get; set; }
-
-        [JsonProperty("longitude")]
-        public float Longitude { get; set; }
-
-        [JsonProperty("timezone")]
-        public string? TimeZone { get; set; }
-    }
-
-    internal class LocationResultsDto
-    {
-        [JsonProperty("results")]
-        public List<LocationDto> Results { get; set; } = new();
-    }
-
-    internal class DailyInformationDto
-    {
-        [JsonProperty("time")]
-        public List<DateTime> Time { get; set; } = new();
-
-        [JsonProperty("weather_code")]
-        public List<int> WeatherCode { get; set; } = new();
-
-        [JsonProperty("apparent_temperature_min")]
-        public List<float> ApparentTemperatureMin { get; set; } = new();
-
-        [JsonProperty("apparent_temperature_max")]
-        public List<float> ApparentTemperatureMax { get; set; } = new();
-    }
-
-    internal class DailyInformationUnitsDto
-    {
-        [JsonProperty("apparent_temperature_min")]
-        public string? TemperatureMinUnits { get; set; }
-
-        [JsonProperty("apparent_temperature_max")]
-        public string? TemperatureMaxUnits { get; set; }
-    }
-
-    internal class HourlyInformationDto
-    {
-        [JsonProperty("time")]
-        public List<DateTime> Time { get; set; } = new();
-
-        [JsonProperty("apparent_temperature")]
-        public List<float> ApparentTemperature { get; set; } = new();
-
-        [JsonProperty("weather_code")]
-        public List<int> WeatherCode { get; set; } = new();
-    }
-
-    internal class HourlyInformationUnitsDto
-    {
-        [JsonProperty("apparent_temperature")]
-        public string? TemperatureUnits { get; set; }
-    }
-
-    internal class WeatherInformationDto
-    {
-        [JsonProperty("hourly")]
-        public HourlyInformationDto? HourlyInformation { get; set; }
-
-        [JsonProperty("hourly_units")]
-        public HourlyInformationUnitsDto? HourlyInformationUnits { get; set; }
-
-        [JsonProperty("daily")]
-        public DailyInformationDto? DailyInformation { get; set; }
-
-        [JsonProperty("daily_units")]
-        public DailyInformationUnitsDto? DailyInformationUnits { get; set; }
-    }
 }
-
-public record Temperature(float Value, string Unit);
-
-public record WeatherInfo(
-    string Location,
-    DailyWeatherCondition Daily,
-    WeatherCondition[] Hourly);
-
-public record WeatherCondition(
-    DateTime Time,
-    int WeatherCode,
-    Temperature Temperature);
-
-public record DailyWeatherCondition(
-    int WeatherCode,
-    Temperature TemperatureMin,
-    Temperature TemperatureMax);

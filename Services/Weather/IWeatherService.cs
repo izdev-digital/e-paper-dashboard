@@ -1,6 +1,7 @@
+using EPaperDashboard.Models.Weather;
 using FluentResults;
 
-namespace EPaperDashboard.Services;
+namespace EPaperDashboard.Services.Weather;
 
 public interface IWeatherService
 {

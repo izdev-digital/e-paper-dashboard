@@ -1,4 +1,4 @@
-using EPaperDashboard.Services;
+using EPaperDashboard.Services.Weather;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
