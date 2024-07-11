@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Web;
+﻿using System.Web;
 using EPaperDashboard.Guards;
 using FluentResults;
 using Newtonsoft.Json;
@@ -8,8 +7,6 @@ namespace EPaperDashboard.Services;
 
 public class WeatherService : IWeatherService
 {
-    private readonly Uri _apiBaseUrl = new("https://api.open-meteo.com/v1/");
-
     private readonly IHttpClientFactory _httpClientFactory;
 
     public WeatherService(IHttpClientFactory httpClientFactory) =>
@@ -65,18 +62,15 @@ public class WeatherService : IWeatherService
             return Result.Fail("No hourly information is provided");
         }
 
-        var hoursToTrack = new int[] { 8, 12, 16, 20 };
         var weatherConditions = weatherInformationDto.HourlyInformation.Time
             .Zip(weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
-            .Where(item => hoursToTrack.Contains(item.First.Hour))
-            .Select(item => new WeatherCondition(item.First, item.Third, item.Second, "TODO: some description"))
+            .Select(item => new WeatherCondition(item.First, item.Third, item.Second))
             .ToArray();
 
         var dailyConditions = new DailyWeatherCondition(
                 weatherInformationDto.DailyInformation.WeatherCode.First(),
                 weatherInformationDto.DailyInformation.ApparentTemperatureMin.First(),
-                weatherInformationDto.DailyInformation.ApparentTemperatureMax.First(),
-                "TODO: some description");
+                weatherInformationDto.DailyInformation.ApparentTemperatureMax.First());
         var weatherInformation = new WeatherInfo(location, dailyConditions, weatherConditions);
         return Result.Ok(weatherInformation);
     }
@@ -190,11 +184,9 @@ public record WeatherInfo(
 public record WeatherCondition(
     DateTime Time,
     int WeatherCode,
-    float Temperature,
-    string Description);
+    float Temperature);
 
 public record DailyWeatherCondition(
     int WeatherCode,
     float TemperatureMin,
-    float TemperatureMax,
-    string Description);
+    float TemperatureMax);

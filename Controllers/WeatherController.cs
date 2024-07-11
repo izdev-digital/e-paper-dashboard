@@ -20,9 +20,16 @@ public class WeatherController : ControllerBase
         return result switch
         {
             { IsFailed: true } => BadRequest(),
-            { } => Ok(result.Value),
+            { } => Ok(ConvertToDto(result.Value)),
             _ => NotFound()
         };
+    }
+
+    private static WeatherInfoDto ConvertToDto(WeatherInfo value)
+    {
+        var daily = new DailyWeatherConditionDto(value.Daily.WeatherCode, value.Daily.TemperatureMin, value.Daily.TemperatureMax);
+        var hourly = value.Hourly.Select(x => new WeatherConditionDto(x.Time, x.WeatherCode, x.Temperature));
+        return new WeatherInfoDto(value.Location, daily, hourly.ToArray());
     }
 }
 
@@ -34,11 +41,9 @@ public record WeatherInfoDto(
 public record WeatherConditionDto(
     DateTime Time,
     int WeatherCode,
-    float Temperature,
-    string Description);
+    float Temperature);
 
 public record DailyWeatherConditionDto(
     int WeatherCode,
     float TemperatureMin,
-    float TemperatureMax,
-    string Description);
+    float TemperatureMax);
