@@ -4,6 +4,7 @@ using EPaperDashboard.Guards;
 using EPaperDashboard.Models.Weather;
 using EPaperDashboard.Services.Weather.Dto;
 using FluentResults;
+using FluentResults.Extensions;
 using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Weather;
@@ -20,35 +21,38 @@ public class WeatherService : IWeatherService
         try
         {
             Guard.NeitherNullNorWhitespace(location, nameof(location));
-            var locationDetails = await GetLocationDetailsAsync(location);
-
-            if (locationDetails.IsFailed)
-            {
-                return locationDetails.ToResult<WeatherInfo>();
-            }
-
-            var client = _httpClientFactory.CreateClient();
-            var uri = CreateUri(new Uri("https://api.open-meteo.com"), "v1/forecast", new Dictionary<string, string>{
-                {"latitude", locationDetails.Value.Latitude.ToString(CultureInfo.InvariantCulture)},
-                {"longitude",locationDetails.Value.Longitude.ToString(CultureInfo.InvariantCulture)},
-                {"timezone",locationDetails.Value.TimeZone ?? "GMT"},
-                {"daily","weather_code,apparent_temperature_min,apparent_temperature_max"},
-                {"forecast_days","1"},
-                {"hourly","apparent_temperature,weather_code"}
-            });
-            var response = await client.GetAsync(uri);
-            var json = await response.Content.ReadAsStringAsync();
-
-            return Convert(json, location);
+            return await GetLocationDetailsAsync(location)
+                .Bind(GetWeatherInformationAsync);
         }
         catch (Exception ex)
         {
-            return Result.Fail<WeatherInfo>(ex.Message);
+            return Result.Fail(new Error("Failed to get weather information").CausedBy(ex));
         }
     }
 
-    private Result<WeatherInfo> Convert(string? json, string location)
+    private async Task<Result<WeatherInfo>> GetWeatherInformationAsync(LocationDto location)
     {
+        var client = _httpClientFactory.CreateClient();
+        var uri = CreateUri(new Uri("https://api.open-meteo.com"), "v1/forecast", new Dictionary<string, string>{
+                    {"latitude", location.Latitude.ToString(CultureInfo.InvariantCulture)},
+                    {"longitude",location.Longitude.ToString(CultureInfo.InvariantCulture)},
+                    {"timezone",location.TimeZone ?? "GMT"},
+                    {"daily","weather_code,apparent_temperature_min,apparent_temperature_max"},
+                    {"forecast_days","1"},
+                    {"hourly","apparent_temperature,weather_code"}});
+        var response = await client.GetAsync(uri);
+        var json = await response.Content.ReadAsStringAsync();
+
+        return Convert(json, location.Name);
+    }
+
+    private static Result<WeatherInfo> Convert(string? json, string? location)
+    {
+        if (string.IsNullOrWhiteSpace(location))
+        {
+            return Result.Fail("Locaiton name is not provided");
+        }
+
         var weatherInformationDto = JsonConvert.DeserializeObject<WeatherInformationDto>(Guard.NeitherNullNorWhitespace(json, nameof(json)));
         if (weatherInformationDto is null)
         {
@@ -75,8 +79,17 @@ public class WeatherService : IWeatherService
             return Result.Fail("No hourly information units is provided");
         }
 
-        var weatherConditions = weatherInformationDto.HourlyInformation.Time.Zip(weatherInformationDto.HourlyInformation.ApparentTemperature, weatherInformationDto.HourlyInformation.WeatherCode)
-            .Select(item => new WeatherCondition(item.First, item.Third, new Temperature(item.Second, weatherInformationDto.HourlyInformationUnits?.TemperatureUnits ?? string.Empty)))
+        var weatherConditions = Enumerable
+            .Zip(
+                weatherInformationDto.HourlyInformation.Time,
+                weatherInformationDto.HourlyInformation.ApparentTemperature,
+                weatherInformationDto.HourlyInformation.WeatherCode)
+            .Select(item => new WeatherCondition(
+                item.First,
+                item.Third,
+                new Temperature(
+                    item.Second,
+                    weatherInformationDto.HourlyInformationUnits?.TemperatureUnits ?? string.Empty)))
             .ToArray();
 
         var dailyConditions = new DailyWeatherCondition(
@@ -87,8 +100,7 @@ public class WeatherService : IWeatherService
                 new Temperature(
                     weatherInformationDto.DailyInformation.ApparentTemperatureMax.First(),
                     weatherInformationDto.DailyInformationUnits.TemperatureMaxUnits ?? string.Empty));
-        var weatherInformation = new WeatherInfo(location, dailyConditions, weatherConditions);
-        return Result.Ok(weatherInformation);
+        return Result.Ok(new WeatherInfo(location, dailyConditions, weatherConditions));
     }
 
     private async Task<Result<LocationDto>> GetLocationDetailsAsync(string location)
@@ -119,7 +131,7 @@ public class WeatherService : IWeatherService
         }
         catch (Exception ex)
         {
-            return Result.Fail<LocationDto>(ex.Message);
+            return Result.Fail<LocationDto>(new Error("Failed to fetch location information").CausedBy(ex));
         }
     }
 
