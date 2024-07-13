@@ -6,14 +6,19 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddSwaggerGen(config => {
-    config.AddServer(new OpenApiServer{
+builder.Services.AddSwaggerGen(config =>
+{
+    config.AddServer(new OpenApiServer
+    {
         Description = "Development Server",
         Url = "https://localhost:7297"
     });
 });
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<IWeatherService, WeatherService>();
+builder.Services
+    .AddScoped<IWeatherService, WeatherService>()
+    .AddScoped<ILocationService, LocationService>();
+    
 var app = builder.Build();
 app.UseCors(builder => builder.WithOrigins("*"));
 app.UseSwagger().UseSwaggerUI();

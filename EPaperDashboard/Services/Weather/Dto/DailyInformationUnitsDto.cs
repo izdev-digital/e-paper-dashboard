@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Weather.Dto;
 
-internal class DailyInformationUnitsDto
+internal sealed class DailyInformationUnitsDto
 {
     [JsonProperty("apparent_temperature_min")]
     public string? TemperatureMinUnits { get; set; }

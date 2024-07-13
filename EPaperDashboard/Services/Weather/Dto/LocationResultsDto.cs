@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Weather.Dto;
 
-internal class LocationResultsDto
+internal sealed class LocationResultsDto
 {
     [JsonProperty("results")]
     public List<LocationDto> Results { get; set; } = new();

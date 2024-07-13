@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Weather.Dto;
 
-internal class WeatherInformationDto
+internal sealed class WeatherInformationDto
 {
     [JsonProperty("hourly")]
     public HourlyInformationDto? HourlyInformation { get; set; }
