@@ -14,11 +14,11 @@ builder.Services.AddSwaggerGen(config =>
         Url = "https://localhost:7297"
     });
 });
-builder.Services.AddHttpClient();
+builder.Services.AddHttpClient(HttpClientConfigurations.WeatherService);
 builder.Services
     .AddScoped<IWeatherService, WeatherService>()
     .AddScoped<ILocationService, LocationService>();
-    
+
 var app = builder.Build();
 app.UseCors(builder => builder.WithOrigins("*"));
 app.UseSwagger().UseSwaggerUI();

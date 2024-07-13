@@ -27,7 +27,7 @@ public sealed class WeatherService : IWeatherService
 
     private async Task<Result<WeatherInfo>> GetWeatherInformationAsync(Location location)
     {
-        var client = _httpClientFactory.CreateClient();
+        var client = _httpClientFactory.CreateClient(HttpClientConfigurations.WeatherService);
         var uri = UriUtilities.CreateUri(new Uri("https://api.open-meteo.com"), "v1/forecast", new Dictionary<string, string>{
                     {"latitude", location.Latitude.ToString(CultureInfo.InvariantCulture)},
                     {"longitude",location.Longitude.ToString(CultureInfo.InvariantCulture)},

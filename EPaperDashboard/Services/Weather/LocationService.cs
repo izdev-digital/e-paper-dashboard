@@ -17,7 +17,7 @@ public sealed class LocationService : ILocationService
     {
         try
         {
-            var client = _httpClientFactory.CreateClient();
+            var client = _httpClientFactory.CreateClient(HttpClientConfigurations.WeatherService);
             var uri = UriUtilities.CreateUri(
                 new Uri("https://geocoding-api.open-meteo.com"),
                 "v1/search",
