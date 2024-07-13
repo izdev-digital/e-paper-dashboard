@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Collections;
+using System.Net;
 using EPaperDashboard.Models.Weather;
 using EPaperDashboard.Services.Weather;
 using Moq;
@@ -66,92 +67,54 @@ public class LocationServiceTest
         Assert.That(result.Errors, Has.One.Message.EqualTo("Failed to deserialize location object"));
     }
 
-    [Test]
-    public async Task GetLocationDetailsAsync_WithoutResults_ReturnsFailedResult()
+    [TestCaseSource(nameof(FailureTestCases))]
+    public async Task GetLocationDetailsAsync_WithoutLocationName_ReturnsFailedResult(JObject json, string expectedError)
     {
         LetHttpClientReturn(
-            new JObject(new JProperty("results", new JArray())).ToString(),
+            json.ToString(),
             targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
         var sut = CreateSut();
 
         var result = await sut.GetLocationDetailsAsync("someLocation");
 
         Assert.That(result.IsFailed, Is.True);
-        Assert.That(result.Errors, Has.One.Message.EqualTo("Information about location was not found"));
+        Assert.That(result.Errors, Has.One.Message.EqualTo(expectedError));
     }
 
-    [Test]
-    public async Task GetLocationDetailsAsync_WithoutLocationName_ReturnsFailedResult()
+    public static IEnumerable FailureTestCases() => new (JObject Json, string ExpectedError)[]
     {
-        LetHttpClientReturn(
-            new JObject(new JProperty("results", new JArray(
-                new JObject(
-                    new JProperty("latitude", "12.34"),
-                    new JProperty("longitude", "23.45"),
-                    new JProperty("timezone", "someTimeZone"))))).ToString(),
-            targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
-        var sut = CreateSut();
-
-        var result = await sut.GetLocationDetailsAsync("someLocation");
-
-        Assert.That(result.IsFailed, Is.True);
-        Assert.That(result.Errors, Has.One.Message.EqualTo("Location name is not available"));
-    }
-
-    [Test]
-    public async Task GetLocationDetailsAsync_WithoutLatitude_ReturnsFailedResult()
-    {
-        LetHttpClientReturn(
-            new JObject(new JProperty("results", new JArray(
-                new JObject(
-                    new JProperty("name", "someLocationName"),
-                    new JProperty("longitude", "23.45"),
-                    new JProperty("timezone", "someTimeZone"))))).ToString(),
-            targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
-        var sut = CreateSut();
-
-        var result = await sut.GetLocationDetailsAsync("someLocation");
-
-        Assert.That(result.IsFailed, Is.True);
-        Assert.That(result.Errors, Has.One.Message.EqualTo("Latitude is not available"));
-    }
-
-    [Test]
-    public async Task GetLocationDetailsAsync_WithoutLongitude_ReturnsFailedResult()
-    {
-        LetHttpClientReturn(
-            new JObject(new JProperty("results", new JArray(
-                new JObject(
-                    new JProperty("name", "someLocationName"),
-                    new JProperty("latitude", "12.34"),
-                    new JProperty("timezone", "someTimeZone"))))).ToString(),
-            targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
-        var sut = CreateSut();
-
-        var result = await sut.GetLocationDetailsAsync("someLocation");
-
-        Assert.That(result.IsFailed, Is.True);
-        Assert.That(result.Errors, Has.One.Message.EqualTo("Longitude is not available"));
-    }
-
-
-    [Test]
-    public async Task GetLocationDetailsAsync_WithoutTimezone_ReturnsFailedResult()
-    {
-        LetHttpClientReturn(
-            new JObject(new JProperty("results", new JArray(
-                new JObject(
-                    new JProperty("name", "someLocationName"),
-                    new JProperty("latitude", "12.34"),
-                    new JProperty("longitude", "23.45"))))).ToString(),
-            targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
-        var sut = CreateSut();
-
-        var result = await sut.GetLocationDetailsAsync("someLocation");
-
-        Assert.That(result.IsFailed, Is.True);
-        Assert.That(result.Errors, Has.One.Message.EqualTo("Time zone is not available"));
-    }
+        ( 
+        Json: new JObject(new JProperty("results", new JArray())),
+        ExpectedError: "Information about location was not found"),
+        (
+        Json: new JObject(new JProperty("results", new JArray(
+            new JObject(
+                new JProperty("latitude", "12.34"),
+                new JProperty("longitude", "23.45"),
+                new JProperty("timezone", "someTimeZone"))))),
+        ExpectedError: "Location name is not available"),
+        (
+        Json: new JObject(new JProperty("results", new JArray(
+            new JObject(
+                new JProperty("name", "someLocationName"),
+                new JProperty("longitude", "23.45"),
+                new JProperty("timezone", "someTimeZone"))))),
+        ExpectedError: "Latitude is not available"),
+        (
+        Json: new JObject(new JProperty("results", new JArray(
+            new JObject(
+                new JProperty("name", "someLocationName"),
+                new JProperty("latitude", "12.34"),
+                new JProperty("timezone", "someTimeZone"))))),
+        ExpectedError: "Longitude is not available"),
+        (
+        Json: new JObject(new JProperty("results", new JArray(
+            new JObject(
+                new JProperty("name", "someLocationName"),
+                new JProperty("latitude", "12.34"),
+                new JProperty("longitude", "23.45"))))),
+        ExpectedError: "Time zone is not available")
+    }.Select(x => new TestCaseData(x.Json, x.ExpectedError));
 
     [Test]
     public async Task GetLocationDetailsAsync_WithRequiredInformation_ReturnsSuccessfulResult()
