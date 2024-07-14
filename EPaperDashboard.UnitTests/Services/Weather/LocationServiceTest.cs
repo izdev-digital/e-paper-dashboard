@@ -25,12 +25,12 @@ public class LocationServiceTest
     public async Task GetLocationDetailsAsync_HttpClientFails_ReturnsFailedResult()
     {
         _httpMessageHandlerMock
-        .Protected()
-        .Setup(
-            "SendAsync",
-            ItExpr.IsAny<HttpRequestMessage>(),
-            ItExpr.IsAny<CancellationToken>())
-        .Throws<Exception>();
+            .Protected()
+            .Setup(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Throws<Exception>();
         var sut = CreateSut();
 
         var result = await sut.GetLocationDetailsAsync("someLocation");
