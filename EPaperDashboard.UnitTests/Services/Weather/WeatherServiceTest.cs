@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Net;
-using System.Runtime.CompilerServices;
+﻿using System.Net;
 using EPaperDashboard.Models.Weather;
 using EPaperDashboard.Services.Weather;
 using FluentResults;

@@ -2,6 +2,7 @@
 using System.Net;
 using EPaperDashboard.Models.Weather;
 using EPaperDashboard.Services.Weather;
+using FluentResults;
 using Moq;
 using Moq.Protected;
 using Newtonsoft.Json.Linq;
@@ -83,7 +84,7 @@ public class LocationServiceTest
 
     public static IEnumerable FailureTestCases() => new (JObject Json, string ExpectedError)[]
     {
-        ( 
+        (
         Json: new JObject(new JProperty("results", new JArray())),
         ExpectedError: "Information about location was not found"),
         (
@@ -115,6 +116,25 @@ public class LocationServiceTest
                 new JProperty("longitude", "23.45"))))),
         ExpectedError: "Time zone is not available")
     }.Select(x => new TestCaseData(x.Json, x.ExpectedError));
+
+    [Test]
+    public async Task GetLocationDetailsAsync_WithoutLocationName_ReturnsFailedResult()
+    {
+        LetHttpClientReturn(
+            new JObject(new JProperty("results", new JArray(new JObject()))).ToString(),
+            targetUrl: "https://geocoding-api.open-meteo.com/v1/search?name=someLocation&count=1&format=json");
+        var sut = CreateSut();
+
+        var result = await sut.GetLocationDetailsAsync("someLocation");
+
+        Assert.That(result.IsFailed, Is.True);
+        Assert.That(result.Errors, Is.EquivalentTo(new[]{
+            "Location name is not available",
+            "Time zone is not available",
+            "Latitude is not available",
+            "Longitude is not available"
+        }).Using<IError, string>((a, b) => a.Message == b));
+    }
 
     [Test]
     public async Task GetLocationDetailsAsync_WithRequiredInformation_ReturnsSuccessfulResult()

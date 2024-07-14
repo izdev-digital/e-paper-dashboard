@@ -37,40 +37,22 @@ public sealed class LocationService : ILocationService
         }
     }
 
-    private Result<Location> Convert(LocationResultsDto? locationResults)
-    {
-        if (locationResults is null)
+    private Result<Location> Convert(LocationResultsDto? locationResults) => Result
+        .FailIf(locationResults is null, "Failed to deserialize location object")
+        .Bind(() => Result.FailIf(!locationResults!.Results.Any(), "Information about location was not found"))
+        .Bind(() =>
         {
-            return Result.Fail("Failed to deserialize location object");
-        }
-
-        if (!locationResults.Results.Any())
+            var location = locationResults!.Results.First();
+            return Result.Merge(
+                Result.FailIf(string.IsNullOrWhiteSpace(location.Name), "Location name is not available"),
+                Result.FailIf(string.IsNullOrWhiteSpace(location.TimeZone), "Time zone is not available"),
+                Result.FailIf(location.Latitude is null, "Latitude is not available"),
+                Result.FailIf(location.Longitude is null, "Longitude is not available")
+            );
+        })
+        .Bind<Location>(() =>
         {
-            return Result.Fail("Information about location was not found");
-        }
-
-        var location = locationResults.Results.First();
-
-        if (string.IsNullOrWhiteSpace(location.Name))
-        {
-            return Result.Fail("Location name is not available");
-        }
-
-        if (string.IsNullOrWhiteSpace(location.TimeZone))
-        {
-            return Result.Fail("Time zone is not available");
-        }
-
-        if (location.Latitude is null)
-        {
-            return Result.Fail("Latitude is not available");
-        }
-
-        if (location.Longitude is null)
-        {
-            return Result.Fail("Longitude is not available");
-        }
-
-        return new Location(location.Name, location.Latitude.Value, location.Longitude.Value, location.TimeZone);
-    }
+            var location = locationResults!.Results.First();
+            return new Location(location.Name!, location.Latitude!.Value, location.Longitude!.Value, location.TimeZone!);
+        });
 }
