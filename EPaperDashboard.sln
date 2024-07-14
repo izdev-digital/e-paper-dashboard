@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.002.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EPaperDashboard", "EPaperDashboard.csproj", "{9B393267-F5A2-470D-A3E8-09D5A4AEF8B6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EPaperDashboard", "EPaperDashboard\EPaperDashboard.csproj", "{9B393267-F5A2-470D-A3E8-09D5A4AEF8B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EPaperDashboard.UnitTests", "EPaperDashboard.UnitTests\EPaperDashboard.UnitTests.csproj", "{0D4831AB-F15A-4813-8F1A-D0689B4A8A6E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{9B393267-F5A2-470D-A3E8-09D5A4AEF8B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9B393267-F5A2-470D-A3E8-09D5A4AEF8B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9B393267-F5A2-470D-A3E8-09D5A4AEF8B6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D4831AB-F15A-4813-8F1A-D0689B4A8A6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D4831AB-F15A-4813-8F1A-D0689B4A8A6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D4831AB-F15A-4813-8F1A-D0689B4A8A6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D4831AB-F15A-4813-8F1A-D0689B4A8A6E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
