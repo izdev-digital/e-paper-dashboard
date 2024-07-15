@@ -19,6 +19,8 @@ builder.Services
     .AddScoped<IWeatherService, WeatherService>()
     .AddScoped<ILocationService, LocationService>();
 
+builder.Services.AddRazorPages();
+
 var app = builder.Build();
 app.UseCors(builder => builder.WithOrigins("*"));
 app.UseSwagger().UseSwaggerUI();
@@ -40,5 +42,6 @@ app.MapControllerRoute(
     pattern: "{controller}/{action=Index}/{id?}");
 
 app.MapFallbackToFile("index.html");
+app.MapRazorPages();
 
 app.Run();
