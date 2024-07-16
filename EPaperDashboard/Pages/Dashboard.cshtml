@@ -8,9 +8,7 @@
             <daily-phrase class="widget flex-grow-1"></daily-phrase>
         </div>
         <div class="d-flex flex-column">
-            <div class="widget">
-                @await Component.InvokeAsync("Weather")
-            </div>
+            @await Component.InvokeAsync("Weather")
 
             <calendar-events class="widget flex-grow-1"></calendar-events>
             <trash-collection-calendar class="widget"></trash-collection-calendar>

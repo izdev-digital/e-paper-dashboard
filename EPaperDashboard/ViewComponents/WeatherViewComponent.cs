@@ -13,9 +13,8 @@ public class WeatherViewComponent : ViewComponent
     public async Task<IViewComponentResult> InvokeAsync()
     {
         var weatherInfo = await _weatherService.GetAsync("Berlin");
-        if(weatherInfo.IsFailed)
-            return View();
-        
-        return View(weatherInfo.Value);
+        return weatherInfo.IsFailed
+            ? View(null)
+            : View(weatherInfo.Value);
     }
 }

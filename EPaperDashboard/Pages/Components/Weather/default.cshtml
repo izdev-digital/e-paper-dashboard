@@ -1,17 +1,18 @@
 ﻿@using EPaperDashboard.Models.Weather
-@model WeatherInfo
-
-<div>
+@model WeatherInfo?
+@if (Model is not null)
+{
+    <div class="widget">
     <div class="d-flex align-items-center justify-content-between weather-daily-container">
         <div>
             <div>
                 @Model.Location
             </div>
             <div>
-                L: @Model.Daily.TemperatureMin.Value@Model.Daily.TemperatureMin.Unit
+                <span>L:</span><span>@Model.Daily.TemperatureMin.Value</span><span>@Model.Daily.TemperatureMin.Unit</span>
             </div>
             <div>
-                H: @Model.Daily.TemperatureMax.Value@Model.Daily.TemperatureMax.Unit
+                <span>H:</span><span>@Model.Daily.TemperatureMax.Value</span><span>@Model.Daily.TemperatureMax.Unit</span>
             </div>
             <div>
                 @Model.Daily.WeatherCode
@@ -24,19 +25,20 @@
         </div>
     </div>
     <div class="d-flex justify-content-around">
-        @foreach (var info in Model.Hourly.Where(x => new []{8, 12, 16, 20}.Contains(x.Time.Hour)))
-        {
-            <div class="d-flex flex-column align-items-center weather-hourly-container">
-                <div>
-                    @info.Time.ToShortTimeString()
+        @foreach (var info in Model.Hourly.Where(x => new[] { 8, 12, 16, 20 }.Contains(x.Time.Hour)))
+            {
+                <div class="d-flex flex-column align-items-center weather-hourly-container">
+                    <div>
+                        @info.Time.ToString("HH:mm")
+                    </div>
+                    <div>
+                        Image for @info.WeatherCode
+                    </div>
+                    <div>
+                        @info.Temperature.Value@info.Temperature.Unit
+                    </div>
                 </div>
-                <div>
-                    Image for @info.WeatherCode
-                </div>
-                <div>
-                    @info.Temperature.Value@info.Temperature.Unit
-                </div>
-            </div>
-        }
+            }
+        </div>
     </div>
-</div>
+}
