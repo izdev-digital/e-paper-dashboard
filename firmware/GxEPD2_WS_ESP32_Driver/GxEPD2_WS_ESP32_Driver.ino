@@ -65,6 +65,7 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 #endif
 
 #include "bitmaps/Bitmaps200x200.h" // 1.54" b/w
+#include "bitmaps/Bitmaps3c200x200.h" // 1.54" b/w/r
 
 SPIClass hspi(HSPI);
 
@@ -89,71 +90,97 @@ void drawBitmaps()
 {
   display.setFullWindow();
   display.fillScreen(GxEPD_WHITE);
-  drawBitmaps200x200();
+  drawBitmaps3c200x200();
 }
 
-void drawBitmaps200x200()
+struct bitmap_pair
 {
-  const unsigned char* bitmaps[] =
-  {
-    logo200x200, first200x200, second200x200, third200x200, fourth200x200, fifth200x200, sixth200x200, senventh200x200, eighth200x200
-  };
+  const unsigned char* black;
+  const unsigned char* red;
+};
 
-  if ((display.epd2.panel == GxEPD2::GDEP015OC1) || (display.epd2.panel == GxEPD2::GDEH0154D67))
+void drawBitmaps3c200x200()
+{
+  bitmap_pair bitmap_pairs[] =
   {
-    bool m = display.mirror(true);
-    for (uint16_t i = 0; i < sizeof(bitmaps) / sizeof(char*); i++)
+    //{Bitmap3c200x200_black, Bitmap3c200x200_red},
+    {WS_Bitmap3c200x200_black, WS_Bitmap3c200x200_red}
+  };
+  if (display.epd2.panel == GxEPD2::GDEW0154Z04)
+  {
+    display.firstPage();
+    do
+    {
+      display.fillScreen(GxEPD_WHITE);
+      // Bitmap3c200x200_black has 2 bits per pixel
+      // taken from Adafruit_GFX.cpp, modified
+      int16_t byteWidth = (display.epd2.WIDTH + 7) / 8; // Bitmap scanline pad = whole byte
+      uint8_t byte = 0;
+      for (int16_t j = 0; j < display.epd2.HEIGHT; j++)
+      {
+        for (int16_t i = 0; i < display.epd2.WIDTH; i++)
+        {
+          if (i & 3) byte <<= 2;
+          else
+          {
+#if defined(__AVR) || defined(ESP8266) || defined(ESP32)
+            byte = pgm_read_byte(&Bitmap3c200x200_black[j * byteWidth * 2 + i / 4]);
+#else
+            byte = Bitmap3c200x200_black[j * byteWidth * 2 + i / 4];
+#endif
+          }
+          if (!(byte & 0x80))
+          {
+            display.drawPixel(i, j, GxEPD_BLACK);
+          }
+        }
+      }
+      display.drawInvertedBitmap(0, 0, Bitmap3c200x200_red, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_RED);
+    }
+    while (display.nextPage());
+    delay(2000);
+    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
     {
       display.firstPage();
       do
       {
         display.fillScreen(GxEPD_WHITE);
-        display.drawInvertedBitmap(0, 0, bitmaps[i], display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_BLACK);
+        display.drawInvertedBitmap(0, 0, bitmap_pairs[i].black, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_BLACK);
+        display.drawInvertedBitmap(0, 0, bitmap_pairs[i].red, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_RED);
       }
       while (display.nextPage());
       delay(2000);
     }
-    display.mirror(m);
   }
-  //else
+  if (display.epd2.hasColor)
   {
-    bool mirror_y = (display.epd2.panel != GxEPD2::GDE0213B1);
     display.clearScreen(); // use default for white
     int16_t x = (int16_t(display.epd2.WIDTH) - 200) / 2;
     int16_t y = (int16_t(display.epd2.HEIGHT) - 200) / 2;
-    for (uint16_t i = 0; i < sizeof(bitmaps) / sizeof(char*); i++)
+    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
     {
-      display.drawImage(bitmaps[i], x, y, 200, 200, false, mirror_y, true);
+      display.drawImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
       delay(2000);
     }
-  }
-  bool mirror_y = (display.epd2.panel != GxEPD2::GDE0213B1);
-  for (uint16_t i = 0; i < sizeof(bitmaps) / sizeof(char*); i++)
-  {
-    int16_t x = -60;
-    int16_t y = -60;
-    for (uint16_t j = 0; j < 10; j++)
+    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
     {
-      display.writeScreenBuffer(); // use default for white
-      display.writeImage(bitmaps[i], x, y, 200, 200, false, mirror_y, true);
-      display.refresh(true);
-      if (display.epd2.hasFastPartialUpdate)
+      int16_t x = -60;
+      int16_t y = -60;
+      for (uint16_t j = 0; j < 10; j++)
       {
-        // for differential update: set previous buffer equal to current buffer in controller
-        display.epd2.writeScreenBufferAgain(); // use default for white
-        display.epd2.writeImageAgain(bitmaps[i], x, y, 200, 200, false, mirror_y, true);
+        display.writeScreenBuffer(); // use default for white
+        display.writeImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
+        display.refresh();
+        delay(1000);
+        x += 40;
+        y += 40;
+        if ((x >= int16_t(display.epd2.WIDTH)) || (y >= int16_t(display.epd2.HEIGHT))) break;
       }
-      delay(2000);
-      x += 40;
-      y += 40;
-      if ((x >= int16_t(display.epd2.WIDTH)) || (y >= int16_t(display.epd2.HEIGHT))) break;
     }
-    if (!display.epd2.hasFastPartialUpdate) break; // comment out for full show
-    break; // comment out for full show
+    display.writeScreenBuffer(); // use default for white
+    display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, 0, 0, 200, 200, false, false, true);
+    display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, int16_t(display.epd2.WIDTH) - 200, int16_t(display.epd2.HEIGHT) - 200, 200, 200, false, false, true);
+    display.refresh();
+    delay(2000);
   }
-  display.writeScreenBuffer(); // use default for white
-  display.writeImage(bitmaps[0], int16_t(0), 0, 200, 200, false, mirror_y, true);
-  display.writeImage(bitmaps[0], int16_t(int16_t(display.epd2.WIDTH) - 200), int16_t(display.epd2.HEIGHT) - 200, 200, 200, false, mirror_y, true);
-  display.refresh(true);
-  delay(2000);
 }
