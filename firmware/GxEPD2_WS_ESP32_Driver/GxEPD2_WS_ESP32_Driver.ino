@@ -67,6 +67,9 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 #include "bitmaps/Bitmaps200x200.h" // 1.54" b/w
 #include "bitmaps/Bitmaps3c200x200.h" // 1.54" b/w/r
 
+#define USEC_TO_SEC_FACTOR 1000000
+#define TIME_TO_SLEEP_SEC 120
+
 SPIClass hspi(HSPI);
 
 void setup()
@@ -80,6 +83,9 @@ void setup()
   
   drawBitmaps3c200x200();
   display.powerOff();
+
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
+  esp_deep_sleep_start();
 }
 
 void loop()
