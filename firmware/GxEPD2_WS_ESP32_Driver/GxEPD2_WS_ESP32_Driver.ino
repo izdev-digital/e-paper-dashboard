@@ -103,84 +103,35 @@ void drawBitmaps3c200x200()
 {
   bitmap_pair bitmap_pairs[] =
   {
-    //{Bitmap3c200x200_black, Bitmap3c200x200_red},
     {WS_Bitmap3c200x200_black, WS_Bitmap3c200x200_red}
   };
-  if (display.epd2.panel == GxEPD2::GDEW0154Z04)
+
+  display.clearScreen(); // use default for white
+  int16_t x = (int16_t(display.epd2.WIDTH) - 200) / 2;
+  int16_t y = (int16_t(display.epd2.HEIGHT) - 200) / 2;
+  for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
   {
-    display.firstPage();
-    do
-    {
-      display.fillScreen(GxEPD_WHITE);
-      // Bitmap3c200x200_black has 2 bits per pixel
-      // taken from Adafruit_GFX.cpp, modified
-      int16_t byteWidth = (display.epd2.WIDTH + 7) / 8; // Bitmap scanline pad = whole byte
-      uint8_t byte = 0;
-      for (int16_t j = 0; j < display.epd2.HEIGHT; j++)
-      {
-        for (int16_t i = 0; i < display.epd2.WIDTH; i++)
-        {
-          if (i & 3) byte <<= 2;
-          else
-          {
-#if defined(__AVR) || defined(ESP8266) || defined(ESP32)
-            byte = pgm_read_byte(&Bitmap3c200x200_black[j * byteWidth * 2 + i / 4]);
-#else
-            byte = Bitmap3c200x200_black[j * byteWidth * 2 + i / 4];
-#endif
-          }
-          if (!(byte & 0x80))
-          {
-            display.drawPixel(i, j, GxEPD_BLACK);
-          }
-        }
-      }
-      display.drawInvertedBitmap(0, 0, Bitmap3c200x200_red, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_RED);
-    }
-    while (display.nextPage());
-    delay(2000);
-    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
-    {
-      display.firstPage();
-      do
-      {
-        display.fillScreen(GxEPD_WHITE);
-        display.drawInvertedBitmap(0, 0, bitmap_pairs[i].black, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_BLACK);
-        display.drawInvertedBitmap(0, 0, bitmap_pairs[i].red, display.epd2.WIDTH, display.epd2.HEIGHT, GxEPD_RED);
-      }
-      while (display.nextPage());
-      delay(2000);
-    }
-  }
-  if (display.epd2.hasColor)
-  {
-    display.clearScreen(); // use default for white
-    int16_t x = (int16_t(display.epd2.WIDTH) - 200) / 2;
-    int16_t y = (int16_t(display.epd2.HEIGHT) - 200) / 2;
-    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
-    {
-      display.drawImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
-      delay(2000);
-    }
-    for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
-    {
-      int16_t x = -60;
-      int16_t y = -60;
-      for (uint16_t j = 0; j < 10; j++)
-      {
-        display.writeScreenBuffer(); // use default for white
-        display.writeImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
-        display.refresh();
-        delay(1000);
-        x += 40;
-        y += 40;
-        if ((x >= int16_t(display.epd2.WIDTH)) || (y >= int16_t(display.epd2.HEIGHT))) break;
-      }
-    }
-    display.writeScreenBuffer(); // use default for white
-    display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, 0, 0, 200, 200, false, false, true);
-    display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, int16_t(display.epd2.WIDTH) - 200, int16_t(display.epd2.HEIGHT) - 200, 200, 200, false, false, true);
-    display.refresh();
+    display.drawImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
     delay(2000);
   }
+  for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
+  {
+    int16_t x = -60;
+    int16_t y = -60;
+    for (uint16_t j = 0; j < 10; j++)
+    {
+      display.writeScreenBuffer(); // use default for white
+      display.writeImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
+      display.refresh();
+      delay(1000);
+      x += 40;
+      y += 40;
+      if ((x >= int16_t(display.epd2.WIDTH)) || (y >= int16_t(display.epd2.HEIGHT))) break;
+    }
+  }
+
+  display.writeScreenBuffer(); // use default for white
+  display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, 0, 0, 200, 200, false, false, true);
+  display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, int16_t(display.epd2.WIDTH) - 200, int16_t(display.epd2.HEIGHT) - 200, 200, 200, false, false, true);
+  display.refresh();
 }
