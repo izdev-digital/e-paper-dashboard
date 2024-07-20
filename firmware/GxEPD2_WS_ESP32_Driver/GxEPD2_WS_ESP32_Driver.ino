@@ -78,19 +78,12 @@ void setup()
   display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
   
-  drawBitmaps();
+  drawBitmaps3c200x200();
   display.powerOff();
 }
 
 void loop()
 {
-}
-
-void drawBitmaps()
-{
-  display.setFullWindow();
-  display.fillScreen(GxEPD_WHITE);
-  drawBitmaps3c200x200();
 }
 
 struct bitmap_pair
@@ -101,37 +94,16 @@ struct bitmap_pair
 
 void drawBitmaps3c200x200()
 {
-  bitmap_pair bitmap_pairs[] =
-  {
-    {WS_Bitmap3c200x200_black, WS_Bitmap3c200x200_red}
-  };
+  int16_t frameWidth = 200;
+  int16_t frameHeight = 200;
+  int16_t x = (int16_t(display.epd2.WIDTH) - frameWidth) / 2;
+  int16_t y = (int16_t(display.epd2.HEIGHT) - frameHeight) / 2;
+  bitmap_pair frame = {WS_Bitmap3c200x200_black, WS_Bitmap3c200x200_red};
 
-  display.clearScreen(); // use default for white
-  int16_t x = (int16_t(display.epd2.WIDTH) - 200) / 2;
-  int16_t y = (int16_t(display.epd2.HEIGHT) - 200) / 2;
-  for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
-  {
-    display.drawImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
-    delay(2000);
-  }
-  for (uint16_t i = 0; i < sizeof(bitmap_pairs) / sizeof(bitmap_pair); i++)
-  {
-    int16_t x = -60;
-    int16_t y = -60;
-    for (uint16_t j = 0; j < 10; j++)
-    {
-      display.writeScreenBuffer(); // use default for white
-      display.writeImage(bitmap_pairs[i].black, bitmap_pairs[i].red, x, y, 200, 200, false, false, true);
-      display.refresh();
-      delay(1000);
-      x += 40;
-      y += 40;
-      if ((x >= int16_t(display.epd2.WIDTH)) || (y >= int16_t(display.epd2.HEIGHT))) break;
-    }
-  }
-
-  display.writeScreenBuffer(); // use default for white
-  display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, 0, 0, 200, 200, false, false, true);
-  display.writeImage(bitmap_pairs[0].black, bitmap_pairs[0].red, int16_t(display.epd2.WIDTH) - 200, int16_t(display.epd2.HEIGHT) - 200, 200, 200, false, false, true);
+  display.setFullWindow();
+  display.clearScreen();
+  display.refresh();
+  display.writeScreenBuffer();
+  display.writeImage(frame.black, frame.red, x, y, frameWidth, frameHeight, false, false, true);
   display.refresh();
 }
