@@ -98,18 +98,27 @@ struct bitmap_pair
   const unsigned char* red;
 };
 
+// 'R', 800x480px
+const unsigned char epd_bitmap_BW [] PROGMEM = {
+	  
+};
+
+const unsigned char epd_bitmap_RW [] PROGMEM = {
+	
+};
+
 void drawBitmaps3c200x200()
 {
-  int16_t frameWidth = 200;
-  int16_t frameHeight = 200;
+  int16_t frameWidth = 800;
+  int16_t frameHeight = 480;
   int16_t x = (int16_t(display.epd2.WIDTH) - frameWidth) / 2;
   int16_t y = (int16_t(display.epd2.HEIGHT) - frameHeight) / 2;
-  bitmap_pair frame = {WS_Bitmap3c200x200_black, WS_Bitmap3c200x200_red};
+  bitmap_pair frame = {epd_bitmap_BW, epd_bitmap_RW};
 
   display.setFullWindow();
-  display.clearScreen();
-  display.refresh();
-  display.writeScreenBuffer();
+  // display.clearScreen();
+  // display.refresh();
+  // display.writeScreenBuffer();
   display.writeImage(frame.black, frame.red, x, y, frameWidth, frameHeight, false, false, true);
   display.refresh();
 }
