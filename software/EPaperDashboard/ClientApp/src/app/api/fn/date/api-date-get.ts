@@ -8,16 +8,16 @@ import { RequestBuilder } from '../../request-builder';
 
 import { DateDto } from '../../models/date-dto';
 
-export interface DateGet$Plain$Params {
+export interface ApiDateGet$Params {
 }
 
-export function dateGet$Plain(http: HttpClient, rootUrl: string, params?: DateGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
-  const rb = new RequestBuilder(rootUrl, dateGet$Plain.PATH, 'get');
+export function apiDateGet(http: HttpClient, rootUrl: string, params?: ApiDateGet$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
+  const rb = new RequestBuilder(rootUrl, apiDateGet.PATH, 'get');
   if (params) {
   }
 
   return http.request(
-    rb.build({ responseType: 'text', accept: 'text/plain', context })
+    rb.build({ responseType: 'json', accept: 'text/json', context })
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
@@ -26,4 +26,4 @@ export function dateGet$Plain(http: HttpClient, rootUrl: string, params?: DateGe
   );
 }
 
-dateGet$Plain.PATH = '/Date';
+apiDateGet.PATH = '/api/date';

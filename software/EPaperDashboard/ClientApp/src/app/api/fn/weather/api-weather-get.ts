@@ -6,13 +6,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { DateDto } from '../../models/date-dto';
+import { WeatherInfoDto } from '../../models/weather-info-dto';
 
-export interface DateGet$Params {
+export interface ApiWeatherGet$Params {
 }
 
-export function dateGet(http: HttpClient, rootUrl: string, params?: DateGet$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
-  const rb = new RequestBuilder(rootUrl, dateGet.PATH, 'get');
+export function apiWeatherGet(http: HttpClient, rootUrl: string, params?: ApiWeatherGet$Params, context?: HttpContext): Observable<StrictHttpResponse<WeatherInfoDto>> {
+  const rb = new RequestBuilder(rootUrl, apiWeatherGet.PATH, 'get');
   if (params) {
   }
 
@@ -21,9 +21,9 @@ export function dateGet(http: HttpClient, rootUrl: string, params?: DateGet$Para
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<DateDto>;
+      return r as StrictHttpResponse<WeatherInfoDto>;
     })
   );
 }
 
-dateGet.PATH = '/Date';
+apiWeatherGet.PATH = '/api/weather';

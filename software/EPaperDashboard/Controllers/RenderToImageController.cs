@@ -13,7 +13,7 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/render")]
 public class RenderToImageController : ControllerBase
 {
     [HttpGet]
@@ -63,6 +63,23 @@ public class RenderToImageController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet]
+    [Route("image")]
+    public async Task<IActionResult> GetAsImage([FromQuery] ImageSizeDto imageSize)
+    {
+        var imageResult = await GetImageAsync(imageSize);
+        if (imageResult.IsFailed)
+        {
+            return NoContent();
+        }
+
+        var image = imageResult.Value;
+        var outStream = new MemoryStream();
+        image.Save(outStream, new JpegEncoder());
+        outStream.Seek(0, SeekOrigin.Begin);
+        return File(outStream, "image/jpg");
+    }
+
     private static async Task<Result<Image>> GetImageAsync(ImageSizeDto imageSize)
     {
         var options = new ChromeOptions();
@@ -76,7 +93,7 @@ public class RenderToImageController : ControllerBase
         var driver = new ChromeDriver(options);
         try
         {
-            await driver.Navigate().GoToUrlAsync("https://localhost:7297/Dashboard");
+            await driver.Navigate().GoToUrlAsync("https://localhost:7297/dashboard");
             var screenshot = driver.GetScreenshot();
             var image = Image.Load(screenshot.AsByteArray);
 
@@ -94,23 +111,6 @@ public class RenderToImageController : ControllerBase
         {
             driver.Close();
         }
-    }
-
-    [HttpGet]
-    [Route("image")]
-    public async Task<IActionResult> GetAsImage([FromQuery] ImageSizeDto imageSize)
-    {
-        var imageResult = await GetImageAsync(imageSize);
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
-
-        var image = imageResult.Value;
-        var outStream = new MemoryStream();
-        image.Save(outStream, new JpegEncoder());
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "image/jpg");
     }
 }
 

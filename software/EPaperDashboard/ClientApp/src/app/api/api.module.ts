@@ -5,6 +5,7 @@ import { HttpClient } from '@angular/common/http';
 import { ApiConfiguration, ApiConfigurationParams } from './api-configuration';
 
 import { DateService } from './services/date.service';
+import { RenderToImageService } from './services/render-to-image.service';
 import { WeatherService } from './services/weather.service';
 
 /**
@@ -16,6 +17,7 @@ import { WeatherService } from './services/weather.service';
   declarations: [],
   providers: [
     DateService,
+    RenderToImageService,
     WeatherService,
     ApiConfiguration
   ],

@@ -14,7 +14,7 @@ export class WeatherComponent implements OnInit {
   constructor(private _weatherService: WeatherService) { }
 
   ngOnInit(): void {
-    this._weatherService.weatherGet().pipe(first()).subscribe((weatherInfo) => this.weatherInfo = convertToDomain(weatherInfo));
+    this._weatherService.apiWeatherGet().pipe(first()).subscribe((weatherInfo) => this.weatherInfo = convertToDomain(weatherInfo));
   }
 }
 

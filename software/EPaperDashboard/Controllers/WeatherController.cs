@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/weather")]
 public class WeatherController : ControllerBase
 {
     private readonly IWeatherService _weatherService;

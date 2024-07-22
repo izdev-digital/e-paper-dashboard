@@ -9,11 +9,11 @@ import { BaseService } from '../base-service';
 import { ApiConfiguration } from '../api-configuration';
 import { StrictHttpResponse } from '../strict-http-response';
 
+import { apiDateGet } from '../fn/date/api-date-get';
+import { ApiDateGet$Params } from '../fn/date/api-date-get';
+import { apiDateGet$Plain } from '../fn/date/api-date-get-plain';
+import { ApiDateGet$Plain$Params } from '../fn/date/api-date-get-plain';
 import { DateDto } from '../models/date-dto';
-import { dateGet } from '../fn/date/date-get';
-import { DateGet$Params } from '../fn/date/date-get';
-import { dateGet$Plain } from '../fn/date/date-get-plain';
-import { DateGet$Plain$Params } from '../fn/date/date-get-plain';
 
 @Injectable({ providedIn: 'root' })
 export class DateService extends BaseService {
@@ -21,49 +21,49 @@ export class DateService extends BaseService {
     super(config, http);
   }
 
-  /** Path part for operation `dateGet()` */
-  static readonly DateGetPath = '/Date';
+  /** Path part for operation `apiDateGet()` */
+  static readonly ApiDateGetPath = '/api/date';
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `dateGet$Plain()` instead.
+   * To access only the response body, use `apiDateGet$Plain()` instead.
    *
    * This method doesn't expect any request body.
    */
-  dateGet$Plain$Response(params?: DateGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
-    return dateGet$Plain(this.http, this.rootUrl, params, context);
+  apiDateGet$Plain$Response(params?: ApiDateGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
+    return apiDateGet$Plain(this.http, this.rootUrl, params, context);
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `dateGet$Plain$Response()` instead.
+   * To access the full response (for headers, for example), `apiDateGet$Plain$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  dateGet$Plain(params?: DateGet$Plain$Params, context?: HttpContext): Observable<DateDto> {
-    return this.dateGet$Plain$Response(params, context).pipe(
+  apiDateGet$Plain(params?: ApiDateGet$Plain$Params, context?: HttpContext): Observable<DateDto> {
+    return this.apiDateGet$Plain$Response(params, context).pipe(
       map((r: StrictHttpResponse<DateDto>): DateDto => r.body)
     );
   }
 
   /**
    * This method provides access to the full `HttpResponse`, allowing access to response headers.
-   * To access only the response body, use `dateGet()` instead.
+   * To access only the response body, use `apiDateGet()` instead.
    *
    * This method doesn't expect any request body.
    */
-  dateGet$Response(params?: DateGet$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
-    return dateGet(this.http, this.rootUrl, params, context);
+  apiDateGet$Response(params?: ApiDateGet$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
+    return apiDateGet(this.http, this.rootUrl, params, context);
   }
 
   /**
    * This method provides access only to the response body.
-   * To access the full response (for headers, for example), `dateGet$Response()` instead.
+   * To access the full response (for headers, for example), `apiDateGet$Response()` instead.
    *
    * This method doesn't expect any request body.
    */
-  dateGet(params?: DateGet$Params, context?: HttpContext): Observable<DateDto> {
-    return this.dateGet$Response(params, context).pipe(
+  apiDateGet(params?: ApiDateGet$Params, context?: HttpContext): Observable<DateDto> {
+    return this.apiDateGet$Response(params, context).pipe(
       map((r: StrictHttpResponse<DateDto>): DateDto => r.body)
     );
   }
