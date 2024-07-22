@@ -1,7 +1,7 @@
 :root{
   --border-radius: 4px;
   --common-border-color: black;
-  --common-border-thickness: 1px;
+  --common-border-thickness: 2px;
   --common-margin: 2px;
   --common-padding: 4px;
 }
@@ -32,4 +32,11 @@
 .weather-daily-container img {
   width: 100px;
   height: 100px;
+}
+
+.red-widget{
+  border-radius: var(--border-radius);
+  margin: var(--common-margin);
+  padding: var(--common-padding);
+  border: var(--common-border-thickness) solid red
 }

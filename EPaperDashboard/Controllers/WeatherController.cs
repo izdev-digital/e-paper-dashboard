@@ -16,14 +16,47 @@ public class WeatherController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<WeatherInfoDto>> GetWeatherInfo()
     {
-        var result = await _weatherService.GetAsync("Berlin");
 
-        return result switch
-        {
-            { IsFailed: true } => BadRequest(result.Errors),
-            { IsSuccess: true } => Ok(ConvertToDto(result.Value)),
-            _ => NotFound()
-        };
+        await Task.Delay(TimeSpan.FromSeconds(5));
+
+        return Ok(ConvertToDto(new WeatherInfo(
+            "SomeLocation",
+            new DailyWeatherCondition(
+                123,
+                new Temperature(0, "degC"),
+                new Temperature(35, "degC")
+            ),
+            new[]{
+                new WeatherCondition(
+                    DateTime.Now,
+                    123,
+                    new Temperature(24, "degC")
+                ),
+                new WeatherCondition(
+                    DateTime.Now,
+                    123,
+                    new Temperature(24, "degC")
+                ),
+                new WeatherCondition(
+                    DateTime.Now,
+                    123,
+                    new Temperature(24, "degC")
+                ),
+                new WeatherCondition(
+                    DateTime.Now,
+                    123,
+                    new Temperature(24, "degC")
+                )
+            }
+        )));
+        // var result = await _weatherService.GetAsync("Berlin");
+
+        // return result switch
+        // {
+        //     { IsFailed: true } => BadRequest(result.Errors),
+        //     { IsSuccess: true } => Ok(ConvertToDto(result.Value)),
+        //     _ => NotFound()
+        // };
     }
 
     private static WeatherInfoDto ConvertToDto(WeatherInfo value)
