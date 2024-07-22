@@ -116,9 +116,6 @@ void drawBitmaps3c200x200()
   bitmap_pair frame = {epd_bitmap_BW, epd_bitmap_RW};
 
   display.setFullWindow();
-  // display.clearScreen();
-  // display.refresh();
-  // display.writeScreenBuffer();
   display.writeImage(frame.black, frame.red, x, y, frameWidth, frameHeight, false, false, true);
   display.refresh();
 }
