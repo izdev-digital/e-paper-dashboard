@@ -1,7 +1,7 @@
 :root{
   --border-radius: 4px;
   --common-border-color: black;
-  --common-border-thickness: 2px;
+  --common-border-thickness: 4px;
   --common-margin: 2px;
   --common-padding: 4px;
 }
@@ -17,7 +17,8 @@
   border-radius: var(--border-radius);
   margin: var(--common-margin);
   padding: var(--common-padding);
-  border: var(--common-border-thickness) solid var(--common-border-color)
+  border: var(--common-border-thickness) solid var(--common-border-color);
+  font-weight: bold;
 }
 
 .weather-hourly-container {

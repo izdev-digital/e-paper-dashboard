@@ -1,3 +1,4 @@
+using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Services.Weather;
 using Microsoft.OpenApi.Models;
 
@@ -16,7 +17,9 @@ builder.Services.AddSwaggerGen(config =>
 builder.Services.AddHttpClient(HttpClientConfigurations.WeatherService);
 builder.Services
     .AddScoped<IWeatherService, WeatherService>()
-    .AddScoped<ILocationService, LocationService>();
+    .AddScoped<ILocationService, LocationService>()
+    .AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
+    .AddSingleton<IWebDriver, WebDriver>();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();

@@ -1,73 +1,71 @@
-﻿using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-using OpenQA.Selenium.Chrome;
+﻿using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using System.Numerics;
-using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
-using System.Text;
-using FluentResults;
-using SixLabors.ImageSharp.Formats.Jpeg;
+using EPaperDashboard.Services.Rendering;
+using SixLabors.ImageSharp.Processing;
 
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/render")]
-public class RenderToImageController : ControllerBase
+public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
+    //private readonly Uri _dashboardUri = new("https://th.bing.com/th/id/R.323e4192b13c8da0f81995c9569fcb3a?rik=LApkHct0Skqjtw&riu=http%3a%2f%2fimages4.fanpop.com%2fimage%2fphotos%2f17400000%2fBright-colored-world-bright-colors-17445519-1634-2560.jpg&ehk=7dpmHnNd8FihjJjg2LM%2fM8itdKJs2JQ3v62eVti2tA4%3d&risl=&pid=ImgRaw&r=0");
+    private readonly Uri _dashboardUri = new("https://localhost:7297/dashboard");
+
+    private readonly IPageToImageRenderingService _renderingService = renderingService;
+
     [HttpGet]
     [Route("text")]
     public async Task<IActionResult> GetAsText([FromQuery] ImageSizeDto imageSize)
     {
-        try
+        var imageResult = await _renderingService.RenderPageAsync(
+                    _dashboardUri,
+                    new Services.Rendering.Size(imageSize.Width, imageSize.Height));
+        if (imageResult.IsFailed)
         {
-            var imageResult = await GetImageAsync(imageSize);
-            if (imageResult.IsFailed)
-            {
-                return NoContent();
-            }
-
-            var image = imageResult.Value;
-            image.Mutate(x => x.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal));
-            var cloneImage = image.Clone(x => x.ProcessPixelRowsAsVector4(row =>
-            {
-                for (int index = 0; index < row.Length; index++)
-                {
-                    var pixel = row[index];
-
-                    row[index] = pixel.X >= 0.9 &&
-                        Math.Abs(pixel.Y - pixel.Z) <= 0.1 &&
-                        pixel.Y >= 0.1 && pixel.Z >= 0.1
-                            ? new Vector4(1, 0, 0, 0)
-                            : new Vector4(1, 1, 1, 1);
-                }
-            }));
-            image.Mutate(x =>
-            {
-                // x.BinaryDither(KnownDitherings.Atkinson, Color.Black, Color.White);
-                x.BinaryThreshold(0.9f);
-            });
-
-            var outStream = new MemoryStream();
-            image.Save(outStream, new BinaryEncoder(x => x.R < 200));
-            cloneImage.Save(outStream, new BinaryEncoder(x => x.R > 200 && x.G > 200 && x.B > 200));
-            outStream.Seek(0, SeekOrigin.Begin);
-            return File(outStream, "text/plain");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine(ex.Message);
+            return NoContent();
         }
 
-        return NoContent();
+        var palette = new[] { Color.Red, Color.Black, Color.White };
+        var image = imageResult.Value
+            .Quantize(palette)
+            .RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal);
+
+        var outStream = new MemoryStream();
+        await image.SaveAsync(outStream, new BinaryEncoder(c => c == Color.Red.ToPixel<Rgba32>()));
+        await image.SaveAsync(outStream, new BinaryEncoder(c => c == Color.Black.ToPixel<Rgba32>()));
+        outStream.Seek(0, SeekOrigin.Begin);
+        return File(outStream, "text/plain");
+    }
+
+    [HttpGet]
+    [Route("converted")]
+    public async Task<IActionResult> GetAsConvertedsImage([FromQuery] ImageSizeDto imageSize)
+    {
+        var imageResult = await _renderingService.RenderPageAsync(
+            _dashboardUri,
+            new Services.Rendering.Size(imageSize.Width, imageSize.Height));
+        if (imageResult.IsFailed)
+        {
+            return NoContent();
+        }
+
+        var palette = new[] { Color.Red, Color.Black, Color.White };
+        var image = imageResult.Value.Quantize(palette);
+        var outStream = new MemoryStream();
+        await image.SaveJpegAsync(outStream);
+        outStream.Seek(0, SeekOrigin.Begin);
+        return File(outStream, "image/jpg");
     }
 
     [HttpGet]
     [Route("image")]
     public async Task<IActionResult> GetAsImage([FromQuery] ImageSizeDto imageSize)
     {
-        var imageResult = await GetImageAsync(imageSize);
+        var imageResult = await _renderingService.RenderPageAsync(
+            _dashboardUri,
+            new Services.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
@@ -75,96 +73,10 @@ public class RenderToImageController : ControllerBase
 
         var image = imageResult.Value;
         var outStream = new MemoryStream();
-        image.Save(outStream, new JpegEncoder());
+        await image.SaveJpegAsync(outStream);
         outStream.Seek(0, SeekOrigin.Begin);
         return File(outStream, "image/jpg");
-    }
-
-    private static async Task<Result<Image>> GetImageAsync(ImageSizeDto imageSize)
-    {
-        var options = new ChromeOptions();
-        options.AddArguments(
-            "--headless=new",
-            "--disable-gpu",
-            "--hide-scrollbars",
-            $"--window-size={imageSize.Width},{imageSize.Height}"
-        );
-
-        var driver = new ChromeDriver(options);
-        try
-        {
-            await driver.Navigate().GoToUrlAsync("https://localhost:7297/dashboard");
-            var screenshot = driver.GetScreenshot();
-            var image = Image.Load(screenshot.AsByteArray);
-
-            image.Mutate(x =>
-            {
-                x.Resize(imageSize.Width, imageSize.Height);
-            });
-            return image;
-        }
-        catch (Exception ex)
-        {
-            return Result.Fail(ex.Message);
-        }
-        finally
-        {
-            driver.Close();
-        }
     }
 }
 
 public record ImageSizeDto(int Width, int Height);
-
-public class BinaryEncoder : ImageEncoder
-{
-    private readonly Func<Rgba32, bool> isZero;
-
-    public BinaryEncoder(Func<Rgba32, bool> isZero) => this.isZero = isZero;
-
-    protected override void Encode<TPixel>(Image<TPixel> image, Stream stream, CancellationToken cancellationToken)
-    {
-        byte currentValue = 0xFF;
-        var index = 0;
-        var pixel = new Rgba32(1, 1, 1, 1);
-
-        WriteEncoded("{\n");
-
-        for (var x = 0; x < image.Width; x++)
-        {
-            for (var y = 0; y < image.Height; y++)
-            {
-                image[x, y].ToRgba32(ref pixel);
-                if (isZero(pixel))
-                {
-                    currentValue &= (byte)~(0x01 << (7 - index));
-                }
-                index = (index + 1) % 8;
-                if (index == 0)
-                {
-                    WriteElement(currentValue);
-                    // stream.WriteByte(currentValue);
-                    currentValue = 0xFF;
-                }
-            }
-            stream.Write(Encoding.UTF8.GetBytes("\n"));
-        }
-        if (index > 0)
-        {
-            WriteElement(currentValue);
-            // stream.WriteByte(currentValue);
-        }
-
-        WriteEncoded("\n}");
-
-        void WriteElement(byte value)
-        {
-            WriteEncoded($"0x{value:X2}, ");
-        }
-
-        void WriteEncoded(string value)
-        {
-            stream.Write(Encoding.UTF8.GetBytes(value));
-        }
-    }
-}
