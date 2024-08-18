@@ -36,27 +36,84 @@ static const char* CONFIGURATION_PASSWORD = "pwd";
 
 SPIClass hspi(HSPI);
 
-void drawBitmap();
-void startDeepSleep();
-
 struct Configuration {
   String ssid;
   String password;
 };
+void drawBitmap();
+void startDeepSleep();
+std::optional<Configuration> getConfiguration();
+void storeConfiguration(const Configuration& config);
+void clearConfiguration();
+void createConfiguration();
+bool connectToWiFi(const Configuration& config);
+
+void setup() {
+  Serial.begin(115200);
+  const auto configuration = getConfiguration();
+  if (!configuration.has_value()) {
+    createConfiguration();
+  }
+
+  if (connectToWiFi(configuration.value())) {
+  }
+
+  startDeepSleep();
+
+  // fetchBinaryData();
+  // disconnectFromWifi();
+
+  // hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
+  // display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  // display.init(115200);
+  // drawBitmap();
+  // display.powerOff();
+
+  // startDeepSleep();
+}
+
+void loop() {
+  //This function will not be reached
+}
+
+struct bitmap_pair {
+  const unsigned char* black;
+  const unsigned char* red;
+};
+
+const unsigned char epd_bitmap_BW[] PROGMEM = {
+
+};
+
+const unsigned char epd_bitmap_RW[] PROGMEM = {
+
+};
+
+void drawBitmap() {
+  bitmap_pair frame = { epd_bitmap_BW, epd_bitmap_RW };
+
+  display.setFullWindow();
+  display.writeImage(frame.black, frame.red, 0, 0, display.epd2.WIDTH, display.epd2.HEIGHT, false, false, true);
+  display.refresh();
+}
+
+void startDeepSleep() {
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
+  esp_deep_sleep_start();
+}
 
 std::optional<Configuration> getConfiguration() {
   Preferences preferences{};
   preferences.begin(CONFIGURATION_NAMESPACE, true);
-  String ssid = preferences.getString(CONFIGURATION_SSID, "");
-  String password = preferences.getString(CONFIGURATION_PASSWORD, "");
+  Configuration configuration{
+    preferences.getString(CONFIGURATION_SSID, ""),
+    preferences.getString(CONFIGURATION_PASSWORD, "")
+  };
   preferences.end();
 
-  if (ssid.length() == 0) {
-    return std::nullopt;
-  }
-
-  Configuration credentials{ ssid, password };
-  return std::make_optional(credentials);
+  return configuration.ssid.length() == 0
+           ? std::nullopt
+           : std::make_optional(configuration);
 }
 
 void storeConfiguration(const Configuration& config) {
@@ -64,6 +121,13 @@ void storeConfiguration(const Configuration& config) {
   preferences.begin(CONFIGURATION_NAMESPACE, false);
   preferences.putString(CONFIGURATION_SSID, config.ssid);
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
+  preferences.end();
+}
+
+void clearConfiguration() {
+  Preferences preferences{};
+  preferences.begin(CONFIGURATION_NAMESPACE, false);
+  preferences.clear();
   preferences.end();
 }
 
@@ -117,67 +181,22 @@ void createConfiguration() {
   }
 }
 
-void connectToWiFi(const Configuration& config){
+bool connectToWiFi(const Configuration& config) {
   Serial.println("Found stored configuration!");
   Serial.println("Connecting to WiFi");
+  const auto maxConnectionTestRetries = 20;
+  auto connectionTestRetry = 0;
   WiFi.begin(config.ssid.c_str(), config.password.c_str());
-  while(WiFi.status() != WL_CONNECTED){
+  while (WiFi.status() != WL_CONNECTED && connectionTestRetry < maxConnectionTestRetries) {
+    ++connectionTestRetry;
     delay(500);
   }
+  if (WiFi.status() != WL_CONNECTED) {
+    return false;
+  }
+
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-}
-
-void setup() {
-  Serial.begin(115200);
-
-  const auto configuration = getConfiguration();
-  if (!configuration.has_value()) {
-    createConfiguration();
-  }
-  
-  connectToWiFi(configuration.value());
-
-// fetchBinaryData();
-// disconnectFromWifi();
-
-// hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
-// display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-// display.init(115200);
-// drawBitmap();
-// display.powerOff();
-
-// startDeepSleep();
-
-}
-
-void loop() {
-}
-
-struct bitmap_pair {
-  const unsigned char* black;
-  const unsigned char* red;
-};
-
-// 'R', 800x480px
-const unsigned char epd_bitmap_BW[] PROGMEM = {
-
-};
-
-const unsigned char epd_bitmap_RW[] PROGMEM = {
-
-};
-
-void drawBitmap() {
-  bitmap_pair frame = { epd_bitmap_BW, epd_bitmap_RW };
-
-  display.setFullWindow();
-  display.writeImage(frame.black, frame.red, 0, 0, display.epd2.WIDTH, display.epd2.HEIGHT, false, false, true);
-  display.refresh();
-}
-
-void startDeepSleep() {
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
-  esp_deep_sleep_start();
+  return true;
 }
