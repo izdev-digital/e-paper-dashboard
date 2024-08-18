@@ -69,9 +69,8 @@ void storeConfiguration(const Configuration& config) {
 
 void createConfiguration() {
   WiFi.softAP("EPaperDashboard-AP");
-  IPAddress myIP = WiFi.softAPIP();
   Serial.print("AP IP address: ");
-  Serial.println(myIP);
+  Serial.println(WiFi.softAPIP());
 
   WebServer server(80);
 
@@ -118,42 +117,39 @@ void createConfiguration() {
   }
 }
 
-// if(!isWifiConfigured())
-// {
-//   startAccessPoint();
-//   waitForCredentialsToBeEntered();
-// }
-
-// connectToWifi();
-// fetchBinaryData();
-// drawBitmap();
-// disconnectFromWifi();
-// startDeepSleep();
-
-
+void connectToWiFi(const Configuration& config){
+  Serial.println("Found stored configuration!");
+  Serial.println("Connecting to WiFi");
+  WiFi.begin(config.ssid.c_str(), config.password.c_str());
+  while(WiFi.status() != WL_CONNECTED){
+    delay(500);
+  }
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
 
 void setup() {
   Serial.begin(115200);
 
-  // hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
-
-  // display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-  // display.init(115200);
-
-  // drawBitmap();
-  // display.powerOff();
-
-  // startDeepSleep();
   const auto configuration = getConfiguration();
   if (!configuration.has_value()) {
     createConfiguration();
   }
+  
+  connectToWiFi(configuration.value());
 
-  Serial.println("Credentials found!");
-  Serial.print("SSID: ");
-  Serial.println(configuration.value().ssid);
-  Serial.print("Password: ");
-  Serial.println(configuration.value().password);
+// fetchBinaryData();
+// disconnectFromWifi();
+
+// hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
+// display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+// display.init(115200);
+// drawBitmap();
+// display.powerOff();
+
+// startDeepSleep();
+
 }
 
 void loop() {
