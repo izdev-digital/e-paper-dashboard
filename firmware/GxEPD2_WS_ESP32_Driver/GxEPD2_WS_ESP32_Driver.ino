@@ -213,14 +213,14 @@ bool connectToWiFi(const Configuration& config) {
 }
 
 bool isResetRequested() {
-  pinMode(RESET_WAKEUP_PIN, INPUT_PULLUP);
-  if (digitalRead(RESET_WAKEUP_PIN) != LOW) {
+  pinMode(RESET_WAKEUP_PIN, INPUT_PULLDOWN);
+  if (digitalRead(RESET_WAKEUP_PIN) != HIGH) {
     return false;
   }
 
   const unsigned long pressStartTime = millis();
   const unsigned long requiredWaitingTime = RESET_REQUEST_TIMEOUT * 1000;
-  while (digitalRead(RESET_WAKEUP_PIN) == LOW) {
+  while (digitalRead(RESET_WAKEUP_PIN) == HIGH) {
     if (millis() - pressStartTime >= requiredWaitingTime) {
       return true;
     }
