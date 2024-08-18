@@ -2,6 +2,7 @@
 #include <optional>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <driver/rtc_io.h>
 
 #define ENABLE_GxEPD2_GFX 0
 
@@ -29,6 +30,8 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 
 #define USEC_TO_SEC_FACTOR 1000000
 #define TIME_TO_SLEEP_SEC 120
+#define RESET_WAKEUP_PIN GPIO_NUM_33
+#define RESET_REQUEST_TIMEOUT 10
 
 static const char* CONFIGURATION_NAMESPACE = "config";
 static const char* CONFIGURATION_SSID = "ssid";
@@ -47,9 +50,16 @@ void storeConfiguration(const Configuration& config);
 void clearConfiguration();
 void createConfiguration();
 bool connectToWiFi(const Configuration& config);
+bool isResetRequested();
+void resetDevice();
 
 void setup() {
   Serial.begin(115200);
+  if (isResetRequested()) {
+    Serial.println("Resetting device");
+    resetDevice();
+  }
+
   const auto configuration = getConfiguration();
   if (!configuration.has_value()) {
     createConfiguration();
@@ -57,8 +67,6 @@ void setup() {
 
   if (connectToWiFi(configuration.value())) {
   }
-
-  startDeepSleep();
 
   // fetchBinaryData();
   // disconnectFromWifi();
@@ -69,7 +77,7 @@ void setup() {
   // drawBitmap();
   // display.powerOff();
 
-  // startDeepSleep();
+  startDeepSleep();
 }
 
 void loop() {
@@ -99,6 +107,9 @@ void drawBitmap() {
 
 void startDeepSleep() {
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
+  esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
+  rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
+  rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
   esp_deep_sleep_start();
 }
 
@@ -199,4 +210,26 @@ bool connectToWiFi(const Configuration& config) {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   return true;
+}
+
+bool isResetRequested() {
+  pinMode(RESET_WAKEUP_PIN, INPUT_PULLUP);
+  if (digitalRead(RESET_WAKEUP_PIN) != LOW) {
+    return false;
+  }
+
+  const unsigned long pressStartTime = millis();
+  const unsigned long requiredWaitingTime = RESET_REQUEST_TIMEOUT * 1000;
+  while (digitalRead(RESET_WAKEUP_PIN) == LOW) {
+    if (millis() - pressStartTime >= requiredWaitingTime) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void resetDevice() {
+  clearConfiguration();
+  ESP.restart();
 }
