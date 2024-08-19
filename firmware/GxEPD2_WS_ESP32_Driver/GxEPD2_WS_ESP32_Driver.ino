@@ -39,11 +39,20 @@ static const char* CONFIGURATION_PASSWORD = "pwd";
 
 SPIClass hspi(HSPI);
 
+static unsigned char epd_bitmap_BW[display.epd2.WIDTH * display.epd2.HEIGHT / 64] = {0};
+static unsigned char epd_bitmap_RW[display.epd2.WIDTH * display.epd2.HEIGHT / 64] = {0};
+
 struct Configuration {
   String ssid;
   String password;
 };
-void drawBitmap();
+
+struct Frame {
+  const unsigned char* black;
+  const unsigned char* red;
+};
+
+void drawBitmap(const Frame& frame);
 void startDeepSleep();
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration& config);
@@ -67,13 +76,9 @@ void setup() {
 
   if (connectToWiFi(configuration.value())) {
     // fetchBinaryData();
+    Frame frame{ epd_bitmap_BW, epd_bitmap_RW };
+    drawBitmap(frame);
     // disconnectFromWifi();
-
-    // hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
-    // display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-    // display.init(115200);
-    // drawBitmap();
-    // display.powerOff();
   }
 
   startDeepSleep();
@@ -83,25 +88,14 @@ void loop() {
   //This function will not be reached
 }
 
-struct bitmap_pair {
-  const unsigned char* black;
-  const unsigned char* red;
-};
-
-const unsigned char epd_bitmap_BW[] PROGMEM = {
-
-};
-
-const unsigned char epd_bitmap_RW[] PROGMEM = {
-
-};
-
-void drawBitmap() {
-  bitmap_pair frame = { epd_bitmap_BW, epd_bitmap_RW };
-
+void drawBitmap(const Frame& frame) {
+  hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
+  display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  display.init(115200);
   display.setFullWindow();
   display.writeImage(frame.black, frame.red, 0, 0, display.epd2.WIDTH, display.epd2.HEIGHT, false, false, true);
   display.refresh();
+  display.powerOff();
 }
 
 void startDeepSleep() {
