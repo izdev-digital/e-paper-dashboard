@@ -66,16 +66,15 @@ void setup() {
   }
 
   if (connectToWiFi(configuration.value())) {
+    // fetchBinaryData();
+    // disconnectFromWifi();
+
+    // hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
+    // display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+    // display.init(115200);
+    // drawBitmap();
+    // display.powerOff();
   }
-
-  // fetchBinaryData();
-  // disconnectFromWifi();
-
-  // hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
-  // display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-  // display.init(115200);
-  // drawBitmap();
-  // display.powerOff();
 
   startDeepSleep();
 }
@@ -152,9 +151,9 @@ void createConfiguration() {
   server.on("/", [&server]() {
     const char* htmlForm = R"rawliteral(
         <!DOCTYPE HTML><html>
-        <head><title>ESP32 Setup</title></head>
+        <head><title>E-Paper Dashboard Setup</title></head>
         <body>
-          <h1>ESP32 Setup</h1>
+          <h1>E-Paper Dashboard Setup</h1>
           <form action="/submit" method="post">
             SSID: <input type="text" name="ssid"><br>
             Password: <input type="password" name="password"><br>
