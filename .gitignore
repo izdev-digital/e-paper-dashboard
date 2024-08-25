@@ -1,2 +1,4 @@
+# OS specific
+.DS_Store
 # User specific files
 .vscode/

@@ -6,13 +6,13 @@ import { filter, map } from 'rxjs/operators';
 import { StrictHttpResponse } from '../../strict-http-response';
 import { RequestBuilder } from '../../request-builder';
 
-import { WeatherInfoDto } from '../../models/weather-info-dto';
+import { DateDto } from '../../models/date-dto';
 
-export interface WeatherGet$Plain$Params {
+export interface ApiDateGet$Plain$Params {
 }
 
-export function weatherGet$Plain(http: HttpClient, rootUrl: string, params?: WeatherGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<WeatherInfoDto>> {
-  const rb = new RequestBuilder(rootUrl, weatherGet$Plain.PATH, 'get');
+export function apiDateGet$Plain(http: HttpClient, rootUrl: string, params?: ApiDateGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<DateDto>> {
+  const rb = new RequestBuilder(rootUrl, apiDateGet$Plain.PATH, 'get');
   if (params) {
   }
 
@@ -21,9 +21,9 @@ export function weatherGet$Plain(http: HttpClient, rootUrl: string, params?: Wea
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
-      return r as StrictHttpResponse<WeatherInfoDto>;
+      return r as StrictHttpResponse<DateDto>;
     })
   );
 }
 
-weatherGet$Plain.PATH = '/Weather';
+apiDateGet$Plain.PATH = '/api/date';

@@ -15,7 +15,7 @@ export class DateComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    this._dateServce.dateGet().pipe(first()).subscribe(dateDto => {
+    this._dateServce.apiDateGet().pipe(first()).subscribe(dateDto => {
       return this.currentDate = dateDto.currentDate ? new Date(dateDto.currentDate) : undefined;
     })
   }

@@ -3,7 +3,7 @@
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/date")]
 public class DateController : ControllerBase
 {
     [HttpGet]

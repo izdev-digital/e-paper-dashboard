@@ -8,16 +8,16 @@ import { RequestBuilder } from '../../request-builder';
 
 import { WeatherInfoDto } from '../../models/weather-info-dto';
 
-export interface WeatherGet$Params {
+export interface ApiWeatherGet$Plain$Params {
 }
 
-export function weatherGet(http: HttpClient, rootUrl: string, params?: WeatherGet$Params, context?: HttpContext): Observable<StrictHttpResponse<WeatherInfoDto>> {
-  const rb = new RequestBuilder(rootUrl, weatherGet.PATH, 'get');
+export function apiWeatherGet$Plain(http: HttpClient, rootUrl: string, params?: ApiWeatherGet$Plain$Params, context?: HttpContext): Observable<StrictHttpResponse<WeatherInfoDto>> {
+  const rb = new RequestBuilder(rootUrl, apiWeatherGet$Plain.PATH, 'get');
   if (params) {
   }
 
   return http.request(
-    rb.build({ responseType: 'json', accept: 'text/json', context })
+    rb.build({ responseType: 'text', accept: 'text/plain', context })
   ).pipe(
     filter((r: any): r is HttpResponse<any> => r instanceof HttpResponse),
     map((r: HttpResponse<any>) => {
@@ -26,4 +26,4 @@ export function weatherGet(http: HttpClient, rootUrl: string, params?: WeatherGe
   );
 }
 
-weatherGet.PATH = '/Weather';
+apiWeatherGet$Plain.PATH = '/api/weather';
