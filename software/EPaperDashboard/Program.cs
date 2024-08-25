@@ -25,7 +25,11 @@ builder.Services.AddRazorPages();
 
 var app = builder.Build();
 app.UseCors(builder => builder.WithOrigins("*"));
-app.UseSwagger().UseSwaggerUI();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger().UseSwaggerUI();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -34,7 +38,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 

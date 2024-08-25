@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using EPaperDashboard.Services.Rendering;
 using SixLabors.ImageSharp.Processing;
 
@@ -10,18 +9,15 @@ namespace EPaperDashboard.Controllers;
 [Route("api/render")]
 public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
-    //private readonly Uri _dashboardUri = new("https://th.bing.com/th/id/R.323e4192b13c8da0f81995c9569fcb3a?rik=LApkHct0Skqjtw&riu=http%3a%2f%2fimages4.fanpop.com%2fimage%2fphotos%2f17400000%2fBright-colored-world-bright-colors-17445519-1634-2560.jpg&ehk=7dpmHnNd8FihjJjg2LM%2fM8itdKJs2JQ3v62eVti2tA4%3d&risl=&pid=ImgRaw&r=0");
     private readonly Uri _dashboardUri = new("https://localhost:7297/dashboard");
 
     private readonly IPageToImageRenderingService _renderingService = renderingService;
 
     [HttpGet]
-    [Route("text")]
+    [Route("binary")]
     public async Task<IActionResult> GetAsText([FromQuery] ImageSizeDto imageSize)
     {
-        var imageResult = await _renderingService.RenderPageAsync(
-                    _dashboardUri,
-                    new Models.Rendering.Size(imageSize.Width, imageSize.Height));
+        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
@@ -33,8 +29,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
             .RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal);
 
         var outStream = new MemoryStream();
-        await image.SaveAsync(outStream, new BinaryEncoder(c => c == Color.Red.ToPixel<Rgba32>()));
-        await image.SaveAsync(outStream, new BinaryEncoder(c => c == Color.Black.ToPixel<Rgba32>()));
+        await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder());
         outStream.Seek(0, SeekOrigin.Begin);
         return File(outStream, "text/plain");
     }
@@ -43,9 +38,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
     [Route("converted")]
     public async Task<IActionResult> GetAsConvertedsImage([FromQuery] ImageSizeDto imageSize)
     {
-        var imageResult = await _renderingService.RenderPageAsync(
-            _dashboardUri,
-            new Models.Rendering.Size(imageSize.Width, imageSize.Height));
+        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
@@ -60,12 +53,10 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
     }
 
     [HttpGet]
-    [Route("image")]
+    [Route("original")]
     public async Task<IActionResult> GetAsImage([FromQuery] ImageSizeDto imageSize)
     {
-        var imageResult = await _renderingService.RenderPageAsync(
-            _dashboardUri,
-            new Models.Rendering.Size(imageSize.Width, imageSize.Height));
+        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
