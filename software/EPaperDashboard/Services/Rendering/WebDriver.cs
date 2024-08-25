@@ -1,4 +1,4 @@
-using System.Drawing;
+using EPaperDashboard.Models.Rendering;
 using OpenQA.Selenium.Chrome;
 
 namespace EPaperDashboard.Services.Rendering;

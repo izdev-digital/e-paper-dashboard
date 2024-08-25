@@ -1,20 +1,22 @@
-﻿using FluentResults;
-using SixLabors.ImageSharp.PixelFormats;
+﻿using EPaperDashboard.Models.Rendering;
+using FluentResults;
 
 namespace EPaperDashboard.Services.Rendering;
 
-public class PageToImageRenderingService(IWebDriver webDriver) : IPageToImageRenderingService
+public class PageToImageRenderingService(
+    IWebDriver webDriver,
+    IImageFactory imageFactory) : IPageToImageRenderingService
 {
     private readonly IWebDriver _webDriver = webDriver;
+    private readonly IImageFactory _imageFactory = imageFactory;
 
     public async Task<Result<IImage>> RenderPageAsync(Uri uri, Size size)
     {
         try
         {
             var bytes = await _webDriver.GetScreenshotAsync(uri, size);
-            return ImageAdapter<Rgba32>
-                .Load(bytes)
-                .Resize(size);
+            var image = _imageFactory.Load(bytes).Resize(size);
+            return Result.Ok(image);
         }
         catch (Exception ex)
         {

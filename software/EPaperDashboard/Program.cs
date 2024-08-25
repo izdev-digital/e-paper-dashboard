@@ -19,7 +19,8 @@ builder.Services
     .AddScoped<IWeatherService, WeatherService>()
     .AddScoped<ILocationService, LocationService>()
     .AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
-    .AddSingleton<IWebDriver, WebDriver>();
+    .AddSingleton<IWebDriver, WebDriver>()
+    .AddSingleton<IImageFactory, ImageFactory>();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();

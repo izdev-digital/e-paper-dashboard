@@ -4,7 +4,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
-namespace EPaperDashboard.Services.Rendering;
+namespace EPaperDashboard.Models.Rendering;
 
 public sealed class ImageAdapter<TPixel> : IImage
 where TPixel : unmanaged, IPixel<TPixel>
@@ -27,7 +27,7 @@ where TPixel : unmanaged, IPixel<TPixel>
         return this;
     }
 
-    public ImageAdapter<TPixel> Resize(Size size)
+    public IImage Resize(Size size)
     {
         _image.Mutate(x => x.Resize(size.Width, size.Height));
         return this;

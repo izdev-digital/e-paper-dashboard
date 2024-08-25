@@ -21,7 +21,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
     {
         var imageResult = await _renderingService.RenderPageAsync(
                     _dashboardUri,
-                    new Services.Rendering.Size(imageSize.Width, imageSize.Height));
+                    new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
@@ -45,7 +45,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
     {
         var imageResult = await _renderingService.RenderPageAsync(
             _dashboardUri,
-            new Services.Rendering.Size(imageSize.Width, imageSize.Height));
+            new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
@@ -65,7 +65,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
     {
         var imageResult = await _renderingService.RenderPageAsync(
             _dashboardUri,
-            new Services.Rendering.Size(imageSize.Width, imageSize.Height));
+            new Models.Rendering.Size(imageSize.Width, imageSize.Height));
         if (imageResult.IsFailed)
         {
             return NoContent();
