@@ -32,5 +32,9 @@
   <ItemGroup>
     <ProjectReference Include="..\EPaperDashboard\EPaperDashboard.csproj" />
   </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="Services\Rendering\" />
+  </ItemGroup>
 
 </Project>

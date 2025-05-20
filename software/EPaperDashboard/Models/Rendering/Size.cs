@@ -1,3 +1,3 @@
 namespace EPaperDashboard.Models.Rendering;
 
-public record struct Size(int Width, int Height);
+public record Size(int Width, int Height);
