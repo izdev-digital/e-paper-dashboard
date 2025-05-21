@@ -2,7 +2,7 @@
 - Change directory to software
 - Run the following command:
     ```shell
-    docker build -t e-paper-dashboard:<version> -f EPaperDashboard/Dockerfile .
+    docker build --platform linux/amd64 -t e-paper-dashboard:<version> -f EPaperDashboard/Dockerfile .
     ```
 
 # Use docker-compose
