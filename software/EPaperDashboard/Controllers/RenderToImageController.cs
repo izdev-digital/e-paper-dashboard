@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SixLabors.ImageSharp;
 using EPaperDashboard.Services.Rendering;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel.DataAnnotations;
+using EPaperDashboard.Utilities;
+using CSharpFunctionalExtensions;
+using EPaperDashboard.Models.Rendering;
 
 namespace EPaperDashboard.Controllers;
 
@@ -10,63 +12,49 @@ namespace EPaperDashboard.Controllers;
 [Route("api/render")]
 public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
-    private readonly IPageToImageRenderingService _renderingService = renderingService;
+	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
-    [HttpGet]
-    [Route("binary")]
-    public async Task<IActionResult> GetAsBinary([Required][FromQuery] Models.Rendering.Size imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(imageSize);
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
+	[HttpGet]
+	[Route("binary")]
+	public async Task<IActionResult> GetAsBinary([Required][FromQuery] Size imageSize) => 
+		await RenderPage(
+			imageSize,
+			image => image
+				.Quantize(Palettes.RedBlackWhite)
+				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal),
+			async (image, outStream) => await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder()),
+			"application/octet-stream");
 
-        var palette = new[] { Color.Red, Color.Black, Color.White };
-        var image = imageResult.Value
-            .Quantize(palette)
-            .RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal);
+	[HttpGet]
+	[Route("converted")]
+	public async Task<IActionResult> GetAsConvertedsImage([Required][FromQuery] Size imageSize) =>
+		await RenderPage(
+			imageSize,
+			image => image
+				.Quantize(Palettes.RedBlackWhite),
+			async (image, outStream) => await image.SaveJpegAsync(outStream),
+			"image/jpg");
 
-        var outStream = new MemoryStream();
-        await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder());
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "application/octet-stream");
-    }
+	[HttpGet]
+	[Route("original")]
+	public async Task<IActionResult> GetAsImage([Required][FromQuery] Size imageSize) => 
+		await RenderPage(
+			imageSize,
+			image => image,
+			async (image, outStream) => await image.SaveJpegAsync(outStream),
+			"image/jpg");
 
-    [HttpGet]
-    [Route("converted")]
-    public async Task<IActionResult> GetAsConvertedsImage([Required][FromQuery] Models.Rendering.Size imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(imageSize);
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
-
-        var palette = new[] { Color.Red, Color.Black, Color.White };
-        var image = imageResult.Value.Quantize(palette);
-        var outStream = new MemoryStream();
-        await image.SaveJpegAsync(outStream);
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "image/jpg");
-    }
-
-    [HttpGet]
-    [Route("original")]
-    public async Task<IActionResult> GetAsImage([Required][FromQuery] Models.Rendering.Size imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(imageSize);
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
-
-        var image = imageResult.Value;
-        var outStream = new MemoryStream();
-        await image.SaveJpegAsync(outStream);
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "image/jpg");
-    }
-
-
+	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
+		await _renderingService
+			.RenderPageAsync(imageSize)
+			.Map(convert)
+			.Match(
+				onSuccess: async image =>
+				{
+					var outStream = new MemoryStream();
+					await serialize(image, outStream);
+					outStream.Seek(0, SeekOrigin.Begin);
+					return (IActionResult)File(outStream, contentType);
+				},
+				onFailure: error => Task.FromResult<IActionResult>(Problem(error, statusCode: StatusCodes.Status400BadRequest)));
 }
