@@ -36,6 +36,7 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 static const char* CONFIGURATION_NAMESPACE = "config";
 static const char* CONFIGURATION_SSID = "ssid";
 static const char* CONFIGURATION_PASSWORD = "pwd";
+static const char* CONFIGURATION_DASHBOARD_URL = "url";
 
 SPIClass hspi(HSPI);
 
@@ -45,6 +46,7 @@ static unsigned char epd_bitmap_RW[display.epd2.WIDTH * display.epd2.HEIGHT / 64
 struct Configuration {
   String ssid;
   String password;
+  String dashboardUrl;
 };
 
 struct Frame {
@@ -52,6 +54,7 @@ struct Frame {
   const unsigned char* red;
 };
 
+void fetchBinaryData();
 void drawBitmap(const Frame& frame);
 void startDeepSleep();
 std::optional<Configuration> getConfiguration();
@@ -75,7 +78,7 @@ void setup() {
   }
 
   if (connectToWiFi(configuration.value())) {
-    // fetchBinaryData();
+    fetchBinaryData();
     Frame frame{ epd_bitmap_BW, epd_bitmap_RW };
     drawBitmap(frame);
     // disconnectFromWifi();
@@ -86,6 +89,33 @@ void setup() {
 
 void loop() {
   //This function will not be reached
+}
+
+void fetchBinaryData(){
+  Serial.print("Connecting to the remote server");
+  WiFiClient client;
+  IPAddress server(192,168,2,2);
+  if (client.connect(server, 8128)) {
+    Serial.println("connected");
+    client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
+    client.println();
+
+    unsigned long long int counter = 0;
+    while (client.connected() || client.available()) {
+      if (client.available()) {
+          client.read();
+          counter++;
+            // uint8_t byte = client.read(); // Read one byte at a time
+            // Serial.print(byte, HEX); // Print byte in hex format
+            // Serial.print(" ");
+      }
+    }
+
+    Serial.print("read bytes:");
+    Serial.println(counter);
+  }
+
+  client.stop();
 }
 
 void drawBitmap(const Frame& frame) {
@@ -111,13 +141,14 @@ std::optional<Configuration> getConfiguration() {
   preferences.begin(CONFIGURATION_NAMESPACE, true);
   Configuration configuration{
     preferences.getString(CONFIGURATION_SSID, ""),
-    preferences.getString(CONFIGURATION_PASSWORD, "")
+    preferences.getString(CONFIGURATION_PASSWORD, ""),
+    preferences.getString(CONFIGURATION_DASHBOARD_URL, "")
   };
   preferences.end();
 
-  return configuration.ssid.length() == 0
-           ? std::nullopt
-           : std::make_optional(configuration);
+  return configuration.ssid.length() == 0 // TODO: || configuration.dashboardUrl.length() == 0
+    ? std::nullopt
+    : std::make_optional(configuration);
 }
 
 void storeConfiguration(const Configuration& config) {
@@ -125,6 +156,7 @@ void storeConfiguration(const Configuration& config) {
   preferences.begin(CONFIGURATION_NAMESPACE, false);
   preferences.putString(CONFIGURATION_SSID, config.ssid);
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
+  preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
   preferences.end();
 }
 
@@ -151,6 +183,7 @@ void createConfiguration() {
           <form action="/submit" method="post">
             SSID: <input type="text" name="ssid"><br>
             Password: <input type="password" name="password"><br>
+            Dashboard url: <input type="text" name="dashboard_url"><br>
             <input type="submit" value="Submit">
           </form>
         </body>
@@ -162,12 +195,15 @@ void createConfiguration() {
   server.on("/submit", HTTP_POST, [&server]() {
     Configuration config{
       server.arg("ssid"),
-      server.arg("password")
+      server.arg("password"),
+      server.arg("dashboard_url")
     };
     Serial.print("SSID: ");
     Serial.println(config.ssid);
     Serial.print("Password: ");
     Serial.println(config.password);
+    Serial.print("Password: ");
+    Serial.println(config.dashboardUrl);
 
     storeConfiguration(config);
 
