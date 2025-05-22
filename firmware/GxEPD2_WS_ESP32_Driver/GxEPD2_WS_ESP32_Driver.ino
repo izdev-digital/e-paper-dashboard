@@ -40,8 +40,8 @@ static const char* CONFIGURATION_DASHBOARD_URL = "url";
 
 SPIClass hspi(HSPI);
 
-static unsigned char epd_bitmap_BW[display.epd2.WIDTH * display.epd2.HEIGHT / 64] = {0};
-static unsigned char epd_bitmap_RW[display.epd2.WIDTH * display.epd2.HEIGHT / 64] = {0};
+static unsigned char epd_bitmap_BW[100 * 80 / 8] = { 0 };
+static unsigned char epd_bitmap_RW[100 * 80 / 8] = { 0 };
 
 struct Configuration {
   String ssid;
@@ -91,27 +91,40 @@ void loop() {
   //This function will not be reached
 }
 
-void fetchBinaryData(){
+void fetchBinaryData() {
   Serial.print("Connecting to the remote server");
   WiFiClient client;
-  IPAddress server(192,168,2,2);
+  IPAddress server(192, 168, 2, 2);
   if (client.connect(server, 8128)) {
     Serial.println("connected");
     client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
     client.println();
 
     unsigned long long int counter = 0;
+    // **Skip headers**
     while (client.connected() || client.available()) {
-      if (client.available()) {
-          client.read();
-          counter++;
-            // uint8_t byte = client.read(); // Read one byte at a time
-            // Serial.print(byte, HEX); // Print byte in hex format
-            // Serial.print(" ");
+      String line = client.readStringUntil('\n');
+      Serial.println(line);
+      if (line == "\r") {  // Headers end with an empty line
+        break;
       }
     }
+    Serial.printf("Counter before: %d", counter);
+    Serial.println();
 
-    Serial.print("read bytes:");
+    while (client.connected() || client.available()) {
+      if (client.available()) {
+        char value = client.read();
+        // Serial.print(value);
+        counter++;
+        // uint8_t byte = client.read(); // Read one byte at a time
+        // Serial.print(byte, HEX); // Print byte in hex format
+        // Serial.print(" ");
+      }
+    }
+    Serial.println();
+
+    Serial.print("read bytes: ");
     Serial.println(counter);
   }
 
@@ -146,9 +159,9 @@ std::optional<Configuration> getConfiguration() {
   };
   preferences.end();
 
-  return configuration.ssid.length() == 0 // TODO: || configuration.dashboardUrl.length() == 0
-    ? std::nullopt
-    : std::make_optional(configuration);
+  return configuration.ssid.length() == 0  // TODO: || configuration.dashboardUrl.length() == 0
+           ? std::nullopt
+           : std::make_optional(configuration);
 }
 
 void storeConfiguration(const Configuration& config) {
