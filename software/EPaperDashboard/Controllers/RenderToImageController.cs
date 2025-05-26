@@ -18,8 +18,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 {
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
-	[HttpGet]
-	[Route("binary")]
+	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary([Required][FromQuery] Size imageSize) =>
 		await RenderPage(
 			imageSize,
@@ -29,8 +28,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 			async (image, outStream) => await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder()),
 			"application/octet-stream");
 
-	[HttpGet]
-	[Route("converted")]
+	[HttpGet("converted")]
 	public async Task<IActionResult> GetAsConvertedsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
 	{
 		var (contentType, encoder) = GetEncoder(format);
@@ -42,8 +40,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 			contentType);
 	}
 
-	[HttpGet]
-	[Route("original")]
+	[HttpGet("original")]
 	public async Task<IActionResult> GetAsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
 	{
 		var (contentType, encoder) = GetEncoder(format);
@@ -53,6 +50,10 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 			async (image, outStream) => await image.SaveAsync(outStream, encoder),
 			contentType);
 	}
+
+	[HttpGet("health")]
+	public async Task<IActionResult> GetHealth() => 
+		Ok(await _renderingService.GetHealth());
 
 	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
 		await _renderingService
