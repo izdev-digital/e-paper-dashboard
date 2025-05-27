@@ -7,31 +7,37 @@ public sealed class BlackRedWhiteBinaryEncoder : ImageEncoder
 {
 	protected override void Encode<TPixel>(Image<TPixel> image, Stream stream, CancellationToken cancellationToken)
 	{
-		byte currentValue = 0xFF;
-		var index = 0;
-
-		for (var x = 0; x < image.Width; x++)
+		var imagePixelCount = image.Width * image.Height;
+		if (imagePixelCount % 8 != 0)
 		{
-			for (var y = 0; y < image.Height; y++)
+			throw new ArgumentException("The number of image pixels should be dividable by 8");
+		}
+
+		byte blackByte = 0xFF;
+		byte redByte = 0xFF;
+		
+		for (var currentPixel = 0; currentPixel < imagePixelCount;)
+		{
+			for (var bitCount = 0; bitCount < 8 && currentPixel < imagePixelCount; bitCount++, currentPixel++)
 			{
-				for (var colorId = 0; colorId < 2; colorId++)
+				var x = currentPixel / image.Height;
+				var y = currentPixel % image.Height;
+				var resetBits = (byte)~(0x01 << (7 - (currentPixel % 8)));
+				if (image[x, y].Equals(Color.Black.ToPixel<TPixel>()))
 				{
-					if (image[x, y].Equals(Color.Red.ToPixel<TPixel>()) || image[x, y].Equals(Color.Black.ToPixel<TPixel>()))
-					{
-						currentValue &= (byte)~(0x01 << (7 - index));
-					}
-					index = (index + 1) % 8;
-					if (index == 0)
-					{
-						stream.WriteByte(currentValue);
-						currentValue = 0xFF;
-					}
+					blackByte &= resetBits;
+				}
+
+				if (image[x, y].Equals(Color.Red.ToPixel<TPixel>()))
+				{
+					redByte &= resetBits;
 				}
 			}
-		}
-		if (index > 0)
-		{
-			stream.WriteByte(currentValue);
+
+			stream.WriteByte(blackByte);
+			stream.WriteByte(redByte);
+			blackByte = 0xFF;
+			redByte = 0xFF;
 		}
 	}
 }
