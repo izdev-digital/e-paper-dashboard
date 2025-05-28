@@ -38,8 +38,13 @@ static const char* CONFIGURATION_SSID = "ssid";
 static const char* CONFIGURATION_PASSWORD = "pwd";
 static const char* CONFIGURATION_DASHBOARD_URL = "url";
 
-static uint8_t epd_bitmap_BW[800 * 32 / 8] = { 0 };
-static uint8_t epd_bitmap_RW[800 * 32 / 8] = { 0 };
+static const uint16_t displayWidth = 800;
+static const uint16_t displayHeight = 480;
+static const uint16_t frameWidth = displayWidth;
+static const uint16_t frameHeight = 32;
+static const uint16_t frameBytes = frameWidth * frameHeight / 8;
+static uint8_t epd_bitmap_BW[frameBytes] = { 0 };
+static uint8_t epd_bitmap_RW[frameBytes] = { 0 };
 
 SPIClass hspi(HSPI);
 
@@ -77,9 +82,6 @@ void setup() {
 
   if (connectToWiFi(configuration.value())) {
     fetchBinaryData();
-    // Frame frame{ epd_bitmap_BW, epd_bitmap_RW };
-    // drawBitmap(frame);
-    // disconnectFromWifi();
   }
 
   Serial.println("Refresh screen");
@@ -103,7 +105,6 @@ void fetchBinaryData() {
     client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
     client.println();
 
-    unsigned long long int counter = 0;
     // **Skip headers**
     while (client.connected() || client.available()) {
       String line = client.readStringUntil('\n');  // TODO: check the status code
@@ -112,43 +113,27 @@ void fetchBinaryData() {
         break;
       }
     }
-    Serial.printf("Counter before: %d", counter);
-    Serial.println();
 
     int16_t x = 0;
     int16_t y = 0;
 
-    for (int16_t y = 0; y < 480; y += 32) {
-      Serial.println("Next frame");
-      display.setPartialWindow(x, y, 800, 32);
-      display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, 800, 32);
-    }
-
-    while (client.connected() || client.available()) {
-      if (client.available()) {
-        uint8_t value = client.read();
-        
-        counter++;
+    while ((client.connected() || client.available()) && y < displayHeight) {
+      for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++) {
+        uint8_t blackPixel = client.read();
+        uint8_t redPixel = client.read();
+        epd_bitmap_BW[pixelCount] = blackPixel;
+        epd_bitmap_RW[pixelCount] = redPixel;
       }
+
+      display.setPartialWindow(x, y, frameWidth, frameHeight);
+      display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, frameWidth, frameHeight);
+      y += frameHeight;
     }
     Serial.println();
-
-    Serial.print("read bytes: ");
-    Serial.println(counter);
   }
 
   client.stop();
 }
-
-// void drawBitmap(const Frame& frame) {
-//   hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
-//   display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-//   display.init(115200);
-//   display.setFullWindow();
-//   display.writeImage(frame.black, frame.red, 0, 0, display.epd2.WIDTH, display.epd2.HEIGHT, false, false, true);
-//   display.refresh();
-//   display.powerOff();
-// }
 
 void startDeepSleep() {
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
