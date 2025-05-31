@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>E-Paper Dashboard Setup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container mt-5">
+    <h2 class="text-center">E-Paper Dashboard Setup</h2>
+
+    <form action="/submit" method="post">
+        <div class="card mb-3">
+            <div class="card-header">WLAN Setup</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="ssid" class="form-label">SSID</label>
+                    <input type="text" class="form-control" name="ssid" id="ssid" placeholder="Enter SSID ...">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" name="password" id="password" placeholder="Enter password ...">
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header">Dashboard Proider</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="dashboard_url" class="form-label">Url</label>
+                    <input type="email" class="form-control" name="dashboard_url" id="dashboard_url" placeholder="Enter url ...">
+                </div>
+                <div class="mb-3">
+                    <label for="dashboard_port" class="form-label">Phone Number</label>
+                    <input type="text" class="form-control" name="dashboard_port" id="dashboard_port" placeholder="Enter port ...">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Apply</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
