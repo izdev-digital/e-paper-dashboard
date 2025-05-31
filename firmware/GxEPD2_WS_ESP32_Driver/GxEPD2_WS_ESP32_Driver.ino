@@ -220,7 +220,8 @@ void createConfiguration() {
     Configuration config{
       server.arg("ssid"),
       server.arg("password"),
-      server.arg("dashboard_url")
+      server.arg("dashboard_url"),
+      server.arg("dashboard_port").toInt()
     };
     Serial.println("Received configuration...");
     storeConfiguration(config);
