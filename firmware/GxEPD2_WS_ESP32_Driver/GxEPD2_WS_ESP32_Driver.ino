@@ -37,6 +37,7 @@ static const char* CONFIGURATION_NAMESPACE = "config";
 static const char* CONFIGURATION_SSID = "ssid";
 static const char* CONFIGURATION_PASSWORD = "pwd";
 static const char* CONFIGURATION_DASHBOARD_URL = "url";
+static const char* CONFIGURATION_DASHBOARD_PORT = "port";
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
@@ -52,9 +53,10 @@ struct Configuration {
   String ssid;
   String password;
   String dashboardUrl;
+  int dashboardPort;
 };
 
-void fetchBinaryData();
+void fetchBinaryData(const Configuration& config);
 void startDeepSleep();
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration& config);
@@ -81,12 +83,10 @@ void setup() {
   }
 
   if (connectToWiFi(configuration.value())) {
-    fetchBinaryData();
+    fetchBinaryData(configuration.value());
   }
 
-  Serial.println("Refresh screen");
   display.refresh();
-  Serial.println("Power off screen");
   display.powerOff();
 
   startDeepSleep();
@@ -96,41 +96,56 @@ void loop() {
   //This function will not be reached
 }
 
-void fetchBinaryData() {
-  Serial.print("Connecting to the remote server");
+void fetchBinaryData(const Configuration& config) {
+  Serial.print("Connecting to the remote server...");
+
   WiFiClient client;
-  IPAddress server(192, 168, 2, 2);
-  if (client.connect(server, 8128)) {
-    Serial.println("connected");
-    client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
-    client.println();
-
-    // **Skip headers**
-    while (client.connected() || client.available()) {
-      String line = client.readStringUntil('\n');  // TODO: check the status code
-      Serial.println(line);
-      if (line == "\r") {  // Headers end with an empty line
-        break;
-      }
-    }
-
-    int16_t x = 0;
-    int16_t y = 0;
-
-    while ((client.connected() || client.available()) && y < displayHeight) {
-      for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++) {
-        uint8_t blackPixel = client.read();
-        uint8_t redPixel = client.read();
-        epd_bitmap_BW[pixelCount] = blackPixel;
-        epd_bitmap_RW[pixelCount] = redPixel;
-      }
-
-      display.setPartialWindow(x, y, frameWidth, frameHeight);
-      display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, frameWidth, frameHeight);
-      y += frameHeight;
-    }
-    Serial.println();
+  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
+    Serial.println("Failed to connect to the remote server...");
+    return;
   }
+
+  Serial.println("Successfully connected to the remote server!");
+  Serial.println("Sending request...");
+
+  client.println("GET /api/render/binary?width=800&height=480 HTTP/1.1");
+  client.println();  // This line sends the request
+
+  bool connection_ok = false;
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+
+    if (!connection_ok) {
+      connection_ok = line.startsWith("HTTP/1.1 200 OK");
+    }
+
+    if (line == "\r") {  // Headers end with an empty line
+      break;
+    }
+  }
+
+  if (!connection_ok) {
+    Serial.println("The request was not successful...");
+    return;
+  }
+
+  int16_t x = 0;
+  int16_t y = 0;
+
+  while ((client.connected() || client.available()) && y < displayHeight) {
+    for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++) {
+      uint8_t blackPixel = client.read();
+      uint8_t redPixel = client.read();
+      epd_bitmap_BW[pixelCount] = blackPixel;
+      epd_bitmap_RW[pixelCount] = redPixel;
+    }
+
+    display.setPartialWindow(x, y, frameWidth, frameHeight);
+    display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, frameWidth, frameHeight);
+    y += frameHeight;
+  }
+  Serial.println();
 
   client.stop();
 }
@@ -149,11 +164,12 @@ std::optional<Configuration> getConfiguration() {
   Configuration configuration{
     preferences.getString(CONFIGURATION_SSID, ""),
     preferences.getString(CONFIGURATION_PASSWORD, ""),
-    preferences.getString(CONFIGURATION_DASHBOARD_URL, "")
+    preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
+    preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80)
   };
   preferences.end();
 
-  return configuration.ssid.length() == 0  // TODO: || configuration.dashboardUrl.length() == 0
+  return configuration.ssid.length() == 0 || configuration.dashboardUrl.length() == 0
            ? std::nullopt
            : std::make_optional(configuration);
 }
@@ -164,6 +180,7 @@ void storeConfiguration(const Configuration& config) {
   preferences.putString(CONFIGURATION_SSID, config.ssid);
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
+  preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
   preferences.end();
 }
 
