@@ -222,13 +222,7 @@ void createConfiguration() {
       server.arg("password"),
       server.arg("dashboard_url")
     };
-    Serial.print("SSID: ");
-    Serial.println(config.ssid);
-    Serial.print("Password: ");
-    Serial.println(config.password);
-    Serial.print("Password: ");
-    Serial.println(config.dashboardUrl);
-
+    Serial.println("Received configuration...");
     storeConfiguration(config);
 
     server.send(200, "text/html", "Settings saved. Rebooting...");
