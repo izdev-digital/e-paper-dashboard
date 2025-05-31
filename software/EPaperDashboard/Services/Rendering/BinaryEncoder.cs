@@ -10,7 +10,7 @@ public sealed class BlackRedWhiteBinaryEncoder : ImageEncoder
 		var imagePixelCount = image.Width * image.Height;
 		if (imagePixelCount % 8 != 0)
 		{
-			throw new ArgumentException("The number of image pixels should be dividable by 8");
+			throw new ArgumentException("The number of image pixels should be multiple of 8");
 		}
 
 		byte blackByte = 0xFF;
