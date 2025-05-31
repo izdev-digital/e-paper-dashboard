@@ -29,7 +29,7 @@
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(/*CS=*/15, /*DC=*/27, /*RST=*/26, /*BUSY=*/25));
 
 #define USEC_TO_SEC_FACTOR 1000000
-#define TIME_TO_SLEEP_SEC 120
+#define TIME_TO_SLEEP_SEC 3600
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
 
@@ -104,7 +104,7 @@ void loop()
 
 void fetchBinaryData(const Configuration &config)
 {
-  Serial.print("Connecting to the remote server...");
+  Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
   if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort))
@@ -116,7 +116,7 @@ void fetchBinaryData(const Configuration &config)
   Serial.println("Successfully connected to the remote server!");
   Serial.println("Sending request...");
 
-  client.println("GET /api/render/binary?width=800&height=480 HTTP/1.1");
+  client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
   client.println(); // This line sends the request
 
   bool connection_ok = false;
@@ -252,7 +252,7 @@ void createConfiguration()
                 <div class="card-body">
                     <div class="mb-3">
                         <label for="dashboard_url" class="form-label">Url</label>
-                        <input type="email" class="form-control" name="dashboard_url" id="dashboard_url" placeholder="Enter url ...">
+                        <input type="text" class="form-control" name="dashboard_url" id="dashboard_url" placeholder="Enter url ...">
                     </div>
                     <div class="mb-3">
                         <label for="dashboard_port" class="form-label">Phone Number</label>
