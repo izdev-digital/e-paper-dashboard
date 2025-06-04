@@ -168,7 +168,8 @@ std::optional<Configuration> getConfiguration() {
     preferences.getString(CONFIGURATION_SSID, ""),
     preferences.getString(CONFIGURATION_PASSWORD, ""),
     preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
-    preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80)
+    preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80),
+    preferences.getULong64(CONFIGURATION_DASHBOARD_RATE, 60)
   };
   preferences.end();
 
@@ -184,6 +185,7 @@ void storeConfiguration(const Configuration &config) {
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
   preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
+  preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate)
   preferences.end();
 }
 
@@ -285,7 +287,7 @@ void createConfiguration() {
       server.send(400, "text/html", htmlForm);
       return;
     }
-    
+
     const String ssid{ server.arg(ssidParam) };
     const String pass{ server.arg(passParam) };
     const String url{ server.arg(urlParam) };
