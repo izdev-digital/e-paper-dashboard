@@ -185,7 +185,7 @@ void storeConfiguration(const Configuration &config) {
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
   preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
-  preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate)
+  preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate);
   preferences.end();
 }
 
