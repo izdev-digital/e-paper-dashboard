@@ -30,7 +30,7 @@
             </div>
 
             <div class="card mb-3">
-                <div class="card-header">Dashboard Proider</div>
+                <div class="card-header">Dashboard Provider</div>
                 <div class="card-body">
                     <div class="mb-3">
                         <label for="dashboard_url" class="form-label">Url</label>
@@ -38,9 +38,22 @@
                             placeholder="Enter url ...">
                     </div>
                     <div class="mb-3">
-                        <label for="dashboard_port" class="form-label">Phone Number</label>
+                        <label for="dashboard_port" class="form-label">Port</label>
                         <input type="text" class="form-control" name="dashboard_port" id="dashboard_port"
                             placeholder="Enter port ...">
+                    </div>
+                    <div class="mb-3">
+                        <label for="time-period" class="form-label">Select Refresh Rate:</label>
+                        <div class="input-group" id="time-period">
+                            <input type="number" class="form-control" name="dashboard_rate" id="dashboard_rate" min="1" max="60"
+                                placeholder="Enter number ...">
+                            <select class="form-select" name="dashboard_rate_unit" id="dashboard_rate_unit">
+                                <option value="s">Seconds</option>
+                                <option value="m">Minutes</option>
+                                <option value="h">Hours</option>
+                                <option value="d">Days</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
