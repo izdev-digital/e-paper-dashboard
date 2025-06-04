@@ -9,7 +9,7 @@
 #include <GxEPD2_3C.h>
 
 #define GxEPD2_DISPLAY_CLASS GxEPD2_3C
-#define GxEPD2_DRIVER_CLASS GxEPD2_750c_Z08 // GDEW075Z08  800x480, EK79655 (GD7965), (WFT0583CZ61)
+#define GxEPD2_DRIVER_CLASS GxEPD2_750c_Z08  // GDEW075Z08  800x480, EK79655 (GD7965), (WFT0583CZ61)
 
 #define GxEPD2_3C_IS_GxEPD2_3C true
 #define IS_GxEPD(c, x) (c##x)
@@ -29,7 +29,6 @@
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(/*CS=*/15, /*DC=*/27, /*RST=*/26, /*BUSY=*/25));
 
 #define USEC_TO_SEC_FACTOR 1000000
-#define TIME_TO_SLEEP_SEC 360
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
 
@@ -38,27 +37,28 @@ static const char *CONFIGURATION_SSID = "ssid";
 static const char *CONFIGURATION_PASSWORD = "pwd";
 static const char *CONFIGURATION_DASHBOARD_URL = "url";
 static const char *CONFIGURATION_DASHBOARD_PORT = "port";
+static const char *CONFIGURATION_DASHBOARD_RATE = "rate";
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
 static const uint16_t frameWidth = displayWidth;
 static const uint16_t frameHeight = 32;
 static const uint16_t frameBytes = frameWidth * frameHeight / 8;
-static uint8_t epd_bitmap_BW[frameBytes] = {0};
-static uint8_t epd_bitmap_RW[frameBytes] = {0};
+static uint8_t epd_bitmap_BW[frameBytes] = { 0 };
+static uint8_t epd_bitmap_RW[frameBytes] = { 0 };
 
 SPIClass hspi(HSPI);
 
-struct Configuration
-{
+struct Configuration {
   String ssid;
   String password;
   String dashboardUrl;
   int dashboardPort;
+  uint64_t dashboardRate;
 };
 
 void fetchBinaryData(const Configuration &config);
-void startDeepSleep();
+void startDeepSleep(const Configuration &config);
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
 void clearConfiguration();
@@ -67,48 +67,43 @@ bool connectToWiFi(const Configuration &config);
 bool isResetRequested();
 void resetDevice();
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
-  hspi.begin(13, 12, 14, 15); // remap hspi for EPD (swap pins)
+  hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
   display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
 
-  if (isResetRequested())
-  {
+  if (isResetRequested()) {
     Serial.println("Resetting device");
     resetDevice();
   }
 
   const auto configuration = getConfiguration();
-  if (!configuration.has_value())
-  {
+  if (!configuration.has_value()) {
     createConfiguration();
+    return;
   }
 
-  if (connectToWiFi(configuration.value()))
-  {
+  if (connectToWiFi(configuration.value())) {
     fetchBinaryData(configuration.value());
   }
 
   display.refresh();
   display.powerOff();
 
-  startDeepSleep();
+  startDeepSleep(configuration.value());
 }
 
-void loop()
-{
-  // This function will not be reached
+void loop() {
+  // This function should not be reached. Restarting in case this happened.
+  ESP.restart();
 }
 
-void fetchBinaryData(const Configuration &config)
-{
+void fetchBinaryData(const Configuration &config) {
   Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
-  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort))
-  {
+  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
     Serial.println("Failed to connect to the remote server...");
     return;
   }
@@ -117,27 +112,23 @@ void fetchBinaryData(const Configuration &config)
   Serial.println("Sending request...");
 
   client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
-  client.println(); // This line sends the request
+  client.println();  // This line sends the request
 
   bool connection_ok = false;
-  while (client.connected())
-  {
+  while (client.connected()) {
     String line = client.readStringUntil('\n');
     Serial.println(line);
 
-    if (!connection_ok)
-    {
+    if (!connection_ok) {
       connection_ok = line.startsWith("HTTP/1.1 200 OK");
     }
 
-    if (line == "\r")
-    { // Headers end with an empty line
+    if (line == "\r") {  // Headers end with an empty line
       break;
     }
   }
 
-  if (!connection_ok)
-  {
+  if (!connection_ok) {
     Serial.println("The request was not successful...");
     return;
   }
@@ -145,10 +136,8 @@ void fetchBinaryData(const Configuration &config)
   int16_t x = 0;
   int16_t y = 0;
 
-  while ((client.connected() || client.available()) && y < displayHeight)
-  {
-    for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++)
-    {
+  while ((client.connected() || client.available()) && y < displayHeight) {
+    for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++) {
       uint8_t blackPixel = client.read();
       uint8_t redPixel = client.read();
       epd_bitmap_BW[pixelCount] = blackPixel;
@@ -164,33 +153,31 @@ void fetchBinaryData(const Configuration &config)
   client.stop();
 }
 
-void startDeepSleep()
-{
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_SEC * USEC_TO_SEC_FACTOR);
+void startDeepSleep(const Configuration &config) {
+  esp_sleep_enable_timer_wakeup(config.dashboardRate * USEC_TO_SEC_FACTOR);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
   rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
   esp_deep_sleep_start();
 }
 
-std::optional<Configuration> getConfiguration()
-{
+std::optional<Configuration> getConfiguration() {
   Preferences preferences{};
   preferences.begin(CONFIGURATION_NAMESPACE, true);
   Configuration configuration{
-      preferences.getString(CONFIGURATION_SSID, ""),
-      preferences.getString(CONFIGURATION_PASSWORD, ""),
-      preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
-      preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80)};
+    preferences.getString(CONFIGURATION_SSID, ""),
+    preferences.getString(CONFIGURATION_PASSWORD, ""),
+    preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
+    preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80)
+  };
   preferences.end();
 
   return configuration.ssid.length() == 0 || configuration.dashboardUrl.length() == 0
-             ? std::nullopt
-             : std::make_optional(configuration);
+           ? std::nullopt
+           : std::make_optional(configuration);
 }
 
-void storeConfiguration(const Configuration &config)
-{
+void storeConfiguration(const Configuration &config) {
   Preferences preferences{};
   preferences.begin(CONFIGURATION_NAMESPACE, false);
   preferences.putString(CONFIGURATION_SSID, config.ssid);
@@ -200,116 +187,158 @@ void storeConfiguration(const Configuration &config)
   preferences.end();
 }
 
-void clearConfiguration()
-{
+void clearConfiguration() {
   Preferences preferences{};
   preferences.begin(CONFIGURATION_NAMESPACE, false);
   preferences.clear();
   preferences.end();
 }
 
-void createConfiguration()
-{
+void createConfiguration() {
   WiFi.softAP("EPaperDashboard-AP");
   Serial.print("AP IP address: ");
   Serial.println(WiFi.softAPIP());
 
   WebServer server(80);
-
-  server.on("/", [&server]()
-            {
-  const char* htmlForm = R"rawliteral(
+  const char *htmlForm = R"rawliteral(
     <!DOCTYPE html>
     <html lang="en">
+
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>E-Paper Dashboard Setup</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     </head>
+
     <body>
 
-    <div class="container mt-5">
-        <h2 class="text-center">E-Paper Dashboard Setup</h2>
+        <div class="container mt-5">
+            <h2 class="text-center">E-Paper Dashboard Setup</h2>
 
-        <form action="/submit" method="post">
-            <div class="card mb-3">
-                <div class="card-header">WLAN Setup</div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="ssid" class="form-label">SSID</label>
-                        <input type="text" class="form-control" name="ssid" id="ssid" placeholder="Enter SSID ...">
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" name="password" id="password" placeholder="Enter password ...">
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mb-3">
-                <div class="card-header">Dashboard Proider</div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="dashboard_url" class="form-label">Url</label>
-                        <input type="text" class="form-control" name="dashboard_url" id="dashboard_url" placeholder="Enter url ...">
-                    </div>
-                    <div class="mb-3">
-                        <label for="dashboard_port" class="form-label">Phone Number</label>
-                        <input type="text" class="form-control" name="dashboard_port" id="dashboard_port" placeholder="Enter port ...">
+            <form action="/submit" method="post">
+                <div class="card mb-3">
+                    <div class="card-header">WLAN Setup</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="ssid" class="form-label">SSID</label>
+                            <input type="text" class="form-control" name="ssid" id="ssid" placeholder="Enter SSID ...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" name="password" id="password"
+                                placeholder="Enter password ...">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <button type="submit" class="btn btn-primary w-100">Apply</button>
-        </form>
-    </div>
+                <div class="card mb-3">
+                    <div class="card-header">Dashboard Provider</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="dashboard_url" class="form-label">Url</label>
+                            <input type="text" class="form-control" name="dashboard_url" id="dashboard_url"
+                                placeholder="Enter url ...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="dashboard_port" class="form-label">Port</label>
+                            <input type="text" class="form-control" name="dashboard_port" id="dashboard_port"
+                                placeholder="Enter port ...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="time-period" class="form-label">Select Refresh Rate:</label>
+                            <div class="input-group" id="time-period">
+                                <input type="number" class="form-control" name="dashboard_rate" id="dashboard_rate" min="1" max="60"
+                                    placeholder="Enter number ...">
+                                <select class="form-select" name="dashboard_rate_unit" id="dashboard_rate_unit">
+                                    <option value="s">Seconds</option>
+                                    <option value="m">Minutes</option>
+                                    <option value="h">Hours</option>
+                                    <option value="d">Days</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+                <button type="submit" class="btn btn-primary w-100">Apply</button>
+            </form>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
+
     </html>
     )rawliteral";
-  server.send(200, "text/html", htmlForm); });
+  server.on("/", [&server, htmlForm]() {
+    server.send(200, "text/html", htmlForm);
+  });
 
-  server.on("/submit", HTTP_POST, [&server]()
-            {
+  server.on("/submit", HTTP_POST, [&server, htmlForm]() {
+    const String ssidParam{ "ssid" };
+    const String passParam{ "password" };
+    const String urlParam{ "dashboard_url" };
+    const String portParam{ "dashboard_port" };
+    const String rateParam{ "dashboard_rate" };
+    const String rateUnitParam{ "dashboard_rate_unit" };
+    if (!server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || !server.hasArg(portParam) || !server.hasArg(rateParam) || !server.hasArg(rateUnitParam)) {
+      server.send(400, "text/html", htmlForm);
+      return;
+    }
+    
+    const String ssid{ server.arg(ssidParam) };
+    const String pass{ server.arg(passParam) };
+    const String url{ server.arg(urlParam) };
+    const int port{ server.arg(portParam).toInt() };
+    const uint64_t rate{ server.arg(rateParam).toInt() };
+    const String unit{ server.arg(rateUnitParam) };
+
+    int32_t unitMultiplier{ 1 };
+    if (unit.equals("m")) {
+      unitMultiplier *= 60;
+    } else if (unit.equals("h")) {
+      unitMultiplier *= 3600;
+    } else if (unit.equals("d")) {
+      unitMultiplier *= (3600 * 24);
+    }
+
+    const uint64_t dashboardRefreshRate = (rate + 1) * unitMultiplier;
+
     Configuration config{
-      server.arg("ssid"),
-      server.arg("password"),
-      server.arg("dashboard_url"),
-      server.arg("dashboard_port").toInt()
+      ssid,
+      pass,
+      url,
+      port,
+      dashboardRefreshRate
     };
     Serial.println("Received configuration...");
     storeConfiguration(config);
 
     server.send(200, "text/html", "Settings saved. Rebooting...");
     delay(1000);
-    ESP.restart(); });
+    ESP.restart();
+  });
 
   server.begin();
   Serial.println("HTTP server started");
 
-  while (true)
-  {
+  while (true) {
     server.handleClient();
     delay(2);
   }
 }
 
-bool connectToWiFi(const Configuration &config)
-{
+bool connectToWiFi(const Configuration &config) {
   Serial.println("Found stored configuration!");
   Serial.println("Connecting to WiFi");
   const auto maxConnectionTestRetries = 20;
   auto connectionTestRetry = 0;
   WiFi.begin(config.ssid.c_str(), config.password.c_str());
-  while (WiFi.status() != WL_CONNECTED && connectionTestRetry < maxConnectionTestRetries)
-  {
+  while (WiFi.status() != WL_CONNECTED && connectionTestRetry < maxConnectionTestRetries) {
     ++connectionTestRetry;
     delay(500);
   }
-  if (WiFi.status() != WL_CONNECTED)
-  {
+  if (WiFi.status() != WL_CONNECTED) {
     return false;
   }
 
@@ -319,20 +348,16 @@ bool connectToWiFi(const Configuration &config)
   return true;
 }
 
-bool isResetRequested()
-{
+bool isResetRequested() {
   pinMode(RESET_WAKEUP_PIN, INPUT_PULLDOWN);
-  if (digitalRead(RESET_WAKEUP_PIN) != HIGH)
-  {
+  if (digitalRead(RESET_WAKEUP_PIN) != HIGH) {
     return false;
   }
 
   const unsigned long pressStartTime = millis();
   const unsigned long requiredWaitingTime = RESET_REQUEST_TIMEOUT * 1000;
-  while (digitalRead(RESET_WAKEUP_PIN) == HIGH)
-  {
-    if (millis() - pressStartTime >= requiredWaitingTime)
-    {
+  while (digitalRead(RESET_WAKEUP_PIN) == HIGH) {
+    if (millis() - pressStartTime >= requiredWaitingTime) {
       return true;
     }
   }
@@ -340,8 +365,7 @@ bool isResetRequested()
   return false;
 }
 
-void resetDevice()
-{
+void resetDevice() {
   clearConfiguration();
   ESP.restart();
 }
