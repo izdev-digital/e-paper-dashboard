@@ -13,16 +13,19 @@ where TPixel : unmanaged, IPixel<TPixel>
 
     private ImageAdapter(Image<TPixel> image) => _image = image;
 
-    public static ImageAdapter<TPixel> Load(ReadOnlySpan<byte> data) => new(Image.Load<TPixel>(data));
+	public static ImageAdapter<TPixel> Load(ReadOnlySpan<byte> data)
+	{
+        var image = Image.Load(data);
+		return new(Image.Load<TPixel>(data));
+	}
 
-    public IImage Quantize(ReadOnlyMemory<Color> palette)
+	public IImage Quantize(ReadOnlyMemory<Color> palette)
     {
         _image.Mutate(x => x.Quantize(new PaletteQuantizer(
             palette,
             new QuantizerOptions
             {
-                Dither = KnownDitherings.Atkinson,
-                MaxColors = 3
+                Dither = KnownDitherings.JarvisJudiceNinke,
             })));
         return this;
     }

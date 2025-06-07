@@ -1,7 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SixLabors.ImageSharp;
 using EPaperDashboard.Services.Rendering;
 using SixLabors.ImageSharp.Processing;
+using System.ComponentModel.DataAnnotations;
+using EPaperDashboard.Utilities;
+using CSharpFunctionalExtensions;
+using EPaperDashboard.Models.Rendering;
+using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 
 namespace EPaperDashboard.Controllers;
 
@@ -9,65 +16,64 @@ namespace EPaperDashboard.Controllers;
 [Route("api/render")]
 public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
-    private readonly Uri _dashboardUri = new("https://localhost:7297/dashboard");
+	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
-    private readonly IPageToImageRenderingService _renderingService = renderingService;
+	[HttpGet("binary")]
+	public async Task<IActionResult> GetAsBinary([Required][FromQuery] Size imageSize) =>
+		await RenderPage(
+			imageSize,
+			image => image
+				.Quantize(Palettes.RedBlackWhite)
+				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal),
+			async (image, outStream) => await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder()),
+			"application/octet-stream");
 
-    [HttpGet]
-    [Route("binary")]
-    public async Task<IActionResult> GetAsText([FromQuery] ImageSizeDto imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
+	[HttpGet("converted")]
+	public async Task<IActionResult> GetAsConvertedsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
+	{
+		var (contentType, encoder) = GetEncoder(format);
+		return await RenderPage(
+			imageSize,
+			image => image
+				.Quantize(Palettes.RedBlackWhite),
+			async (image, outStream) => await image.SaveAsync(outStream, encoder),
+			contentType);
+	}
 
-        var palette = new[] { Color.Red, Color.Black, Color.White };
-        var image = imageResult.Value
-            .Quantize(palette)
-            .RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal);
+	[HttpGet("original")]
+	public async Task<IActionResult> GetAsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
+	{
+		var (contentType, encoder) = GetEncoder(format);
+		return await RenderPage(
+			imageSize,
+			image => image,
+			async (image, outStream) => await image.SaveAsync(outStream, encoder),
+			contentType);
+	}
 
-        var outStream = new MemoryStream();
-        await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder());
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "text/plain");
-    }
+	[HttpGet("health")]
+	public async Task<IActionResult> GetHealth() => 
+		Ok(await _renderingService.GetHealth());
 
-    [HttpGet]
-    [Route("converted")]
-    public async Task<IActionResult> GetAsConvertedsImage([FromQuery] ImageSizeDto imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
+	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
+		await _renderingService
+			.RenderPageAsync(imageSize)
+			.Map(convert)
+			.Match(
+				onSuccess: async image =>
+				{
+					var outStream = new MemoryStream();
+					await serialize(image, outStream);
+					outStream.Seek(0, SeekOrigin.Begin);
+					return (IActionResult)File(outStream, contentType);
+				},
+				onFailure: error => Task.FromResult<IActionResult>(Problem(error, statusCode: StatusCodes.Status400BadRequest)));
 
-        var palette = new[] { Color.Red, Color.Black, Color.White };
-        var image = imageResult.Value.Quantize(palette);
-        var outStream = new MemoryStream();
-        await image.SaveJpegAsync(outStream);
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "image/jpg");
-    }
-
-    [HttpGet]
-    [Route("original")]
-    public async Task<IActionResult> GetAsImage([FromQuery] ImageSizeDto imageSize)
-    {
-        var imageResult = await _renderingService.RenderPageAsync(_dashboardUri, new Models.Rendering.Size(imageSize.Width, imageSize.Height));
-        if (imageResult.IsFailed)
-        {
-            return NoContent();
-        }
-
-        var image = imageResult.Value;
-        var outStream = new MemoryStream();
-        await image.SaveJpegAsync(outStream);
-        outStream.Seek(0, SeekOrigin.Begin);
-        return File(outStream, "image/jpg");
-    }
+	private (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
+	{
+		"jpeg" => ("image/jpeg", new JpegEncoder()),
+		"bmp" => ("image/bmp", new BmpEncoder()),
+		"png" => ("image/png", new PngEncoder()),
+		_ => throw new NotSupportedException($"Format is not supported: {format}")
+	};
 }
-
-public record ImageSizeDto(int Width, int Height);
