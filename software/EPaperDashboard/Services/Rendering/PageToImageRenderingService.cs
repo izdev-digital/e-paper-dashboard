@@ -47,9 +47,10 @@ public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFac
 			"token_type" : "Bearer",
 			"hassUrl" : "{EnvironmentConfiguration.HassUri}"
 			""";
-		await page.EvaluateAsync($"localStorage.setItem('hassTokens', '{token}'");
+		await page.WaitForLoadStateAsync(LoadState.Load);
+		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
 		await page.ReloadAsync();
-
+		await page.WaitForLoadStateAsync(LoadState.Load);
 		var screenshot = await page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Jpeg });
 		var image = _imageFactory.Load(screenshot);
 		return Result.Success(image);

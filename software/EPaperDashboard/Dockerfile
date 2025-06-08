@@ -1,6 +1,6 @@
 #See https://aka.ms/customizecontainer to learn how to customize your debug container and how Visual Studio uses this Dockerfile to build your images for faster debugging.
 
-FROM mcr.microsoft.com/playwright/dotnet:v1.51.0-noble AS base
+FROM mcr.microsoft.com/playwright/dotnet:v1.52.0-noble AS base
 RUN apt-get update && apt-get install -y aspnetcore-runtime-8.0
 WORKDIR /app
 EXPOSE 8080
