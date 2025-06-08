@@ -57,7 +57,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 
 	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
 		await _renderingService
-			.RenderPageAsync(imageSize)
+			.RenderDashboardAsync(imageSize)
 			.Map(convert)
 			.Match(
 				onSuccess: async image =>

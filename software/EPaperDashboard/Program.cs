@@ -9,10 +9,9 @@ builder.Services.AddSwaggerGen();
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>()
-	.AddHttpClient(Constants.RendererHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.RendererUri);
+	.AddHttpClient(Constants.DashboardHttpClientName);
 
 var app = builder.Build();
-app.Logger.LogInformation("Renderer url:{0}", EnvironmentConfiguration.RendererUri);
 app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
 
 app.UseCors(builder => builder.WithOrigins("*"));
