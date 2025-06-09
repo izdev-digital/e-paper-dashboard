@@ -2,12 +2,18 @@
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Utilities;
 using Microsoft.Playwright;
+using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Rendering;
 
-public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFactory, IImageFactory imageFactory, ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
+public sealed class PageToImageRenderingService(
+	IHassRepository hassRepository,
+	IHttpClientFactory httpClientFactory,
+	IImageFactory imageFactory,
+	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
 {
-	private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly IHassRepository _hassRepository = hassRepository;
+    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 	private readonly IImageFactory _imageFactory = imageFactory;
 	private readonly ILogger<PageToImageRenderingService> _logger = logger;
 
@@ -42,11 +48,7 @@ public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFac
 
 		var page = await context.NewPageAsync();
 		await page.GotoAsync(EnvironmentConfiguration.DashboardUri.AbsoluteUri);
-		var token = $"""
-			"access_token" : "{EnvironmentConfiguration.HassToken}",
-			"token_type" : "Bearer",
-			"hassUrl" : "{EnvironmentConfiguration.HassUri}"
-			""";
+		var token = JsonConvert.SerializeObject(_hassRepository.RetrieveToken() ?? new Controllers.AccessTokenDto());
 		await page.WaitForLoadStateAsync(LoadState.Load);
 		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
 		await page.ReloadAsync();

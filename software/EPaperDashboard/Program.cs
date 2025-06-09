@@ -5,11 +5,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
-builder.Services.AddSwaggerGen(); 
+builder.Services.AddSwaggerGen();
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
-	.AddSingleton<IImageFactory, ImageFactory>()
-	.AddHttpClient(Constants.DashboardHttpClientName);
+	.AddSingleton<IImageFactory, ImageFactory>();
+
+builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
+builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.HassUri);
 
 var app = builder.Build();
 app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
