@@ -20,7 +20,7 @@ public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger
     {
         var query = HttpUtility.ParseQueryString(string.Empty);
         query.Add("client_id", EnvironmentConfiguration.ClientUri.AbsoluteUri);
-        query.Add("redirect_uri", new Uri(EnvironmentConfiguration.ClientUri, "hass/auth_callback").AbsoluteUri);
+        query.Add("redirect_uri", new Uri(EnvironmentConfiguration.ClientUri, "api/hass/auth_callback").AbsoluteUri);
         var authUri = new Uri(EnvironmentConfiguration.HassUri, $"auth/authorize?{query}");
         return Redirect(authUri.AbsoluteUri);
     }
