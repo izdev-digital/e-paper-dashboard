@@ -14,7 +14,7 @@ namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/render")]
-public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
+public sealed class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
