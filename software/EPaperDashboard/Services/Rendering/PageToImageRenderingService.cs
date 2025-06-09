@@ -53,6 +53,8 @@ public sealed class PageToImageRenderingService(
 		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
 		await page.ReloadAsync();
 		await page.WaitForLoadStateAsync(LoadState.Load);
+		await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+		await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 		var screenshot = await page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Jpeg });
 		var image = _imageFactory.Load(screenshot);
 		return Result.Success(image);
