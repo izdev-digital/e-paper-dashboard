@@ -53,8 +53,8 @@ public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger
             return null;
         }
 
-        tokens.ClientId = EnvironmentConfiguration.ClientUri.AbsoluteUri;
-        tokens.HassUrl = EnvironmentConfiguration.HassUri.AbsoluteUri;
+        tokens.ClientId = EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/');
+        tokens.HassUrl = EnvironmentConfiguration.HassUri.AbsoluteUri.TrimEnd('/');
         return tokens;
     }
 }
