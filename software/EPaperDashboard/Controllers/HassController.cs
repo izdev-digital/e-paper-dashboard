@@ -48,6 +48,14 @@ public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         _logger.LogInformation("Token received: {0}", json);
+        var tokens = JsonConvert.DeserializeObject<AccessTokenDto>(json);
+        if (tokens is null)
+        {
+            return null;
+        }
+        
+        tokens.ClientId = EnvironmentConfiguration.ClientUri.AbsoluteUri;
+        tokens.HassUrl = EnvironmentConfiguration.HassUri.AbsoluteUri;
         return JsonConvert.DeserializeObject<AccessTokenDto>(json);
     }
 }
@@ -65,4 +73,10 @@ public sealed class AccessTokenDto
 
     [JsonProperty("token_type")]
     public string? TokenType { get; set; }
+
+    [JsonProperty("hassUrl")]
+    public string? HassUrl { get; set; }
+
+    [JsonProperty("clientId")]
+    public string? ClientId { get; set; }
 }

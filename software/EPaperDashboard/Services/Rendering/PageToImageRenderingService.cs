@@ -53,7 +53,7 @@ public sealed class PageToImageRenderingService(
 		await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
 		await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
-		await page.ReloadAsync();
+		await page.GotoAsync(EnvironmentConfiguration.DashboardUri.AbsoluteUri);
 		await page.WaitForLoadStateAsync(LoadState.Load);
 		await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
 		await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
