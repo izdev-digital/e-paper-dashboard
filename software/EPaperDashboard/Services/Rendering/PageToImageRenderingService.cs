@@ -12,8 +12,8 @@ public sealed class PageToImageRenderingService(
 	IImageFactory imageFactory,
 	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
 {
-    private readonly IHassRepository _hassRepository = hassRepository;
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+	private readonly IHassRepository _hassRepository = hassRepository;
+	private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 	private readonly IImageFactory _imageFactory = imageFactory;
 	private readonly ILogger<PageToImageRenderingService> _logger = logger;
 
@@ -46,10 +46,12 @@ public sealed class PageToImageRenderingService(
 			}
 		});
 
+		var token = JsonConvert.SerializeObject(_hassRepository.RetrieveToken() ?? new Controllers.AccessTokenDto());
 		var page = await context.NewPageAsync();
 		await page.GotoAsync(EnvironmentConfiguration.DashboardUri.AbsoluteUri);
-		var token = JsonConvert.SerializeObject(_hassRepository.RetrieveToken() ?? new Controllers.AccessTokenDto());
 		await page.WaitForLoadStateAsync(LoadState.Load);
+		await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
+		await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
 		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
 		await page.ReloadAsync();
 		await page.WaitForLoadStateAsync(LoadState.Load);

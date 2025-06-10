@@ -8,7 +8,6 @@ using Newtonsoft.Json;
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
-[Route("api/hass")]
 public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger<HassController> logger, IHassRepository hassRepository) : ControllerBase
 {
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
@@ -20,7 +19,7 @@ public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger
     {
         var query = HttpUtility.ParseQueryString(string.Empty);
         query.Add("client_id", EnvironmentConfiguration.ClientUri.AbsoluteUri);
-        query.Add("redirect_uri", new Uri(EnvironmentConfiguration.ClientUri, "api/hass/auth_callback").AbsoluteUri);
+        query.Add("redirect_uri", new Uri(EnvironmentConfiguration.ClientUri, "auth_callback").AbsoluteUri);
         var authUri = new Uri(EnvironmentConfiguration.HassUri, $"auth/authorize?{query}");
         return Redirect(authUri.AbsoluteUri);
     }
@@ -48,7 +47,7 @@ public sealed class HassController(IHttpClientFactory httpClientFactory, ILogger
         var response = await httpClient.PostAsync("auth/token", content, cancellationToken);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-
+        _logger.LogInformation("Token received: {0}", json);
         return JsonConvert.DeserializeObject<AccessTokenDto>(json);
     }
 }
