@@ -1,4 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
+using EPaperDashboard.Controllers;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Utilities;
 using Microsoft.Playwright;
@@ -46,13 +47,20 @@ public sealed class PageToImageRenderingService(
 			}
 		});
 
-		var token = JsonConvert.SerializeObject(_hassRepository.RetrieveToken() ?? new Controllers.AccessTokenDto());
+		var token = new AccessTokenDto
+		{
+			AccessToken = EnvironmentConfiguration.HassToken,
+			ClientId = EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/'),
+			HassUrl = EnvironmentConfiguration.HassUri.AbsoluteUri.TrimEnd('/'),
+			TokenType = "Bearer"
+		};
+		var hassTokens = JsonConvert.SerializeObject(token);
 		var page = await context.NewPageAsync();
 		await page.GotoAsync(EnvironmentConfiguration.DashboardUri.AbsoluteUri);
 		await page.WaitForLoadStateAsync(LoadState.Load);
 		await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
 		await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", token);
+		await page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", hassTokens);
 		var feedback = await page.EvaluateAsync<string>("() => { return localStorage.getItem('hassTokens'); }");
 		_logger.LogInformation("Hass tokens from page: {0}", feedback);
 		await page.GotoAsync(EnvironmentConfiguration.DashboardUri.AbsoluteUri);
