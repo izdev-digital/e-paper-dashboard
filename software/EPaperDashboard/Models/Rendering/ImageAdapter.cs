@@ -2,6 +2,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Dithering;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
 namespace EPaperDashboard.Models.Rendering;
@@ -13,20 +14,15 @@ where TPixel : unmanaged, IPixel<TPixel>
 
     private ImageAdapter(Image<TPixel> image) => _image = image;
 
-	public static ImageAdapter<TPixel> Load(ReadOnlySpan<byte> data)
-	{
-        var image = Image.Load(data);
-		return new(Image.Load<TPixel>(data));
-	}
-
-	public IImage Quantize(ReadOnlyMemory<Color> palette)
+    public static ImageAdapter<TPixel> Load(ReadOnlySpan<byte> data)
     {
-        _image.Mutate(x => x.Quantize(new PaletteQuantizer(
-            palette,
-            new QuantizerOptions
-            {
-                Dither = KnownDitherings.JarvisJudiceNinke,
-            })));
+        var image = Image.Load(data);
+        return new(Image.Load<TPixel>(data));
+    }
+
+    public IImage Quantize(ReadOnlyMemory<Color> palette, IDither? dither)
+    {
+        _image.Mutate(x => x.Quantize(new PaletteQuantizer(palette, new QuantizerOptions { Dither = dither })));
         return this;
     }
 
