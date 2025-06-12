@@ -1,4 +1,3 @@
-using EPaperDashboard.Services;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Utilities;
 
@@ -9,7 +8,6 @@ builder.Services.AddControllers();
 builder.Services.AddSwaggerGen();
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
-	.AddSingleton<IHassRepository, HassRepository>()
 	.AddSingleton<IImageFactory, ImageFactory>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);

@@ -1,5 +1,5 @@
 ﻿using CSharpFunctionalExtensions;
-using EPaperDashboard.Controllers;
+using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Utilities;
 using Microsoft.Playwright;
@@ -8,12 +8,10 @@ using Newtonsoft.Json;
 namespace EPaperDashboard.Services.Rendering;
 
 public sealed class PageToImageRenderingService(
-	IHassRepository hassRepository,
 	IHttpClientFactory httpClientFactory,
 	IImageFactory imageFactory,
 	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
 {
-	private readonly IHassRepository _hassRepository = hassRepository;
 	private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 	private readonly IImageFactory _imageFactory = imageFactory;
 	private readonly ILogger<PageToImageRenderingService> _logger = logger;
@@ -47,7 +45,7 @@ public sealed class PageToImageRenderingService(
 			}
 		});
 
-		var token = new AccessTokenDto
+		var token = new HassTokens
 		{
 			AccessToken = EnvironmentConfiguration.HassToken,
 			ClientId = EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/'),
