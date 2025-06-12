@@ -1,11 +1,15 @@
 ﻿using CSharpFunctionalExtensions;
+using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Utilities;
-using System.Text;
+using Microsoft.Playwright;
 
 namespace EPaperDashboard.Services.Rendering;
 
-public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFactory, IImageFactory imageFactory, ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
+public sealed class PageToImageRenderingService(
+	IHttpClientFactory httpClientFactory,
+	IImageFactory imageFactory,
+	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
 {
 	private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 	private readonly IImageFactory _imageFactory = imageFactory;
@@ -15,12 +19,6 @@ public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFac
 	{
 		var httpClient = _httpClientFactory.CreateClient();
 		httpClient.Timeout = TimeSpan.FromSeconds(10);
-		var rendererHealth = await Result.Try(async () =>
-		{
-			var rendererHealthUri = new Uri(EnvironmentConfiguration.RendererUri, "health");
-			var rendererResponse = await httpClient.GetAsync(rendererHealthUri);
-			return rendererResponse.IsSuccessStatusCode;
-		});
 
 		var dashboardHealth = await Result.Try(async () =>
 		{
@@ -28,37 +26,37 @@ public sealed class PageToImageRenderingService(IHttpClientFactory httpClientFac
 			return dashboardResponse.IsSuccessStatusCode;
 		});
 
-		rendererHealth.TapError(error => _logger.LogError(error));
 		dashboardHealth.TapError(error => _logger.LogError(error));
 
-		return new Health(
-			rendererHealth.GetValueOrDefault(), 
-			dashboardHealth.GetValueOrDefault());
+		return new Health(true, dashboardHealth.GetValueOrDefault());
 	}
 
-	public async Task<Result<IImage>> RenderPageAsync(Size size)
+	public Task<Result<IImage>> RenderDashboardAsync(Size size) => Result.Try(async () =>
 	{
-		var payload = $$"""
-            {
-                "url": "{{EnvironmentConfiguration.DashboardUri}}",
-                "format": "jpeg",
-                "window_width": {{size.Width}},
-                "window_height": {{size.Height}},
-                "pixel_density": 1
-            }
-            """;
-
-		var httpClient = _httpClientFactory.CreateClient(Constants.RendererHttpClientName);
-		var content = new StringContent(payload, Encoding.UTF8, "application/json");
-		var response = await httpClient.PostAsync("capture", content);
-		if (!response.IsSuccessStatusCode)
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync();
+		var context = await browser.NewContextAsync(new BrowserNewContextOptions
 		{
-			var error = await response.Content.ReadAsStringAsync();
-			return Result.Failure<IImage>(error);
-		}
+			ViewportSize = new ViewportSize
+			{
+				Width = size.Width,
+				Height = size.Height
+			}
+		});
 
-		var bytes = await response.Content.ReadAsByteArrayAsync();
-		var image = _imageFactory.Load(bytes);
-		return Result.Success(image);
-	}
+        var page = await context.NewPageAsync();
+		var dashboardPage = new DashboardPage(page, EnvironmentConfiguration.DashboardUri);
+		await dashboardPage.EnsureNavigatedAsync();
+		await dashboardPage.SetToken(GetToken());
+		await dashboardPage.EnsureNavigatedAsync();
+
+		var screenshot = await dashboardPage.TakeScreenshotAsync();
+        return _imageFactory.Load(screenshot);
+	});
+
+	private static HassTokens GetToken() => new(
+		EnvironmentConfiguration.HassToken,
+		"Bearer",
+		EnvironmentConfiguration.HassUri.AbsoluteUri.TrimEnd('/'),
+		EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/'));
 }

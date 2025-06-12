@@ -5,14 +5,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
-builder.Services.AddSwaggerGen(); 
+builder.Services.AddSwaggerGen();
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
-	.AddSingleton<IImageFactory, ImageFactory>()
-	.AddHttpClient(Constants.RendererHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.RendererUri);
+	.AddSingleton<IImageFactory, ImageFactory>();
+
+builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
+builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.HassUri);
 
 var app = builder.Build();
-app.Logger.LogInformation("Renderer url:{0}", EnvironmentConfiguration.RendererUri);
 app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
 
 app.UseCors(builder => builder.WithOrigins("*"));
@@ -30,7 +31,6 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
-
-app.MapControllerRoute(name: "default", pattern: "{controller}/{action=Index}/{id?}");
+app.MapControllers();
 
 app.Run();

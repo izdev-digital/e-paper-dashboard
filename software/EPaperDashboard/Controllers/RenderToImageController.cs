@@ -14,7 +14,7 @@ namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/render")]
-public class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
+public sealed class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
@@ -57,7 +57,7 @@ public class RenderToImageController(IPageToImageRenderingService renderingServi
 
 	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
 		await _renderingService
-			.RenderPageAsync(imageSize)
+			.RenderDashboardAsync(imageSize)
 			.Map(convert)
 			.Match(
 				onSuccess: async image =>
