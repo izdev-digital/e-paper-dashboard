@@ -24,14 +24,13 @@ public sealed class RenderToImageController(IPageToImageRenderingService renderi
 		[Required][FromQuery] Size imageSize,
 		[FromQuery] bool shouldDither = false)
 	{
+		var (contentType, encoder) = GetEncoder("bin");
 		return await _renderingService
 			.RenderDashboardAsync(imageSize)
 			.Map(image => image
 				.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
 				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal))
-			.Match(
-				async image => await ConvertToResult(image, new BlackRedWhiteBinaryEncoder(), "application/octet-stream"),
-				ConvertToError);
+			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
 	}
 
 	[HttpGet("converted")]
@@ -73,11 +72,12 @@ public sealed class RenderToImageController(IPageToImageRenderingService renderi
 
 	private Task<IActionResult> ConvertToError(string error) => Task.FromResult<IActionResult>(BadRequest(error));
 
-	private (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
+	private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
 	{
 		"jpeg" => ("image/jpeg", new JpegEncoder()),
 		"bmp" => ("image/bmp", new BmpEncoder()),
 		"png" => ("image/png", new PngEncoder()),
+		"bin" => ("application/octet-stream", new BlackRedWhiteBinaryEncoder()),
 		_ => throw new NotSupportedException($"Format is not supported: {format}")
 	};
 }
