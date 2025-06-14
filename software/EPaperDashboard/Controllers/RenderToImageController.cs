@@ -9,6 +9,7 @@ using SixLabors.ImageSharp.Formats.Bmp;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Processing.Processors.Dithering;
 
 namespace EPaperDashboard.Controllers;
 
@@ -19,61 +20,64 @@ public sealed class RenderToImageController(IPageToImageRenderingService renderi
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
 
 	[HttpGet("binary")]
-	public async Task<IActionResult> GetAsBinary([Required][FromQuery] Size imageSize) =>
-		await RenderPage(
-			imageSize,
-			image => image
-				.Quantize(Palettes.RedBlackWhite)
-				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal),
-			async (image, outStream) => await image.SaveAsync(outStream, new BlackRedWhiteBinaryEncoder()),
-			"application/octet-stream");
+	public async Task<IActionResult> GetAsBinary(
+		[Required][FromQuery] Size imageSize,
+		[FromQuery] bool shouldDither = false)
+	{
+		var (contentType, encoder) = GetEncoder("bin");
+		return await _renderingService
+			.RenderDashboardAsync(imageSize)
+			.Map(image => image
+				.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
+				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal))
+			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+	}
 
 	[HttpGet("converted")]
-	public async Task<IActionResult> GetAsConvertedsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
+	public async Task<IActionResult> GetAsConvertedsImage(
+		[Required][FromQuery] Size imageSize,
+		[FromQuery] string format = "jpeg",
+		[FromQuery] bool shouldDither = false)
 	{
 		var (contentType, encoder) = GetEncoder(format);
-		return await RenderPage(
-			imageSize,
-			image => image
-				.Quantize(Palettes.RedBlackWhite),
-			async (image, outStream) => await image.SaveAsync(outStream, encoder),
-			contentType);
+		return await _renderingService
+			.RenderDashboardAsync(imageSize)
+			.Map(image => image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)))
+			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
 	}
 
 	[HttpGet("original")]
-	public async Task<IActionResult> GetAsImage([Required][FromQuery] Size imageSize, [Required][FromQuery] string format)
+	public async Task<IActionResult> GetAsImage(
+		[Required][FromQuery] Size imageSize,
+		[FromQuery] string format = "jpeg")
 	{
 		var (contentType, encoder) = GetEncoder(format);
-		return await RenderPage(
-			imageSize,
-			image => image,
-			async (image, outStream) => await image.SaveAsync(outStream, encoder),
-			contentType);
+		return await _renderingService
+			.RenderDashboardAsync(imageSize)
+			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
 	}
 
 	[HttpGet("health")]
-	public async Task<IActionResult> GetHealth() => 
-		Ok(await _renderingService.GetHealth());
+	public async Task<IActionResult> GetHealth() => Ok(await _renderingService.GetHealth());
 
-	private async Task<IActionResult> RenderPage(Size imageSize, Func<IImage, IImage> convert, Func<IImage, MemoryStream, Task> serialize, string contentType) =>
-		await _renderingService
-			.RenderDashboardAsync(imageSize)
-			.Map(convert)
-			.Match(
-				onSuccess: async image =>
-				{
-					var outStream = new MemoryStream();
-					await serialize(image, outStream);
-					outStream.Seek(0, SeekOrigin.Begin);
-					return (IActionResult)File(outStream, contentType);
-				},
-				onFailure: error => Task.FromResult<IActionResult>(Problem(error, statusCode: StatusCodes.Status400BadRequest)));
+	private static IDither? GetDither(bool shouldDither) => shouldDither ? KnownDitherings.JarvisJudiceNinke : null;
 
-	private (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
+	private async Task<IActionResult> ConvertToResult(IImage image, IImageEncoder encoder, string contentType)
+	{
+		var outStream = new MemoryStream();
+		await image.SaveAsync(outStream, encoder);
+		outStream.Seek(0, SeekOrigin.Begin);
+		return File(outStream, contentType);
+	}
+
+	private Task<IActionResult> ConvertToError(string error) => Task.FromResult<IActionResult>(BadRequest(error));
+
+	private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
 	{
 		"jpeg" => ("image/jpeg", new JpegEncoder()),
 		"bmp" => ("image/bmp", new BmpEncoder()),
 		"png" => ("image/png", new PngEncoder()),
+		"bin" => ("application/octet-stream", new BlackRedWhiteBinaryEncoder()),
 		_ => throw new NotSupportedException($"Format is not supported: {format}")
 	};
 }
