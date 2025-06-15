@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
+builder.Services.AddRazorPages();
 builder.Services.AddSwaggerGen();
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
@@ -32,5 +33,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.MapControllers();
+app.UseStaticFiles();
+app.MapRazorPages();
 
 app.Run();
