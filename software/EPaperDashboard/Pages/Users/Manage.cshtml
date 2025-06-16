@@ -1,0 +1,56 @@
+@page
+@model EPaperDashboard.Pages.Users.ManageModel
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<h2>User Management</h2>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Superuser</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var user in Model.Users)
+    {
+        <tr>
+            <td>@user.Username</td>
+            <td>@(user.IsSuperUser ? "Yes" : "No")</td>
+            <td>
+                @if (!user.IsSuperUser)
+                {
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@user.Id" style="display:inline">
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+<h3>Add New User</h3>
+<form method="post" asp-page-handler="Add">
+    <div class="mb-3">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" asp-for="NewUsername" required />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" asp-for="NewPassword" required />
+    </div>
+    <button type="submit" class="btn btn-success">Add User</button>
+</form>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger mt-3">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success mt-3">@Model.SuccessMessage</div>
+}

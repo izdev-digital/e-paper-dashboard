@@ -29,7 +29,7 @@ using (var scope = app.Services.CreateScope())
 	var userService = scope.ServiceProvider.GetRequiredService<UserService>();
 	if (!userService.HasSuperUser())
 	{
-		userService.CreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
+		userService.TryCreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
 	}
 }
 

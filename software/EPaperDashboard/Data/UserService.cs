@@ -1,5 +1,4 @@
 using EPaperDashboard.Models;
-using LiteDB;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -9,17 +8,24 @@ public class UserService(LiteDbContext dbContext)
 {
     private readonly LiteDbContext _dbContext = dbContext;
 
-    public User? GetUserByUsername(string username) =>
-        _dbContext.Users.FindOne(u => u.Username == username);
+    public User? GetUserByUsername(string username) => _dbContext.Users.FindOne(u => u.Username == username);
 
-    public bool HasSuperUser() =>
-        _dbContext.Users.Exists(u => u.IsSuperUser);
+    public bool HasSuperUser() => _dbContext.Users.Exists(u => u.IsSuperUser);
+
+    public List<User> GetAllUsers() => [.. _dbContext.Users.FindAll()];
+
+    public bool TryDeleteUser(int id)
+    {
+        return _dbContext.Users.FindById(id) is User user
+            && !user.IsSuperUser
+            && _dbContext.Users.Delete(id);
+    }
 
     public bool IsUserValid(string username, string password) =>
         GetUserByUsername(username) is User user &&
         user.PasswordHash == ComputeSha256Hash(password);
 
-    public bool CreateUser(string username, string password, bool isSuperUser = false)
+    public bool TryCreateUser(string username, string password, bool isSuperUser = false)
     {
         if (_dbContext.Users.Exists(u => u.Username == username))
         {

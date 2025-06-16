@@ -1,0 +1,55 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using EPaperDashboard.Data;
+using EPaperDashboard.Models;
+using System.Collections.Immutable;
+
+namespace EPaperDashboard.Pages.Users;
+
+public class ManageModel(UserService userService) : PageModel
+{
+    private readonly UserService _userService = userService;
+
+    public List<User> Users { get; set; } = [];
+
+    [BindProperty]
+    public string NewUsername { get; set; } = string.Empty;
+    [BindProperty]
+    public string NewPassword { get; set; } = string.Empty;
+
+    public string? ErrorMessage { get; set; }
+    public string? SuccessMessage { get; set; }
+
+    public void OnGet()
+    {
+        Users = _userService.GetAllUsers();
+    }
+
+    public IActionResult OnPostAdd()
+    {
+        if (_userService.TryCreateUser(NewUsername, NewPassword))
+        {
+            SuccessMessage = "User added successfully.";
+        }
+        else
+        {
+            ErrorMessage = "User already exists.";
+        }
+        Users = _userService.GetAllUsers();
+        return Page();
+    }
+
+    public IActionResult OnPostDelete(int id)
+    {
+        if (_userService.TryDeleteUser(id))
+        {
+            SuccessMessage = "User deleted.";
+        }
+        else
+        {
+            ErrorMessage = "Cannot delete user.";
+        }
+        Users = _userService.GetAllUsers();
+        return Page();
+    }
+}

@@ -27,7 +27,7 @@ public class LoginModel(UserService userService) : PageModel
 
     public IActionResult OnPostRegister()
     {
-        if (_userService.CreateUser(Username, Password))
+        if (_userService.TryCreateUser(Username, Password))
         {
             // TODO: Set authentication cookie/session
             return RedirectToPage("/Home");
