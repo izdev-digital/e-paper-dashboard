@@ -1,0 +1,20 @@
+@page
+@model EPaperDashboard.Pages.RegisterModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center">Register</h2>
+    <form method="post" class="w-50 mx-auto">
+        <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-control" asp-for="Username" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" asp-for="Password" required>
+        </div>
+        <button type="submit" class="btn btn-success w-100">Register</button>
+    </form>
+</div>

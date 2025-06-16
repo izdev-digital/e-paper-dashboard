@@ -43,6 +43,26 @@ public class UserService(LiteDbContext dbContext)
         return true;
     }
 
+    public bool ChangeUsername(string currentUsername, string newUsername)
+    {
+        if (string.IsNullOrWhiteSpace(newUsername) || _dbContext.Users.Exists(u => u.Username == newUsername))
+            return false;
+        var user = _dbContext.Users.FindOne(u => u.Username == currentUsername);
+        if (user == null)
+            return false;
+        user.Username = newUsername;
+        _dbContext.Users.Update(user);
+        return true;
+    }
+
+    public bool DeleteUserByUsername(string username)
+    {
+        var user = _dbContext.Users.FindOne(u => u.Username == username);
+        if (user == null || user.IsSuperUser)
+            return false;
+        return _dbContext.Users.Delete(user.Id);
+    }
+
     public static string ComputeSha256Hash(string rawData)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawData));

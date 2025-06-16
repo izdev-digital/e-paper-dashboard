@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace EPaperDashboard.Pages;
 
@@ -14,25 +17,22 @@ public class LoginModel(UserService userService) : PageModel
     [BindProperty]
     public string Password { get; set; } = string.Empty;
 
-    public IActionResult OnPostLogin()
+    public async Task<IActionResult> OnPostAsync()
     {
-        if (_userService.IsUserValid(Username, Password))
+        var user = _userService.GetUserByUsername(Username);
+        if (user != null && _userService.IsUserValid(Username, Password))
         {
-            // TODO: Set authentication cookie/session
-            return RedirectToPage("/Home");
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, user.Username),
+                new("IsSuperUser", user.IsSuperUser.ToString().ToLower())
+            };
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+            await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+            return RedirectToPage("/Index");
         }
         ModelState.AddModelError(string.Empty, "Invalid username or password.");
-        return Page();
-    }
-
-    public IActionResult OnPostRegister()
-    {
-        if (_userService.TryCreateUser(Username, Password))
-        {
-            // TODO: Set authentication cookie/session
-            return RedirectToPage("/Home");
-        }
-        ModelState.AddModelError(string.Empty, "User already exists.");
         return Page();
     }
 }

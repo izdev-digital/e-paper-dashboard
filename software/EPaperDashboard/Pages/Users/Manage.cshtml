@@ -1,5 +1,7 @@
 @page
 @model EPaperDashboard.Pages.Users.ManageModel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Policy = "SuperUserOnly")]
 @{
     ViewData["Title"] = "User Management";
 }

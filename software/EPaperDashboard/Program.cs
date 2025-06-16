@@ -1,6 +1,7 @@
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,17 @@ builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.Ba
 var dbPath = Path.Combine(AppContext.BaseDirectory, "epaperdashboard.db");
 builder.Services.AddSingleton(new LiteDbContext(dbPath));
 builder.Services.AddSingleton<UserService>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Login";
+        options.LogoutPath = "/Logout";
+        options.AccessDeniedPath = "/AccessDenied";
+    });
+
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("SuperUserOnly", policy => policy.RequireClaim("IsSuperUser", "true"));
 
 var app = builder.Build();
 app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
@@ -48,6 +60,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.UseStaticFiles();
 app.MapRazorPages();
