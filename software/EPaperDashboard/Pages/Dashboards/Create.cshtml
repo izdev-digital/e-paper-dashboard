@@ -1,0 +1,44 @@
+@page
+@model EPaperDashboard.Pages.Dashboards.CreateModel
+@{
+    ViewData["Title"] = "Create Dashboard";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center">Create Dashboard</h2>
+    <form method="post" class="w-50 mx-auto">
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" asp-for="Name" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Description (optional)</label>
+            <input type="text" class="form-control" asp-for="Description">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">API Key</label>
+            <div class="input-group">
+                <input type="text" class="form-control" asp-for="ApiKey" required readonly>
+                <button type="button" class="btn btn-outline-secondary" onclick="generateApiKey()">
+                    <i class="fa-solid fa-arrows-rotate"></i> Generate
+                </button>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Create</button>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        function generateApiKey() {
+            // Simple random API key generator
+            const key = [...Array(32)].map(() => Math.random().toString(36)[2]).join('');
+            document.querySelector('[name="ApiKey"]').value = key;
+        }
+        // Auto-generate API key on page load if empty
+        document.addEventListener('DOMContentLoaded', function() {
+            const apiKeyInput = document.querySelector('[name="ApiKey"]');
+            if (!apiKeyInput.value) generateApiKey();
+        });
+    </script>
+}
