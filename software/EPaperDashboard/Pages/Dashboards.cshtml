@@ -1,0 +1,59 @@
+﻿@page
+@model EPaperDashboard.Pages.DashboardsModel
+@{
+    ViewData["Title"] = "Dashboards";
+}
+
+<h1>Dashboards</h1>
+
+<p>
+    <a asp-page="/Dashboards/Create" class="btn btn-primary">Create New Dashboard</a>
+</p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>API Key</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    @if (Model.Dashboards != null && Model.Dashboards.Any())
+    {
+        foreach (var dashboard in Model.Dashboards)
+        {
+            <tr>
+                <td>@dashboard.Name</td>
+                <td>@dashboard.Description</td>
+                <td>
+                    <span id="api-key-@dashboard.Id">@dashboard.ApiKey</span>
+                    <button class="btn btn-outline-secondary btn-sm ms-2" title="Copy API Key" onclick="copyApiKey('@dashboard.Id')">
+                        <i class="fa-regular fa-clipboard"></i>
+                    </button>
+                </td>
+                <td>
+                    <a asp-page="/Dashboards/Edit" asp-route-id="@dashboard.Id" class="btn btn-sm btn-warning">Edit</a>
+                    <a asp-page="/Dashboards/Delete" asp-route-id="@dashboard.Id" class="btn btn-sm btn-danger">Delete</a>
+                </td>
+            </tr>
+        }
+    }
+    else
+    {
+        <tr><td colspan="4">No dashboards found.</td></tr>
+    }
+    </tbody>
+</table>
+
+@section Scripts {
+    <script>
+        function copyApiKey(id) {
+            var apiKey = document.getElementById('api-key-' + id).innerText;
+            navigator.clipboard.writeText(apiKey).then(function() {
+                // Optionally, show a tooltip or notification
+            });
+        }
+    </script>
+}
