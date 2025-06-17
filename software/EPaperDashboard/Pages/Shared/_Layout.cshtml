@@ -29,7 +29,7 @@
                         @{
                             var userService = Context.RequestServices.GetService(typeof(EPaperDashboard.Data.UserService))
                             as EPaperDashboard.Data.UserService;
-                            var user = userService?.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+                            var user = userService?.GetUserByUsername(User.Identity?.Name ?? string.Empty).GetValueOrDefault();
                         }
                         @if (user?.IsSuperUser == true)
                         {

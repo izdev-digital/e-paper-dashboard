@@ -1,3 +1,4 @@
+using CSharpFunctionalExtensions;
 using EPaperDashboard.Models;
 using LiteDB;
 using System.Security.Cryptography;
@@ -5,33 +6,40 @@ using System.Text;
 
 namespace EPaperDashboard.Data;
 
-public class UserService(LiteDbContext dbContext)
+public sealed class UserService(LiteDbContext dbContext)
 {
     private readonly LiteDbContext _dbContext = dbContext;
 
-    public User? GetUserByUsername(string username) => _dbContext.Users.FindOne(u => u.Username == username);
+    public Maybe<User> GetUserByUsername(string username) =>
+        _dbContext.Users.FindOne(u => u.Username == username);
 
-    public bool HasSuperUser() => _dbContext.Users.Exists(u => u.IsSuperUser);
+    public bool HasSuperUser() =>
+        _dbContext.Users.Exists(u => u.IsSuperUser);
 
-    public List<User> GetAllUsers() => [.. _dbContext.Users.FindAll()];
+    public List<User> GetAllUsers() =>
+        [.. _dbContext.Users.FindAll()];
 
-    private void DeleteDashboardsForUser(ObjectId userId)
-    {
-        _dbContext.Dashboards.DeleteMany(d => d.UserId == userId);
-    }
+    private void DeleteDashboardsForUser(User user) =>
+        _dbContext.Dashboards.DeleteMany(d => d.UserId == user.Id);
 
-    public bool TryDeleteUser(ObjectId id)
-    {
-        var user = _dbContext.Users.FindById(id);
-        if (user == null || user.IsSuperUser)
-            return false;
-        DeleteDashboardsForUser(user.Id);
-        return _dbContext.Users.Delete(id);
-    }
+    public bool TryDeleteUser(ObjectId id) =>
+        _dbContext.Users
+            .FindById(id).AsMaybe()
+            .Where(u => !u.IsSuperUser)
+            .Match(
+                u =>
+                {
+                    DeleteDashboardsForUser(u);
+                    _dbContext.Users.Delete(u.Id);
+                    return true;
+                },
+                () => false
+            );
 
     public bool IsUserValid(string username, string password) =>
-        GetUserByUsername(username) is User user &&
-        user.PasswordHash == ComputeSha256Hash(password);
+        GetUserByUsername(username)
+        .Select(user => string.Equals(user.PasswordHash, ComputeSha256Hash(password), StringComparison.OrdinalIgnoreCase))
+        .GetValueOrDefault();
 
     public bool TryCreateUser(string username, string password, bool isSuperUser = false)
     {
@@ -51,36 +59,24 @@ public class UserService(LiteDbContext dbContext)
         return true;
     }
 
-    public bool ChangeUsername(string currentUsername, string newUsername)
-    {
-        if (string.IsNullOrWhiteSpace(newUsername) || _dbContext.Users.Exists(u => u.Username == newUsername))
-            return false;
-        var user = _dbContext.Users.FindOne(u => u.Username == currentUsername);
-        if (user == null)
-            return false;
-        user.Username = newUsername;
-        _dbContext.Users.Update(user);
-        return true;
-    }
+    public bool TryChangeNickname(string username, string? newNickname) =>
+        GetUserByUsername(username)
+        .Select(user =>
+        {
+            user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
+            return user;
+        })
+        .Match(
+            user =>
+            {
+                _dbContext.Users.Update(user);
+                return true;
+            },
+            () => false);
 
-    public bool ChangeNickname(string username, string? newNickname)
-    {
-        var user = _dbContext.Users.FindOne(u => u.Username == username);
-        if (user == null)
-            return false;
-        user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
-        _dbContext.Users.Update(user);
-        return true;
-    }
-
-    public bool DeleteUserByUsername(string username)
-    {
-        var user = _dbContext.Users.FindOne(u => u.Username == username);
-        if (user == null || user.IsSuperUser)
-            return false;
-        DeleteDashboardsForUser(user.Id);
-        return _dbContext.Users.Delete(user.Id);
-    }
+    public bool TryDeleteUserByUsername(string username) =>
+        GetUserByUsername(username)
+        .Match(user => TryDeleteUser(user.Id), () => false);
 
     public static string ComputeSha256Hash(string rawData)
     {

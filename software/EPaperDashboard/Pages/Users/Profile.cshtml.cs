@@ -3,17 +3,13 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using System.Security.Claims;
+using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Pages.Users;
 
-public class ProfileModel : PageModel
+public sealed class ProfileModel(UserService userService) : PageModel
 {
-    private readonly UserService _userService;
-    public ProfileModel(UserService userService)
-    {
-        _userService = userService;
-    }
+    private readonly UserService _userService = userService;
 
     public string CurrentUsername => User.Identity?.Name ?? string.Empty;
 
@@ -25,9 +21,9 @@ public class ProfileModel : PageModel
 
     public void OnGet() { }
 
-    public async Task<IActionResult> OnPostChangeNicknameAsync()
+    public IActionResult OnPostChangeNicknameAsync()
     {
-        if (_userService.ChangeNickname(CurrentUsername, NewNickname))
+        if (_userService.TryChangeNickname(CurrentUsername, NewNickname))
         {
             SuccessMessage = string.IsNullOrWhiteSpace(NewNickname) ? "Nickname cleared." : "Nickname changed successfully.";
         }
@@ -40,7 +36,7 @@ public class ProfileModel : PageModel
 
     public async Task<IActionResult> OnPostDeleteProfileAsync()
     {
-        if (_userService.DeleteUserByUsername(CurrentUsername))
+        if (_userService.TryDeleteUserByUsername(CurrentUsername))
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToPage("/Index");
@@ -49,15 +45,13 @@ public class ProfileModel : PageModel
         return Page();
     }
 
-    public string GetUsername()
-    {
-        var user = _userService.GetUserByUsername(CurrentUsername);
-        return user?.Username ?? string.Empty;
-    }
+    public string GetUsername() => _userService
+        .GetUserByUsername(CurrentUsername)
+        .Select(u => u.Username)
+        .GetValueOrDefault(string.Empty);
 
-    public string GetNickname()
-    {
-        var user = _userService.GetUserByUsername(CurrentUsername);
-        return user?.Nickname ?? string.Empty;
-    }
+    public string GetNickname() => _userService
+        .GetUserByUsername(CurrentUsername)
+        .Select(u => u.Nickname ?? string.Empty)
+        .GetValueOrDefault(string.Empty);
 }

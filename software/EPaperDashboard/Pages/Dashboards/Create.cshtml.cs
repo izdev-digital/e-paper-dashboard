@@ -2,20 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
 using EPaperDashboard.Models;
-using LiteDB;
 
 namespace EPaperDashboard.Pages.Dashboards;
 
-public class CreateModel : PageModel
+public class CreateModel(DashboardService dashboardService, UserService userService) : PageModel
 {
-    private readonly DashboardService _dashboardService;
-    private readonly UserService _userService;
-
-    public CreateModel(DashboardService dashboardService, UserService userService)
-    {
-        _dashboardService = dashboardService;
-        _userService = userService;
-    }
+    private readonly DashboardService _dashboardService = dashboardService;
+    private readonly UserService _userService = userService;
 
     [BindProperty]
     public string Name { get; set; } = string.Empty;
@@ -33,7 +26,7 @@ public class CreateModel : PageModel
             return Page();
         }
         var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
-        if (user == null)
+        if (user.HasNoValue)
         {
             ModelState.AddModelError(string.Empty, "User not found.");
             return Page();
@@ -45,7 +38,7 @@ public class CreateModel : PageModel
             Name = Name,
             Description = Description ?? string.Empty,
             ApiKey = apiKey,
-            UserId = user.Id
+            UserId = user.Value.Id
         };
         _dashboardService.AddDashboard(dashboard);
         return RedirectToPage("/Dashboards");

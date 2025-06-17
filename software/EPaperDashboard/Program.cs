@@ -17,8 +17,7 @@ builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.HassUri);
 
 // Register LiteDbContext as singleton
-var dbPath = Path.Combine(AppContext.BaseDirectory, "epaperdashboard.db");
-builder.Services.AddSingleton(new LiteDbContext(dbPath));
+builder.Services.AddSingleton<LiteDbContext>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<DashboardService>();
 

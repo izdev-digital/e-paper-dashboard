@@ -1,21 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
-using EPaperDashboard.Models;
 using LiteDB;
+using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Pages.Dashboards;
 
-public class DeleteModel : PageModel
+public class DeleteModel(DashboardService dashboardService, UserService userService) : PageModel
 {
-    private readonly DashboardService _dashboardService;
-    private readonly UserService _userService;
-
-    public DeleteModel(DashboardService dashboardService, UserService userService)
-    {
-        _dashboardService = dashboardService;
-        _userService = userService;
-    }
+    private readonly DashboardService _dashboardService = dashboardService;
+    private readonly UserService _userService = userService;
 
     [BindProperty(SupportsGet = true)]
     public string Id { get; set; } = string.Empty;
@@ -24,24 +18,21 @@ public class DeleteModel : PageModel
 
     public IActionResult OnGet()
     {
-        ObjectId objectId;
-        try
+        var id = TryParseObjectId(Id);
+        if (id.IsFailure)
         {
-            objectId = new ObjectId(Id);
-        }
-        catch
-        {
-            ErrorMessage = "Invalid dashboard id.";
+            ErrorMessage = id.Error;
             return Page();
         }
+
         var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
-        if (user == null)
+        if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboard = _dashboardService.GetDashboardsForUser(user.Id).FirstOrDefault(d => d.Id == objectId);
-        if (dashboard == null)
+        var dashboard = _dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
+        if (dashboard is null)
         {
             ErrorMessage = "Dashboard not found.";
             return Page();
@@ -52,29 +43,30 @@ public class DeleteModel : PageModel
 
     public IActionResult OnPost()
     {
-        ObjectId objectId;
-        try
+        var id = TryParseObjectId(Id);
+        if (id.IsFailure)
         {
-            objectId = new ObjectId(Id);
-        }
-        catch
-        {
-            ErrorMessage = "Invalid dashboard id.";
+            ErrorMessage = id.Error;
             return Page();
         }
+        
         var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
-        if (user == null)
+        if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboard = _dashboardService.GetDashboardsForUser(user.Id).FirstOrDefault(d => d.Id == objectId);
-        if (dashboard == null)
+        var dashboard = _dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
+        if (dashboard is null)
         {
             ErrorMessage = "Dashboard not found.";
             return Page();
         }
-        _dashboardService.DeleteDashboard(objectId);
+        _dashboardService.DeleteDashboard(id.Value);
         return RedirectToPage("/Dashboards");
     }
+
+    private static Result<ObjectId> TryParseObjectId(string id) => Result.Try(
+        () => new ObjectId(id),
+        _ => "Invalid ObjectId format.");
 }

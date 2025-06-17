@@ -2,12 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
 using EPaperDashboard.Models;
-using System.Collections.Immutable;
 using LiteDB;
 
 namespace EPaperDashboard.Pages.Users;
 
-public class ManageModel(UserService userService) : PageModel
+public sealed class ManageModel(UserService userService) : PageModel
 {
     private readonly UserService _userService = userService;
 

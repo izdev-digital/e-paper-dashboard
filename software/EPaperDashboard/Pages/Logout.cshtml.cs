@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace EPaperDashboard.Pages;
 
-public class LogoutModel : PageModel
+public sealed class LogoutModel : PageModel
 {
     public async Task<IActionResult> OnGet()
     {
