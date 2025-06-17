@@ -26,6 +26,23 @@
         <label class="form-label">API Key</label>
         <input type="text" class="form-control" asp-for="ApiKey" readonly tabindex="-1" style="background-color: #e9ecef; pointer-events: none;" />
     </div>
+    <div class="mb-3">
+        <label class="form-label">Access Token</label>
+        <input type="text" class="form-control" asp-for="AccessToken" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Dashboard Host</label>
+        <input type="text" class="form-control" asp-for="Host" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Dashboard Path</label>
+        <input type="text" class="form-control" asp-for="Path" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Update Times (add times in 24h format, e.g. 06:00, 12:00, 18:00; leave blank for none)</label>
+        <input type="text" class="form-control" name="UpdateTimesRaw" value="@Model.UpdateTimesRaw" placeholder="06:00,12:00,18:00">
+        <div class="form-text">Separate times with commas. Example: 06:00,12:00,18:00</div>
+    </div>
     <button type="submit" class="btn btn-primary">Save</button>
     <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
 </form>

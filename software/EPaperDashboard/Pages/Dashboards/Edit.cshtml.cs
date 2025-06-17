@@ -24,6 +24,17 @@ public class EditModel(DashboardService dashboardService, UserService userServic
     [BindProperty(SupportsGet = true)]
     public string Id { get; set; } = string.Empty;
 
+    [BindProperty]
+    public string? AccessToken { get; set; }
+    [BindProperty]
+    public string? Host { get; set; }
+    [BindProperty]
+    public string? Path { get; set; }
+    [BindProperty]
+    public string? UpdateTimesRaw { get; set; }
+    [BindProperty]
+    public List<TimeOnly>? UpdateTimes { get; set; }
+
     public string? ErrorMessage { get; set; }
 
     public IActionResult OnGet()
@@ -50,6 +61,11 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         Name = dashboard.Name;
         Description = dashboard.Description;
         ApiKey = dashboard.ApiKey;
+        AccessToken = dashboard.AccessToken;
+        Host = dashboard.Host;
+        Path = dashboard.Path;
+        UpdateTimes = dashboard.UpdateTimes;
+        UpdateTimesRaw = UpdateTimes != null ? string.Join(",", UpdateTimes.Select(t => t.ToString("HH:mm"))) : string.Empty;
         return Page();
     }
 
@@ -77,6 +93,25 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         }
         dashboard.Name = Name;
         dashboard.Description = Description ?? string.Empty;
+        dashboard.AccessToken = AccessToken;
+        dashboard.Host = Host;
+        dashboard.Path = Path;
+
+        if (!string.IsNullOrWhiteSpace(UpdateTimesRaw))
+        {
+            try
+            {
+                UpdateTimes = UpdateTimesRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(t => TimeOnly.ParseExact(t, "HH:mm"))
+                    .ToList();
+            }
+            catch
+            {
+                ErrorMessage = "Invalid time format in update times. Use HH:mm, e.g. 06:00,12:00,18:00";
+                return Page();
+            }
+        }
+        dashboard.UpdateTimes = UpdateTimes;
         // ApiKey is readonly
         _dashboardService.UpdateDashboard(dashboard);
         return RedirectToPage("/Dashboards");
