@@ -1,0 +1,31 @@
+@page "{id}"
+@model EPaperDashboard.Pages.Dashboards.EditModel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@{
+    ViewData["Title"] = "Edit Dashboard";
+}
+
+<h2>Edit Dashboard</h2>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<form method="post">
+    <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-control" asp-for="Name" required />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Description</label>
+        <input type="text" class="form-control" asp-for="Description" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">API Key</label>
+        <input type="text" class="form-control" asp-for="ApiKey" readonly tabindex="-1" style="background-color: #e9ecef; pointer-events: none;" />
+    </div>
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
+</form>

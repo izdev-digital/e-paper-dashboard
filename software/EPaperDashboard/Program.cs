@@ -20,6 +20,7 @@ builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.Ba
 var dbPath = Path.Combine(AppContext.BaseDirectory, "epaperdashboard.db");
 builder.Services.AddSingleton(new LiteDbContext(dbPath));
 builder.Services.AddSingleton<UserService>();
+builder.Services.AddSingleton<DashboardService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

@@ -1,17 +1,31 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Models;
+using EPaperDashboard.Data;
+using LiteDB;
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 
 namespace EPaperDashboard.Pages;
 
 public class DashboardsModel : PageModel
 {
-    public List<Dashboard> Dashboards { get; set; } = new List<Dashboard>
+    private readonly DashboardService _dashboardService;
+    private readonly UserService _userService;
+
+    public DashboardsModel(DashboardService dashboardService, UserService userService)
     {
-        new Dashboard { Id = 1, Name = "Home", Description = "Main dashboard for home." },
-        new Dashboard { Id = 2, Name = "Office", Description = "Office dashboard." }
-    };
+        _dashboardService = dashboardService;
+        _userService = userService;
+    }
+
+    public List<Dashboard> Dashboards { get; set; } = new();
 
     public void OnGet()
     {
+        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+        if (user != null)
+        {
+            Dashboards = _dashboardService.GetDashboardsForUser(user.Id);
+        }
     }
 }
