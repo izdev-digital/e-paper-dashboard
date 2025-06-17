@@ -36,9 +36,12 @@
                     <ul class="navbar-nav ms-auto">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
+                            var userService = Context.RequestServices.GetService(typeof(EPaperDashboard.Data.UserService)) as EPaperDashboard.Data.UserService;
+                            var user = userService?.GetUserByUsername(User.Identity.Name ?? string.Empty);
+                            string displayName = !string.IsNullOrWhiteSpace(user?.Nickname) ? user.Nickname : user?.Username ?? "";
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fa-regular fa-user"></i>
+                                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fa-regular fa-user me-1"></i> <span>@displayName</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                                     <li><a class="dropdown-item" asp-area="" asp-page="/Users/Profile">Profile</a></li>

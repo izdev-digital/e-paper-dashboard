@@ -56,6 +56,16 @@ public class UserService(LiteDbContext dbContext)
         return true;
     }
 
+    public bool ChangeNickname(string username, string? newNickname)
+    {
+        var user = _dbContext.Users.FindOne(u => u.Username == username);
+        if (user == null)
+            return false;
+        user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
+        _dbContext.Users.Update(user);
+        return true;
+    }
+
     public bool DeleteUserByUsername(string username)
     {
         var user = _dbContext.Users.FindOne(u => u.Username == username);

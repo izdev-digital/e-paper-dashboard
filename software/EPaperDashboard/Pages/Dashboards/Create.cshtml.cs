@@ -23,16 +23,13 @@ public class CreateModel : PageModel
     [BindProperty]
     public string? Description { get; set; }
 
-    [BindProperty]
-    public string ApiKey { get; set; } = string.Empty;
-
     public void OnGet() { }
 
     public IActionResult OnPost()
     {
-        if (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(ApiKey))
+        if (string.IsNullOrWhiteSpace(Name))
         {
-            ModelState.AddModelError(string.Empty, "Name and API Key are required.");
+            ModelState.AddModelError(string.Empty, "Name is required.");
             return Page();
         }
         var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
@@ -41,14 +38,24 @@ public class CreateModel : PageModel
             ModelState.AddModelError(string.Empty, "User not found.");
             return Page();
         }
+        // Generate API key automatically
+        var apiKey = GenerateApiKey();
         var dashboard = new Dashboard
         {
             Name = Name,
             Description = Description ?? string.Empty,
-            ApiKey = ApiKey,
+            ApiKey = apiKey,
             UserId = user.Id
         };
         _dashboardService.AddDashboard(dashboard);
         return RedirectToPage("/Dashboards");
+    }
+
+    private static string GenerateApiKey()
+    {
+        var bytes = new byte[32];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes);
     }
 }

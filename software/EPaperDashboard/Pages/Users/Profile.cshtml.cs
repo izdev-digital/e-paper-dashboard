@@ -18,7 +18,7 @@ public class ProfileModel : PageModel
     public string CurrentUsername => User.Identity?.Name ?? string.Empty;
 
     [BindProperty]
-    public string NewUsername { get; set; } = string.Empty;
+    public string NewNickname { get; set; } = string.Empty;
 
     public string? SuccessMessage { get; set; }
     public string? ErrorMessage { get; set; }
@@ -27,31 +27,13 @@ public class ProfileModel : PageModel
 
     public async Task<IActionResult> OnPostChangeNicknameAsync()
     {
-        if (string.IsNullOrWhiteSpace(NewUsername))
+        if (_userService.ChangeNickname(CurrentUsername, NewNickname))
         {
-            ErrorMessage = "New nickname cannot be empty.";
-            return Page();
-        }
-        if (_userService.ChangeUsername(CurrentUsername, NewUsername))
-        {
-            // Re-sign in with new username
-            var user = _userService.GetUserByUsername(NewUsername);
-            if (user != null)
-            {
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.Username),
-                    new Claim("IsSuperUser", user.IsSuperUser.ToString().ToLower())
-                };
-                var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                var principal = new ClaimsPrincipal(identity);
-                await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-            }
-            SuccessMessage = "Nickname changed successfully.";
+            SuccessMessage = string.IsNullOrWhiteSpace(NewNickname) ? "Nickname cleared." : "Nickname changed successfully.";
         }
         else
         {
-            ErrorMessage = "Nickname is already taken or change failed.";
+            ErrorMessage = "Nickname change failed.";
         }
         return Page();
     }
@@ -65,5 +47,17 @@ public class ProfileModel : PageModel
         }
         ErrorMessage = "Failed to delete profile.";
         return Page();
+    }
+
+    public string GetUsername()
+    {
+        var user = _userService.GetUserByUsername(CurrentUsername);
+        return user?.Username ?? string.Empty;
+    }
+
+    public string GetNickname()
+    {
+        var user = _userService.GetUserByUsername(CurrentUsername);
+        return user?.Nickname ?? string.Empty;
     }
 }

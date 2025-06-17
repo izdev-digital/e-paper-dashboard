@@ -6,7 +6,8 @@
 
 <h2>My Profile</h2>
 
-<p><strong>Username:</strong> @Model.CurrentUsername</p>
+<p><strong>Username:</strong> @Model.GetUsername()</p>
+<p><strong>Nickname:</strong> @Model.GetNickname()</p>
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
@@ -19,12 +20,8 @@
 
 <form method="post" asp-page-handler="ChangeNickname" class="mb-4">
     <div class="mb-3">
-        <label class="form-label">Current Nickname</label>
-        <input type="text" class="form-control" value="@Model.CurrentUsername" readonly />
-    </div>
-    <div class="mb-3">
         <label class="form-label">New Nickname</label>
-        <input type="text" class="form-control" asp-for="NewUsername" required />
+        <input type="text" class="form-control" asp-for="NewNickname" required />
     </div>
     <button type="submit" class="btn btn-primary">Change Nickname</button>
 </form>
