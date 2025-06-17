@@ -15,11 +15,18 @@ public class UserService(LiteDbContext dbContext)
 
     public List<User> GetAllUsers() => [.. _dbContext.Users.FindAll()];
 
+    private void DeleteDashboardsForUser(ObjectId userId)
+    {
+        _dbContext.Dashboards.DeleteMany(d => d.UserId == userId);
+    }
+
     public bool TryDeleteUser(ObjectId id)
     {
-        return _dbContext.Users.FindById(id) is User user
-            && !user.IsSuperUser
-            && _dbContext.Users.Delete(id);
+        var user = _dbContext.Users.FindById(id);
+        if (user == null || user.IsSuperUser)
+            return false;
+        DeleteDashboardsForUser(user.Id);
+        return _dbContext.Users.Delete(id);
     }
 
     public bool IsUserValid(string username, string password) =>
@@ -71,6 +78,7 @@ public class UserService(LiteDbContext dbContext)
         var user = _dbContext.Users.FindOne(u => u.Username == username);
         if (user == null || user.IsSuperUser)
             return false;
+        DeleteDashboardsForUser(user.Id);
         return _dbContext.Users.Delete(user.Id);
     }
 
