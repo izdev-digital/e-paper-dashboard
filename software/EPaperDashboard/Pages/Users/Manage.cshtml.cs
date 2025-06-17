@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Data;
 using EPaperDashboard.Models;
 using System.Collections.Immutable;
+using LiteDB;
 
 namespace EPaperDashboard.Pages.Users;
 
@@ -39,15 +40,23 @@ public class ManageModel(UserService userService) : PageModel
         return Page();
     }
 
-    public IActionResult OnPostDelete(int id)
+    public IActionResult OnPostDelete(string id)
     {
-        if (_userService.TryDeleteUser(id))
+        try
         {
-            SuccessMessage = "User deleted.";
+            var objectId = new ObjectId(id);
+            if (_userService.TryDeleteUser(objectId))
+            {
+                SuccessMessage = "User deleted.";
+            }
+            else
+            {
+                ErrorMessage = "Cannot delete user.";
+            }
         }
-        else
+        catch
         {
-            ErrorMessage = "Cannot delete user.";
+            ErrorMessage = "Invalid user id.";
         }
         Users = _userService.GetAllUsers();
         return Page();

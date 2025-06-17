@@ -1,5 +1,7 @@
 ﻿@page
 @model EPaperDashboard.Pages.DashboardsModel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
 @{
     ViewData["Title"] = "Dashboards";
 }

@@ -1,4 +1,5 @@
 using EPaperDashboard.Models;
+using LiteDB;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -14,7 +15,7 @@ public class UserService(LiteDbContext dbContext)
 
     public List<User> GetAllUsers() => [.. _dbContext.Users.FindAll()];
 
-    public bool TryDeleteUser(int id)
+    public bool TryDeleteUser(ObjectId id)
     {
         return _dbContext.Users.FindById(id) is User user
             && !user.IsSuperUser
