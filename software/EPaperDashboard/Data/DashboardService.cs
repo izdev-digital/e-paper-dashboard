@@ -15,4 +15,9 @@ public class DashboardService(LiteDbContext dbContext)
     public void UpdateDashboard(Dashboard dashboard) => _dbContext.Dashboards.Update(dashboard);
 
     public void DeleteDashboard(ObjectId dashboardId) => _dbContext.Dashboards.Delete(dashboardId);
+
+    public Dashboard? GetDashboardByApiKey(string apiKey)
+    {
+        return _dbContext.Dashboards.FindOne(d => d.ApiKey == apiKey);
+    }
 }

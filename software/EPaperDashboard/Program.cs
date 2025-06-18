@@ -8,7 +8,34 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+	options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+	{
+		Description = "API Key needed to access the endpoints. X-Api-Key: {apiKey}",
+		In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+		Name = "X-Api-Key",
+		Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+		Scheme = "ApiKeyScheme"
+	});
+	options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+	{
+		{
+			new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+			{
+				Reference = new Microsoft.OpenApi.Models.OpenApiReference
+				{
+					Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+					Id = "ApiKey"
+				},
+				Scheme = "ApiKeyScheme",
+				Name = "X-Api-Key",
+				In = Microsoft.OpenApi.Models.ParameterLocation.Header
+			},
+			new List<string>()
+		}
+	});
+});
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>();
@@ -21,16 +48,68 @@ builder.Services.AddSingleton<LiteDbContext>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<DashboardService>();
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/Login";
-        options.LogoutPath = "/Logout";
-        options.AccessDeniedPath = "/AccessDenied";
-    });
+builder.Services.AddAuthentication(options =>
+{
+	options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+	options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+{
+	options.LoginPath = "/Login";
+	options.LogoutPath = "/Logout";
+	options.AccessDeniedPath = "/AccessDenied";
+	options.Cookie.HttpOnly = true;
+	options.Events.OnRedirectToLogin = ReturnForbiddenInsteadOfRedirect;
+	options.Events.OnRedirectToAccessDenied = ReturnForbiddenInsteadOfRedirect;
+
+	static Task ReturnForbiddenInsteadOfRedirect(Microsoft.AspNetCore.Authentication.RedirectContext<CookieAuthenticationOptions> context)
+	{
+		if (context.Request.Path.StartsWithSegments("/api"))
+		{
+			context.Response.StatusCode = 403;
+		}
+		else
+		{
+			context.Response.Redirect(context.RedirectUri);
+		}
+		return Task.CompletedTask;
+	}
+})
+.AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("SuperUserOnly", policy => policy.RequireClaim("IsSuperUser", "true"));
+	.AddPolicy("SuperUserOnly", policy => policy.RequireClaim("IsSuperUser", "true"))
+	.AddPolicy("ApiKeyPolicy", policy =>
+	{
+		policy.RequireAssertion(context =>
+		{
+			var httpContext = context.Resource as Microsoft.AspNetCore.Http.HttpContext
+				?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
+
+			if (httpContext is null)
+			{
+				return false;
+			}
+
+			if (!httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
+			{
+				return false;
+			}
+
+			if (httpContext.RequestServices.GetService(typeof(EPaperDashboard.Data.DashboardService)) is not EPaperDashboard.Data.DashboardService dashboardService)
+			{
+				return false;
+			}
+
+			return dashboardService.GetDashboardByApiKey(apiKey!) is not null;
+		});
+	});
+
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions>(options =>
+{
+    options.Conventions.AllowAnonymousToPage("/Login");
+    options.Conventions.AllowAnonymousToPage("/Register");
+});
 
 var app = builder.Build();
 app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
@@ -63,7 +142,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapRazorPages().RequireAuthorization();
 app.UseStaticFiles();
-app.MapRazorPages();
 
 app.Run();

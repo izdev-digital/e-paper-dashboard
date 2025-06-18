@@ -10,11 +10,13 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing.Processors.Dithering;
+using Microsoft.AspNetCore.Authorization;
 
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/render")]
+[Authorize(Policy = "ApiKeyPolicy")]
 public sealed class RenderToImageController(IPageToImageRenderingService renderingService) : ControllerBase
 {
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
