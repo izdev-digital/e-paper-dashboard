@@ -22,10 +22,6 @@ public class CreateModel(DashboardService dashboardService, UserService userServ
     public string? Host { get; set; }
     [BindProperty]
     public string? Path { get; set; }
-    [BindProperty]
-    public string? UpdateTimesRaw { get; set; }
-    [BindProperty]
-    public List<TimeOnly>? UpdateTimes { get; set; }
 
     public void OnGet() { }
 
@@ -44,33 +40,16 @@ public class CreateModel(DashboardService dashboardService, UserService userServ
         }
         // Generate API key automatically
         var apiKey = GenerateApiKey();
-        if (!string.IsNullOrWhiteSpace(UpdateTimesRaw))
-        {
-            try
-            {
-                UpdateTimes = UpdateTimesRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(t => TimeOnly.ParseExact(t, "HH:mm"))
-                    .ToList();
-            }
-            catch
-            {
-                ModelState.AddModelError(string.Empty, "Invalid time format in update times. Use HH:mm, e.g. 06:00,12:00,18:00");
-                return Page();
-            }
-        }
         var dashboard = new Dashboard
         {
             Name = Name,
             Description = Description ?? string.Empty,
             ApiKey = apiKey,
-            UserId = user.Value.Id,
-            AccessToken = AccessToken,
-            Host = Host,
-            Path = Path,
-            UpdateTimes = UpdateTimes
+            UserId = user.Value.Id
         };
         _dashboardService.AddDashboard(dashboard);
-        return RedirectToPage("/Dashboards");
+        // Redirect to edit page for the new dashboard
+        return RedirectToPage("/Dashboards/Edit", new { id = dashboard.Id.ToString() });
     }
 
     private static string GenerateApiKey()
