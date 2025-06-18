@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using EPaperDashboard.Data;
+using EPaperDashboard.Utilities;
 
 public class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -15,7 +16,7 @@ public class ApiKeyAuthenticationHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.TryGetValue("X-Api-Key", out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
+        if (!Request.Headers.TryGetValue(HttpHeaderNames.ApiKeyHeaderName, out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
         {
             return Task.FromResult(AuthenticateResult.Fail("Missing or empty API Key"));
         }
