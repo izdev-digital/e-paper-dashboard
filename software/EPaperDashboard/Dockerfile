@@ -22,6 +22,6 @@ RUN dotnet publish "./EPaperDashboard.csproj" -c $BUILD_CONFIGURATION -o /app/pu
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-RUN chmod +x /app/.playwright/node/*/node
+RUN chmod +x /app/.playwright/node/*/node && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
 USER app
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]

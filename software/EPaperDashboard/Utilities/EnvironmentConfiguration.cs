@@ -22,6 +22,9 @@ public static class EnvironmentConfiguration
 	private static readonly Lazy<string?> _superuserPassword = new(() => Environment
 		.GetEnvironmentVariable("SUPERUSER_PASSWORD"));
 
+	private static readonly Lazy<string> _configDir = new(() =>
+        Path.Combine(AppContext.BaseDirectory, "config"));
+
 	public static string HassToken => Guard.NeitherNullNorWhitespace(_hassToken.Value);
 
 	public static Uri HassUri => Guard.NotNull(_hassUri.Value);
@@ -32,6 +35,8 @@ public static class EnvironmentConfiguration
 
 	public static string SuperUserUsername => _superuserUsername.Value ?? "admin";
 	public static string SuperUserPassword => _superuserPassword.Value ?? "admin";
+
+	public static string ConfigDir => _configDir.Value;
 
 	private static Uri HassDashboardPath => Guard.NotNull(_dashboardPath.Value);
 	
