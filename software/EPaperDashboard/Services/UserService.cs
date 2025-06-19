@@ -14,6 +14,9 @@ public sealed class UserService(LiteDbContext dbContext)
     public Maybe<User> GetUserByUsername(string username) =>
         _dbContext.Users.FindOne(u => u.Username == username);
 
+    public Maybe<User> GetUserById(ObjectId id) =>
+        _dbContext.Users.FindById(id);
+
     public bool HasSuperUser() =>
         _dbContext.Users.Exists(u => u.IsSuperUser);
 
