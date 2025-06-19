@@ -1,10 +1,11 @@
 using CSharpFunctionalExtensions;
+using EPaperDashboard.Data;
 using EPaperDashboard.Models;
 using LiteDB;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace EPaperDashboard.Data;
+namespace EPaperDashboard.Services;
 
 public sealed class UserService(LiteDbContext dbContext)
 {

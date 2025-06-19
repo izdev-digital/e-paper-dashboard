@@ -1,7 +1,8 @@
+using EPaperDashboard.Data;
 using EPaperDashboard.Models;
 using LiteDB;
 
-namespace EPaperDashboard.Data;
+namespace EPaperDashboard.Services;
 
 public class DashboardService(LiteDbContext dbContext)
 {

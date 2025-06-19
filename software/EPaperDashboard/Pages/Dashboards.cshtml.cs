@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Models;
-using EPaperDashboard.Data;
 using CSharpFunctionalExtensions;
+using EPaperDashboard.Services;
 
 namespace EPaperDashboard.Pages;
 

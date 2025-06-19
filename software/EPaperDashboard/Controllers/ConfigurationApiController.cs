@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using EPaperDashboard.Data;
 using EPaperDashboard.Utilities;
+using EPaperDashboard.Services;
 
 namespace EPaperDashboard.Controllers;
 

@@ -2,6 +2,7 @@ using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using EPaperDashboard.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -96,7 +97,7 @@ builder.Services.AddAuthorizationBuilder()
 				return false;
 			}
 
-			if (httpContext.RequestServices.GetService(typeof(EPaperDashboard.Data.DashboardService)) is not EPaperDashboard.Data.DashboardService dashboardService)
+			if (httpContext.RequestServices.GetService(typeof(DashboardService)) is not DashboardService dashboardService)
 			{
 				return false;
 			}
