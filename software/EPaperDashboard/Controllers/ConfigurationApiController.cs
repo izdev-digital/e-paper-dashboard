@@ -13,7 +13,7 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
 {
     private readonly DashboardService _dashboardService = dashboardService;
 
-    [HttpGet("next-update-wait")]
+    [HttpGet("next-update-wait-seconds")]
     public IActionResult GetNextUpdateWait([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
     {
         var now = DateTime.Now;
@@ -26,11 +26,7 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
                     .OrderBy(dt => dt)
                     .TryFirst())
             .Match(
-                nextUpdate => Ok(new
-                {
-                    waitSeconds = (int)(nextUpdate - now).TotalSeconds,
-                    nextUpdate = nextUpdate.ToString("o")
-                }),
+                nextUpdate => Ok((int)(nextUpdate - now).TotalSeconds),
                 () => (IActionResult)NotFound("No upcoming update times found.")
             );
     }
