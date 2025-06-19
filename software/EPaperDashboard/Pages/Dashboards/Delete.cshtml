@@ -15,7 +15,9 @@
 
 @if (!string.IsNullOrEmpty(Model.Name))
 {
-    <div class="mb-3">Are you sure you want to delete the dashboard <strong>@Model.Name</strong>?</div>
+    <div class="alert alert-warning">
+        <strong>Warning:</strong> Are you sure you want to delete the dashboard <strong>@Model.Name</strong>?
+    </div>
     <form method="post">
         <button type="submit" class="btn btn-danger">Delete</button>
         <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
