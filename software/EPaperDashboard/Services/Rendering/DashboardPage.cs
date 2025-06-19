@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace EPaperDashboard.Services.Rendering;
 
-internal sealed class DashboardPage(IPage page, Uri dashboardUri)
+public sealed class DashboardPage(IPage page, Uri dashboardUri)
 {
 	private readonly IPage _page = page;
 	private readonly Uri _dashboardUri = dashboardUri;

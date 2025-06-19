@@ -5,7 +5,7 @@ using LiteDB;
 
 namespace EPaperDashboard.Services;
 
-public class DashboardService(LiteDbContext dbContext)
+public sealed class DashboardService(LiteDbContext dbContext)
 {
     private readonly LiteDbContext _dbContext = dbContext;
 

@@ -42,9 +42,8 @@ builder.Services
 	.AddSingleton<IImageFactory, ImageFactory>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
-builder.Services.AddHttpClient(Constants.HassHttpClientName, client => client.BaseAddress = EnvironmentConfiguration.HassUri);
+builder.Services.AddHttpClient(Constants.HassHttpClientName);
 
-// Register LiteDbContext as singleton
 builder.Services.AddSingleton<LiteDbContext>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<DashboardService>();
@@ -113,7 +112,6 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions
 });
 
 var app = builder.Build();
-app.Logger.LogInformation("Dashboard url:{0}", EnvironmentConfiguration.DashboardUri);
 
 // Seed superuser if not exists using registered LiteDbContext and UserService
 using (var scope = app.Services.CreateScope())
