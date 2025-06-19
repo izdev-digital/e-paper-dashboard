@@ -38,6 +38,7 @@ static const char *CONFIGURATION_PASSWORD = "pwd";
 static const char *CONFIGURATION_DASHBOARD_URL = "url";
 static const char *CONFIGURATION_DASHBOARD_PORT = "port";
 static const char *CONFIGURATION_DASHBOARD_RATE = "rate";
+static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
@@ -55,6 +56,7 @@ struct Configuration {
   String dashboardUrl;
   int dashboardPort;
   uint64_t dashboardRate;
+  String dashboardApiKey;
 };
 
 void fetchBinaryData(const Configuration &config);
@@ -112,6 +114,8 @@ void fetchBinaryData(const Configuration &config) {
   Serial.println("Sending request...");
 
   client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
+  client.print("X-Api-Key: ");
+  client.println(config.dashboardApiKey);
   client.println();  // This line sends the request
 
   bool connection_ok = false;
@@ -169,7 +173,8 @@ std::optional<Configuration> getConfiguration() {
     preferences.getString(CONFIGURATION_PASSWORD, ""),
     preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
     preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80),
-    preferences.getULong64(CONFIGURATION_DASHBOARD_RATE, 60)
+    preferences.getULong64(CONFIGURATION_DASHBOARD_RATE, 60),
+    preferences.getString(CONFIGURATION_DASHBOARD_API_KEY, "")
   };
   preferences.end();
 
@@ -186,6 +191,7 @@ void storeConfiguration(const Configuration &config) {
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
   preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
   preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate);
+  preferences.putString(CONFIGURATION_DASHBOARD_API_KEY, config.dashboardApiKey);
   preferences.end();
 }
 
@@ -248,6 +254,11 @@ void createConfiguration() {
                                 placeholder="Enter port ...">
                         </div>
                         <div class="mb-3">
+                            <label for="dashboard_apikey" class="form-label">API Key</label>
+                            <input type="text" class="form-control" name="dashboard_apikey" id="dashboard_apikey"
+                                placeholder="Enter API key ...">
+                        </div>
+                        <div class="mb-3">
                             <label for="time-period" class="form-label">Select Refresh Rate:</label>
                             <div class="input-group" id="time-period">
                                 <input type="number" class="form-control" name="dashboard_rate" id="dashboard_rate" min="1" max="60"
@@ -283,7 +294,9 @@ void createConfiguration() {
     const String portParam{ "dashboard_port" };
     const String rateParam{ "dashboard_rate" };
     const String rateUnitParam{ "dashboard_rate_unit" };
-    if (!server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || !server.hasArg(portParam) || !server.hasArg(rateParam) || !server.hasArg(rateUnitParam)) {
+    const String apiKeyParam{ "dashboard_apikey" };
+    if (
+      !server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || !server.hasArg(portParam) || !server.hasArg(rateParam) || !server.hasArg(rateUnitParam) || !server.hasArg(apiKeyParam)) {
       server.send(400, "text/html", htmlForm);
       return;
     }
@@ -294,6 +307,7 @@ void createConfiguration() {
     const int port{ server.arg(portParam).toInt() };
     const uint64_t rate{ server.arg(rateParam).toInt() };
     const String unit{ server.arg(rateUnitParam) };
+    const String apiKey{ server.arg(apiKeyParam) };
 
     int32_t unitMultiplier{ 1 };
     if (unit.equals("m")) {
@@ -311,7 +325,8 @@ void createConfiguration() {
       pass,
       url,
       port,
-      dashboardRefreshRate
+      dashboardRefreshRate,
+      apiKey
     };
     Serial.println("Received configuration...");
     storeConfiguration(config);
