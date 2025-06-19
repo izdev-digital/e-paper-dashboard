@@ -1,12 +1,11 @@
 ﻿using CSharpFunctionalExtensions;
-using EPaperDashboard.Models;
+using EPaperDashboard.Guards;
 using EPaperDashboard.Models.Rendering;
-using EPaperDashboard.Utilities;
 using Microsoft.Playwright;
 
 namespace EPaperDashboard.Services.Rendering;
 
-public sealed class PageToImageRenderingService(
+internal sealed class PageToImageRenderingService(
 	IHttpClientFactory httpClientFactory,
 	IImageFactory imageFactory,
 	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
@@ -15,14 +14,14 @@ public sealed class PageToImageRenderingService(
 	private readonly IImageFactory _imageFactory = imageFactory;
 	private readonly ILogger<PageToImageRenderingService> _logger = logger;
 
-	public async Task<Health> GetHealth()
+	public async Task<Health> GetHealth(Uri dashboardUri)
 	{
 		var httpClient = _httpClientFactory.CreateClient();
 		httpClient.Timeout = TimeSpan.FromSeconds(10);
 
 		var dashboardHealth = await Result.Try(async () =>
 		{
-			var dashboardResponse = await httpClient.GetAsync(EnvironmentConfiguration.DashboardUri);
+			var dashboardResponse = await httpClient.GetAsync(dashboardUri);
 			return dashboardResponse.IsSuccessStatusCode;
 		});
 
@@ -31,8 +30,10 @@ public sealed class PageToImageRenderingService(
 		return new Health(true, dashboardHealth.GetValueOrDefault());
 	}
 
-	public Task<Result<IImage>> RenderDashboardAsync(Size size) => Result.Try(async () =>
+	public Task<Result<IImage>> RenderDashboardAsync(Uri dashboardUri, Size size, IAuthrorizationStrategy authrorizationStrategy) => Result.Try(async () =>
 	{
+		Guard.NotNull(dashboardUri);
+		Guard.NotNull(authrorizationStrategy);
 		using var playwright = await Playwright.CreateAsync();
 		await using var browser = await playwright.Chromium.LaunchAsync();
 		var context = await browser.NewContextAsync(new BrowserNewContextOptions
@@ -45,18 +46,12 @@ public sealed class PageToImageRenderingService(
 		});
 
         var page = await context.NewPageAsync();
-		var dashboardPage = new DashboardPage(page, EnvironmentConfiguration.DashboardUri);
-		await dashboardPage.EnsureNavigatedAsync();
-		await dashboardPage.SetToken(GetToken());
-		await dashboardPage.EnsureNavigatedAsync();
+		var dashboardPage = new DashboardPage(page, dashboardUri);
 
+		await authrorizationStrategy.AuthorizeAsync(dashboardPage);
+
+		await dashboardPage.EnsureNavigatedAsync();
 		var screenshot = await dashboardPage.TakeScreenshotAsync();
         return _imageFactory.Load(screenshot);
 	});
-
-	private static HassTokens GetToken() => new(
-		EnvironmentConfiguration.HassToken,
-		"Bearer",
-		EnvironmentConfiguration.HassUri.AbsoluteUri.TrimEnd('/'),
-		EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/'));
 }

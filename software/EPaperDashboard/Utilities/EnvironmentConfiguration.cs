@@ -4,28 +4,26 @@ namespace EPaperDashboard.Utilities;
 
 public static class EnvironmentConfiguration
 {
-	private static readonly Lazy<string?> _hassToken = new(() => Environment
-		.GetEnvironmentVariable("HASS_TOKEN"));
-
-	private static readonly Lazy<Uri?> _hassUri = new(() =>
-		GetUriFromEnvironment("HASS_URL", UriKind.Absolute));
-
-	private static readonly Lazy<Uri?> _dashboardPath = new(() =>
-		GetUriFromEnvironment("DASHBOARD_PATH", UriKind.Relative));
-
 	private static readonly Lazy<Uri?> _clientUri = new(() =>
 		GetUriFromEnvironment("CLIENT_URL", UriKind.Absolute));
 
-	public static string HassToken => Guard.NeitherNullNorWhitespace(_hassToken.Value);
+	private static readonly Lazy<string?> _superuserUsername = new(() => Environment
+		.GetEnvironmentVariable("SUPERUSER_USERNAME"));
 
-	public static Uri HassUri => Guard.NotNull(_hassUri.Value);
+	private static readonly Lazy<string?> _superuserPassword = new(() => Environment
+		.GetEnvironmentVariable("SUPERUSER_PASSWORD"));
 
-	public static Uri DashboardUri => new(HassUri, HassDashboardPath);
+	private static readonly Lazy<string> _configDir = new(() =>
+        Path.Combine(AppContext.BaseDirectory, "config"));
 
 	public static Uri ClientUri => Guard.NotNull(_clientUri.Value);
 
-	private static Uri HassDashboardPath => Guard.NotNull(_dashboardPath.Value);
+	public static string SuperUserUsername => _superuserUsername.Value ?? "admin";
 	
+	public static string SuperUserPassword => _superuserPassword.Value ?? "admin";
+
+	public static string ConfigDir => _configDir.Value;
+
 	private static Uri? GetUriFromEnvironment(string variable, UriKind kind) => Environment
 		.GetEnvironmentVariable(variable) is { } uriString ? new Uri(uriString, kind) : null;
 }

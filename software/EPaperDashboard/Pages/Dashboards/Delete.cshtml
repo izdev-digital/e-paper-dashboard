@@ -1,0 +1,25 @@
+@page "{id}"
+@model EPaperDashboard.Pages.Dashboards.DeleteModel
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@{
+    ViewData["Title"] = "Delete Dashboard";
+}
+
+<h2>Delete Dashboard</h2>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (!string.IsNullOrEmpty(Model.Name))
+{
+    <div class="alert alert-warning">
+        <strong>Warning:</strong> Are you sure you want to delete the dashboard <strong>@Model.Name</strong>?
+    </div>
+    <form method="post">
+        <button type="submit" class="btn btn-danger">Delete</button>
+        <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
+    </form>
+}

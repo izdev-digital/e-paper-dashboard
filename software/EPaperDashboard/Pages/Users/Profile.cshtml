@@ -1,0 +1,31 @@
+@page
+@model EPaperDashboard.Pages.Users.ProfileModel
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<h2>My Profile</h2>
+
+<p><strong>Username:</strong> @Model.GetUsername()</p>
+<p><strong>Nickname:</strong> @Model.GetNickname()</p>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<form method="post" asp-page-handler="ChangeNickname" class="mb-4">
+    <div class="mb-3">
+        <label class="form-label">New Nickname</label>
+        <input type="text" class="form-control" asp-for="NewNickname" required />
+    </div>
+    <button type="submit" class="btn btn-primary">Change Nickname</button>
+</form>
+
+<form method="post" asp-page-handler="DeleteProfile" onsubmit="return confirm('Are you sure you want to delete your profile? This action cannot be undone.');">
+    <button type="submit" class="btn btn-danger">Delete My Profile</button>
+</form>

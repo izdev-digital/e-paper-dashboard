@@ -5,8 +5,6 @@ namespace EPaperDashboard.Services.Rendering;
 
 public interface IPageToImageRenderingService
 {
-	Task<Health> GetHealth();
-	Task<Result<IImage>> RenderDashboardAsync(Size size);
+	Task<Health> GetHealth(Uri dashboardUri);
+	Task<Result<IImage>> RenderDashboardAsync(Uri dashboardUri, Size size, IAuthrorizationStrategy authrorizationStrategy);
 }
-
-public readonly record struct Health(bool IsRendererAvailable, bool IsDashboardAvailable);
