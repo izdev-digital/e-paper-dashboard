@@ -20,11 +20,12 @@ public class ApiKeyAuthenticationHandler(
         {
             return Task.FromResult(AuthenticateResult.Fail("Missing or empty API Key"));
         }
-        var dashboard = _dashboardService.GetDashboardByApiKey(apiKey!);
-        if (dashboard == null)
+
+        if (_dashboardService.GetDashboardByApiKey(apiKey!).HasNoValue)
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid API Key"));
         }
+        
         var claims = new[] { new Claim("ApiKey", apiKey!) };
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);

@@ -102,7 +102,7 @@ builder.Services.AddAuthorizationBuilder()
 				return false;
 			}
 
-			return dashboardService.GetDashboardByApiKey(apiKey!) is not null;
+			return dashboardService.GetDashboardByApiKey(apiKey!).HasValue;
 		});
 	});
 

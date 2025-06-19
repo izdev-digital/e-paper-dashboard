@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Services;
+using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Controllers;
 
@@ -15,28 +16,22 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
     [HttpGet("next-update-wait")]
     public IActionResult GetNextUpdateWait([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
     {
-        if (string.IsNullOrWhiteSpace(apiKey))
-            return Unauthorized("Missing API key.");
-        var dashboard = _dashboardService.GetDashboardByApiKey(apiKey);
-        if (dashboard == null || dashboard.UpdateTimes == null || dashboard.UpdateTimes.Count == 0)
-            return NotFound("Dashboard or update times not found.");
         var now = DateTime.Now;
-        var todayTimes = dashboard.UpdateTimes
-            .Select(t => now.Date.Add(t.ToTimeSpan()))
-            .Where(dt => dt > now)
-            .OrderBy(dt => dt)
-            .ToList();
-        DateTime nextUpdate;
-        if (todayTimes.Count > 0)
-        {
-            nextUpdate = todayTimes.First();
-        }
-        else
-        {
-            // Next update is the first time tomorrow
-            nextUpdate = now.Date.AddDays(1).Add(dashboard.UpdateTimes.Min().ToTimeSpan());
-        }
-        var waitSeconds = (int)(nextUpdate - now).TotalSeconds;
-        return Ok(new { waitSeconds, nextUpdate = nextUpdate.ToString("o") });
+        return _dashboardService
+            .GetDashboardByApiKey(apiKey)
+            .Select(d => d.UpdateTimes ?? [])
+            .Bind(updateTimes => updateTimes
+                    .Select(t => now.Date.Add(t.ToTimeSpan()))
+                    .Where(dt => dt > now)
+                    .OrderBy(dt => dt)
+                    .TryFirst())
+            .Match(
+                nextUpdate => Ok(new
+                {
+                    waitSeconds = (int)(nextUpdate - now).TotalSeconds,
+                    nextUpdate = nextUpdate.ToString("o")
+                }),
+                () => (IActionResult)NotFound("No upcoming update times found.")
+            );
     }
 }

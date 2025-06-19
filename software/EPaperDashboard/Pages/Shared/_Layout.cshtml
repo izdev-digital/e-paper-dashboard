@@ -27,8 +27,8 @@
                             <a class="nav-link text-dark" asp-area="" asp-page="/Dashboards">Dashboards</a>
                         </li>
                         @{
-                            var userService = Context.RequestServices.GetService(typeof(EPaperDashboard.Data.UserService))
-                            as EPaperDashboard.Data.UserService;
+                            var userService = Context.RequestServices.GetService(typeof(EPaperDashboard.Services.UserService))
+                            as EPaperDashboard.Services.UserService;
                             var user = userService?.GetUserByUsername(User.Identity?.Name ?? string.Empty).GetValueOrDefault();
                         }
                         @if (user?.IsSuperUser == true)
