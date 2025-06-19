@@ -60,6 +60,7 @@ struct Configuration {
 };
 
 void fetchBinaryData(const Configuration &config);
+std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config);
 void startDeepSleep(const Configuration &config);
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
@@ -157,8 +158,58 @@ void fetchBinaryData(const Configuration &config) {
   client.stop();
 }
 
+std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
+  Serial.println("Connecting to the remote server...");
+
+  WiFiClient client;
+  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
+    Serial.println("Failed to connect to the remote server...");
+    return std::nullopt;
+  }
+
+  Serial.println("Successfully connected to the remote server!");
+  Serial.println("Sending request...");
+
+  client.println("GET /api/configuration/next-update-wait-seconds HTTP/1.0");
+  client.print("X-Api-Key: ");
+  client.println(config.dashboardApiKey);
+  client.println();  // This line sends the request
+
+  bool connection_ok = false;
+  while (client.connected()) {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+
+    if (!connection_ok) {
+      connection_ok = line.startsWith("HTTP/1.1 200 OK");
+    }
+
+    if (line == "\r") {  // Headers end with an empty line
+      break;
+    }
+  }
+
+  if (!connection_ok) {
+    Serial.println("The request was not successful...");
+    return std::nullopt;
+  }
+
+  String valueStr = client.readStringUntil('\n');
+  valueStr.trim();
+  client.stop();
+  if (valueStr.length() > 0) {
+    uint64_t value = valueStr.toInt();
+    return value;
+  } else {
+    Serial.println("Failed to read uint64_t from server.");
+    return std::nullopt;
+  }
+}
+
 void startDeepSleep(const Configuration &config) {
-  esp_sleep_enable_timer_wakeup(config.dashboardRate * USEC_TO_SEC_FACTOR);
+  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate * USEC_TO_SEC_FACTOR);
+
+  esp_sleep_enable_timer_wakeup(waitSeconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
   rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
