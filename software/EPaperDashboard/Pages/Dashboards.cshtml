@@ -26,7 +26,7 @@
                             <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
                                 <span class="badge bg-secondary">API Key</span>
                                 <span id="api-key-@dashboard.Id" style="font-family: monospace; font-size: 0.95em; background: #f8f9fa; padding: 2px 6px; border-radius: 4px; word-break: break-all; max-width: 100%; display: inline-block;">@dashboard.ApiKey</span>
-                                <button class="btn btn-outline-secondary btn-sm" title="Copy API Key" onclick="copyApiKey('@dashboard.Id')">
+                                <button class="btn btn-outline-secondary btn-sm" title="Copy API Key" onclick="copyApiKey('@dashboard.ApiKey')">
                                     <i class="fa-regular fa-clipboard"></i>
                                 </button>
                             </div>
@@ -46,13 +46,30 @@ else
     <div class="alert alert-info">No dashboards found.</div>
 }
 
+<div id="copy-toast" class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="display:none; z-index: 1080;">
+    <div class="d-flex">
+        <div class="toast-body">
+            API Key copied to clipboard!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close" onclick="hideCopyToast()"></button>
+    </div>
+</div>
+
 @section Scripts {
     <script>
-        function copyApiKey(id) {
-            var apiKey = document.getElementById('api-key-' + id).innerText;
+        function copyApiKey(apiKey) {
             navigator.clipboard.writeText(apiKey).then(function() {
-                // Optionally, show a tooltip or notification
+                showCopyToast();
             });
+        }
+        function showCopyToast() {
+            var toast = document.getElementById('copy-toast');
+            toast.style.display = 'block';
+            setTimeout(hideCopyToast, 2000);
+        }
+        function hideCopyToast() {
+            var toast = document.getElementById('copy-toast');
+            toast.style.display = 'none';
         }
     </script>
 }

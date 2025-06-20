@@ -24,7 +24,12 @@
     </div>
     <div class="mb-3">
         <label class="form-label">API Key</label>
-        <input type="text" class="form-control" asp-for="ApiKey" readonly tabindex="-1" style="background-color: #e9ecef; pointer-events: none;" />
+        <div class="input-group">
+            <input type="text" class="form-control" asp-for="ApiKey" readonly tabindex="-1" style="background-color: #e9ecef; pointer-events: none;" />
+            <button type="button" class="btn btn-outline-secondary" title="Copy API Key" onclick="copyApiKey('@Model.ApiKey')">
+                <i class="fa-regular fa-clipboard"></i>
+            </button>
+        </div>
     </div>
     <fieldset class="border rounded p-3 mb-3">
         <legend class="w-auto px-2" style="font-size:1.1em;">Hass Dashboard</legend>
@@ -56,6 +61,15 @@
     <button type="submit" class="btn btn-primary">Save</button>
     <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
 </form>
+
+<div id="copy-toast" class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="display:none; z-index: 1080;">
+    <div class="d-flex">
+        <div class="toast-body">
+            API Key copied to clipboard!
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close" onclick="hideCopyToast()"></button>
+    </div>
+</div>
 
 <style>
     #updateTimesList .badge {
@@ -102,6 +116,20 @@
             renderUpdateTimes();
         }
         input.value = '';
+    }
+    function copyApiKey(apiKey) {
+        navigator.clipboard.writeText(apiKey).then(function() {
+            showCopyToast();
+        });
+    }
+    function showCopyToast() {
+        var toast = document.getElementById('copy-toast');
+        toast.style.display = 'block';
+        setTimeout(hideCopyToast, 2000);
+    }
+    function hideCopyToast() {
+        var toast = document.getElementById('copy-toast');
+        toast.style.display = 'none';
     }
     document.addEventListener('DOMContentLoaded', renderUpdateTimes);
 </script>
