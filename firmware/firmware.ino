@@ -207,9 +207,9 @@ std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
 }
 
 void startDeepSleep(const Configuration &config) {
-  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate * USEC_TO_SEC_FACTOR);
-
-  esp_sleep_enable_timer_wakeup(waitSeconds);
+  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate);
+  uint64_t waitMicroseconds = waitSeconds * USEC_TO_SEC_FACTOR;
+  esp_sleep_enable_timer_wakeup(waitMicroseconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
   rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
