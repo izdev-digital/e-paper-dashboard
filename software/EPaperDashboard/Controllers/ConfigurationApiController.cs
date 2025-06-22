@@ -34,10 +34,10 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
 
             var today = now.Date;
             var tomorrow = today.AddDays(1);
-            var timesTest = updateTimes.OrderBy(t => t).ToList();
-            return timesTest
+            var times = updateTimes.OrderBy(t => t).ToList();
+            return times
                 .Select(t => today.Add(t.ToTimeSpan()))
-                .Append(tomorrow.Add(timesTest.First().ToTimeSpan()))
+                .Append(tomorrow.Add(times.First().ToTimeSpan()))
                 .Where(dt => dt > now)
                 .TryFirst();
         }
