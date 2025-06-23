@@ -28,7 +28,7 @@
 
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(/*CS=*/15, /*DC=*/27, /*RST=*/26, /*BUSY=*/25));
 
-#define USEC_TO_SEC_FACTOR 1000000
+#define SEC_TO_USEC_FACTOR 1000000
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
 
@@ -203,7 +203,7 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
 
 void startDeepSleep(const Configuration &config) {
   uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate);
-  uint64_t waitMicroseconds = waitSeconds * USEC_TO_SEC_FACTOR;
+  uint64_t waitMicroseconds = waitSeconds * SEC_TO_USEC_FACTOR;
   esp_sleep_enable_timer_wakeup(waitMicroseconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
