@@ -19,15 +19,27 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
         var now = DateTime.Now;
         return _dashboardService
             .GetDashboardByApiKey(apiKey)
-            .Select(d => d.UpdateTimes ?? [])
-            .Bind(updateTimes => updateTimes
-                    .Select(t => now.Date.Add(t.ToTimeSpan()))
-                    .Where(dt => dt > now)
-                    .OrderBy(dt => dt)
-                    .TryFirst())
+            .Bind(d => GetNextUpdateTime(now, d.UpdateTimes))
             .Match(
                 nextUpdate => Ok((int)(nextUpdate - now).TotalSeconds),
                 () => (IActionResult)NotFound("No upcoming update times found.")
             );
+
+        Maybe<DateTime> GetNextUpdateTime(DateTime now, List<TimeOnly>? updateTimes)
+        {
+            if (updateTimes is null || !updateTimes.Any())
+            {
+                return Maybe.None;
+            }
+
+            var today = now.Date;
+            var tomorrow = today.AddDays(1);
+            var times = updateTimes.OrderBy(t => t).ToList();
+            return times
+                .Select(t => today.Add(t.ToTimeSpan()))
+                .Append(tomorrow.Add(times.First().ToTimeSpan()))
+                .Where(dt => dt > now)
+                .TryFirst();
+        }
     }
 }

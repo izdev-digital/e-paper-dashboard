@@ -28,7 +28,7 @@
 
 GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> display(GxEPD2_DRIVER_CLASS(/*CS=*/15, /*DC=*/27, /*RST=*/26, /*BUSY=*/25));
 
-#define USEC_TO_SEC_FACTOR 1000000
+#define SEC_TO_USEC_FACTOR 1000000
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
 
@@ -59,16 +59,20 @@ struct Configuration {
   String dashboardApiKey;
 };
 
-void fetchBinaryData(const Configuration &config);
-std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config);
+
 void startDeepSleep(const Configuration &config);
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
 void clearConfiguration();
 void createConfiguration();
-bool connectToWiFi(const Configuration &config);
 bool isResetRequested();
 void resetDevice();
+
+bool connectToWiFi(const Configuration &config);
+bool hasSuccessfulStatusCode(WiFiClient &client);
+void fetchBinaryData(const Configuration &config);
+std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config);
+bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config);
 
 void setup() {
   Serial.begin(115200);
@@ -106,38 +110,17 @@ void fetchBinaryData(const Configuration &config) {
   Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
-  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
+  if (!trySendGetRequest(client, "/api/render/binary?width=800&height=480", config)) {
     Serial.println("Failed to connect to the remote server...");
     return;
   }
 
-  Serial.println("Successfully connected to the remote server!");
-  Serial.println("Sending request...");
-
-  client.println("GET /api/render/binary?width=800&height=480 HTTP/1.0");
-  client.print("X-Api-Key: ");
-  client.println(config.dashboardApiKey);
-  client.println();  // This line sends the request
-
-  bool connection_ok = false;
-  while (client.connected()) {
-    String line = client.readStringUntil('\n');
-    Serial.println(line);
-
-    if (!connection_ok) {
-      connection_ok = line.startsWith("HTTP/1.1 200 OK");
-    }
-
-    if (line == "\r") {  // Headers end with an empty line
-      break;
-    }
-  }
-
-  if (!connection_ok) {
+  if (!hasSuccessfulStatusCode(client)) {
     Serial.println("The request was not successful...");
     return;
   }
 
+  Serial.println("Reading image content...");
   int16_t x = 0;
   int16_t y = 0;
 
@@ -162,26 +145,37 @@ std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
   Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
-  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
+  if (!trySendGetRequest(client, "/api/configuration/next-update-wait-seconds", config)) {
     Serial.println("Failed to connect to the remote server...");
     return std::nullopt;
   }
 
-  Serial.println("Successfully connected to the remote server!");
-  Serial.println("Sending request...");
+  if (!hasSuccessfulStatusCode(client)) {
+    Serial.println("The request was not successful...");
+    return std::nullopt;
+  }
 
-  client.println("GET /api/configuration/next-update-wait-seconds HTTP/1.0");
-  client.print("X-Api-Key: ");
-  client.println(config.dashboardApiKey);
-  client.println();  // This line sends the request
+  Serial.println("Reading content...");
+  String delayString{};
+  if (client.connected() || client.available()) {
+    delayString = client.readStringUntil('\n');
+    Serial.println(delayString);
+  }
+  client.stop();
+  return delayString.length() > 0 
+    ? std::make_optional(strtoull(delayString.c_str(), nullptr, 10))
+    : std::nullopt;
+}
 
-  bool connection_ok = false;
-  while (client.connected()) {
+bool hasSuccessfulStatusCode(WiFiClient &client) {
+  Serial.println("Reading headers...");
+  bool isStatusOk = false;
+  while (client.connected() || client.available()) {
     String line = client.readStringUntil('\n');
     Serial.println(line);
 
-    if (!connection_ok) {
-      connection_ok = line.startsWith("HTTP/1.1 200 OK");
+    if (!isStatusOk) {
+      isStatusOk = line.startsWith("HTTP/1.1 200 OK");
     }
 
     if (line == "\r") {  // Headers end with an empty line
@@ -189,27 +183,28 @@ std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
     }
   }
 
-  if (!connection_ok) {
-    Serial.println("The request was not successful...");
-    return std::nullopt;
-  }
+  return isStatusOk;
+}
 
-  String valueStr = client.readStringUntil('\n');
-  valueStr.trim();
-  client.stop();
-  if (valueStr.length() > 0) {
-    uint64_t value = valueStr.toInt();
-    return value;
-  } else {
-    Serial.println("Failed to read uint64_t from server.");
-    return std::nullopt;
+bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config) {
+  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort)) {
+    Serial.println("Failed to connect to the remote server...");
+    return false;
   }
+  Serial.println("Successfully connected to the remote server!");
+  Serial.println("Sending request...");
+
+  client.println("GET " + url + " HTTP/1.0");
+  client.print("X-Api-Key: ");
+  client.println(config.dashboardApiKey);
+  client.println();  // This line sends the request
+  return true;
 }
 
 void startDeepSleep(const Configuration &config) {
-  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate * USEC_TO_SEC_FACTOR);
-
-  esp_sleep_enable_timer_wakeup(waitSeconds);
+  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate);
+  uint64_t waitMicroseconds = waitSeconds * SEC_TO_USEC_FACTOR;
+  esp_sleep_enable_timer_wakeup(waitMicroseconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
   rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
