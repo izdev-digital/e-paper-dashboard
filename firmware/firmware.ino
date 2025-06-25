@@ -146,7 +146,6 @@ std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
 
   WiFiClient client;
   if (!trySendGetRequest(client, "/api/configuration/next-update-wait-seconds", config)) {
-    Serial.println("Failed to connect to the remote server...");
     return std::nullopt;
   }
 
@@ -161,6 +160,7 @@ std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config) {
     delayString = client.readStringUntil('\n');
     Serial.println(delayString);
   }
+
   client.stop();
   return delayString.length() > 0 
     ? std::make_optional(strtoull(delayString.c_str(), nullptr, 10))
@@ -194,9 +194,13 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   Serial.println("Successfully connected to the remote server!");
   Serial.println("Sending request...");
 
-  client.println("GET " + url + " HTTP/1.0");
+  client.println("GET " + url + " HTTP/1.1");
   client.print("X-Api-Key: ");
   client.println(config.dashboardApiKey);
+  client.print("Host: ");
+  client.print(config.dashboardUrl);
+  client.print(":");
+  client.println(config.dashboardPort);
   client.println();  // This line sends the request
   return true;
 }
