@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Services;
 using CSharpFunctionalExtensions;
+using System.Text;
 
 namespace EPaperDashboard.Controllers;
 
@@ -21,7 +22,7 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
             .GetDashboardByApiKey(apiKey)
             .Bind(d => GetNextUpdateTime(now, d.UpdateTimes))
             .Match(
-                nextUpdate => Ok((int)(nextUpdate - now).TotalSeconds),
+                nextUpdate => Content(((long)(nextUpdate - now).TotalSeconds).ToString(), "text/plain", Encoding.UTF8),
                 () => (IActionResult)NotFound("No upcoming update times found.")
             );
 
