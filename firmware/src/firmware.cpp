@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Preferences.h>
 #include <optional>
 #include <WiFi.h>
@@ -355,7 +356,7 @@ void createConfiguration() {
     const String pass{ server.arg(passParam) };
     const String url{ server.arg(urlParam) };
     const int port{ server.arg(portParam).toInt() };
-    const uint64_t rate{ server.arg(rateParam).toInt() };
+    const uint64_t rate{ static_cast<uint64_t>(server.arg(rateParam).toInt()) };
     const String unit{ server.arg(rateUnitParam) };
     const String apiKey{ server.arg(apiKeyParam) };
 
