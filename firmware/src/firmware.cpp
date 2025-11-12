@@ -1,8 +1,10 @@
+#include <Arduino.h>
 #include <Preferences.h>
 #include <optional>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <driver/rtc_io.h>
+#include "version.h"
 
 #define ENABLE_GxEPD2_GFX 0
 
@@ -79,6 +81,9 @@ void setup() {
   hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
   display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
+
+  Serial.print("E-Paper Dashboard Firmware v");
+  Serial.println(FIRMWARE_VERSION);
 
   if (isResetRequested()) {
     Serial.println("Resetting device");
@@ -355,7 +360,7 @@ void createConfiguration() {
     const String pass{ server.arg(passParam) };
     const String url{ server.arg(urlParam) };
     const int port{ server.arg(portParam).toInt() };
-    const uint64_t rate{ server.arg(rateParam).toInt() };
+    const uint64_t rate{ static_cast<uint64_t>(server.arg(rateParam).toInt()) };
     const String unit{ server.arg(rateUnitParam) };
     const String apiKey{ server.arg(apiKeyParam) };
 
