@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <driver/rtc_io.h>
+#include "version.h"
 
 #define ENABLE_GxEPD2_GFX 0
 
@@ -80,6 +81,9 @@ void setup() {
   hspi.begin(13, 12, 14, 15);  // remap hspi for EPD (swap pins)
   display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
+
+  Serial.print("E-Paper Dashboard Firmware v");
+  Serial.println(FIRMWARE_VERSION);
 
   if (isResetRequested()) {
     Serial.println("Resetting device");
