@@ -14,6 +14,7 @@
 }
 
 <form method="post">
+    <input type="hidden" asp-for="Id" />
     <div class="mb-3">
         <label class="form-label">Name</label>
         <input type="text" class="form-control" asp-for="Name" required />
@@ -60,6 +61,9 @@
     </fieldset>
     <button type="submit" class="btn btn-primary">Save</button>
     <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
+    <button type="button" class="btn btn-info ms-2" onclick="previewDashboard()">
+        <i class="fa-solid fa-eye"></i> Preview
+    </button>
 </form>
 
 <div id="copy-toast" class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="display:none; z-index: 1080;">
@@ -68,6 +72,28 @@
             API Key copied to clipboard!
         </div>
         <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close" onclick="hideCopyToast()"></button>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div id="preview-modal" class="position-fixed top-0 start-0 w-100 h-100" style="display:none; background-color: rgba(0,0,0,0.5); z-index: 1050; overflow: hidden;">
+    <div class="position-absolute top-50 start-50 translate-middle bg-white rounded" style="width: 90vw; height: 90vh; max-width: 900px; max-height: 600px; display: flex; flex-direction: column;">
+        <!-- Modal Header -->
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+            <h5 class="mb-0">Dashboard Preview</h5>
+            <div class="preview-modal-header-btns">
+                <button type="button" class="btn btn-sm me-2 preview-reload-btn" title="Reload Preview" onclick="previewDashboard()">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+                <button type="button" class="btn-close" aria-label="Close" onclick="closePreviewModal()"></button>
+            </div>
+        </div>
+        <!-- Modal Body -->
+        <div class="flex-grow-1 overflow-auto p-3" id="preview-container" style="display: flex; justify-content: center; align-items: flex-start; background-color: #f8f9fa;">
+            <img id="preview-image" style="max-width: 100%; height: auto; object-fit: contain;" />
+        </div>
+        <!-- Modal Footer -->
+        <div id="preview-error" class="alert alert-danger mb-0" style="display:none;"></div>
     </div>
 </div>
 
@@ -84,6 +110,20 @@
         margin-top: 0;
         margin-bottom: 0;
         vertical-align: middle;
+    }
+    /* Modal header buttons */
+    .preview-modal-header-btns {
+        display: flex;
+        align-items: center;
+    }
+    .preview-modal-header-btns .preview-reload-btn {
+        border: 0;
+        background: transparent;
+        padding: 0.25rem 0.4rem;
+        line-height: 1;
+    }
+    .preview-modal-header-btns .preview-reload-btn:focus {
+        box-shadow: none;
     }
 </style>
 
@@ -131,5 +171,135 @@
         var toast = document.getElementById('copy-toast');
         toast.style.display = 'none';
     }
+    
+    // Track created object URL so we can revoke it when closing/resetting
+    let _previewObjectUrl = null;
+    // Track preview attempts to ignore stale load/error handlers
+    let _previewAttempt = 0;
+
+    async function previewDashboard() {
+        const attempt = ++_previewAttempt;
+        const modal = document.getElementById('preview-modal');
+        const errorDiv = document.getElementById('preview-error');
+        const container = document.getElementById('preview-container');
+        const imageElement = document.getElementById('preview-image');
+
+        // Clear previous error and image
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+        if (_previewObjectUrl) {
+            try { 
+                URL.revokeObjectURL(_previewObjectUrl); 
+            } catch (e) 
+            { }
+            _previewObjectUrl = null;
+        }
+        imageElement.src = '';
+
+        // Show loading state and ensure modal is visible
+        modal.style.display = 'block';
+        modal.style.zIndex = 2000;
+        container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+        try {
+            const dashboardIdInput = document.querySelector('input[name="Id"]');
+            const apiKeyInput = document.querySelector('input[name="ApiKey"]');
+            const dashboardId = dashboardIdInput ? dashboardIdInput.value : null;
+            const apiKey = apiKeyInput ? apiKeyInput.value : null;
+            if (!dashboardId) {
+                throw new Error('Dashboard ID not found');
+            }
+            if (!apiKey) {
+                throw new Error('API Key not found');
+            }
+
+            // Call the existing API controller endpoint to get the original image
+            const url = `/api/render/original?width=800&height=480&format=png`;
+            const response = await fetch(url, { headers: { 'X-Api-Key': apiKey } });
+
+            if (!response.ok) {
+                let errorMessage = `HTTP Error ${response.status}: Failed to render preview`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    // If response body is not JSON, use HTTP error message
+                }
+                throw new Error(errorMessage);
+            }
+
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            _previewObjectUrl = imageUrl;
+
+            // Update container with a fresh image element (so load/error events work reliably)
+            container.innerHTML = '';
+            const img = document.createElement('img');
+            img.id = 'preview-image';
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            img.style.objectFit = 'contain';
+            img.alt = 'Dashboard preview';
+            img.onload = function() {
+                if (attempt !== _previewAttempt) return;
+                // image loaded, clear any errors
+                errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
+            };
+            img.onerror = function() {
+                if (attempt !== _previewAttempt) return;
+                // show error if image cannot be decoded
+                errorDiv.textContent = 'Error: failed to load image data';
+                errorDiv.style.display = 'block';
+            };
+            img.src = imageUrl;
+            container.appendChild(img);
+        } catch (error) {
+            // Ensure modal stays visible and show the error
+            modal.style.display = 'block';
+            container.innerHTML = '';
+            if (attempt === _previewAttempt) {
+                errorDiv.textContent = 'Error: ' + (error && error.message ? error.message : String(error));
+                errorDiv.style.display = 'block';
+            }
+            // Move focus to modal for accessibility / visibility
+            try { document.getElementById('preview-modal').focus(); } catch (e) { }
+        }
+    }
+    
+    function closePreviewModal() {
+        const modal = document.getElementById('preview-modal');
+        const container = document.getElementById('preview-container');
+        const errorDiv = document.getElementById('preview-error');
+        const img = document.getElementById('preview-image');
+
+        // Hide modal
+        modal.style.display = 'none';
+
+        // Revoke any object URL and clear image src
+        try {
+            if (typeof _previewObjectUrl === 'string' && _previewObjectUrl) {
+                URL.revokeObjectURL(_previewObjectUrl);
+            }
+        } catch (e) { }
+        _previewObjectUrl = null;
+        if (img) { img.src = ''; }
+
+        // Reset container to default state (image element present)
+        container.innerHTML = '<img id="preview-image" style="max-width: 100%; height: auto; object-fit: contain;" />';
+
+        // Hide error
+        errorDiv.style.display = 'none';
+        errorDiv.textContent = '';
+    }
+    
+    // Close modal when clicking outside of it
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('preview-modal');
+        if (event.target === modal) {
+            closePreviewModal();
+        }
+    });
+    
     document.addEventListener('DOMContentLoaded', renderUpdateTimes);
 </script>
