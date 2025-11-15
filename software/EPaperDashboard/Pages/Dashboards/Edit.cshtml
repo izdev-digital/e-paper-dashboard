@@ -203,9 +203,8 @@
 
         try {
             const dashboardIdInput = document.querySelector('input[name="Id"]');
-            const apiKeyInput = document.querySelector('input[name="ApiKey"]');
             const dashboardId = dashboardIdInput ? dashboardIdInput.value : null;
-            const apiKey = apiKeyInput ? apiKeyInput.value : null;
+            const apiKey = '@Model.ApiKey';
             if (!dashboardId) {
                 throw new Error('Dashboard ID not found');
             }
