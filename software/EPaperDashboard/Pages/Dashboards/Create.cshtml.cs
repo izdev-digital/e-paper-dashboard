@@ -2,14 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services;
+using LiteDB;
+using System.Security.Claims;
 
 namespace EPaperDashboard.Pages.Dashboards;
 
 public class CreateModel(DashboardService dashboardService, UserService userService) : PageModel
 {
-    private readonly DashboardService _dashboardService = dashboardService;
-    private readonly UserService _userService = userService;
-
     [BindProperty]
     public string Name { get; set; } = string.Empty;
 
@@ -23,7 +22,7 @@ public class CreateModel(DashboardService dashboardService, UserService userServ
     [BindProperty]
     public string? Path { get; set; }
 
-    public void OnGet() { }
+    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     public IActionResult OnPost()
     {
@@ -32,13 +31,13 @@ public class CreateModel(DashboardService dashboardService, UserService userServ
             ModelState.AddModelError(string.Empty, "Name is required.");
             return Page();
         }
-        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+        var user = userService.GetUserById(UserId);
         if (user.HasNoValue)
         {
             ModelState.AddModelError(string.Empty, "User not found.");
             return Page();
         }
-        // Generate API key automatically
+        
         var apiKey = GenerateApiKey();
         var dashboard = new Dashboard
         {
@@ -47,8 +46,8 @@ public class CreateModel(DashboardService dashboardService, UserService userServ
             ApiKey = apiKey,
             UserId = user.Value.Id
         };
-        _dashboardService.AddDashboard(dashboard);
-        // Redirect to edit page for the new dashboard
+        dashboardService.AddDashboard(dashboard);
+        
         return RedirectToPage("/Dashboards/Edit", new { id = dashboard.Id.ToString() });
     }
 

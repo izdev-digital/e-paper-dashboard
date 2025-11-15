@@ -31,11 +31,10 @@ public sealed class RegisterModel(UserService userService) : PageModel
             return Page();
         }
 
-        var claims = new List<Claim>
-                {
-                    new(ClaimTypes.Name, user.Value.Username),
-                    new("IsSuperUser", user.Value.IsSuperUser.ToString().ToLower())
-                };
+        Claim[] claims = [
+            new(ClaimTypes.Name, user.Value.Username),
+            new("IsSuperUser", user.Value.IsSuperUser.ToString().ToLower())
+        ];
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);

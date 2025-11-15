@@ -32,6 +32,7 @@ public sealed class LoginModel(UserService userService) : PageModel
 
         var claims = new List<Claim>
             {
+                new(ClaimTypes.NameIdentifier, user.Value.Id.ToString()),
                 new(ClaimTypes.Name, user.Value.Username),
                 new("IsSuperUser", user.Value.IsSuperUser.ToString().ToLower())
             };

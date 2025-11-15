@@ -2,16 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using LiteDB;
 using CSharpFunctionalExtensions;
-using EPaperDashboard.Models;
 using EPaperDashboard.Services;
+using System.Security.Claims;
 
 namespace EPaperDashboard.Pages.Dashboards;
 
 public class EditModel(DashboardService dashboardService, UserService userService) : PageModel
 {
-    private readonly DashboardService _dashboardService = dashboardService;
-    private readonly UserService _userService = userService;
-
     [BindProperty]
     public string Name { get; set; } = string.Empty;
 
@@ -37,6 +34,8 @@ public class EditModel(DashboardService dashboardService, UserService userServic
 
     public string? ErrorMessage { get; set; }
 
+    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
+
     public IActionResult OnGet()
     {
         var id = TryParseObjectId(Id);
@@ -46,18 +45,22 @@ public class EditModel(DashboardService dashboardService, UserService userServic
             return Page();
         }
 
-        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+        var user = userService.GetUserById(UserId);
         if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboard = _dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
+
+        var dashboard = dashboardService
+            .GetDashboardsForUser(user.Value.Id)
+            .FirstOrDefault(d => d.Id == id.Value);
         if (dashboard == null)
         {
             ErrorMessage = "Dashboard not found.";
             return Page();
         }
+
         Name = dashboard.Name;
         Description = dashboard.Description;
         ApiKey = dashboard.ApiKey;
@@ -78,13 +81,13 @@ public class EditModel(DashboardService dashboardService, UserService userServic
             return Page();
         }
 
-        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+        var user = userService.GetUserById(UserId);
         if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboards = _dashboardService.GetDashboardsForUser(user.Value.Id);
+        var dashboards = dashboardService.GetDashboardsForUser(user.Value.Id);
         var dashboard = dashboards.FirstOrDefault(d => d.Id == id.Value);
         if (dashboard == null)
         {
@@ -101,9 +104,9 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         {
             try
             {
-                UpdateTimes = UpdateTimesRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(t => TimeOnly.ParseExact(t, "HH:mm"))
-                    .ToList();
+                UpdateTimes = [.. UpdateTimesRaw
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(t => TimeOnly.ParseExact(t, "HH:mm"))];
             }
             catch
             {
@@ -112,8 +115,7 @@ public class EditModel(DashboardService dashboardService, UserService userServic
             }
         }
         dashboard.UpdateTimes = UpdateTimes;
-        // ApiKey is readonly
-        _dashboardService.UpdateDashboard(dashboard);
+        dashboardService.UpdateDashboard(dashboard);
         return RedirectToPage("/Dashboards");
     }
 

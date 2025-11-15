@@ -63,24 +63,36 @@ public sealed class UserService(LiteDbContext dbContext)
         return true;
     }
 
-    public bool TryChangeNickname(string username, string? newNickname) =>
-        GetUserByUsername(username)
-        .Select(user =>
-        {
-            user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
-            return user;
-        })
+    public bool TryChangeNickname(ObjectId userId, string? newNickname) =>
+        GetUserById(userId)
         .Match(
             user =>
             {
+                user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
                 _dbContext.Users.Update(user);
                 return true;
             },
             () => false);
 
-    public bool TryDeleteUserByUsername(string username) =>
-        GetUserByUsername(username)
-        .Match(user => TryDeleteUser(user.Id), () => false);
+    public bool TryChangePassword(ObjectId userId, string oldPassword, string newPassword) =>
+        _dbContext.Users
+            .FindById(userId).AsMaybe()
+            .Where(user => string.Equals(user.PasswordHash, ComputeSha256Hash(oldPassword), StringComparison.Ordinal))
+            .Match(
+                user =>
+                {
+                    var newHash = ComputeSha256Hash(newPassword);
+                    if (string.Equals(user.PasswordHash, newHash, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    user.PasswordHash = newHash;
+                    _dbContext.Users.Update(user);
+                    return true;
+                },
+                () => false
+            );
 
     public static string ComputeSha256Hash(string rawData)
     {
