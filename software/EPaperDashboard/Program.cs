@@ -3,6 +3,7 @@ using EPaperDashboard.Utilities;
 using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
+using EPaperDashboard.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 

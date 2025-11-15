@@ -3,11 +3,10 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using EPaperDashboard.Models;
 using LiteDB;
 using EPaperDashboard.Services;
-using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Pages.Users;
 
-public class DeleteModel(UserService userService, DashboardService dashboardService) : PageModel
+public class DeleteModel(UserService userService) : PageModel
 {
     private readonly UserService _userService = userService;
 
