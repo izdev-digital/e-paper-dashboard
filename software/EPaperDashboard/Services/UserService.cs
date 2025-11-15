@@ -78,6 +78,26 @@ public sealed class UserService(LiteDbContext dbContext)
             },
             () => false);
 
+    public bool TryChangePassword(ObjectId userId, string oldPassword, string newPassword) =>
+        _dbContext.Users
+            .FindById(userId).AsMaybe()
+            .Where(user => string.Equals(user.PasswordHash, ComputeSha256Hash(oldPassword), StringComparison.Ordinal))
+            .Match(
+                user =>
+                {
+                    var newHash = ComputeSha256Hash(newPassword);
+                    if (string.Equals(user.PasswordHash, newHash, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    user.PasswordHash = newHash;
+                    _dbContext.Users.Update(user);
+                    return true;
+                },
+                () => false
+            );
+
     public bool TryDeleteUserByUsername(string username) =>
         GetUserByUsername(username)
         .Match(user => TryDeleteUser(user.Id), () => false);
