@@ -3,18 +3,15 @@
 FROM mcr.microsoft.com/playwright/dotnet:v1.52.0-noble AS base
 RUN apt-get update && apt-get install -y aspnetcore-runtime-8.0
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
 ARG BUILD_CONFIGURATION=Release
+ARG VERSION=1.0.0
 WORKDIR /src
 COPY ["EPaperDashboard/EPaperDashboard.csproj", "EPaperDashboard/"]
 RUN dotnet restore "./EPaperDashboard/./EPaperDashboard.csproj"
 COPY . .
-WORKDIR "/src/EPaperDashboard"
-RUN dotnet build "./EPaperDashboard.csproj" -c $BUILD_CONFIGURATION -o /app/build
-
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./EPaperDashboard.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+WORKDIR /src/EPaperDashboard
+RUN dotnet publish "./EPaperDashboard.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false /p:Version=$VERSION
 
 FROM base AS final
 WORKDIR /app
