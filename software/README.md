@@ -2,16 +2,16 @@
 - Change directory to software
 - Run the following command:
     ```shell
-    docker build --platform linux/amd64 -t e-paper-dashboard:<version> -f EPaperDashboard/Dockerfile .
+    docker build --platform linux/amd64 --build-arg VERSION=<version> -t izdevdigital/e-paper-dashboard:<version> -t izdevdigital/e-paper-dashboard:latest -f EPaperDashboard/Dockerfile .
     ```
 
-# Use docker-compose
+# Use docker compose
 ```yaml
 services:
   app:
     image: izdevdigital/e-paper-dashboard:<tag>
     ports:
-      - "<port>:8080"
+      - "<port>:8128"
     volumes:
       - <host-path>/config:/app/config:rw
     environment:
