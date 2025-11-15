@@ -15,7 +15,6 @@ services:
     volumes:
       - <host-path>/config:/app/config:rw
     environment:
-      - ASPNETCORE_HTTP_PORTS=8080
       - CLIENT_URL=<url>:<port>
       - TZ=<time-zone>
 ```

@@ -2,9 +2,6 @@
 
 FROM mcr.microsoft.com/playwright/dotnet:v1.52.0-noble AS base
 RUN apt-get update && apt-get install -y aspnetcore-runtime-8.0
-WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
@@ -21,7 +18,9 @@ RUN dotnet publish "./EPaperDashboard.csproj" -c $BUILD_CONFIGURATION -o /app/pu
 
 FROM base AS final
 WORKDIR /app
+EXPOSE 8128
 COPY --from=publish /app/publish .
 RUN chmod +x /app/.playwright/node/*/node && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
 USER app
+
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]

@@ -6,7 +6,10 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.WebHost.ConfigureKestrel(options =>
+{
+	options.ListenAnyIP(8128);
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
