@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using LiteDB;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Services;
+using SixLabors.ImageSharp;
 using System.Security.Claims;
 
 namespace EPaperDashboard.Pages.Dashboards;
@@ -118,6 +119,8 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         dashboardService.UpdateDashboard(dashboard);
         return RedirectToPage("/Dashboards");
     }
+
+
 
     private static Result<ObjectId> TryParseObjectId(string id) => Result.Try(
         () => new ObjectId(id),
