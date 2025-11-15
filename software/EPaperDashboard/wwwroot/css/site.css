@@ -36,3 +36,26 @@ main.flex-grow-1 {
 footer.mt-auto {
   margin-top: auto;
 }
+
+/* Theme toggle button styling */
+#themeToggleBtn {
+  transition: color 0.2s ease-in-out;
+  font-size: 1.1rem;
+}
+
+#themeToggleBtn:hover {
+  opacity: 0.7;
+}
+
+/* Smooth transitions for theme changes */
+html,
+body,
+.navbar,
+.footer,
+.card,
+.form-control,
+.form-select,
+.btn {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+

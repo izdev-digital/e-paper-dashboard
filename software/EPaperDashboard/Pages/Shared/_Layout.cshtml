@@ -1,11 +1,25 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - @Constants.AppName</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <script>
+        // Prevent flash: set theme immediately on page load ONLY
+        // This runs once before CSS loads to prevent flashing
+        const stored = localStorage.getItem('epaper-theme');
+        if (stored === 'dark') {
+            document.documentElement.setAttribute('data-bs-theme', 'dark');
+        } else if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.setAttribute('data-bs-theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-bs-theme', 'light');
+        }
+        // Mark that initialization has occurred
+        window.__themeInitialized = true;
+    </script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/TestRazorPages.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -14,7 +28,7 @@
 
 <body class="d-flex flex-column min-vh-100">
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm border-bottom box-shadow mb-3">
             <div class="container">
                 <a class="navbar-brand" asp-area="" asp-page="/Index">@Constants.AppName</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
@@ -24,7 +38,7 @@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-page="/Dashboards">Dashboards</a>
+                            <a class="nav-link" asp-area="" asp-page="/Dashboards">Dashboards</a>
                         </li>
                         @{
                             var userService = Context.RequestServices.GetService(typeof(EPaperDashboard.Services.UserService))
@@ -34,11 +48,18 @@
                         @if (user?.IsSuperUser == true)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-page="/Users/Manage">Users</a>
+                                <a class="nav-link" asp-area="" asp-page="/Users/Manage">Users</a>
                             </li>
                         }
                     </ul>
                     <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <button type="button" id="themeToggleBtn" class="nav-link" 
+                                style="border: none; background: none; cursor: pointer; padding: 0.5rem 1rem; color: inherit;"
+                                aria-label="Toggle theme">
+                                <i id="themeToggleIcon" class="fa-regular fa-moon"></i>
+                            </button>
+                        </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             string displayName = !string.IsNullOrWhiteSpace(user?.Nickname) ? user.Nickname : user?.Username
@@ -91,7 +112,8 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
+    <script src="~/js/theme-switcher.js" asp-append-version="true"></script>
+    
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 
