@@ -11,6 +11,7 @@
 **/*.*proj.user
 **/*.dbmdl
 **/*.jfm
+**/*.pdb
 **/azds.yaml
 **/bin
 **/charts
@@ -21,10 +22,6 @@
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/appsettings.Development.json
 LICENSE
 README.md
-!**/.gitignore
-!.git/HEAD
-!.git/config
-!.git/packed-refs
-!.git/refs/heads/**

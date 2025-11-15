@@ -2,26 +2,19 @@
 - Change directory to software
 - Run the following command:
     ```shell
-    docker build --platform linux/amd64 -t e-paper-dashboard:<version> -f EPaperDashboard/Dockerfile .
+    docker build --platform linux/amd64 --build-arg VERSION=<version> -t izdevdigital/e-paper-dashboard:<version> -t izdevdigital/e-paper-dashboard:latest -f EPaperDashboard/Dockerfile .
     ```
 
-# Use docker-compose
+# Use docker compose
 ```yaml
-version: '3.8'
-
 services:
-  pixashot:
-    image: gpriday/pixashot:latest
-    environment:
-      - WORKERS=4
-      - USE_POPUP_BLOCKER=true
-      - USE_COOKIE_BLOCKER=true
-    
-  dashboard:
-    image: epaperdisplay:dev-0.0.1
+  app:
+    image: izdevdigital/e-paper-dashboard:<tag>
     ports:
-      - "8128:8080"
+      - "<port>:8128"
+    volumes:
+      - <host-path>/config:/app/config:rw
     environment:
-      - RENDERER_URL=http://pixashot:8080
-      - DASHBOARD_URL=<dashboard-url>
+      - CLIENT_URL=<url>:<port>
+      - TZ=<time-zone>
 ```

@@ -3,9 +3,13 @@ using EPaperDashboard.Utilities;
 using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
+using EPaperDashboard.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.WebHost.ConfigureKestrel(options =>
+{
+	options.ListenAnyIP(8128);
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();

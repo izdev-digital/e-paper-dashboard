@@ -5,7 +5,9 @@ using System.Text.Encodings.Web;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Services;
 
-public class ApiKeyAuthenticationHandler(
+namespace EPaperDashboard.Authentication;
+
+public sealed class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
