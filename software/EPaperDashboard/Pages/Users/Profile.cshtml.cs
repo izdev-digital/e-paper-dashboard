@@ -12,7 +12,6 @@ namespace EPaperDashboard.Pages.Users;
 public sealed class ProfileModel(UserService userService) : PageModel
 {
     public string CurrentUsername => User.Identity?.Name ?? string.Empty;
-    public ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     [BindProperty]
     public string NewNickname { get; set; } = string.Empty;
@@ -29,11 +28,11 @@ public sealed class ProfileModel(UserService userService) : PageModel
     public string? SuccessMessage { get; set; }
     public string? ErrorMessage { get; set; }
 
-    public void OnGet() { }
+    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     public IActionResult OnPostChangeNickname()
     {
-        if (userService.TryChangeNickname(CurrentUsername, NewNickname))
+        if (userService.TryChangeNickname(UserId, NewNickname))
         {
             SuccessMessage = string.IsNullOrWhiteSpace(NewNickname) ? "Nickname cleared." : "Nickname changed successfully.";
         }
@@ -41,6 +40,7 @@ public sealed class ProfileModel(UserService userService) : PageModel
         {
             ErrorMessage = "Nickname change failed.";
         }
+        
         return Page();
     }
 
@@ -69,16 +69,18 @@ public sealed class ProfileModel(UserService userService) : PageModel
         {
             ErrorMessage = "Password change failed.";
         }
+
         return Page();
     }
 
     public async Task<IActionResult> OnPostDeleteProfileAsync()
     {
-        if (userService.TryDeleteUserByUsername(CurrentUsername))
+        if (userService.TryDeleteUser(UserId))
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToPage("/Index");
         }
+
         ErrorMessage = "Failed to delete profile.";
         return Page();
     }

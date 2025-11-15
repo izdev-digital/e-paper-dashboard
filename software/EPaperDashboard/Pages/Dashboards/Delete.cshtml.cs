@@ -3,18 +3,17 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using LiteDB;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Services;
+using System.Security.Claims;
 
 namespace EPaperDashboard.Pages.Dashboards;
 
 public class DeleteModel(DashboardService dashboardService, UserService userService) : PageModel
 {
-    private readonly DashboardService _dashboardService = dashboardService;
-    private readonly UserService _userService = userService;
-
     [BindProperty(SupportsGet = true)]
     public string Id { get; set; } = string.Empty;
     public string? Name { get; set; }
     public string? ErrorMessage { get; set; }
+    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     public IActionResult OnGet()
     {
@@ -25,18 +24,20 @@ public class DeleteModel(DashboardService dashboardService, UserService userServ
             return Page();
         }
 
-        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+        var user = userService.GetUserById(UserId);
         if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboard = _dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
+
+        var dashboard = dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
         if (dashboard is null)
         {
             ErrorMessage = "Dashboard not found.";
             return Page();
         }
+
         Name = dashboard.Name;
         return Page();
     }
@@ -49,20 +50,22 @@ public class DeleteModel(DashboardService dashboardService, UserService userServ
             ErrorMessage = id.Error;
             return Page();
         }
-        
-        var user = _userService.GetUserByUsername(User.Identity?.Name ?? string.Empty);
+
+        var user = userService.GetUserById(UserId);
         if (user.HasNoValue)
         {
             ErrorMessage = "User not found.";
             return Page();
         }
-        var dashboard = _dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
+
+        var dashboard = dashboardService.GetDashboardsForUser(user.Value.Id).FirstOrDefault(d => d.Id == id.Value);
         if (dashboard is null)
         {
             ErrorMessage = "Dashboard not found.";
             return Page();
         }
-        _dashboardService.DeleteDashboard(id.Value);
+
+        dashboardService.DeleteDashboard(id.Value);
         return RedirectToPage("/Dashboards");
     }
 
