@@ -13,7 +13,7 @@
     <div class="alert alert-danger">@Model.ErrorMessage</div>
 }
 
-<form method="post">
+<form method="post" data-api-key="@Model.ApiKey">
     <input type="hidden" asp-for="Id" />
     <div class="mb-3">
         <label class="form-label">Name</label>
@@ -36,7 +36,7 @@
         <legend class="w-auto px-2" style="font-size:1.1em;">Hass Dashboard</legend>
         <div class="mb-3">
             <label class="form-label">Access Token</label>
-            <input type="text" class="form-control" asp-for="AccessToken" />
+            <input type="text" class="form-control" asp-for="AccessToken"  placeholder="Enter token to update..." />
         </div>
         <div class="mb-3">
             <label class="form-label">Dashboard Host</label>
@@ -204,7 +204,7 @@
         try {
             const dashboardIdInput = document.querySelector('input[name="Id"]');
             const dashboardId = dashboardIdInput ? dashboardIdInput.value : null;
-            const apiKey = '@Model.ApiKey';
+            const apiKey = document.querySelector('form').dataset.apiKey || '';
             if (!dashboardId) {
                 throw new Error('Dashboard ID not found');
             }

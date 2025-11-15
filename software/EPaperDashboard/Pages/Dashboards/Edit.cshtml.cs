@@ -65,7 +65,6 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         Name = dashboard.Name;
         Description = dashboard.Description;
         ApiKey = dashboard.ApiKey;
-        AccessToken = dashboard.AccessToken;
         Host = dashboard.Host;
         Path = dashboard.Path;
         UpdateTimes = dashboard.UpdateTimes;
@@ -97,7 +96,7 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         }
         dashboard.Name = Name;
         dashboard.Description = Description ?? string.Empty;
-        dashboard.AccessToken = AccessToken;
+        dashboard.AccessToken = string.IsNullOrEmpty(AccessToken) ? dashboard.AccessToken : AccessToken;
         dashboard.Host = Host;
         dashboard.Path = Path;
 
