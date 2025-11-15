@@ -5,15 +5,14 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Services;
 using LiteDB;
+using System.Security.Claims;
 
 namespace EPaperDashboard.Pages.Users;
 
 public sealed class ProfileModel(UserService userService) : PageModel
 {
-    private readonly UserService _userService = userService;
-
     public string CurrentUsername => User.Identity?.Name ?? string.Empty;
-    public string UserId => User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+    public ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     [BindProperty]
     public string NewNickname { get; set; } = string.Empty;
@@ -34,7 +33,7 @@ public sealed class ProfileModel(UserService userService) : PageModel
 
     public IActionResult OnPostChangeNickname()
     {
-        if (_userService.TryChangeNickname(CurrentUsername, NewNickname))
+        if (userService.TryChangeNickname(CurrentUsername, NewNickname))
         {
             SuccessMessage = string.IsNullOrWhiteSpace(NewNickname) ? "Nickname cleared." : "Nickname changed successfully.";
         }
@@ -61,7 +60,7 @@ public sealed class ProfileModel(UserService userService) : PageModel
             return Page();
         }
 
-        if (_userService.TryChangePassword(userId, CurrentPassword, NewPassword))
+        if (userService.TryChangePassword(userId, CurrentPassword, NewPassword))
         {
             SuccessMessage = "Password changed successfully.";
             return RedirectToPage("/Logout");
@@ -75,7 +74,7 @@ public sealed class ProfileModel(UserService userService) : PageModel
 
     public async Task<IActionResult> OnPostDeleteProfileAsync()
     {
-        if (_userService.TryDeleteUserByUsername(CurrentUsername))
+        if (userService.TryDeleteUserByUsername(CurrentUsername))
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToPage("/Index");
@@ -84,13 +83,11 @@ public sealed class ProfileModel(UserService userService) : PageModel
         return Page();
     }
 
-    public string GetUsername() => _userService
-        .GetUserByUsername(CurrentUsername)
-        .Select(u => u.Username)
-        .GetValueOrDefault(string.Empty);
+    public string GetUsername() => userService
+        .GetUserById(UserId)
+        .GetValueOrDefault(u => u.Username, () => string.Empty);
 
-    public string GetNickname() => _userService
-        .GetUserByUsername(CurrentUsername)
-        .Select(u => u.Nickname ?? string.Empty)
-        .GetValueOrDefault(string.Empty);
+    public string GetNickname() => userService
+        .GetUserById(UserId)
+        .GetValueOrDefault(u => u.Nickname ?? string.Empty, () => string.Empty);
 }
