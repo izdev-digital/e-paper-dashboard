@@ -109,6 +109,8 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions
 {
     options.Conventions.AllowAnonymousToPage("/Login");
     options.Conventions.AllowAnonymousToPage("/Register");
+	options.Conventions.AllowAnonymousToPage("/AccessDenied");
+	options.Conventions.AllowAnonymousToPage("/Privacy");
 });
 
 var app = builder.Build();
