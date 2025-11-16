@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y \
     libxcb1 \
     libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
+&& chown -R app:app /home/app/.aspnet/DataProtection-Keys \
+&& chmod -R 700 /home/app/.aspnet/DataProtection-Keys
+
 
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
