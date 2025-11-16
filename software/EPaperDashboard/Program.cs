@@ -6,13 +6,12 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.ConfigureKestrel(options =>
-{
-	options.ListenAnyIP(8128);
-});
+builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(8128));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
+
+#if DEBUG
 builder.Services.AddSwaggerGen(options =>
 {
 	options.AddSecurityDefinition("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -41,16 +40,17 @@ builder.Services.AddSwaggerGen(options =>
 		}
 	});
 });
+#endif
+
 builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
-	.AddSingleton<IImageFactory, ImageFactory>();
+	.AddSingleton<IImageFactory, ImageFactory>()
+	.AddSingleton<LiteDbContext>()
+	.AddSingleton<UserService>()
+	.AddSingleton<DashboardService>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
-
-builder.Services.AddSingleton<LiteDbContext>();
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<DashboardService>();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -111,8 +111,8 @@ builder.Services.AddAuthorizationBuilder()
 
 builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions>(options =>
 {
-    options.Conventions.AllowAnonymousToPage("/Login");
-    options.Conventions.AllowAnonymousToPage("/Register");
+	options.Conventions.AllowAnonymousToPage("/Login");
+	options.Conventions.AllowAnonymousToPage("/Register");
 	options.Conventions.AllowAnonymousToPage("/AccessDenied");
 	options.Conventions.AllowAnonymousToPage("/Privacy");
 });
@@ -131,10 +131,12 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors(builder => builder.WithOrigins("*"));
 
+#if DEBUG
 if (app.Environment.IsDevelopment())
 {
 	app.UseSwagger().UseSwaggerUI();
 }
+#endif
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

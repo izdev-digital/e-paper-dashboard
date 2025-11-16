@@ -20,11 +20,13 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libxcb1 \
     libxkbcommon0 \
-    && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /home/app/.aspnet/DataProtection-Keys \
     && chown -R app:app /home/app/.aspnet/DataProtection-Keys \
     && chmod -R 700 /home/app/.aspnet/DataProtection-Keys
 VOLUME ["/home/app/.aspnet/DataProtection-Keys"]
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_EnableDiagnostics=0
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
 ARG BUILD_CONFIGURATION=Release
@@ -32,10 +34,13 @@ ARG VERSION=1.0.0
 WORKDIR /src
 COPY . .
 WORKDIR /src/EPaperDashboard
-RUN dotnet restore && dotnet publish -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false /p:Version=$VERSION
-RUN dotnet tool install --global Microsoft.Playwright.CLI
-ENV PATH="$PATH:/root/.dotnet/tools"
-RUN playwright install chromium
+RUN dotnet restore && dotnet publish -c $BUILD_CONFIGURATION -o /app/publish \
+    /p:UseAppHost=false \
+    /p:Version=$VERSION \
+    /p:DebugType=none \
+    /p:DebugSymbols=false
+RUN dotnet tool install --global Microsoft.Playwright.CLI \
+    && /root/.dotnet/tools/playwright install chromium
 
 FROM base AS final
 WORKDIR /app
@@ -43,7 +48,9 @@ EXPOSE 8128
 COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
 RUN chmod +x /app/.playwright/node/*/node \
-    && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
+    && mkdir -p /app/config \
+    && chown app:app /app/config \
+    && chmod 770 /app/config
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
