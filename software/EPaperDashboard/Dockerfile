@@ -22,10 +22,9 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
-&& chown -R app:app /home/app/.aspnet/DataProtection-Keys \
-&& chmod -R 700 /home/app/.aspnet/DataProtection-Keys
-
-
+    && chown -R app:app /home/app/.aspnet/DataProtection-Keys \
+    && chmod -R 700 /home/app/.aspnet/DataProtection-Keys
+VOLUME ["/home/app/.aspnet/DataProtection-Keys"]
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
 ARG BUILD_CONFIGURATION=Release
@@ -43,7 +42,8 @@ WORKDIR /app
 EXPOSE 8128
 COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
-RUN chmod +x /app/.playwright/node/*/node && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
+RUN chmod +x /app/.playwright/node/*/node \
+    && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
