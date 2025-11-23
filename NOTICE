@@ -1,0 +1,12 @@
+E-Paper Dashboard
+Copyright (c) 2025 izdev-digital
+
+This product includes software developed at izdev-digital.
+
+This project contains multiple components in separate directories:
+- firmware/: ESP32 firmware for e-paper display
+- software/: ASP.NET Core web application
+- packaging/: Hardware packaging designs
+
+Each component may have its own LICENSE and NOTICE files with specific
+third-party dependency attributions.
