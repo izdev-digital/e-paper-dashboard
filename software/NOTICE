@@ -1,0 +1,62 @@
+E-Paper Dashboard - Software Component
+Copyright (c) 2025 izdev-digital
+
+This software component is built using ASP.NET Core and includes the
+following third-party dependencies:
+
+================================================================================
+
+CSharpFunctionalExtensions (version 3.6.0)
+https://github.com/vkhorikov/CSharpFunctionalExtensions
+Copyright (c) 2016-2023 Vladimir Khorikov
+Licensed under the MIT License
+
+================================================================================
+
+LiteDB (version 5.0.21)
+https://github.com/mbdavid/LiteDB
+Copyright (c) 2023 Mauricio David
+Licensed under the MIT License
+
+================================================================================
+
+Microsoft.Playwright (version 1.52.0)
+https://github.com/microsoft/playwright-dotnet
+Copyright (c) Microsoft Corporation
+Licensed under the Apache License 2.0
+
+================================================================================
+
+Newtonsoft.Json (version 13.0.3)
+https://github.com/JamesNK/Newtonsoft.Json
+Copyright (c) 2007 James Newton-King
+Licensed under the MIT License
+
+================================================================================
+
+SixLabors.ImageSharp (version 3.1.12)
+https://github.com/SixLabors/ImageSharp
+Copyright (c) Six Labors
+Licensed under the Apache License 2.0 with Six Labors Split License
+
+NOTE: ImageSharp uses a split license model. The core library is available 
+under Apache License 2.0, but commercial use may require a commercial license.
+See https://sixlabors.com/pricing/ for details.
+
+================================================================================
+
+Swashbuckle.AspNetCore (version 6.6.2) [Debug builds only]
+https://github.com/domaindrivendev/Swashbuckle.AspNetCore
+Copyright (c) 2016-2023 Richard Morris
+Licensed under the MIT License
+
+================================================================================
+
+Microsoft.VisualStudio.Azure.Containers.Tools.Targets (version 1.19.5)
+Copyright (c) Microsoft Corporation
+Licensed under the MIT License
+
+================================================================================
+
+For a complete list of all dependencies and their licenses, see
+THIRD-PARTY-NOTICES.txt
