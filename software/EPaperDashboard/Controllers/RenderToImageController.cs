@@ -21,11 +21,13 @@ namespace EPaperDashboard.Controllers;
 [Authorize(Policy = "ApiKeyPolicy")]
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
-	DashboardService dashboardService) : ControllerBase
+	DashboardService dashboardService,
+	ILogger<RenderToImageController> logger) : ControllerBase
 {
 	private readonly IPageToImageRenderingService _renderingService = renderingService;
 	private readonly Func<HassTokens, HassAuthStrategy> _authStrategyFactory = token => new HassAuthStrategy(token);
 	private readonly DashboardService _dashboardService = dashboardService;
+	private readonly ILogger<RenderToImageController> _logger = logger;
 
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
@@ -33,20 +35,34 @@ public sealed class RenderToImageController(
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] bool shouldDither = false)
 	{
-		var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-		if (dashboardInfo.HasNoValue)
+		try
 		{
-			return NotFound();
-		}
+			_logger.LogInformation("GetAsBinary request received with size {Width}x{Height}, dither={ShouldDither}", imageSize.Width, imageSize.Height, shouldDither);
+			
+			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
+			if (dashboardInfo.HasNoValue)
+			{
+				_logger.LogError("Dashboard not found for provided API key");
+				return NotFound();
+			}
 
-		var (contentType, encoder) = GetEncoder("bin");
-		var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-		return await _renderingService
-			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-			.Map(image => image
-				.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
-				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal))
-			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			var (contentType, encoder) = GetEncoder("bin");
+			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
+			var result = await _renderingService
+				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
+				.Map(image => image
+					.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
+					.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal))
+				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			
+			_logger.LogInformation("GetAsBinary request completed successfully");
+			return result;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error processing GetAsBinary request with size {Width}x{Height}", imageSize.Width, imageSize.Height);
+			throw;
+		}
 	}
 
 	[HttpGet("converted")]
@@ -56,18 +72,32 @@ public sealed class RenderToImageController(
 		[FromQuery] string format = "jpeg",
 		[FromQuery] bool shouldDither = false)
 	{
-		var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-		if (dashboardInfo.HasNoValue)
+		try
 		{
-			return NotFound();
-		}
+			_logger.LogInformation("GetAsConvertedsImage request received with size {Width}x{Height}, format={Format}, dither={ShouldDither}", imageSize.Width, imageSize.Height, format, shouldDither);
+			
+			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
+			if (dashboardInfo.HasNoValue)
+			{
+				_logger.LogError("Dashboard not found for provided API key");
+				return NotFound();
+			}
 
-		var (contentType, encoder) = GetEncoder(format);
-		var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-		return await _renderingService
-			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-			.Map(image => image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)))
-			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			var (contentType, encoder) = GetEncoder(format);
+			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
+			var result = await _renderingService
+				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
+				.Map(image => image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)))
+				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			
+			_logger.LogInformation("GetAsConvertedsImage request completed successfully");
+			return result;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error processing GetAsConvertedsImage request with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
+			throw;
+		}
 	}
 
 	[HttpGet("original")]
@@ -76,29 +106,60 @@ public sealed class RenderToImageController(
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg")
 	{
-		var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-		if (dashboardInfo.HasNoValue)
+		try
 		{
-			return NotFound();
-		}
+			_logger.LogInformation("GetAsImage request received with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
+			
+			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
+			if (dashboardInfo.HasNoValue)
+			{
+				_logger.LogError("Dashboard not found for provided API key");
+				return NotFound();
+			}
 
-		var (contentType, encoder) = GetEncoder(format);
-		var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-		return await _renderingService
-			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-			.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			var (contentType, encoder) = GetEncoder(format);
+			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
+			var result = await _renderingService
+				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
+				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
+			
+			_logger.LogInformation("GetAsImage request completed successfully");
+			return result;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error processing GetAsImage request with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
+			throw;
+		}
 	}
 
 	[HttpGet("health")]
 	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
 	{
-		return await _dashboardService
-			.GetDashboardByApiKey(apiKey)
-			.Bind(GetDashboardUri)
-			.Match(
-				Some: async (dashboardUri, _) => (IActionResult)Ok(await _renderingService.GetHealth(dashboardUri)),
-				None: _ => Task.FromResult<IActionResult>(NotFound())
-			);
+		try
+		{
+			_logger.LogInformation("GetHealth request received");
+			
+			var result = await _dashboardService
+				.GetDashboardByApiKey(apiKey)
+				.Bind(GetDashboardUri)
+				.Match(
+					Some: async (dashboardUri, _) => (IActionResult)Ok(await _renderingService.GetHealth(dashboardUri)),
+					None: _ =>
+					{
+						_logger.LogError("Dashboard not found for provided API key in health check");
+						return Task.FromResult<IActionResult>(NotFound());
+					}
+				);
+			
+			_logger.LogInformation("GetHealth request completed successfully");
+			return result;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error processing GetHealth request");
+			throw;
+		}
 	}
 
 	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard)
