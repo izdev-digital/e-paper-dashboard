@@ -59,14 +59,16 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
   /p:DebugType=none \
   /p:DebugSymbols=false
 
+# Copy license files to publish directory
+RUN cp /src/LICENSE /app/publish/ && \
+    cp /src/NOTICE /app/publish/ && \
+    cp /src/THIRD-PARTY-NOTICES.txt /app/publish/
+
 FROM base AS final
 WORKDIR /app
 EXPOSE 8128
 COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
-COPY LICENSE /app/
-COPY NOTICE /app/
-COPY THIRD-PARTY-NOTICES.txt /app/
 RUN chmod +x /app/.playwright/node/*/node \
   && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
 USER app
