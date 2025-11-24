@@ -40,34 +40,71 @@ jobs:
         cat > export_stl.py << 'EOF'
         import FreeCAD
         import Mesh
+        import Import
         import os
         import sys
+        
+        print("Starting FreeCAD STL export...")
+        print(f"Opening file: {sys.argv[1]}")
         
         # Open the FreeCAD file
         doc = FreeCAD.open(sys.argv[1])
         output_dir = sys.argv[2]
         
-        # Export all visible objects that can be meshed
+        print(f"Document opened: {doc.Name}")
+        print(f"Total objects in document: {len(doc.Objects)}")
+        
+        # Get root objects only (not nested in groups or parts)
+        root_objects = [obj for obj in doc.Objects if not hasattr(obj, 'InList') or len(obj.InList) == 0]
+        print(f"Root level objects: {len(root_objects)}")
+        
+        # Export only root level visible objects that have a Shape
         exported_count = 0
-        for obj in doc.Objects:
-            if hasattr(obj, 'Shape') and obj.ViewObject.Visibility:
+        for obj in root_objects:
+            print(f"\nProcessing object: {obj.Label} (Type: {obj.TypeId})")
+            
+            # Check if object has a Shape attribute
+            if hasattr(obj, 'Shape') and obj.Shape and not obj.Shape.isNull():
                 try:
-                    # Create mesh from shape
-                    mesh = Mesh.Mesh()
-                    mesh.addFacets(obj.Shape.tessellate(0.1))
+                    # Check visibility
+                    is_visible = True
+                    if hasattr(obj, 'ViewObject') and hasattr(obj.ViewObject, 'Visibility'):
+                        is_visible = obj.ViewObject.Visibility
+                        print(f"  Visibility: {is_visible}")
+                    
+                    if not is_visible:
+                        print(f"  Skipping (not visible)")
+                        continue
                     
                     # Create safe filename
                     safe_name = "".join(c for c in obj.Label if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                    if not safe_name:
+                        safe_name = f"object_{exported_count}"
+                    
                     output_file = os.path.join(output_dir, f"{safe_name}.stl")
                     
-                    # Export to STL
+                    # Export to STL using Mesh module
+                    print(f"  Creating mesh...")
+                    mesh = Mesh.Mesh(obj.Shape.tessellate(0.1))
+                    
+                    print(f"  Writing to: {output_file}")
                     mesh.write(output_file)
-                    print(f"Exported: {obj.Label} -> {output_file}")
+                    
+                    print(f"  ✓ Successfully exported: {obj.Label}")
                     exported_count += 1
+                    
                 except Exception as e:
-                    print(f"Failed to export {obj.Label}: {str(e)}")
+                    print(f"  ✗ Failed to export {obj.Label}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"  Skipping (no valid Shape)")
         
-        print(f"\nTotal objects exported: {exported_count}")
+        print(f"\n{'='*50}")
+        print(f"Export complete!")
+        print(f"Total objects exported: {exported_count}")
+        print(f"{'='*50}")
+        
         FreeCAD.closeDocument(doc.Name)
         EOF
         
