@@ -1,0 +1,91 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # Build all components
+  build-firmware:
+    uses: ./.github/workflows/firmware-build.yml
+    
+  build-software:
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      
+  build-packaging:
+    uses: ./.github/workflows/freecad-export.yml
+    
+  # Create unified release with all artifacts
+  create-release:
+    needs: [build-firmware, build-software, build-packaging]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Get tag version
+      id: tag
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG#v}
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+        
+    - name: Download firmware artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: firmware-esp32-${{ needs.build-firmware.outputs.version }}
+        path: ./release/firmware/
+        
+    - name: Download STL artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: freecad-stl-files
+        path: ./release/stl/
+        
+    - name: Create release archive
+      run: |
+        cd release
+        zip -r ../e-paper-dashboard-${{ steps.tag.outputs.version }}-complete.zip .
+        cd ..
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: Release ${{ steps.tag.outputs.version }}
+        draft: false
+        prerelease: ${{ contains(steps.tag.outputs.version, '-') }}
+        generate_release_notes: true
+        files: |
+          release/firmware/*.bin
+          release/firmware/*.elf
+          release/stl/*.stl
+          e-paper-dashboard-${{ steps.tag.outputs.version }}-complete.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Release Summary
+      run: |
+        echo "### ✅ Release Created Successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### Artifacts:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Firmware (ESP32)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Docker Image (ghcr.io)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ 3D Models (STL)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Complete Package (ZIP)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
