@@ -114,12 +114,7 @@ jobs:
         EOF
         
         # Run FreeCAD in console mode with virtual display to export STL
-        # Use -c instead of --console and pass the script with proper Python execution
-        xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" freecad -c "
-import sys
-sys.argv = ['freecad', 'packaging/e-paper-dashboard.FCStd', 'artifacts/stl/']
-exec(open('export_stl.py').read())
-"
+        xvfb-run --auto-servernum --server-args="-screen 0 1024x768x24" freecad -c "import sys; sys.argv = ['freecad', 'packaging/e-paper-dashboard.FCStd', 'artifacts/stl/']; exec(open('export_stl.py').read())"
         
     - name: List exported files
       run: |
