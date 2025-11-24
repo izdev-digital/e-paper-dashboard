@@ -54,13 +54,18 @@ jobs:
         print(f"Document opened: {doc.Name}")
         print(f"Total objects in document: {len(doc.Objects)}")
         
-        # Get root objects only (not nested in groups or parts)
-        root_objects = [obj for obj in doc.Objects if not hasattr(obj, 'InList') or len(obj.InList) == 0]
-        print(f"Root level objects: {len(root_objects)}")
+        # List all objects and their properties for debugging
+        print("\n" + "="*50)
+        print("All objects in document:")
+        for obj in doc.Objects:
+            in_list_count = len(obj.InList) if hasattr(obj, 'InList') else 'N/A'
+            has_shape = hasattr(obj, 'Shape') and obj.Shape and not obj.Shape.isNull()
+            print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | HasShape: {has_shape}")
+        print("="*50 + "\n")
         
-        # Export only root level visible objects that have a Shape
+        # Export all objects with shapes (ignore InList filtering for now)
         exported_count = 0
-        for obj in root_objects:
+        for obj in doc.Objects:
             print(f"\nProcessing object: {obj.Label} (Type: {obj.TypeId})")
             
             # Check if object has a Shape attribute
