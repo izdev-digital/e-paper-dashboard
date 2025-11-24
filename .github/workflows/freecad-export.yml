@@ -54,18 +54,31 @@ jobs:
         print(f"Document opened: {doc.Name}")
         print(f"Total objects in document: {len(doc.Objects)}")
         
+        # Define which objects to export
+        export_names = ['FrontShield', 'Core', 'BackCover', 'Hook', 'HookBar']
+        
         # List all objects and their properties for debugging
         print("\n" + "="*50)
         print("All objects in document:")
         for obj in doc.Objects:
             in_list_count = len(obj.InList) if hasattr(obj, 'InList') else 'N/A'
             has_shape = hasattr(obj, 'Shape') and obj.Shape and not obj.Shape.isNull()
-            print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | HasShape: {has_shape}")
+            is_root = not hasattr(obj, 'InList') or len(obj.InList) == 0
+            print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | Root: {is_root} | HasShape: {has_shape}")
         print("="*50 + "\n")
         
-        # Export all objects with shapes (ignore InList filtering for now)
+        # Export only specified top-level objects
         exported_count = 0
         for obj in doc.Objects:
+            # Check if object is in the export list
+            if obj.Label not in export_names:
+                continue
+            
+            # Check if object is at root level
+            is_root = not hasattr(obj, 'InList') or len(obj.InList) == 0
+            if not is_root:
+                print(f"Skipping {obj.Label} - not at root level")
+                continue
             print(f"\nProcessing object: {obj.Label} (Type: {obj.TypeId})")
             
             # Check if object has a Shape attribute
