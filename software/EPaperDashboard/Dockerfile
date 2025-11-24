@@ -1,6 +1,10 @@
 # Multi-architecture support: linux/amd64, linux/arm64
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+LABEL org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
+      org.opencontainers.image.title="E-Paper Dashboard" \
+      org.opencontainers.image.description="Application for managing the dashboards for e-paper display"
 RUN apt-get update && apt-get install -y \
   libasound2 \
   libglib2.0-0 \
@@ -54,6 +58,11 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
   /p:Version=$VERSION \
   /p:DebugType=none \
   /p:DebugSymbols=false
+
+# Copy license files to publish directory
+RUN cp /src/LICENSE /app/publish/ && \
+    cp /src/NOTICE /app/publish/ && \
+    cp /src/THIRD-PARTY-NOTICES.txt /app/publish/
 
 FROM base AS final
 WORKDIR /app
