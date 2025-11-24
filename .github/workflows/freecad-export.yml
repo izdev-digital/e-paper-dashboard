@@ -1,0 +1,90 @@
+name: FreeCAD STL Export
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/freecad-export.yml'
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/freecad-export.yml'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  export-stl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install FreeCAD
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y software-properties-common xvfb
+        sudo add-apt-repository -y ppa:freecad-maintainers/freecad-stable
+        sudo apt-get update
+        sudo apt-get install -y freecad
+        
+    - name: Verify FreeCAD installation
+      run: xvfb-run freecad --version
+      
+    - name: Export STL files
+      run: |
+        mkdir -p artifacts/stl
+        
+        # Python script to export all bodies/parts to STL
+        cat > export_stl.py << 'EOF'
+        import FreeCAD
+        import Mesh
+        import os
+        import sys
+        
+        # Open the FreeCAD file
+        doc = FreeCAD.open(sys.argv[1])
+        output_dir = sys.argv[2]
+        
+        # Export all visible objects that can be meshed
+        exported_count = 0
+        for obj in doc.Objects:
+            if hasattr(obj, 'Shape') and obj.ViewObject.Visibility:
+                try:
+                    # Create mesh from shape
+                    mesh = Mesh.Mesh()
+                    mesh.addFacets(obj.Shape.tessellate(0.1))
+                    
+                    # Create safe filename
+                    safe_name = "".join(c for c in obj.Label if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                    output_file = os.path.join(output_dir, f"{safe_name}.stl")
+                    
+                    # Export to STL
+                    mesh.write(output_file)
+                    print(f"Exported: {obj.Label} -> {output_file}")
+                    exported_count += 1
+                except Exception as e:
+                    print(f"Failed to export {obj.Label}: {str(e)}")
+        
+        print(f"\nTotal objects exported: {exported_count}")
+        FreeCAD.closeDocument(doc.Name)
+        EOF
+        
+        # Run FreeCAD in console mode with virtual display to export STL
+        xvfb-run freecad -c export_stl.py packaging/e-paper-dashboard.FCStd artifacts/stl/
+        
+    - name: List exported files
+      run: |
+        echo "Exported STL files:"
+        ls -lh artifacts/stl/
+        
+    - name: Upload STL artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: freecad-stl-files
+        path: artifacts/stl/*.stl
+        retention-days: 90

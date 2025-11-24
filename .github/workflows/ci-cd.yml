@@ -1,0 +1,23 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  # Run firmware build
+  firmware:
+    uses: ./.github/workflows/firmware-build.yml
+    
+  # Run software build and Docker image creation
+  software:
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      
+  # Run FreeCAD STL export
+  packaging:
+    uses: ./.github/workflows/freecad-export.yml
