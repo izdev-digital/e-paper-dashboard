@@ -1,6 +1,10 @@
 # Multi-architecture support: linux/amd64, linux/arm64
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+LABEL org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
+      org.opencontainers.image.title="E-Paper Dashboard" \
+      org.opencontainers.image.description="Application for managing the dashboards for e-paper display"
 RUN apt-get update && apt-get install -y \
   libasound2 \
   libglib2.0-0 \
@@ -60,6 +64,9 @@ WORKDIR /app
 EXPOSE 8128
 COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
+COPY LICENSE /app/
+COPY NOTICE /app/
+COPY THIRD-PARTY-NOTICES.txt /app/
 RUN chmod +x /app/.playwright/node/*/node \
   && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
 USER app
