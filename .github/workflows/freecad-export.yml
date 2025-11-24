@@ -27,13 +27,13 @@ jobs:
     - name: Install FreeCAD
       run: |
         sudo apt-get update
-        sudo apt-get install -y software-properties-common
+        sudo apt-get install -y software-properties-common xvfb
         sudo add-apt-repository -y ppa:freecad-maintainers/freecad-stable
         sudo apt-get update
         sudo apt-get install -y freecad
         
     - name: Verify FreeCAD installation
-      run: freecad --version
+      run: xvfb-run freecad --version
       
     - name: Export STL files
       run: |
@@ -74,8 +74,8 @@ jobs:
         FreeCAD.closeDocument(doc.Name)
         EOF
         
-        # Run FreeCAD in console mode to export STL
-        freecad -c export_stl.py packaging/e-paper-dashboard.FCStd artifacts/stl/
+        # Run FreeCAD in console mode with virtual display to export STL
+        xvfb-run freecad -c export_stl.py packaging/e-paper-dashboard.FCStd artifacts/stl/
         
     - name: List exported files
       run: |
