@@ -45,35 +45,118 @@ jobs:
               - 'packaging/**'
               - '.github/workflows/freecad-export.yml'
   
-  # Run firmware build if changed or manually selected
+  # Run firmware build if changed or manually selected (or always on master push)
   firmware:
     needs: changes
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
       (github.event_name == 'workflow_dispatch' && inputs.build_firmware || 
-       github.event_name != 'workflow_dispatch' && needs.changes.outputs.firmware == 'true')
+       github.event_name == 'push' && github.ref == 'refs/heads/master' ||
+       github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.firmware == 'true')
     uses: ./.github/workflows/firmware-build.yml
     
-  # Run software build if changed or manually selected
+  # Run software build if changed or manually selected (or always on master push)
   software:
     needs: changes
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
       (github.event_name == 'workflow_dispatch' && inputs.build_software || 
-       github.event_name != 'workflow_dispatch' && needs.changes.outputs.software == 'true')
+       github.event_name == 'push' && github.ref == 'refs/heads/master' ||
+       github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.software == 'true')
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
     permissions:
       contents: read
       
-  # Run FreeCAD STL export if changed or manually selected
+  # Run FreeCAD STL export if changed or manually selected (or always on master push)
   packaging:
     needs: changes
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
       (github.event_name == 'workflow_dispatch' && inputs.build_packaging || 
-       github.event_name != 'workflow_dispatch' && needs.changes.outputs.packaging == 'true')
+       github.event_name == 'push' && github.ref == 'refs/heads/master' ||
+       github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.packaging == 'true')
     uses: ./.github/workflows/freecad-export.yml
+  
+  # Update development release with latest artifacts (only on master push)
+  update-dev-release:
+    needs: [firmware, software, packaging]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Get version info
+      id: version
+      run: |
+        # Get software version
+        BASE_VERSION=$(grep '<Version>' software/EPaperDashboard/EPaperDashboard.csproj | sed -E 's/.*<Version>([^<]+)<\/Version>.*/\1/' | tr -d '[:space:]')
+        BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+        VERSION="${BASE_VERSION}.${BUILD_NUMBER}"
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+        echo "date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_OUTPUT
+        
+    - name: Download firmware artifacts
+      if: needs.firmware.result == 'success'
+      uses: actions/download-artifact@v4
+      with:
+        name: firmware-esp32-${{ needs.firmware.outputs.version }}
+        path: ./artifacts/firmware/
+        
+    - name: Download STL artifacts
+      if: needs.packaging.result == 'success'
+      uses: actions/download-artifact@v4
+      with:
+        name: freecad-stl-files
+        path: ./artifacts/stl/
+        
+    - name: Create development release archive
+      run: |
+        cd artifacts
+        zip -r ../e-paper-dashboard-dev-${{ steps.version.outputs.short_sha }}.zip .
+        cd ..
+        
+    - name: Update development release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: dev
+        name: Development Build (Latest)
+        draft: false
+        prerelease: true
+        body: |
+          ## 🚧 Development Build
+          
+          **Latest build from master branch**
+          
+          - **Commit:** ${{ github.sha }}
+          - **Version:** ${{ steps.version.outputs.version }}
+          - **Built:** ${{ steps.version.outputs.date }}
+          
+          ### Docker Image
+          
+          ```bash
+          docker pull izdevdigital/e-paper-dashboard:latest
+          ```
+          
+          [View on Docker Hub](https://hub.docker.com/r/izdevdigital/e-paper-dashboard)
+          
+          ---
+          
+          ⚠️ This is an automated development build. For stable releases, see [Releases](https://github.com/${{ github.repository }}/releases).
+        files: |
+          artifacts/firmware/*.bin
+          artifacts/firmware/*.elf
+          artifacts/stl/*.stl
+          e-paper-dashboard-dev-${{ steps.version.outputs.short_sha }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
