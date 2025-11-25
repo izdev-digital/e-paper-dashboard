@@ -32,6 +32,10 @@ Hardware enclosure designs and assembly instructions for creating physical dashb
 - **Home Assistant integration**: Designed to work with Home Assistant dashboards
   > **Note**: For best results, use kiosk mode for your dashboards and custom themes optimized for E-Paper displays based on color palette constraints.
 
+## Scalability & Storage
+
+This solution is designed for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment.
+
 ## Quick Start
 
 1. **Deploy the software server** using Docker:
