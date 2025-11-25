@@ -1,18 +1,6 @@
 name: Firmware Build
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'firmware/**'
-      - '.github/workflows/firmware-build.yml'
-    tags:
-      - 'v*.*.*'
-  pull_request:
-    branches: [ master ]
-    paths:
-      - 'firmware/**'
-      - '.github/workflows/firmware-build.yml'
   workflow_call:
     outputs:
       version:

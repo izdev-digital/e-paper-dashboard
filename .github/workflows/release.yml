@@ -59,6 +59,26 @@ jobs:
         zip -r ../e-paper-dashboard-${{ steps.tag.outputs.version }}-complete.zip .
         cd ..
         
+    - name: Create release body
+      id: release_body
+      run: |
+        cat > release_body.md << 'EOF'
+        ## Docker Image
+        
+        ```bash
+        # Specific version
+        docker pull izdevdigital/e-paper-dashboard:${{ steps.tag.outputs.version }}
+        
+        # Latest
+        docker pull izdevdigital/e-paper-dashboard:latest
+        ```
+        
+        [View on Docker Hub](https://hub.docker.com/r/izdevdigital/e-paper-dashboard)
+        
+        ---
+        
+        EOF
+        
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -67,6 +87,7 @@ jobs:
         draft: false
         prerelease: ${{ contains(steps.tag.outputs.version, '-') }}
         generate_release_notes: true
+        body_path: release_body.md
         files: |
           release/firmware/*.bin
           release/firmware/*.elf
@@ -84,8 +105,10 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "#### Artifacts:" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Firmware (ESP32)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Docker Image (ghcr.io)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Docker Image: \`izdevdigital/e-paper-dashboard:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ 3D Models (STL)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Complete Package (ZIP)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+        echo "#### Links:" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔗 [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+        echo "- 🐳 [Docker Hub](https://hub.docker.com/r/izdevdigital/e-paper-dashboard)" >> $GITHUB_STEP_SUMMARY
