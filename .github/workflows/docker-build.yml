@@ -31,6 +31,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
       
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
@@ -48,20 +50,26 @@ jobs:
     - name: Get version
       id: version
       run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          # Extract version from tag (e.g., v1.2.3 or v1.2.3.4)
-          VERSION=${GITHUB_REF#refs/tags/v}
-          # Validate numeric version format
-          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Error: Tag must follow format v{major}.{minor}.{patch} or v{major}.{minor}.{patch}.{build}"
-            exit 1
-          fi
-        else
-          # For non-tag builds, use 0.0.0 (dotnet compatible)
-          VERSION="0.0.0"
+        # Extract major.minor.patch from csproj file (portable approach)
+        BASE_VERSION=$(grep '<Version>' software/EPaperDashboard/EPaperDashboard.csproj | sed -E 's/.*<Version>([^<]+)<\/Version>.*/\1/' | tr -d '[:space:]')
+        
+        # Validate base version format (major.minor.patch)
+        if [[ ! $BASE_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Version in csproj must follow format {major}.{minor}.{patch}"
+          echo "Current value: $BASE_VERSION"
+          exit 1
         fi
+        
+        # Use GitHub run number as build number
+        BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+        
+        # Construct full version: major.minor.patch.build
+        VERSION="${BASE_VERSION}.${BUILD_NUMBER}"
+        
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Application version: $VERSION"
+        echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+        echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+        echo "Application version: $VERSION (${BASE_VERSION} + build ${BUILD_NUMBER})"
         
     - name: Extract metadata
       id: meta
@@ -69,13 +77,9 @@ jobs:
       with:
         images: izdevdigital/e-paper-dashboard
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=raw,value=${{ steps.version.outputs.version }}
-          type=raw,value=latest,enable={{is_default_branch}}
+          # Use base version (without build number) for Docker tag
+          type=raw,value=${{ steps.version.outputs.base_version }}
+          type=raw,value=latest
           
     - name: Build and push Docker image
       id: build
@@ -84,7 +88,7 @@ jobs:
         context: ./software
         file: ./software/EPaperDashboard/Dockerfile
         platforms: linux/amd64,linux/arm64
-        push: ${{ github.event_name != 'pull_request' }}
+        push: ${{ github.ref == 'refs/heads/master' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
