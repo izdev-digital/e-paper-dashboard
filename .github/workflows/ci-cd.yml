@@ -5,19 +5,75 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      build_firmware:
+        description: 'Build firmware'
+        type: boolean
+        default: true
+      build_software:
+        description: 'Build software (Docker image)'
+        type: boolean
+        default: true
+      build_packaging:
+        description: 'Build packaging (STL files)'
+        type: boolean
+        default: true
 
 jobs:
-  # Run firmware build
+  # Detect what changed (skip for manual runs)
+  changes:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      firmware: ${{ steps.filter.outputs.firmware }}
+      software: ${{ steps.filter.outputs.software }}
+      packaging: ${{ steps.filter.outputs.packaging }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            firmware:
+              - 'firmware/**'
+              - '.github/workflows/firmware-build.yml'
+            software:
+              - 'software/**'
+              - '.github/workflows/docker-build.yml'
+            packaging:
+              - 'packaging/**'
+              - '.github/workflows/freecad-export.yml'
+  
+  # Run firmware build if changed or manually selected
   firmware:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
+      (github.event_name == 'workflow_dispatch' && inputs.build_firmware || 
+       github.event_name != 'workflow_dispatch' && needs.changes.outputs.firmware == 'true')
     uses: ./.github/workflows/firmware-build.yml
     
-  # Run software build and Docker image creation
+  # Run software build if changed or manually selected
   software:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
+      (github.event_name == 'workflow_dispatch' && inputs.build_software || 
+       github.event_name != 'workflow_dispatch' && needs.changes.outputs.software == 'true')
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
     permissions:
       contents: read
       
-  # Run FreeCAD STL export
+  # Run FreeCAD STL export if changed or manually selected
   packaging:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
+      (github.event_name == 'workflow_dispatch' && inputs.build_packaging || 
+       github.event_name != 'workflow_dispatch' && needs.changes.outputs.packaging == 'true')
     uses: ./.github/workflows/freecad-export.yml

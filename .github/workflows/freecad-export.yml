@@ -1,18 +1,6 @@
 name: FreeCAD STL Export
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'packaging/**'
-      - '.github/workflows/freecad-export.yml'
-    tags:
-      - 'v*.*.*'
-  pull_request:
-    branches: [ master ]
-    paths:
-      - 'packaging/**'
-      - '.github/workflows/freecad-export.yml'
   workflow_dispatch:
   workflow_call:
 

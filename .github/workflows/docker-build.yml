@@ -1,18 +1,6 @@
 name: Docker Build and Push
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'software/**'
-      - '.github/workflows/docker-build.yml'
-    tags:
-      - 'v*.*.*'
-  pull_request:
-    branches: [ master ]
-    paths:
-      - 'software/**'
-      - '.github/workflows/docker-build.yml'
   workflow_call:
     outputs:
       version:
