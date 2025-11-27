@@ -39,13 +39,14 @@ Hardware enclosure designs and assembly instructions for creating physical dashb
 
 This solution is currently intended for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment, making it ideal for environments where ease of setup and low maintenance are priorities.
 
+
 ## Quick Start
 
 1. **Deploy the software server** using Docker
-
 2. **Flash the firmware** to your ESP32 device with E-Paper display
-
 3. **Configure** your dashboard URLs and schedules through the web interface
+
+For a step-by-step setup, see the [Quick Start Guide](quick-start/QUICK_START.md).
 
 See individual component READMEs for detailed setup instructions.
 
