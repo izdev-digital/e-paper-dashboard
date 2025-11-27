@@ -41,21 +41,13 @@ jobs:
       working-directory: ./firmware
       run: pio run
       
-    - name: Get version
+    - name: Get firmware version and build number
       id: version
       run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          # Extract version from tag (e.g., v1.2.3 or v1.2.3.4)
-          VERSION=${GITHUB_REF#refs/tags/v}
-          # Validate numeric version format
-          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Error: Tag must follow format v{major}.{minor}.{patch} or v{major}.{minor}.{patch}.{build}"
-            exit 1
-          fi
-        else
-          # For non-tag builds, use 0.0.0 (dotnet compatible)
-          VERSION="0.0.0"
-        fi
+        # Extract FIRMWARE_VERSION from version.h
+        FW_VERSION=$(grep 'FIRMWARE_VERSION' firmware/src/version.h | sed 's/.*"\([0-9.]*\)".*/\1/')
+        BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+        VERSION="$FW_VERSION.$BUILD_NUMBER"
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Firmware version: $VERSION"
         
