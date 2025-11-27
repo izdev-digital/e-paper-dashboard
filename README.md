@@ -1,4 +1,7 @@
+
 # E-Paper Dashboard
+
+![Real Device](device.jpeg)
 
 A comprehensive solution for displaying Home Assistant dashboards (and other dashboards in the future) on E-Paper displays. The system renders dashboards as images suitable for E-Paper screens. Dashboard design and content can be changed dynamically without re-flashing the firmware.
 
@@ -26,6 +29,7 @@ Hardware enclosure designs and assembly instructions for creating physical dashb
 
 ## Key Features
 
+- **Built-in battery**: The device includes a rechargeable battery and can be charged via micro USB for portable, wireless operation.
 - **Schedule-based polling**: Devices poll the server based on configurable schedules defined in the software
 - **E-Paper optimized rendering**: Images are processed with color palette reduction and dithering algorithms tailored for E-Paper displays
 - **No firmware updates required**: Dashboard content and layout changes are handled server-side
