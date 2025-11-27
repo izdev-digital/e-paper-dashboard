@@ -271,7 +271,25 @@ void createConfiguration() {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>E-Paper Dashboard Setup</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            /* Minimal Bootstrap 5 styles for used classes */
+            .container { max-width: 960px; margin-right: auto; margin-left: auto; padding-right: 12px; padding-left: 12px; }
+            .mt-5 { margin-top: 3rem !important; }
+            .text-center { text-align: center !important; }
+            .card { position: relative; display: flex; flex-direction: column; min-width: 0; word-wrap: break-word; background-color: #fff; background-clip: border-box; border: 1px solid rgba(0,0,0,.125); border-radius: .25rem; }
+            .card-header { padding: .75rem 1.25rem; margin-bottom: 0; background-color: rgba(0,0,0,.03); border-bottom: 1px solid rgba(0,0,0,.125); font-weight: 500; }
+            .card-body { flex: 1 1 auto; padding: 1.25rem; }
+            .mb-3 { margin-bottom: 1rem !important; }
+            .form-label { margin-bottom: .5rem; font-weight: 500; display: inline-block; }
+            .form-control { display: block; width: 100%; padding: .375rem .75rem; font-size: 1rem; line-height: 1.5; color: #212529; background-color: #fff; background-clip: padding-box; border: 1px solid #ced4da; border-radius: .25rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+            .form-control:focus { color: #212529; background-color: #fff; border-color: #86b7fe; outline: 0; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
+            .form-select { display: block; width: 100%; padding: .375rem 2.25rem .375rem .75rem; font-size: 1rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: .25rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+            .input-group { position: relative; display: flex; flex-wrap: wrap; align-items: stretch; width: 100%; }
+            .btn { display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: .375rem .75rem; font-size: 1rem; border-radius: .25rem; transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
+            .btn-primary { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+            .btn-primary:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
+            .w-100 { width: 100% !important; }
+        </style>
     </head>
 
     <body>
@@ -332,8 +350,6 @@ void createConfiguration() {
                 <button type="submit" class="btn btn-primary w-100">Apply</button>
             </form>
         </div>
-
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
 
     </html>
