@@ -1,10 +1,13 @@
+
 # E-Paper Dashboard Firmware
 
-ESP32-based firmware that manages the E-Paper display hardware and communicates with the E-Paper Dashboard server to retrieve and display rendered dashboard images.
+## Overview
+
+E-Paper Dashboard Firmware is designed for ESP32-based devices equipped with E-Paper displays. The firmware integrates with a remote dashboard server to provide scheduled dashboard updates and display management. Updates are performed at configurable intervals, allowing the device to enter deep sleep between updates to conserve energy. Features include WiFi connectivity, scheduled polling, power-saving modes, and support for display refresh cycles.
 
 ## Hardware
 
-This firmware is currently designed specifically for:
+This firmware is currently intended for Waveshare ESP32 E-Paper boards and 7.5-inch E-Paper displays, but can be adapted to other compatible hardware with minor modifications:
 
 - **ESP32 Board**: [Waveshare E-Paper ESP32 Driver Board](https://www.waveshare.com/e-Paper-ESP32-Driver-Board.htm)
 - **E-Paper Display**: [Waveshare 7.5inch e-Paper HAT (B)](https://www.waveshare.com/wiki/7.5inch_e-Paper_HAT_(B)_Manual)

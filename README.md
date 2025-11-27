@@ -1,13 +1,12 @@
 
+
 # E-Paper Dashboard
 
 ![Real Device](device.jpeg)
 
-A comprehensive solution for displaying Home Assistant dashboards (and other dashboards in the future) on E-Paper displays. The system renders dashboards as images suitable for E-Paper screens. Dashboard design and content can be changed dynamically without re-flashing the firmware.
+E-Paper Dashboard helps users display dynamic, web-based dashboards—such as [Home Assistant](https://www.home-assistant.io/) dashboards—on E-Paper screens, delivering scheduled updates with clear visuals and low power usage. Designed for smart homes and personal automation, this solution is currently intended for home networks and removes the need for manual firmware updates by allowing server-driven changes to dashboard content and layout. While functional, the solution has room for improvement and welcomes feedback and contributions.
 
-## Overview
-
-This project enables E-Paper displays to show dynamic dashboard content by polling a server that renders web-based dashboards into images for E-Paper displays. The rendering pipeline processes the dashboard content with color quantization and dithering techniques specifically designed for E-Paper display characteristics.
+The platform includes ESP32-based device firmware, an ASP.NET Core server for rendering and management, and hardware packaging resources. The server uses [Playwright](https://playwright.dev/) as its headless browser solution, along with E-Paper-specific image processing to prepare dashboard images. RESTful APIs support schedule-driven updates and centralized control of devices and dashboards. The project aims to be flexible and low-maintenance, but is still evolving and open to improvements.
 
 ## Architecture
 
@@ -38,11 +37,11 @@ Hardware enclosure designs and assembly instructions for creating physical dashb
 
 ## Scalability & Storage
 
-This solution is designed for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment.
+This solution is currently intended for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment, making it ideal for environments where ease of setup and low maintenance are priorities.
 
 ## Quick Start
 
-1. **Deploy the software server** using Docker:
+1. **Deploy the software server** using Docker
 
 2. **Flash the firmware** to your ESP32 device with E-Paper display
 
