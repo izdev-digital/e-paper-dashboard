@@ -81,10 +81,12 @@ jobs:
        github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.packaging == 'true')
     uses: ./.github/workflows/freecad-export.yml
   
-  # Update development release with latest artifacts (only on master push)
+  # Update development release with latest artifacts
   update-dev-release:
     needs: [firmware, software, packaging]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
