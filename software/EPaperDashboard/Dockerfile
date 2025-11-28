@@ -1,6 +1,6 @@
-# Multi-architecture support: linux/amd64, linux/arm64
+# Multi-architecture support: linux/amd64, linux/arm64, linux/arm/v7 (Raspberry Pi 3)
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 LABEL org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
       org.opencontainers.image.title="E-Paper Dashboard" \
@@ -46,6 +46,8 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
   DOTNET_ARCH=x64; \
   elif [ "$TARGETARCH" = "arm64" ]; then \
   DOTNET_ARCH=arm64; \
+  elif [ "$TARGETARCH" = "arm/v7" ]; then \
+  DOTNET_ARCH=arm; \
   else \
   DOTNET_ARCH=$TARGETARCH; \
   fi && \

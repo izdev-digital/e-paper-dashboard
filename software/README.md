@@ -42,7 +42,7 @@ volumes:
 ## Single Architecture Build
 Build for a specific platform:
 ```shell
-# <arch> can be: amd64 or arm64
+# <arch> can be: amd64, arm64, or arm/v7
 docker build --platform linux/<arch> --build-arg VERSION=<version> -t izdevdigital/e-paper-dashboard:<version>-<arch> -f EPaperDashboard/Dockerfile .
 ```
 
@@ -52,9 +52,9 @@ Build and push for all supported platforms (requires docker buildx):
 # Create a new builder instance (one-time setup)
 docker buildx create --name multiarch --use
 
-# Build and push multi-arch image (amd64 + arm64)
+# Build and push multi-arch image (amd64 + arm64 + arm/v7)
 docker buildx build \
-  --platform linux/amd64,linux/arm64 \
+  --platform linux/amd64,linux/arm64,linux/arm/v7 \
   --build-arg VERSION=<version> \
   -t izdevdigital/e-paper-dashboard:<version> \
   -t izdevdigital/e-paper-dashboard:latest \
