@@ -119,6 +119,9 @@ builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions
 
 var app = builder.Build();
 
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Configuration directory: {ConfigDir}", EnvironmentConfiguration.ConfigDir);
+
 // Seed superuser if not exists using registered LiteDbContext and UserService
 using (var scope = app.Services.CreateScope())
 {
