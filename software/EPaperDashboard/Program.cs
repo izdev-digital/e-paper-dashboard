@@ -121,6 +121,7 @@ var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Configuration directory: {ConfigDir}", EnvironmentConfiguration.ConfigDir);
+logger.LogInformation("Client URL: {ClientUrl}", EnvironmentConfiguration.ClientUri);
 
 // Seed superuser if not exists using registered LiteDbContext and UserService
 using (var scope = app.Services.CreateScope())
