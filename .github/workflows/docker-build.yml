@@ -2,6 +2,12 @@ name: Docker Build and Push
 
 on:
   workflow_call:
+    inputs:
+      platforms:
+        description: 'Comma-separated list of target platforms for buildx'
+        required: false
+        type: string
+        default: 'linux/amd64,linux/arm64'
     outputs:
       version:
         description: 'Software version'
@@ -75,7 +81,7 @@ jobs:
       with:
         context: ./software
         file: ./software/EPaperDashboard/Dockerfile
-        platforms: linux/amd64,linux/arm64,linux/arm/v7
+        platforms: ${{ inputs.platforms }}
         push: ${{ github.ref == 'refs/heads/master' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
