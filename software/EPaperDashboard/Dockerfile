@@ -1,4 +1,4 @@
-# Multi-architecture support: linux/amd64, linux/arm64, linux/arm/v7 (Raspberry Pi 3)
+# Multi-architecture support: linux/amd64, linux/arm64
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 LABEL org.opencontainers.image.licenses="Apache-2.0" \
@@ -46,7 +46,7 @@ WORKDIR /src/EPaperDashboard
 
 
 # Map Docker build args to .NET architecture and Runtime Identifier (RID)
-# TARGETARCH is set by buildkit; TARGETVARIANT is used for arm/v7, etc.
+# TARGETARCH is set by buildkit; TARGETVARIANT may be used for specific variants.
 RUN case "$TARGETARCH" in \
       amd64) RID=linux-x64 ;; \
       arm64) RID=linux-arm64 ;; \
