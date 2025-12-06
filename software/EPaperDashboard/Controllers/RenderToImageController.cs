@@ -21,8 +21,7 @@ namespace EPaperDashboard.Controllers;
 [Authorize(Policy = "ApiKeyPolicy")]
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
-	DashboardService dashboardService,
-	ILogger<RenderToImageController> logger) : ControllerBase
+	DashboardService dashboardService) : ControllerBase
 {
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
@@ -39,7 +38,7 @@ public sealed class RenderToImageController(
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg",
 		[FromQuery] bool shouldDither = false) =>
-		await RenderImage(apiKey, imageSize, format, image => 
+		await RenderImage(apiKey, imageSize, format, image =>
 			image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)));
 
 	[HttpGet("original")]
@@ -59,18 +58,20 @@ public sealed class RenderToImageController(
 				None: _ => Task.FromResult<IActionResult>(NotFound()));
 
 	private async Task<IActionResult> RenderImage(
-		string apiKey, 
-		Size imageSize, 
-		string format, 
+		string apiKey,
+		Size imageSize,
+		string format,
 		Func<IImage, IImage>? transform = null)
 	{
 		var dashboardInfo = dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
 		if (dashboardInfo.HasNoValue)
+		{
 			return NotFound();
+		}
 
 		var (contentType, encoder) = GetEncoder(format);
 		var authStrategy = new HassAuthStrategy(dashboardInfo.Value.Tokens);
-		
+
 		return await renderingService
 			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
 			.Map(image => transform?.Invoke(image) ?? image)
@@ -84,7 +85,9 @@ public sealed class RenderToImageController(
 		if (string.IsNullOrWhiteSpace(dashboard.AccessToken)
 			|| !Uri.TryCreate(dashboard.Host, UriKind.Absolute, out var hostUri)
 			|| !Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri))
+		{
 			return Maybe.None;
+		}
 
 		var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
 		var clientId = EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/');
@@ -97,7 +100,7 @@ public sealed class RenderToImageController(
 		? new Uri(hostUri, pathUri)
 		: Maybe.None;
 
-	private static IDither? GetDither(bool shouldDither) => 
+	private static IDither? GetDither(bool shouldDither) =>
 		shouldDither ? KnownDitherings.JarvisJudiceNinke : null;
 
 	private async Task<IActionResult> ConvertToResult(IImage image, IImageEncoder encoder, string contentType)
@@ -107,8 +110,6 @@ public sealed class RenderToImageController(
 		outStream.Seek(0, SeekOrigin.Begin);
 		return File(outStream, contentType);
 	}
-
-
 
 	private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
 	{
