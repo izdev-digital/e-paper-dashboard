@@ -24,142 +24,59 @@ public sealed class RenderToImageController(
 	DashboardService dashboardService,
 	ILogger<RenderToImageController> logger) : ControllerBase
 {
-	private readonly IPageToImageRenderingService _renderingService = renderingService;
-	private readonly Func<HassTokens, HassAuthStrategy> _authStrategyFactory = token => new HassAuthStrategy(token);
-	private readonly DashboardService _dashboardService = dashboardService;
-	private readonly ILogger<RenderToImageController> _logger = logger;
-
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
 		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
-		[FromQuery] bool shouldDither = false)
-	{
-		try
-		{
-			_logger.LogInformation("GetAsBinary request received with size {Width}x{Height}, dither={ShouldDither}", imageSize.Width, imageSize.Height, shouldDither);
-			
-			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-			if (dashboardInfo.HasNoValue)
-			{
-				_logger.LogError("Dashboard not found for provided API key");
-				return NotFound();
-			}
-
-			var (contentType, encoder) = GetEncoder("bin");
-			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-			var result = await _renderingService
-				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-				.Map(image => image
-					.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
-					.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal))
-				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
-			
-			_logger.LogInformation("GetAsBinary request completed successfully");
-			return result;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error processing GetAsBinary request with size {Width}x{Height}", imageSize.Width, imageSize.Height);
-			throw;
-		}
-	}
+		[FromQuery] bool shouldDither = false) =>
+		await RenderImage(apiKey, imageSize, "bin", image => image
+			.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
+			.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal));
 
 	[HttpGet("converted")]
 	public async Task<IActionResult> GetAsConvertedsImage(
 		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg",
-		[FromQuery] bool shouldDither = false)
-	{
-		try
-		{
-			_logger.LogInformation("GetAsConvertedsImage request received with size {Width}x{Height}, format={Format}, dither={ShouldDither}", imageSize.Width, imageSize.Height, format, shouldDither);
-			
-			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-			if (dashboardInfo.HasNoValue)
-			{
-				_logger.LogError("Dashboard not found for provided API key");
-				return NotFound();
-			}
-
-			var (contentType, encoder) = GetEncoder(format);
-			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-			var result = await _renderingService
-				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-				.Map(image => image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)))
-				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
-			
-			_logger.LogInformation("GetAsConvertedsImage request completed successfully");
-			return result;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error processing GetAsConvertedsImage request with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
-			throw;
-		}
-	}
+		[FromQuery] bool shouldDither = false) =>
+		await RenderImage(apiKey, imageSize, format, image => 
+			image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)));
 
 	[HttpGet("original")]
 	public async Task<IActionResult> GetAsImage(
 		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
-		[FromQuery] string format = "jpeg")
-	{
-		try
-		{
-			_logger.LogInformation("GetAsImage request received with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
-			
-			var dashboardInfo = _dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
-			if (dashboardInfo.HasNoValue)
-			{
-				_logger.LogError("Dashboard not found for provided API key");
-				return NotFound();
-			}
-
-			var (contentType, encoder) = GetEncoder(format);
-			var authStrategy = _authStrategyFactory(dashboardInfo.Value.Tokens);
-			var result = await _renderingService
-				.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-				.Match(async image => await ConvertToResult(image, encoder, contentType), ConvertToError);
-			
-			_logger.LogInformation("GetAsImage request completed successfully");
-			return result;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error processing GetAsImage request with size {Width}x{Height}, format={Format}", imageSize.Width, imageSize.Height, format);
-			throw;
-		}
-	}
+		[FromQuery] string format = "jpeg") =>
+		await RenderImage(apiKey, imageSize, format);
 
 	[HttpGet("health")]
-	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
+	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey) =>
+		await dashboardService
+			.GetDashboardByApiKey(apiKey)
+			.Bind(GetDashboardUri)
+			.Match(
+				Some: async (uri, _) => (IActionResult)Ok(await renderingService.GetHealth(uri)),
+				None: _ => Task.FromResult<IActionResult>(NotFound()));
+
+	private async Task<IActionResult> RenderImage(
+		string apiKey, 
+		Size imageSize, 
+		string format, 
+		Func<IImage, IImage>? transform = null)
 	{
-		try
-		{
-			_logger.LogInformation("GetHealth request received");
-			
-			var result = await _dashboardService
-				.GetDashboardByApiKey(apiKey)
-				.Bind(GetDashboardUri)
-				.Match(
-					Some: async (dashboardUri, _) => (IActionResult)Ok(await _renderingService.GetHealth(dashboardUri)),
-					None: _ =>
-					{
-						_logger.LogError("Dashboard not found for provided API key in health check");
-						return Task.FromResult<IActionResult>(NotFound());
-					}
-				);
-			
-			_logger.LogInformation("GetHealth request completed successfully");
-			return result;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error processing GetHealth request");
-			throw;
-		}
+		var dashboardInfo = dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
+		if (dashboardInfo.HasNoValue)
+			return NotFound();
+
+		var (contentType, encoder) = GetEncoder(format);
+		var authStrategy = new HassAuthStrategy(dashboardInfo.Value.Tokens);
+		
+		return await renderingService
+			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
+			.Map(image => transform?.Invoke(image) ?? image)
+			.Match(
+				image => ConvertToResult(image, encoder, contentType),
+				error => Task.FromResult<IActionResult>(BadRequest(error)));
 	}
 
 	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard)
@@ -167,16 +84,11 @@ public sealed class RenderToImageController(
 		if (string.IsNullOrWhiteSpace(dashboard.AccessToken)
 			|| !Uri.TryCreate(dashboard.Host, UriKind.Absolute, out var hostUri)
 			|| !Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri))
-		{
 			return Maybe.None;
-		}
 
 		var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
 		var clientId = EnvironmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/');
-		return (
-			DashboardUri: new Uri(hostUri, pathUri),
-			Tokens: new HassTokens(dashboard.AccessToken, "Bearer", hassUrl, clientId)
-		); ;
+		return (new Uri(hostUri, pathUri), new HassTokens(dashboard.AccessToken, "Bearer", hassUrl, clientId));
 	}
 
 	private static Maybe<Uri> GetDashboardUri(Dashboard dashboard) =>
@@ -185,7 +97,8 @@ public sealed class RenderToImageController(
 		? new Uri(hostUri, pathUri)
 		: Maybe.None;
 
-	private static IDither? GetDither(bool shouldDither) => shouldDither ? KnownDitherings.JarvisJudiceNinke : null;
+	private static IDither? GetDither(bool shouldDither) => 
+		shouldDither ? KnownDitherings.JarvisJudiceNinke : null;
 
 	private async Task<IActionResult> ConvertToResult(IImage image, IImageEncoder encoder, string contentType)
 	{
@@ -195,7 +108,7 @@ public sealed class RenderToImageController(
 		return File(outStream, contentType);
 	}
 
-	private Task<IActionResult> ConvertToError(string error) => Task.FromResult<IActionResult>(BadRequest(error));
+
 
 	private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch
 	{
