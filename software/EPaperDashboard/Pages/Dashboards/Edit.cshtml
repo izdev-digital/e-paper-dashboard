@@ -13,6 +13,22 @@
     <div class="alert alert-danger">@Model.ErrorMessage</div>
 }
 
+@if (!string.IsNullOrEmpty(Model.AuthSuccessToken))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Successfully authenticated with Home Assistant! The access token has been populated below.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.AuthError))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        Authentication failed: @Model.AuthError
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
 <form method="post" data-api-key="@Model.ApiKey">
     <input type="hidden" asp-for="Id" />
     <div class="mb-3">
@@ -36,7 +52,12 @@
         <legend class="w-auto px-2" style="font-size:1.1em;">Hass Dashboard</legend>
         <div class="mb-3">
             <label class="form-label">Access Token</label>
-            <input type="text" class="form-control" asp-for="AccessToken"  placeholder="Enter token to update..." />
+            <div class="input-group">
+                <input type="text" class="form-control" asp-for="AccessToken" id="accessTokenField" placeholder="Enter token to update..." value="@(Model.AuthSuccessToken ?? Model.AccessToken)" />
+                <button type="button" class="btn btn-outline-primary" title="Authenticate with Home Assistant" onclick="authenticateWithHomeAssistant(event)">
+                    <i class="fa-solid fa-key"></i> Fetch Token
+                </button>
+            </div>
         </div>
         <div class="mb-3">
             <label class="form-label">Dashboard Host</label>
@@ -180,6 +201,100 @@
     function hideCopyToast() {
         var toast = document.getElementById('copy-toast');
         toast.style.display = 'none';
+    }
+    
+    async function authenticateWithHomeAssistant(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const hostField = document.querySelector('input[name="Host"]');
+        const dashboardIdField = document.querySelector('input[name="Id"]');
+        const nameField = document.querySelector('input[name="Name"]');
+        const form = document.querySelector('form');
+        const host = hostField?.value?.trim();
+        const dashboardId = dashboardIdField?.value;
+        const name = nameField?.value?.trim();
+        
+        if (!host) {
+            // Highlight the host field
+            hostField?.classList.add('is-invalid');
+            hostField?.focus();
+            
+            // Show error feedback
+            let feedback = hostField?.nextElementSibling;
+            if (!feedback || !feedback.classList.contains('invalid-feedback')) {
+                feedback = document.createElement('div');
+                feedback.className = 'invalid-feedback';
+                hostField?.parentNode.appendChild(feedback);
+            }
+            feedback.textContent = 'Please enter Dashboard Host before authenticating';
+            
+            // Remove highlight after user starts typing
+            const removeHighlight = () => {
+                hostField?.classList.remove('is-invalid');
+                feedback?.remove();
+                hostField?.removeEventListener('input', removeHighlight);
+            };
+            hostField?.addEventListener('input', removeHighlight);
+            return;
+        }
+        
+        if (!name) {
+            alert('Please enter a Dashboard Name before authenticating');
+            nameField?.focus();
+            return;
+        }
+        
+        const button = event.target.closest('button');
+        const originalHtml = button.innerHTML;
+        
+        try {
+            // Show saving state
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            
+            // Save the dashboard first
+            const formData = new FormData(form);
+            const saveResponse = await fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!saveResponse.ok) {
+                throw new Error('Failed to save dashboard');
+            }
+            
+            // Show auth starting state
+            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting auth...';
+            
+            // Start the OAuth2 flow
+            const response = await fetch('/api/homeassistant/start-auth', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ host: host, dashboardId: dashboardId })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP Error ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Redirect to Home Assistant for authorization
+            window.location.href = data.authUrl;
+            
+        } catch (error) {
+            console.error('Authentication error:', error);
+            alert('Authentication failed: ' + error.message);
+            // Restore button state
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            }
+        }
     }
     
     // Track created object URL so we can revoke it when closing/resetting

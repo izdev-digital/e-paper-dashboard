@@ -34,10 +34,54 @@ public class EditModel(DashboardService dashboardService, UserService userServic
     public List<TimeOnly>? UpdateTimes { get; set; }
 
     public string? ErrorMessage { get; set; }
+    public string? AuthSuccessToken { get; set; }
+    public string? AuthError { get; set; }
 
     private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
 
     public IActionResult OnGet()
+    {
+        return LoadDashboard();
+    }
+
+    public IActionResult OnPost()
+    {
+        // Check if this is an auth callback
+        if (Request.Form.TryGetValue("auth_callback", out var authCallback) && authCallback == "true")
+        {
+            var accessToken = Request.Form["access_token"].ToString();
+            var authError = Request.Form["auth_error"].ToString();
+
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                AuthSuccessToken = accessToken;
+                AccessToken = accessToken; // Also set the AccessToken property so it shows in the form
+            }
+            else if (!string.IsNullOrWhiteSpace(authError))
+            {
+                AuthError = authError;
+            }
+
+            return LoadDashboard();
+        }
+
+        // Check if this is from the auth flow (save before OAuth)
+        var isAuthFlow = Request.Headers["X-Requested-With"] == "XMLHttpRequest" || 
+                         Request.Headers.Accept.ToString().Contains("application/json");
+
+        // Normal form submission for saving dashboard
+        var result = SaveDashboard(skipRedirect: isAuthFlow);
+        
+        // If this is an AJAX request from auth flow, return 200 OK instead of redirect
+        if (isAuthFlow && result is RedirectToPageResult)
+        {
+            return new OkResult();
+        }
+        
+        return result;
+    }
+
+    private IActionResult LoadDashboard()
     {
         var id = TryParseObjectId(Id);
         if (id.IsFailure)
@@ -72,7 +116,7 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         return Page();
     }
 
-    public IActionResult OnPost()
+    private IActionResult SaveDashboard(bool skipRedirect = false)
     {
         var id = TryParseObjectId(Id);
         if (id.IsFailure)
@@ -116,6 +160,12 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         }
         dashboard.UpdateTimes = UpdateTimes;
         dashboardService.UpdateDashboard(dashboard);
+        
+        if (skipRedirect)
+        {
+            return Page();
+        }
+        
         return RedirectToPage("/Dashboards");
     }
 
