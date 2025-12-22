@@ -11,8 +11,9 @@ public class HomeAssistantAuthService(
 {
     private readonly ILogger<HomeAssistantAuthService> _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
-    
-    private static readonly byte[] StateSigningKey = Encoding.UTF8.GetBytes("YourSecretKeyHere_ChangeInProduction_32BytesMin!");
+    private static readonly Lazy<byte[]> _stateSigningKey = new(() => 
+        Encoding.UTF8.GetBytes(EnvironmentConfiguration.StateSigningKey));
+    private static byte[] StateSigningKey => _stateSigningKey.Value;
 
     public AuthStartResult StartAuth(string host, string dashboardId)
     {
