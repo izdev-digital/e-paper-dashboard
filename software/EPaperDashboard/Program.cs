@@ -47,7 +47,8 @@ builder.Services
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<UserService>()
-	.AddSingleton<DashboardService>();
+	.AddSingleton<DashboardService>()
+	.AddSingleton<HomeAssistantAuthService>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);

@@ -41,38 +41,55 @@ public class EditModel(DashboardService dashboardService, UserService userServic
 
     public IActionResult OnGet()
     {
+        if (!Request.Query.TryGetValue("auth_callback", out var authCallback) || authCallback != "true")
+        {
+            return LoadDashboard();
+        }
+
+        if (Request.Query.TryGetValue("auth_error", out var authError) && !string.IsNullOrWhiteSpace(authError))
+        {
+            AuthError = authError.ToString();
+            return LoadDashboard();
+        }
+
+        if (!Request.Query.TryGetValue("access_token", out var accessToken) || string.IsNullOrWhiteSpace(accessToken))
+        {
+            return LoadDashboard();
+        }
+
+        var id = TryParseObjectId(Id);
+        if (id.IsFailure)
+        {
+            return LoadDashboard();
+        }
+
+        var user = userService.GetUserById(UserId);
+        if (user.HasNoValue)
+        {
+            return LoadDashboard();
+        }
+
+        var dashboard = dashboardService
+            .GetDashboardsForUser(user.Value.Id)
+            .FirstOrDefault(d => d.Id == id.Value);
+
+        if (dashboard != null)
+        {
+            dashboard.AccessToken = accessToken;
+            dashboardService.UpdateDashboard(dashboard);
+            AuthSuccessToken = accessToken;
+        }
+
         return LoadDashboard();
     }
 
     public IActionResult OnPost()
     {
-        // Check if this is an auth callback
-        if (Request.Form.TryGetValue("auth_callback", out var authCallback) && authCallback == "true")
-        {
-            var accessToken = Request.Form["access_token"].ToString();
-            var authError = Request.Form["auth_error"].ToString();
-
-            if (!string.IsNullOrWhiteSpace(accessToken))
-            {
-                AuthSuccessToken = accessToken;
-                AccessToken = accessToken; // Also set the AccessToken property so it shows in the form
-            }
-            else if (!string.IsNullOrWhiteSpace(authError))
-            {
-                AuthError = authError;
-            }
-
-            return LoadDashboard();
-        }
-
-        // Check if this is from the auth flow (save before OAuth)
         var isAuthFlow = Request.Headers["X-Requested-With"] == "XMLHttpRequest" || 
                          Request.Headers.Accept.ToString().Contains("application/json");
 
-        // Normal form submission for saving dashboard
         var result = SaveDashboard(skipRedirect: isAuthFlow);
         
-        // If this is an AJAX request from auth flow, return 200 OK instead of redirect
         if (isAuthFlow && result is RedirectToPageResult)
         {
             return new OkResult();
@@ -109,6 +126,7 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         Name = dashboard.Name;
         Description = dashboard.Description;
         ApiKey = dashboard.ApiKey;
+        AccessToken = dashboard.AccessToken;
         Host = dashboard.Host;
         Path = dashboard.Path;
         UpdateTimes = dashboard.UpdateTimes;

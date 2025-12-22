@@ -51,6 +51,10 @@
     <fieldset class="border rounded p-3 mb-3">
         <legend class="w-auto px-2" style="font-size:1.1em;">Hass Dashboard</legend>
         <div class="mb-3">
+            <label class="form-label">Dashboard Host</label>
+            <input type="text" class="form-control" asp-for="Host" />
+        </div>
+        <div class="mb-3">
             <label class="form-label">Access Token</label>
             <div class="input-group">
                 <input type="text" class="form-control" asp-for="AccessToken" id="accessTokenField" placeholder="Enter token to update..." value="@(Model.AuthSuccessToken ?? Model.AccessToken)" />
@@ -58,10 +62,6 @@
                     <i class="fa-solid fa-key"></i> Fetch Token
                 </button>
             </div>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Dashboard Host</label>
-            <input type="text" class="form-control" asp-for="Host" />
         </div>
         <div class="mb-3">
             <label class="form-label">Dashboard Path</label>
@@ -80,11 +80,13 @@
             <div class="form-text">Add one or more times. Example: 06:00, 12:00, 18:00</div>
         </div>
     </fieldset>
-    <button type="submit" class="btn btn-primary">Save</button>
-    <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
-    <button type="button" class="btn btn-info ms-2" onclick="previewDashboard()">
-        <i class="fa-solid fa-eye"></i> Preview
-    </button>
+    <div class="mb-5 pb-3">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
+        <button type="button" class="btn btn-info ms-2" onclick="previewDashboard()">
+            <i class="fa-solid fa-eye"></i> Preview
+        </button>
+    </div>
 </form>
 
 <div id="copy-toast" class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4" role="alert" aria-live="assertive" aria-atomic="true" style="display:none; z-index: 1080;">
