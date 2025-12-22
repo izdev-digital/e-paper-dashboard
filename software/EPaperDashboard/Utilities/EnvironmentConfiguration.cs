@@ -16,6 +16,9 @@ public static class EnvironmentConfiguration
 	private static readonly Lazy<string?> _superuserPassword = new(() =>
 		GetStringFromEnvOrConfig("SUPERUSER_PASSWORD"));
 
+	private static readonly Lazy<string?> _stateSigningKey = new(() =>
+		GetStringFromEnvOrConfig("STATE_SIGNING_KEY"));
+
 	private static readonly Lazy<string> _configDir = new(() =>
 		Path.Combine(AppContext.BaseDirectory, "config"));
 
@@ -24,6 +27,8 @@ public static class EnvironmentConfiguration
 	public static string SuperUserUsername => _superuserUsername.Value ?? "admin";
 
 	public static string SuperUserPassword => _superuserPassword.Value ?? "admin";
+
+	public static string StateSigningKey => _stateSigningKey.Value ?? "DefaultKeyPleaseChangeInProduction32Bytes!";
 
 	public static string ConfigDir => _configDir.Value;
 
