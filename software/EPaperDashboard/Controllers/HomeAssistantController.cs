@@ -19,14 +19,8 @@ public class HomeAssistantController(
     {
         var result = await _homeAssistantService.FetchDashboards(dashboardId);
 
-        if (result.IsFailure)
-        {
-            return BadRequest(new { error = result.Error });
-        }
-
-        return Ok(new
-        {
-            dashboards = result.Value
-        });
+        return result.IsSuccess
+            ? Ok(new { dashboards = result.Value })
+            : BadRequest(new { error = result.Error });
     }
 }
