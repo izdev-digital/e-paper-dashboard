@@ -49,7 +49,7 @@
         </div>
     </div>
     <fieldset class="border rounded p-3 mb-3">
-        <legend class="w-auto px-2" style="font-size:1.1em;">Hass Dashboard</legend>
+        <legend class="w-auto px-2" style="font-size:1.1em;">Home Assistant Dashboard</legend>
         <div class="mb-3">
             <label class="form-label">Dashboard Host</label>
             <input type="text" class="form-control" asp-for="Host" />
@@ -83,7 +83,7 @@
         </div>
     </fieldset>
     <div class="mb-5 pb-3">
-        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="submit" class="btn btn-primary" id="saveButton" disabled>Save</button>
         <a asp-page="/Dashboards" class="btn btn-secondary ms-2">Cancel</a>
         <button type="button" class="btn btn-info ms-2" onclick="previewDashboard()">
             <i class="fa-solid fa-eye"></i> Preview
@@ -166,6 +166,38 @@
 <script>
     let updateTimesRaw = '@(Model.UpdateTimesRaw ?? "")';
     let updateTimes = updateTimesRaw ? updateTimesRaw.split(',').filter(t => t) : [];
+    const initialUpdateTimes = [...updateTimes];
+    
+    const saveButton = document.getElementById('saveButton');
+    
+    function checkForChanges() {
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('input[type="text"]:not([readonly])');
+        
+        // Check if any input value differs from its defaultValue
+        const hasInputChanges = Array.from(inputs).some(input => {
+            return input.value !== input.defaultValue;
+        });
+        
+        // Check if update times have changed
+        const updateTimesChanged = updateTimes.join(',') !== initialUpdateTimes.join(',');
+        
+        const hasChanges = hasInputChanges || updateTimesChanged;
+        
+        if (saveButton) {
+            saveButton.disabled = !hasChanges;
+        }
+    }
+    
+    function setupChangeTracking() {
+        const form = document.querySelector('form');
+        const inputs = form.querySelectorAll('input[type="text"]:not([readonly])');
+        
+        inputs.forEach(input => {
+            input.addEventListener('input', checkForChanges);
+        });
+    }
+    
     function renderUpdateTimes() {
         const list = document.getElementById('updateTimesList');
         list.innerHTML = '';
@@ -176,7 +208,7 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn-close btn-close-white btn-sm ms-1';
-            btn.onclick = () => { updateTimes.splice(idx, 1); renderUpdateTimes(); };
+            btn.onclick = () => { updateTimes.splice(idx, 1); renderUpdateTimes(); checkForChanges(); };
             chip.appendChild(btn);
             list.appendChild(chip);
         });
@@ -189,6 +221,7 @@
             updateTimes.push(val);
             updateTimes.sort();
             renderUpdateTimes();
+            checkForChanges();
         }
         input.value = '';
     }
@@ -473,5 +506,8 @@
         }
     });
     
-    document.addEventListener('DOMContentLoaded', renderUpdateTimes);
+    document.addEventListener('DOMContentLoaded', function() {
+        renderUpdateTimes();
+        setupChangeTracking();
+    });
 </script>
