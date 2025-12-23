@@ -13,11 +13,11 @@
     <p>@Model.ErrorMessage</p>
     @if (Model.DashboardId != null)
     {
-        <p><a href="/Dashboards/Edit/@Uri.EscapeDataString(Model.DashboardId)">Return to Dashboard</a></p>
+        <p><a asp-page="/Dashboards/Edit" asp-route-id="@Model.DashboardId">Return to Dashboard</a></p>
     }
     else
     {
-        <p><a href="/">Return to Home</a></p>
+        <p><a asp-page="/Index">Return to Home</a></p>
     }
 </body>
 </html>
