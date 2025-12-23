@@ -158,7 +158,7 @@ public class EditModel(DashboardService dashboardService, UserService userServic
         }
         dashboard.Name = Name;
         dashboard.Description = Description ?? string.Empty;
-        dashboard.AccessToken = string.IsNullOrEmpty(AccessToken) ? dashboard.AccessToken : AccessToken;
+        dashboard.AccessToken = AccessToken;
         dashboard.Host = Host;
         dashboard.Path = Path;
 

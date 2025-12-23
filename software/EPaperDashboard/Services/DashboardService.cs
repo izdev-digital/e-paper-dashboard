@@ -23,4 +23,7 @@ public sealed class DashboardService(LiteDbContext dbContext)
 
     public Maybe<Dashboard> GetDashboardByApiKey(string apiKey) => _dbContext
         .Dashboards.FindOne(d => d.ApiKey == apiKey);
+
+    public Maybe<Dashboard> GetDashboardById(ObjectId dashboardId) => _dbContext
+        .Dashboards.FindById(dashboardId);
 }

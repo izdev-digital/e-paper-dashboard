@@ -68,7 +68,13 @@
         </div>
         <div class="mb-3">
             <label class="form-label">Dashboard Path</label>
-            <input type="text" class="form-control" asp-for="Path" />
+            <div class="input-group">
+                <input type="text" class="form-control" asp-for="Path" id="pathField" />
+                <button type="button" class="btn btn-outline-secondary" id="selectPathBtn" title="Select from Home Assistant" onclick="openDashboardSelector(event)">
+                    <i class="fa-solid fa-list"></i> Select
+                </button>
+            </div>
+            <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
         </div>
         <div class="mb-3">
             <label class="form-label">Update Times</label>
@@ -119,6 +125,28 @@
         </div>
         <!-- Modal Footer -->
         <div id="preview-error" class="alert alert-danger mb-0" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- Dashboard Selector Modal -->
+<div id="dashboard-selector-modal" class="modal fade" tabindex="-1" aria-labelledby="dashboardSelectorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashboardSelectorLabel">Select Home Assistant Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="dashboard-selector-loading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Fetching dashboards from Home Assistant...</p>
+                </div>
+                <div id="dashboard-selector-error" class="alert alert-danger" style="display: none;"></div>
+                <div id="dashboard-selector-list" class="list-group" style="display: none;"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -390,6 +418,132 @@
             cancelButton.innerHTML = '<i class="fa-solid fa-times"></i> Cancel';
             cancelButton.style.display = 'none';
         }
+    }
+    
+    // Dashboard Selector Modal
+    let dashboardSelectorModal = null;
+    
+    async function openDashboardSelector(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const dashboardIdField = document.querySelector('input[name="Id"]');
+        const dashboardId = dashboardIdField?.value?.trim();
+        
+        if (!dashboardId) {
+            alert('Dashboard ID not found. Please save the dashboard first.');
+            return;
+        }
+        
+        // Initialize modal if not already done
+        if (!dashboardSelectorModal) {
+            dashboardSelectorModal = new bootstrap.Modal(document.getElementById('dashboard-selector-modal'));
+        }
+        
+        // Reset modal state
+        document.getElementById('dashboard-selector-loading').style.display = 'block';
+        document.getElementById('dashboard-selector-error').style.display = 'none';
+        document.getElementById('dashboard-selector-list').style.display = 'none';
+        document.getElementById('dashboard-selector-list').innerHTML = '';
+        
+        // Show modal
+        dashboardSelectorModal.show();
+        
+        // Fetch dashboards
+        try {
+            const response = await fetch('/api/homeassistant/fetch-dashboards', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(dashboardId),
+                credentials: 'same-origin'
+            });
+            
+            // Get response text first
+            const responseText = await response.text();
+            
+            if (!response.ok) {
+                let errorMessage = `HTTP Error ${response.status}`;
+                
+                // Check if it's an authentication issue
+                if (response.status === 401) {
+                    errorMessage = 'Authentication required. Please refresh the page and try again.';
+                } else if (response.status === 403) {
+                    errorMessage = 'Access forbidden. Please check your permissions.';
+                } else {
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        // If response is not JSON, use the text as error message if available
+                        if (responseText && responseText.length < 200) {
+                            errorMessage = responseText;
+                        }
+                    }
+                }
+                throw new Error(errorMessage);
+            }
+            
+            // Parse the JSON response
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error('Failed to parse JSON response:', responseText);
+                throw new Error('Invalid JSON response from server');
+            }
+            
+            const dashboards = data.dashboards || [];
+            
+            // Hide loading
+            document.getElementById('dashboard-selector-loading').style.display = 'none';
+            
+            if (dashboards.length === 0) {
+                document.getElementById('dashboard-selector-error').textContent = 'No dashboards found';
+                document.getElementById('dashboard-selector-error').style.display = 'block';
+                return;
+            }
+            
+            // Show dashboard list
+            const listElement = document.getElementById('dashboard-selector-list');
+            dashboards.forEach(dashboard => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'list-group-item list-group-item-action';
+                button.innerHTML = `
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${escapeHtml(dashboard.title)}</h6>
+                    </div>
+                    <small class="text-muted">${escapeHtml(dashboard.id)}</small>
+                `;
+                button.onclick = () => selectDashboard(dashboard);
+                listElement.appendChild(button);
+            });
+            
+            listElement.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error fetching dashboards:', error);
+            document.getElementById('dashboard-selector-loading').style.display = 'none';
+            document.getElementById('dashboard-selector-error').textContent = 'Error: ' + error.message;
+            document.getElementById('dashboard-selector-error').style.display = 'block';
+        }
+    }
+    
+    function selectDashboard(dashboard) {
+        const pathField = document.getElementById('pathField');
+        if (pathField) {
+            pathField.value = dashboard.id;
+            checkForChanges();
+        }
+        dashboardSelectorModal.hide();
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
     
     // Track created object URL so we can revoke it when closing/resetting

@@ -51,7 +51,8 @@ builder.Services
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
-	.AddSingleton<HomeAssistantAuthService>();
+	.AddSingleton<HomeAssistantAuthService>()
+	.AddSingleton<HomeAssistantService>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);

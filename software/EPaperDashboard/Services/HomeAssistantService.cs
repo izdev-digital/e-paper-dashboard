@@ -1,0 +1,252 @@
+using System.Text.Json;
+using System.Net.WebSockets;
+using System.Text;
+using LiteDB;
+using CSharpFunctionalExtensions;
+
+namespace EPaperDashboard.Services;
+
+public class HomeAssistantService(
+    ILogger<HomeAssistantService> logger,
+    DashboardService dashboardService)
+{
+    private readonly ILogger<HomeAssistantService> _logger = logger;
+    private readonly DashboardService _dashboardService = dashboardService;
+    private int _messageId = 2;
+
+    public async Task<Result<List<HassUrlInfo>, string>> FetchDashboards(string dashboardId)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await ConnectAndAuthenticateWebSocket(hostUrl, dashboard.AccessToken!);
+            var results = await FetchAllDashboardViews(ws, hostUrl);
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+
+            return results;
+        }
+        catch (WebSocketException)
+        {
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to fetch dashboards: {ex.Message}";
+        }
+    }
+
+    private Result<Models.Dashboard, string> ValidateAndGetDashboard(string dashboardId)
+    {
+        if (string.IsNullOrWhiteSpace(dashboardId))
+        {
+            return "Dashboard ID is required";
+        }
+
+        ObjectId objectId;
+        try
+        {
+            objectId = new ObjectId(dashboardId);
+        }
+        catch
+        {
+            return "Invalid dashboard ID format";
+        }
+
+        var dashboardMaybe = _dashboardService.GetDashboardById(objectId);
+        if (dashboardMaybe.HasNoValue)
+        {
+            return "Dashboard not found";
+        }
+
+        var dashboard = dashboardMaybe.Value;
+
+        return Result.Success<Models.Dashboard, string>(dashboard)
+            .Ensure(d => !string.IsNullOrWhiteSpace(d.Host), "Dashboard host is not configured")
+            .Ensure(d => !string.IsNullOrWhiteSpace(d.AccessToken), "Dashboard access token is not set. Please authenticate with Home Assistant first.");
+    }
+
+    private async Task<ClientWebSocket> ConnectAndAuthenticateWebSocket(string hostUrl, string accessToken)
+    {
+        var wsUrl = hostUrl.Replace("http://", "ws://").Replace("https://", "wss://");
+        var ws = new ClientWebSocket();
+
+        await ws.ConnectAsync(new Uri(wsUrl + "/api/websocket"), CancellationToken.None);
+
+        await ReceiveMessageAsync(ws);
+
+        await SendMessageAsync(ws, new
+        {
+            type = "auth",
+            access_token = accessToken
+        });
+
+        var authResponse = await ReceiveMessageAsync(ws);
+        var authResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(authResponse);
+
+        if (authResult.TryGetProperty("type", out var authType) && authType.GetString() != "auth_ok")
+        {
+            var errorMsg = authResult.TryGetProperty("message", out var msg) ? msg.GetString() : "Authentication failed";
+            throw new InvalidOperationException($"Home Assistant authentication failed: {errorMsg}");
+        }
+
+        return ws;
+    }
+
+    private async Task<List<HassUrlInfo>> FetchAllDashboardViews(ClientWebSocket ws, string hostUrl)
+    {
+        var results = new List<HassUrlInfo>();
+
+        await SendMessageAsync(ws, new
+        {
+            id = 1,
+            type = "lovelace/dashboards/list"
+        });
+
+        var dashboardsResponse = await ReceiveMessageAsync(ws);
+        var dashboardsResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(dashboardsResponse);
+
+        var fetchedDashboards = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var isSuccess = dashboardsResult.TryGetProperty("success", out var success) && success.GetBoolean();
+        if (!isSuccess || !dashboardsResult.TryGetProperty("result", out var dashboardsArray))
+        {
+            await GetDashboardViews(ws, hostUrl, "lovelace", "Home", results);
+            return results;
+        }
+
+        foreach (var hassDb in dashboardsArray.EnumerateArray())
+        {
+            var urlPath = hassDb.TryGetProperty("url_path", out var up) ? up.GetString() : null;
+            var title = hassDb.TryGetProperty("title", out var t) ? t.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(urlPath) || string.IsNullOrWhiteSpace(title))
+                continue;
+
+            await GetDashboardViews(ws, hostUrl, urlPath, title, results);
+            fetchedDashboards.Add(urlPath);
+        }
+
+        if (!fetchedDashboards.Contains("lovelace"))
+        {
+            await GetDashboardViews(ws, hostUrl, "lovelace", "Home", results);
+        }
+
+        return results;
+    }
+
+    private async Task<string> ReceiveMessageAsync(ClientWebSocket ws)
+    {
+        var buffer = new byte[1024 * 16];
+        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+        return Encoding.UTF8.GetString(buffer, 0, result.Count);
+    }
+
+    private async Task SendMessageAsync(ClientWebSocket ws, object message)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(message);
+        var bytes = Encoding.UTF8.GetBytes(json);
+        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private async Task GetDashboardViews(ClientWebSocket ws, string hostUrl, string urlPath, string dashboardTitle, List<HassUrlInfo> results)
+    {
+        try
+        {
+            var messageId = _messageId++;
+
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "lovelace/config",
+                url_path = urlPath == "lovelace" ? (string?)null : urlPath
+            });
+
+            var configResponse = await ReceiveMessageAsync(ws);
+            var configResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(configResponse);
+
+            var isSuccess = configResult.TryGetProperty("success", out var success) && success.GetBoolean();
+            if (!isSuccess)
+            {
+                results.AddRange(CreateDefaultDashboardInfo(hostUrl, urlPath, dashboardTitle));
+                return;
+            }
+
+            if (!configResult.TryGetProperty("result", out var config) ||
+                !config.TryGetProperty("views", out var views) ||
+                views.ValueKind != JsonValueKind.Array)
+            {
+                results.AddRange(CreateDefaultDashboardInfo(hostUrl, urlPath, dashboardTitle));
+                return;
+            }
+
+            var viewsArray = views.EnumerateArray().ToList();
+            if (viewsArray.Count == 0)
+            {
+                results.AddRange(CreateDefaultDashboardInfo(hostUrl, urlPath, dashboardTitle));
+                return;
+            }
+
+            results.AddRange(ConvertViewsToResults(viewsArray, hostUrl, urlPath, dashboardTitle));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching views for dashboard {Dashboard}", urlPath);
+            results.AddRange(CreateDefaultDashboardInfo(hostUrl, urlPath, dashboardTitle));
+        }
+    }
+
+    private static IEnumerable<HassUrlInfo> CreateDefaultDashboardInfo(string hostUrl, string urlPath, string dashboardTitle)
+    {
+        yield return new HassUrlInfo
+        {
+            Url = $"{hostUrl}/{urlPath}",
+            Title = dashboardTitle,
+            Id = urlPath
+        };
+    }
+
+    private static IEnumerable<HassUrlInfo> ConvertViewsToResults(List<JsonElement> viewsArray, string hostUrl, string urlPath, string dashboardTitle)
+    {
+        for (int i = 0; i < viewsArray.Count; i++)
+        {
+            var view = viewsArray[i];
+            var viewPath = view.TryGetProperty("path", out var pathProp) ? pathProp.GetString() : null;
+            var viewTitle = view.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+
+            var viewUrl = string.IsNullOrWhiteSpace(viewPath)
+                ? $"{hostUrl}/{urlPath}/{i}"
+                : $"{hostUrl}/{urlPath}/{viewPath}";
+
+            var displayTitle = !string.IsNullOrWhiteSpace(viewTitle)
+                ? $"{dashboardTitle} - {viewTitle}"
+                : $"{dashboardTitle} - View {i + 1}";
+
+            var viewId = string.IsNullOrWhiteSpace(viewPath)
+                ? $"{urlPath}/{i}"
+                : $"{urlPath}/{viewPath}";
+
+            yield return new HassUrlInfo
+            {
+                Url = viewUrl,
+                Title = displayTitle,
+                Id = viewId
+            };
+        }
+    }
+}
+
+public record HassUrlInfo
+{
+    public string Url { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string Id { get; init; } = string.Empty;
+}
