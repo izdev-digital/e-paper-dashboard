@@ -1,33 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Background - E-Paper display frame in landscape -->
-  <rect x="40" y="110" width="432" height="292" rx="24" fill="#2c3e50" stroke="#34495e" stroke-width="8"/>
+  <rect x="40" y="110" width="432" height="292" rx="24" fill="#000000" stroke="#000000" stroke-width="8"/>
   
-  <!-- Inner screen area - lighter background representing e-paper -->
-  <rect x="64" y="134" width="384" height="244" rx="12" fill="#ecf0f1"/>
+  <!-- Inner screen area - white background representing e-paper -->
+  <rect x="64" y="134" width="384" height="244" rx="12" fill="#FFFFFF"/>
   
-  <!-- Dashboard grid layout - landscape orientation -->
-  <!-- Left column - large tile -->
-  <rect x="80" y="150" width="140" height="180" rx="8" fill="#34495e" opacity="0.9"/>
+  <!-- Dashboard grid layout - landscape orientation with better spacing -->
+  <!-- Top row - 3 equal tiles -->
+  <rect x="80" y="150" width="110" height="90" rx="8" fill="#000000"/>
+  <rect x="202" y="150" width="110" height="90" rx="8" fill="#FF0000"/>
+  <rect x="324" y="150" width="110" height="90" rx="8" fill="#000000"/>
   
-  <!-- Middle column - 2 stacked tiles -->
-  <rect x="232" y="150" width="120" height="85" rx="8" fill="#34495e" opacity="0.7"/>
-  <rect x="232" y="245" width="120" height="85" rx="8" fill="#34495e" opacity="0.8"/>
+  <!-- Middle row - 2 larger tiles -->
+  <rect x="80" y="252" width="170" height="70" rx="8" fill="#000000"/>
+  <rect x="262" y="252" width="172" height="70" rx="8" fill="#FF0000"/>
   
-  <!-- Right column - 2 tiles -->
-  <rect x="364" y="150" width="72" height="80" rx="8" fill="#34495e" opacity="0.6"/>
-  <rect x="364" y="240" width="72" height="80" rx="8" fill="#34495e" opacity="0.75"/>
+  <!-- Bottom row - 4 smaller status tiles -->
+  <rect x="80" y="334" width="72" height="32" rx="6" fill="#000000"/>
+  <rect x="164" y="334" width="72" height="32" rx="6" fill="#000000"/>
+  <rect x="248" y="334" width="72" height="32" rx="6" fill="#FF0000"/>
+  <rect x="332" y="334" width="102" height="32" rx="6" fill="#000000"/>
   
-  <!-- Bottom row - smaller status tiles -->
-  <rect x="80" y="340" width="60" height="28" rx="6" fill="#34495e" opacity="0.65"/>
-  <rect x="150" y="340" width="60" height="28" rx="6" fill="#34495e" opacity="0.55"/>
-  <rect x="220" y="340" width="60" height="28" rx="6" fill="#34495e" opacity="0.7"/>
-  <rect x="290" y="340" width="60" height="28" rx="6" fill="#34495e" opacity="0.6"/>
-  <rect x="360" y="340" width="76" height="28" rx="6" fill="#34495e" opacity="0.8"/>
-  
-  <!-- E-Paper characteristic - scanlines effect -->
+  <!-- E-Paper characteristic - subtle scanlines effect -->
   <defs>
-    <pattern id="scanlines" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
-      <line x1="0" y1="0" x2="4" y2="0" stroke="#bdc3c7" stroke-width="0.5" opacity="0.3"/>
+    <pattern id="scanlines" x="0" y="0" width="4" height="2" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="4" y2="0" stroke="#000000" stroke-width="0.3" opacity="0.05"/>
     </pattern>
   </defs>
   <rect x="64" y="134" width="384" height="244" rx="12" fill="url(#scanlines)" pointer-events="none"/>
