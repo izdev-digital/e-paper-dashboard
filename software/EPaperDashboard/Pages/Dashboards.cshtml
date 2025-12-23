@@ -56,22 +56,7 @@ else
 </div>
 
 @section Scripts {
-    <script>
-        function copyApiKey(apiKey) {
-            navigator.clipboard.writeText(apiKey).then(function() {
-                showCopyToast();
-            });
-        }
-        function showCopyToast() {
-            var toast = document.getElementById('copy-toast');
-            toast.style.display = 'block';
-            setTimeout(hideCopyToast, 2000);
-        }
-        function hideCopyToast() {
-            var toast = document.getElementById('copy-toast');
-            toast.style.display = 'none';
-        }
-    </script>
+    <script src="~/js/clipboard-utils.js"></script>
     <style>
         .api-key-display {
             background-color: var(--bs-secondary-bg);

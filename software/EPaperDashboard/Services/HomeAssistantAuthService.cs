@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -14,6 +15,8 @@ public class HomeAssistantAuthService(
     private static readonly Lazy<byte[]> _stateSigningKey = new(() => 
         Encoding.UTF8.GetBytes(EnvironmentConfiguration.StateSigningKey));
     private static byte[] StateSigningKey => _stateSigningKey.Value;
+    
+    private readonly ConcurrentDictionary<string, bool> _activeAuthFlows = new();
 
     public AuthStartResult StartAuth(string host, string dashboardId)
     {
@@ -25,6 +28,11 @@ public class HomeAssistantAuthService(
         if (string.IsNullOrWhiteSpace(dashboardId))
         {
             return AuthStartResult.Failure("DashboardId is required");
+        }
+
+        if (!_activeAuthFlows.TryAdd(dashboardId, true))
+        {
+            return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
         }
 
         try
@@ -50,6 +58,7 @@ public class HomeAssistantAuthService(
         }
         catch (Exception ex)
         {
+            _activeAuthFlows.TryRemove(dashboardId, out _);
             _logger.LogError(ex, "Error starting Home Assistant authentication");
             return AuthStartResult.Failure($"Failed to start authentication: {ex.Message}");
         }
@@ -133,6 +142,10 @@ public class HomeAssistantAuthService(
             _logger.LogError(ex, "Error during token exchange");
             return AuthCallbackResult.Failure(stateData.DashboardId, $"Unexpected error: {ex.Message}");
         }
+        finally
+        {
+            _activeAuthFlows.TryRemove(stateData.DashboardId, out _);
+        }
     }
 
     private static string EncodeState(StateData data)
@@ -147,7 +160,6 @@ public class HomeAssistantAuthService(
         Buffer.BlockCopy(jsonBytes, 0, combined, 0, jsonBytes.Length);
         Buffer.BlockCopy(signature, 0, combined, jsonBytes.Length, signature.Length);
         
-        // Base64 encode for URL safety
         return Convert.ToBase64String(combined)
             .TrimEnd('=')
             .Replace('+', '-')
@@ -158,7 +170,6 @@ public class HomeAssistantAuthService(
     {
         try
         {
-            // Decode from URL-safe base64
             var base64 = state.Replace('-', '+').Replace('_', '/');
             switch (state.Length % 4)
             {
@@ -168,8 +179,7 @@ public class HomeAssistantAuthService(
             
             var combined = Convert.FromBase64String(base64);
             
-            // Extract signature (last 32 bytes for SHA256)
-            if (combined.Length < 33) // At least 1 byte of data + 32 bytes signature
+            if (combined.Length < 33)
                 return null;
                 
             var signatureLength = 32;
@@ -179,14 +189,12 @@ public class HomeAssistantAuthService(
             Buffer.BlockCopy(combined, 0, jsonBytes, 0, jsonBytes.Length);
             Buffer.BlockCopy(combined, jsonBytes.Length, signature, 0, signatureLength);
             
-            // Verify signature
             using var hmac = new HMACSHA256(StateSigningKey);
             var expectedSignature = hmac.ComputeHash(jsonBytes);
             
             if (!CryptographicOperations.FixedTimeEquals(signature, expectedSignature))
                 return null;
             
-            // Deserialize the data
             var json = Encoding.UTF8.GetString(jsonBytes);
             return JsonSerializer.Deserialize<StateData>(json);
         }
