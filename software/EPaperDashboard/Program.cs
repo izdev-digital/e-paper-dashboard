@@ -4,6 +4,9 @@ using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
 using EPaperDashboard.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.ListenAnyIP(8128));
@@ -80,7 +83,7 @@ builder.Services.AddAuthentication(options =>
 		return Task.CompletedTask;
 	}
 })
-.AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
+.AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
 
 builder.Services.AddAuthorizationBuilder()
 	.AddPolicy("SuperUserOnly", policy => policy.RequireClaim("IsSuperUser", "true"))
@@ -88,8 +91,8 @@ builder.Services.AddAuthorizationBuilder()
 	{
 		policy.RequireAssertion(context =>
 		{
-			var httpContext = context.Resource as Microsoft.AspNetCore.Http.HttpContext
-				?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
+			var httpContext = context.Resource as HttpContext
+                ?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
 
 			if (httpContext is null)
 			{
@@ -110,7 +113,7 @@ builder.Services.AddAuthorizationBuilder()
 		});
 	});
 
-builder.Services.Configure<Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions>(options =>
+builder.Services.Configure<RazorPagesOptions>(options =>
 {
 	options.Conventions.AllowAnonymousToPage("/Login");
 	options.Conventions.AllowAnonymousToPage("/Register");
@@ -133,6 +136,14 @@ using (var scope = app.Services.CreateScope())
 		userService.TryCreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
 	}
 }
+
+// Configure forwarded headers for ingress/proxy scenarios
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+	ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+ForwardedHeaders.XForwardedProto |
+ForwardedHeaders.XForwardedHost
+});
 
 app.UseCors(builder => builder.WithOrigins("*"));
 
