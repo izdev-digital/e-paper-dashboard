@@ -73,8 +73,9 @@ WORKDIR /app
 EXPOSE 8128
 COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
-RUN chmod +x /app/.playwright/node/*/node \
-  && mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
+RUN chmod +x /app/.playwright/node/*/node
+RUN mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
+VOLUME ["/app/config"]
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
