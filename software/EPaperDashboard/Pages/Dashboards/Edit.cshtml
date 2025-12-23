@@ -58,8 +58,11 @@
             <label class="form-label">Access Token</label>
             <div class="input-group">
                 <input type="text" class="form-control" asp-for="AccessToken" id="accessTokenField" placeholder="Enter token to update..." value="@(Model.AuthSuccessToken ?? Model.AccessToken)" />
-                <button type="button" class="btn btn-outline-primary" title="Authenticate with Home Assistant" onclick="authenticateWithHomeAssistant(event)">
+                <button type="button" class="btn btn-outline-primary" id="fetchTokenBtn" title="Authenticate with Home Assistant" onclick="authenticateWithHomeAssistant(event)">
                     <i class="fa-solid fa-key"></i> Fetch Token
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="cancelFetchBtn" title="Cancel authentication" onclick="cancelHomeAssistantAuth(event)" style="display: none;">
+                    <i class="fa-solid fa-times"></i> Cancel
                 </button>
             </div>
         </div>
@@ -74,7 +77,6 @@
                 <button type="button" class="btn btn-outline-primary" onclick="addUpdateTime()">Add</button>
             </div>
             <div id="updateTimesList" class="mb-2">
-                <!-- Chips will be rendered here -->
             </div>
             <input type="hidden" name="UpdateTimesRaw" id="UpdateTimesRaw" value="@Model.UpdateTimesRaw" />
             <div class="form-text">Add one or more times. Example: 06:00, 12:00, 18:00</div>
@@ -161,7 +163,6 @@
 </style>
 
 <script>
-    // Parse initial value
     let updateTimesRaw = '@(Model.UpdateTimesRaw ?? "")';
     let updateTimes = updateTimesRaw ? updateTimesRaw.split(',').filter(t => t) : [];
     function renderUpdateTimes() {
@@ -205,6 +206,11 @@
         toast.style.display = 'none';
     }
     
+    // Track authentication state and abort controller
+    let authInProgress = false;
+    let authAbortController = null;
+    let authDashboardId = null;
+    
     async function authenticateWithHomeAssistant(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -218,11 +224,9 @@
         const name = nameField?.value?.trim();
         
         if (!host) {
-            // Highlight the host field
             hostField?.classList.add('is-invalid');
             hostField?.focus();
             
-            // Show error feedback
             let feedback = hostField?.nextElementSibling;
             if (!feedback || !feedback.classList.contains('invalid-feedback')) {
                 feedback = document.createElement('div');
@@ -231,7 +235,6 @@
             }
             feedback.textContent = 'Please enter Dashboard Host before authenticating';
             
-            // Remove highlight after user starts typing
             const removeHighlight = () => {
                 hostField?.classList.remove('is-invalid');
                 feedback?.remove();
@@ -247,35 +250,47 @@
             return;
         }
         
-        const button = event.target.closest('button');
-        const originalHtml = button.innerHTML;
+        const fetchButton = document.getElementById('fetchTokenBtn');
+        const cancelButton = document.getElementById('cancelFetchBtn');
+        const originalHtml = fetchButton.innerHTML;
+        
+        authAbortController = new AbortController();
+        authInProgress = true;
+        authDashboardId = dashboardId;
         
         try {
-            // Show saving state
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            fetchButton.disabled = true;
+            fetchButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            cancelButton.style.display = 'inline-block';
             
-            // Save the dashboard first
             const formData = new FormData(form);
-            const saveResponse = await fetch(window.location.pathname, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!saveResponse.ok) {
-                throw new Error('Failed to save dashboard');
+            try {
+                const saveResponse = await fetch(window.location.pathname, {
+                    method: 'POST',
+                    body: formData,
+                    signal: authAbortController.signal
+                });
+                
+                if (!saveResponse.ok) {
+                    console.warn('Dashboard save failed, continuing with auth anyway');
+                }
+            } catch (saveError) {
+                if (saveError.name !== 'AbortError') {
+                    console.warn('Dashboard save error, continuing with auth anyway:', saveError);
+                } else {
+                    throw saveError;
+                }
             }
             
-            // Show auth starting state
-            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting auth...';
+            fetchButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Starting auth...';
             
-            // Start the OAuth2 flow
             const response = await fetch('/api/homeassistant/start-auth', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ host: host, dashboardId: dashboardId })
+                body: JSON.stringify({ host: host, dashboardId: dashboardId }),
+                signal: authAbortController.signal
             });
             
             if (!response.ok) {
@@ -285,17 +300,75 @@
             
             const data = await response.json();
             
-            // Redirect to Home Assistant for authorization
+            if (authAbortController && authAbortController.signal.aborted) {
+                console.log('Authentication was cancelled before redirect');
+                return;
+            }
+            
             window.location.href = data.authUrl;
             
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Authentication cancelled by user');
+                authInProgress = false;
+                authAbortController = null;
+                authDashboardId = null;
+                if (fetchButton) {
+                    fetchButton.disabled = false;
+                    fetchButton.innerHTML = originalHtml;
+                }
+                if (cancelButton) {
+                    cancelButton.style.display = 'none';
+                }
+                return;
+            }
+            
             console.error('Authentication error:', error);
             alert('Authentication failed: ' + error.message);
-            // Restore button state
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = originalHtml;
+            
+            authInProgress = false;
+            authAbortController = null;
+            authDashboardId = null;
+            if (fetchButton) {
+                fetchButton.disabled = false;
+                fetchButton.innerHTML = originalHtml;
             }
+            if (cancelButton) {
+                cancelButton.style.display = 'none';
+            }
+        }
+    }
+    
+    function cancelHomeAssistantAuth(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const fetchButton = document.getElementById('fetchTokenBtn');
+        const cancelButton = document.getElementById('cancelFetchBtn');
+        const originalHtml = '<i class="fa-solid fa-key"></i> Fetch Token';
+        
+        if (authAbortController) {
+            authAbortController.abort();
+        }
+        
+        try {
+            window.stop();
+        } catch (e) {
+            document.execCommand('Stop');
+        }
+        
+        authInProgress = false;
+        authAbortController = null;
+        authDashboardId = null;
+        
+        if (fetchButton) {
+            fetchButton.disabled = false;
+            fetchButton.innerHTML = originalHtml;
+        }
+        if (cancelButton) {
+            cancelButton.disabled = false;
+            cancelButton.innerHTML = '<i class="fa-solid fa-times"></i> Cancel';
+            cancelButton.style.display = 'none';
         }
     }
     
@@ -311,7 +384,6 @@
         const container = document.getElementById('preview-container');
         const imageElement = document.getElementById('preview-image');
 
-        // Clear previous error and image
         errorDiv.style.display = 'none';
         errorDiv.textContent = '';
         if (_previewObjectUrl) {
@@ -323,7 +395,6 @@
         }
         imageElement.src = '';
 
-        // Show loading state and ensure modal is visible
         modal.style.display = 'block';
         modal.style.zIndex = 2000;
         container.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
@@ -339,7 +410,6 @@
                 throw new Error('API Key not found');
             }
 
-            // Call the existing API controller endpoint to get the original image
             const url = `/api/render/original?width=800&height=480&format=png`;
             const response = await fetch(url, { headers: { 'X-Api-Key': apiKey } });
 
@@ -349,7 +419,6 @@
                     const errorData = await response.json();
                     errorMessage = errorData.error || errorMessage;
                 } catch (e) {
-                    // If response body is not JSON, use HTTP error message
                 }
                 throw new Error(errorMessage);
             }
@@ -358,7 +427,6 @@
             const imageUrl = URL.createObjectURL(blob);
             _previewObjectUrl = imageUrl;
 
-            // Update container with a fresh image element (so load/error events work reliably)
             container.innerHTML = '';
             const img = document.createElement('img');
             img.id = 'preview-image';
@@ -368,27 +436,23 @@
             img.alt = 'Dashboard preview';
             img.onload = function() {
                 if (attempt !== _previewAttempt) return;
-                // image loaded, clear any errors
                 errorDiv.style.display = 'none';
                 errorDiv.textContent = '';
             };
             img.onerror = function() {
                 if (attempt !== _previewAttempt) return;
-                // show error if image cannot be decoded
                 errorDiv.textContent = 'Error: failed to load image data';
                 errorDiv.style.display = 'block';
             };
             img.src = imageUrl;
             container.appendChild(img);
         } catch (error) {
-            // Ensure modal stays visible and show the error
             modal.style.display = 'block';
             container.innerHTML = '';
             if (attempt === _previewAttempt) {
                 errorDiv.textContent = 'Error: ' + (error && error.message ? error.message : String(error));
                 errorDiv.style.display = 'block';
             }
-            // Move focus to modal for accessibility / visibility
             try { document.getElementById('preview-modal').focus(); } catch (e) { }
         }
     }
@@ -399,10 +463,8 @@
         const errorDiv = document.getElementById('preview-error');
         const img = document.getElementById('preview-image');
 
-        // Hide modal
         modal.style.display = 'none';
 
-        // Revoke any object URL and clear image src
         try {
             if (typeof _previewObjectUrl === 'string' && _previewObjectUrl) {
                 URL.revokeObjectURL(_previewObjectUrl);
@@ -411,15 +473,12 @@
         _previewObjectUrl = null;
         if (img) { img.src = ''; }
 
-        // Reset container to default state (image element present)
         container.innerHTML = '<img id="preview-image" style="max-width: 100%; height: auto; object-fit: contain;" />';
 
-        // Hide error
         errorDiv.style.display = 'none';
         errorDiv.textContent = '';
     }
     
-    // Close modal when clicking outside of it
     document.addEventListener('click', function(event) {
         const modal = document.getElementById('preview-modal');
         if (event.target === modal) {

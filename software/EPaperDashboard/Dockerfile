@@ -32,7 +32,6 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
   && chown -R app:app /home/app/.aspnet/DataProtection-Keys \
   && chmod -R 700 /home/app/.aspnet/DataProtection-Keys
-VOLUME ["/home/app/.aspnet/DataProtection-Keys"]
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=0
 
@@ -75,7 +74,6 @@ COPY --from=publish /app/publish .
 COPY --from=publish /root/.cache/ms-playwright /home/app/.cache/ms-playwright
 RUN chmod +x /app/.playwright/node/*/node
 RUN mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
-VOLUME ["/app/config"]
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
