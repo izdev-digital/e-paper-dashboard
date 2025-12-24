@@ -8,12 +8,12 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-EnvironmentConfiguration.ValidateConfiguration()
-	.TapError(error =>
-	{
-		Console.Error.WriteLine($"Configuration Error: {error}");
-		Environment.Exit(1);
-	});
+var configValidation = EnvironmentConfiguration.ValidateConfiguration();
+if (configValidation.IsFailure)
+{
+	Console.Error.WriteLine($"Configuration Error: {configValidation.Error}");
+	Environment.Exit(1);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
