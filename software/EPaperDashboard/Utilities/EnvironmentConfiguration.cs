@@ -1,34 +1,40 @@
 ﻿using System.Text.Json;
+using CSharpFunctionalExtensions;
 using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Utilities;
 
 public static class EnvironmentConfiguration
 {
+	private const string ClientUrlKey = "CLIENT_URL";
+	private const string SuperuserUsernameKey = "SUPERUSER_USERNAME";
+	private const string SuperuserPasswordKey = "SUPERUSER_PASSWORD";
+	private const string StateSigningKeyKey = "STATE_SIGNING_KEY";
+
 	private static readonly Lazy<JsonDocument?> _jsonConfig = new(LoadJsonConfig);
 
 	private static readonly Lazy<Uri?> _clientUri = new(() =>
-		GetUriFromEnvOrConfig("CLIENT_URL", UriKind.Absolute));
+		GetUriFromEnvOrConfig(ClientUrlKey, UriKind.Absolute));
 
 	private static readonly Lazy<string?> _superuserUsername = new(() =>
-		GetStringFromEnvOrConfig("SUPERUSER_USERNAME"));
+		GetStringFromEnvOrConfig(SuperuserUsernameKey));
 
 	private static readonly Lazy<string?> _superuserPassword = new(() =>
-		GetStringFromEnvOrConfig("SUPERUSER_PASSWORD"));
+		GetStringFromEnvOrConfig(SuperuserPasswordKey));
 
 	private static readonly Lazy<string?> _stateSigningKey = new(() =>
-		GetStringFromEnvOrConfig("STATE_SIGNING_KEY"));
+		GetStringFromEnvOrConfig(StateSigningKeyKey));
 
 	private static readonly Lazy<string> _configDir = new(() =>
 		Path.Combine(AppContext.BaseDirectory, "config"));
 
 	public static Uri ClientUri => Guard.NotNull(_clientUri.Value);
 
-	public static string SuperUserUsername => _superuserUsername.Value ?? "admin";
+	public static string SuperUserUsername => Guard.NeitherNullNorWhitespace(_superuserUsername.Value);
 
-	public static string SuperUserPassword => _superuserPassword.Value ?? "admin";
+	public static string SuperUserPassword => Guard.NeitherNullNorWhitespace(_superuserPassword.Value);
 
-	public static string StateSigningKey => _stateSigningKey.Value ?? "DefaultKeyPleaseChangeInProduction32Bytes!";
+	public static string StateSigningKey => Guard.NeitherNullNorWhitespace(_stateSigningKey.Value);
 
 	public static string ConfigDir => _configDir.Value;
 
@@ -77,5 +83,41 @@ public static class EnvironmentConfiguration
 	{
 		var value = GetStringFromEnvOrConfig(variable);
 		return !string.IsNullOrWhiteSpace(value) ? new Uri(value, kind) : null;
+	}
+
+	public static UnitResult<string> ValidateConfiguration()
+	{
+		var missingConfigs = new List<string>();
+
+		if (_clientUri.Value is null)
+		{
+			missingConfigs.Add(ClientUrlKey);
+		}
+
+		if (string.IsNullOrWhiteSpace(_superuserUsername.Value))
+		{
+			missingConfigs.Add(SuperuserUsernameKey);
+		}
+
+		if (string.IsNullOrWhiteSpace(_superuserPassword.Value))
+		{
+			missingConfigs.Add(SuperuserPasswordKey);
+		}
+
+		if (string.IsNullOrWhiteSpace(_stateSigningKey.Value))
+		{
+			missingConfigs.Add(StateSigningKeyKey);
+		}
+
+		if (missingConfigs.Count > 0)
+		{
+			var message = $"""
+				Missing required configuration: {string.Join(", ", missingConfigs)}.
+				Please set them as environment variables or in config/environment.json file.
+				""";
+			return UnitResult.Failure(message);
+		}
+
+		return UnitResult.Success<string>();
 	}
 }
