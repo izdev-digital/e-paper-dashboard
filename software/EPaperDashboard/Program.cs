@@ -8,6 +8,13 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
+EnvironmentConfiguration.ValidateConfiguration()
+	.TapError(error =>
+	{
+		Console.Error.WriteLine($"Configuration Error: {error}");
+		Environment.Exit(1);
+	});
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
@@ -92,7 +99,7 @@ builder.Services.AddAuthorizationBuilder()
 		policy.RequireAssertion(context =>
 		{
 			var httpContext = context.Resource as HttpContext
-                ?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
+				?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
 
 			if (httpContext is null)
 			{
@@ -140,9 +147,7 @@ using (var scope = app.Services.CreateScope())
 // Configure forwarded headers for ingress/proxy scenarios
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-	ForwardedHeaders = ForwardedHeaders.XForwardedFor |
-ForwardedHeaders.XForwardedProto |
-ForwardedHeaders.XForwardedHost
+	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
 });
 
 app.UseCors(builder => builder.WithOrigins("*"));
