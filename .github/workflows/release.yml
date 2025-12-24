@@ -16,6 +16,8 @@ jobs:
     
   build-software:
     uses: ./.github/workflows/docker-build.yml
+    with:
+      is_release: true
     secrets: inherit
     permissions:
       contents: read
@@ -66,11 +68,7 @@ jobs:
         ## Docker Image
         
         ```bash
-        # Specific version
         docker pull izdevdigital/e-paper-dashboard:${{ steps.tag.outputs.version }}
-        
-        # Latest
-        docker pull izdevdigital/e-paper-dashboard:latest
         ```
         
         [View on Docker Hub](https://hub.docker.com/r/izdevdigital/e-paper-dashboard)

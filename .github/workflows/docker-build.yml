@@ -8,6 +8,11 @@ on:
         required: false
         type: string
         default: 'linux/amd64,linux/arm64'
+      is_release:
+        description: 'Whether this is a release build (affects Docker tags)'
+        required: false
+        type: boolean
+        default: false
     outputs:
       version:
         description: 'Software version'
@@ -65,14 +70,25 @@ jobs:
         echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
         echo "Application version: $VERSION (${BASE_VERSION} + build ${BUILD_NUMBER})"
         
-    - name: Extract metadata
-      id: meta
+    - name: Extract metadata (release)
+      if: inputs.is_release
+      id: meta_release
       uses: docker/metadata-action@v5
       with:
         images: izdevdigital/e-paper-dashboard
         tags: |
-          # Use base version (without build number) for Docker tag
+          # For releases: use clean version tag only
           type=raw,value=${{ steps.version.outputs.base_version }}
+          
+    - name: Extract metadata (master/dev)
+      if: ${{ !inputs.is_release }}
+      id: meta_dev
+      uses: docker/metadata-action@v5
+      with:
+        images: izdevdigital/e-paper-dashboard
+        tags: |
+          # For master builds: use -dev suffix
+          type=raw,value=${{ steps.version.outputs.base_version }}-dev
           type=raw,value=latest
           
     - name: Build and push Docker image
@@ -82,9 +98,9 @@ jobs:
         context: ./software
         file: ./software/EPaperDashboard/Dockerfile
         platforms: ${{ inputs.platforms }}
-        push: ${{ github.ref == 'refs/heads/master' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        push: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
+        tags: ${{ inputs.is_release && steps.meta_release.outputs.tags || steps.meta_dev.outputs.tags }}
+        labels: ${{ inputs.is_release && steps.meta_release.outputs.labels || steps.meta_dev.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         build-args: |
