@@ -42,7 +42,7 @@ This solution is currently intended for **small home networks** and personal use
 
 ## Quick Start
 
-1. **Deploy the software server** using Docker
+1. **Deploy the software server** using Docker or the [Home Assistant Add-on](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard)
 2. **Flash the firmware** to your ESP32 device with E-Paper display
 3. **Configure** your dashboard URLs and schedules through the web interface
 
