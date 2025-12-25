@@ -157,13 +157,10 @@ jobs:
             - **Built:** ${{ steps.version.outputs.date }}
             
             ### Docker Image
-            
+
             ```bash
             # Latest development build
             docker pull izdevdigital/e-paper-dashboard:latest
-            
-            # Specific version
-            docker pull izdevdigital/e-paper-dashboard:${{ steps.version.outputs.base_version }}-dev
             ```
             
             [View on Docker Hub](https://hub.docker.com/r/izdevdigital/e-paper-dashboard)

@@ -87,8 +87,7 @@ jobs:
       with:
         images: izdevdigital/e-paper-dashboard
         tags: |
-          # For master builds: use -dev suffix
-          type=raw,value=${{ steps.version.outputs.base_version }}-dev
+          # For master builds: publish only `latest` (do not create -dev tag)
           type=raw,value=latest
           
     - name: Build and push Docker image
