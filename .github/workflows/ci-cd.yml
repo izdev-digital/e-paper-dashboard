@@ -135,10 +135,21 @@ jobs:
           name: freecad-stl-files
           path: ./artifacts/stl/
 
-      - name: Create development release archive
+      - name: Create versioned artifact zips
         run: |
+          mkdir -p artifacts
           cd artifacts
-          zip -r ../e-paper-dashboard-dev-${{ steps.version.outputs.short_sha }}.zip .
+          VERSION=${{ steps.version.outputs.version }}
+          if [ -d firmware ]; then
+            zip -r ../firmware-${VERSION}.zip firmware
+          else
+            echo "No firmware artifacts found"
+          fi
+          if [ -d stl ]; then
+            zip -r ../stl-${VERSION}.zip stl
+          else
+            echo "No stl artifacts found"
+          fi
           cd ..
       - name: Update development release
         uses: softprops/action-gh-release@v1
@@ -169,9 +180,7 @@ jobs:
             
             ⚠️ This is an automated development build. For stable releases, see [Releases](https://github.com/${{ github.repository }}/releases).
           files: |
-            artifacts/firmware/*.bin
-            artifacts/firmware/*.elf
-            artifacts/stl/*.stl
-            e-paper-dashboard-dev-${{ steps.version.outputs.short_sha }}.zip
+            firmware-${{ steps.version.outputs.version }}.zip
+            stl-${{ steps.version.outputs.version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
