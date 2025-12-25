@@ -54,11 +54,22 @@ jobs:
       with:
         name: freecad-stl-files
         path: ./release/stl/
-        
-    - name: Create release archive
+
+    - name: Create versioned artifact zips
       run: |
+        mkdir -p release
         cd release
-        zip -r ../e-paper-dashboard-${{ steps.tag.outputs.version }}-complete.zip .
+        VERSION=${{ steps.tag.outputs.version }}
+        if [ -d firmware ]; then
+          zip -r ../firmware-${VERSION}.zip firmware
+        else
+          echo "No firmware artifacts found"
+        fi
+        if [ -d stl ]; then
+          zip -r ../stl-${VERSION}.zip stl
+        else
+          echo "No stl artifacts found"
+        fi
         cd ..
         
     - name: Create release body
@@ -87,10 +98,8 @@ jobs:
         generate_release_notes: true
         body_path: release_body.md
         files: |
-          release/firmware/*.bin
-          release/firmware/*.elf
-          release/stl/*.stl
-          e-paper-dashboard-${{ steps.tag.outputs.version }}-complete.zip
+          firmware-${{ steps.tag.outputs.version }}.zip
+          stl-${{ steps.tag.outputs.version }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -102,9 +111,9 @@ jobs:
         echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "#### Artifacts:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Firmware (ESP32)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Firmware (ESP32) — attached as release/firmware.zip" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Docker Image: \`izdevdigital/e-paper-dashboard:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ 3D Models (STL)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ 3D Models (STL) — attached as release/stl.zip" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Complete Package (ZIP)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "#### Links:" >> $GITHUB_STEP_SUMMARY
