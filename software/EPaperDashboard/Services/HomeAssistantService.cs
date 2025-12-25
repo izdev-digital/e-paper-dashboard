@@ -27,7 +27,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await ConnectAndAuthenticateWebSocket(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
             var results = await FetchAllDashboardViews(ws, hostUrl);
 
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
@@ -74,32 +74,7 @@ public class HomeAssistantService(
             .Ensure(d => !string.IsNullOrWhiteSpace(d.AccessToken), "Dashboard access token is not set. Please authenticate with Home Assistant first.");
     }
 
-    private async Task<ClientWebSocket> ConnectAndAuthenticateWebSocket(string hostUrl, string accessToken)
-    {
-        var wsUrl = hostUrl.Replace("http://", "ws://").Replace("https://", "wss://");
-        var ws = new ClientWebSocket();
-
-        await ws.ConnectAsync(new Uri(wsUrl + "/api/websocket"), CancellationToken.None);
-
-        await ReceiveMessageAsync(ws);
-
-        await SendMessageAsync(ws, new
-        {
-            type = "auth",
-            access_token = accessToken
-        });
-
-        var authResponse = await ReceiveMessageAsync(ws);
-        var authResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(authResponse);
-
-        if (authResult.TryGetProperty("type", out var authType) && authType.GetString() != "auth_ok")
-        {
-            var errorMsg = authResult.TryGetProperty("message", out var msg) ? msg.GetString() : "Authentication failed";
-            throw new InvalidOperationException($"Home Assistant authentication failed: {errorMsg}");
-        }
-
-        return ws;
-    }
+    
 
     private async Task<List<HassUrlInfo>> FetchAllDashboardViews(ClientWebSocket ws, string hostUrl)
     {
