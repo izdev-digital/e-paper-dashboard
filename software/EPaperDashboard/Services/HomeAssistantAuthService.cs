@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Net.WebSockets;
 using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Services;
@@ -123,9 +124,9 @@ public class HomeAssistantAuthService(
                 return AuthCallbackResult.Failure(stateData.DashboardId, "Invalid token response");
             }
 
-            _logger.LogInformation("Successfully obtained access token for dashboard {DashboardId}", stateData.DashboardId);
-
-            return AuthCallbackResult.Success(stateData.DashboardId, tokenResponse.AccessToken);
+            var longLived = await CreateLongLivedTokenViaWebSocket(stateData.Host, tokenResponse.AccessToken);
+            _logger.LogInformation("Created long-lived token for dashboard {DashboardId}", stateData.DashboardId);
+            return AuthCallbackResult.Success(stateData.DashboardId, longLived);
         }
         catch (HttpRequestException ex)
         {
@@ -225,6 +226,39 @@ public class HomeAssistantAuthService(
         [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
         public int ExpiresIn { get; set; }
     }
+
+    private async Task<string> CreateLongLivedTokenViaWebSocket(string host, string accessToken)
+    {
+        using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(host, accessToken);
+
+        var messageId = 1;
+
+        await WebSocketHelpers.SendMessageAsync(ws, new
+        {
+            id = messageId++,
+            type = "auth/long_lived_access_token",
+            client_name = $"EPaperDashboard-{Guid.NewGuid():N}",
+            lifespan = 365
+        });
+
+        var createResponse = await WebSocketHelpers.ReceiveMessageAsync(ws);
+        var createResult = JsonSerializer.Deserialize<JsonElement>(createResponse);
+
+        if (createResult.TryGetProperty("success", out var successProp) && successProp.GetBoolean()
+            && createResult.TryGetProperty("result", out var resultProp)
+            && resultProp.ValueKind == JsonValueKind.String)
+        {
+            var token = resultProp.GetString();
+            if (string.IsNullOrWhiteSpace(token))
+                throw new InvalidOperationException($"Long-lived token creation returned empty token: {createResponse}");
+
+            return token;
+        }
+
+        throw new InvalidOperationException($"Failed to create long-lived token: {createResponse}");
+    }
+
+    
 }
 
 public record AuthStartResult
