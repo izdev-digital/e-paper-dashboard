@@ -140,12 +140,50 @@ void fetchBinaryData(const Configuration &config)
 
   while ((client.connected() || client.available()) && y < displayHeight)
   {
-    for (int16_t pixelCount = 0; pixelCount < frameBytes && client.available(); pixelCount++)
+    const size_t bytesNeeded = static_cast<size_t>(frameBytes) * 2;
+    size_t idx = 0;
+    const unsigned long frameTimeoutMs = 5000;
+    unsigned long startMs = millis();
+
+    memset(epd_bitmap_BW, 0, frameBytes);
+    memset(epd_bitmap_RW, 0, frameBytes);
+
+    while (idx < bytesNeeded && (client.connected() || client.available()))
     {
-      uint8_t blackPixel = client.read();
-      uint8_t redPixel = client.read();
-      epd_bitmap_BW[pixelCount] = blackPixel;
-      epd_bitmap_RW[pixelCount] = redPixel;
+      if (client.available())
+      {
+        int b = client.read();
+        if (b < 0)
+        {
+          break;
+        }
+
+        if ((idx & 1) == 0)
+        {
+          epd_bitmap_BW[idx / 2] = static_cast<uint8_t>(b);
+        }
+        else
+        {
+          epd_bitmap_RW[idx / 2] = static_cast<uint8_t>(b);
+        }
+
+        ++idx;
+        startMs = millis();
+      }
+      else
+      {
+        if (millis() - startMs > frameTimeoutMs)
+        {
+          break;
+        }
+        delay(1);
+      }
+    }
+
+    if (idx < bytesNeeded)
+    {
+      Serial.println("Incomplete frame data received, stopping.");
+      break;
     }
 
     display.setPartialWindow(x, y, frameWidth, frameHeight);
@@ -441,7 +479,8 @@ void createConfiguration()
     delay(1000);
     ESP.restart(); });
 
-  auto redirectToRoot = [&server]() {
+  auto redirectToRoot = [&server]()
+  {
     server.sendHeader("Location", "/", true);
     server.send(302, "text/plain", "Redirecting to setup page...");
   };
@@ -449,13 +488,13 @@ void createConfiguration()
   server.on("/generate_204", redirectToRoot);
   server.on("/hotspot-detect.html", redirectToRoot);
   server.on("/ncsi.txt", redirectToRoot);
-  server.onNotFound([&server, htmlForm, &redirectToRoot]() {
+  server.onNotFound([&server, htmlForm, &redirectToRoot]()
+                    {
     if (server.uri() == "/submit") {
       server.send(404, "text/plain", "Not found");
       return;
     }
-    redirectToRoot();
-  });
+    redirectToRoot(); });
 
   server.begin();
   Serial.println("HTTP server started");
