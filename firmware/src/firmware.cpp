@@ -46,7 +46,7 @@ static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
 static const uint16_t frameWidth = displayWidth;
-static const uint16_t frameHeight = 80;
+static const uint16_t frameHeight = 160;
 static const uint16_t frameBytes = frameWidth * frameHeight / 8;
 static uint8_t *epd_bitmap_BW = nullptr;  // Dynamically allocated to avoid DRAM overflow
 static uint8_t *epd_bitmap_RW = nullptr;
@@ -90,6 +90,7 @@ void setup()
   // Allocate frame buffers dynamically to avoid DRAM overflow
   epd_bitmap_BW = (uint8_t *)malloc(frameBytes);
   epd_bitmap_RW = (uint8_t *)malloc(frameBytes);
+  
   if (!epd_bitmap_BW || !epd_bitmap_RW)
   {
     Serial.println("Failed to allocate frame buffers!");
@@ -145,6 +146,9 @@ void fetchBinaryData(const Configuration &config)
   }
 
   Serial.println("Reading image content...");
+  
+  display.setPartialWindow(0, 0, displayWidth, displayHeight);
+  
   int16_t x = 0;
   int16_t y = 0;
 
@@ -163,7 +167,7 @@ void fetchBinaryData(const Configuration &config)
       {
         // Read in larger chunks for better performance
         size_t toRead = min(available, bytesNeeded - idx);
-        uint8_t buffer[512];
+        uint8_t buffer[1024];
         size_t chunkSize = min(toRead, sizeof(buffer));
         size_t bytesRead = client.read(buffer, chunkSize);
         
@@ -196,7 +200,6 @@ void fetchBinaryData(const Configuration &config)
       break;
     }
 
-    display.setPartialWindow(x, y, frameWidth, frameHeight);
     display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, frameWidth, frameHeight);
     y += frameHeight;
   }
@@ -275,6 +278,7 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   client.print(config.dashboardUrl);
   client.print(":");
   client.println(config.dashboardPort);
+  client.println("Connection: close");
   client.println(); // This line sends the request
   return true;
 }
