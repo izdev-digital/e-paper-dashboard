@@ -34,6 +34,7 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 #define SEC_TO_USEC_FACTOR 1000000
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
+#define LED_PIN 2
 
 static const char *CONFIGURATION_NAMESPACE = "config";
 static const char *CONFIGURATION_SSID = "ssid";
@@ -48,7 +49,7 @@ static const uint16_t displayHeight = 480;
 static const uint16_t frameWidth = displayWidth;
 static const uint16_t frameHeight = 160;
 static const uint16_t frameBytes = frameWidth * frameHeight / 8;
-static uint8_t *epd_bitmap_BW = nullptr;  // Dynamically allocated to avoid DRAM overflow
+static uint8_t *epd_bitmap_BW = nullptr;
 static uint8_t *epd_bitmap_RW = nullptr;
 
 SPIClass hspi(HSPI);
@@ -87,7 +88,6 @@ void setup()
   Serial.print("E-Paper Dashboard Firmware v");
   Serial.println(FIRMWARE_VERSION);
 
-  // Allocate frame buffers dynamically to avoid DRAM overflow
   epd_bitmap_BW = (uint8_t *)malloc(frameBytes);
   epd_bitmap_RW = (uint8_t *)malloc(frameBytes);
   
@@ -165,7 +165,6 @@ void fetchBinaryData(const Configuration &config)
       size_t available = client.available();
       if (available > 0)
       {
-        // Read in larger chunks for better performance
         size_t toRead = min(available, bytesNeeded - idx);
         uint8_t buffer[1024];
         size_t chunkSize = min(toRead, sizeof(buffer));
@@ -279,7 +278,7 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   client.print(":");
   client.println(config.dashboardPort);
   client.println("Connection: close");
-  client.println(); // This line sends the request
+  client.println();
   return true;
 }
 
@@ -335,6 +334,9 @@ void clearConfiguration()
 
 void createConfiguration()
 {
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  
   IPAddress apIP(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
@@ -490,6 +492,7 @@ void createConfiguration()
     storeConfiguration(config);
 
     server.send(200, "text/html", "Settings saved. Rebooting...");
+    digitalWrite(LED_PIN, LOW);
     delay(1000);
     ESP.restart(); });
 
@@ -513,10 +516,23 @@ void createConfiguration()
   server.begin();
   Serial.println("HTTP server started");
 
+  unsigned long lastBlinkTime = 0;
+  bool ledState = false;
+  const unsigned long blinkInterval = 500;
+
   while (true)
   {
     dnsServer.processNextRequest();
     server.handleClient();
+    
+    unsigned long currentTime = millis();
+    if (currentTime - lastBlinkTime >= blinkInterval)
+    {
+      lastBlinkTime = currentTime;
+      ledState = !ledState;
+      digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+    }
+    
     delay(2);
   }
 }
