@@ -7,9 +7,12 @@
 #include <driver/rtc_io.h>
 #include "version.h"
 
-#define ENABLE_GxEPD2_GFX 0
+#define ENABLE_GxEPD2_GFX 1
 
 #include <GxEPD2_3C.h>
+#include <qrcode.h>
+#include <Fonts/FreeSansBold18pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
 
 #define GxEPD2_DISPLAY_CLASS GxEPD2_3C
 #define GxEPD2_DRIVER_CLASS GxEPD2_750c_Z08 // GDEW075Z08  800x480, EK79655 (GD7965), (WFT0583CZ61)
@@ -69,6 +72,7 @@ std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
 void clearConfiguration();
 void createConfiguration();
+void showWelcomePage(const IPAddress &ip, const String &mac);
 bool isResetRequested();
 void resetDevice();
 
@@ -332,6 +336,83 @@ void clearConfiguration()
   preferences.end();
 }
 
+void showWelcomePage(const IPAddress &ip, const String &mac)
+{
+  Serial.println("Displaying welcome page...");
+  
+  display.setRotation(0);
+  display.setFullWindow();
+  display.firstPage();
+  do
+  {
+    display.fillScreen(GxEPD_WHITE);
+    
+    // Title
+    display.setFont(&FreeSansBold18pt7b);
+    display.setTextColor(GxEPD_BLACK);
+    int16_t tbx, tby; uint16_t tbw, tbh;
+    display.getTextBounds("E-Paper Dashboard", 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor((displayWidth - tbw) / 2, 60);
+    display.print("E-Paper Dashboard");
+    
+    // Setup mode text
+    display.setFont(&FreeSans12pt7b);
+    display.getTextBounds("Setup Mode", 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor((displayWidth - tbw) / 2, 100);
+    display.print("Setup Mode");
+    
+    // IP Address
+    display.setFont(&FreeSans12pt7b);
+    String ipText = "IP: " + ip.toString();
+    display.setCursor(50, 160);
+    display.print(ipText);
+    
+    // MAC Address
+    String macText = "MAC: " + mac;
+    display.setCursor(50, 200);
+    display.print(macText);
+    
+    // Instructions
+    display.setCursor(50, 260);
+    display.print("1. Connect to WiFi:");
+    display.setCursor(70, 290);
+    display.print("EPaperDashboard-AP");
+    
+    display.setCursor(50, 330);
+    display.print("2. Open browser to:");
+    display.setCursor(70, 360);
+    display.print(ip.toString());
+    
+    // Generate QR code for GitHub repo
+    const char* githubUrl = "https://github.com/izdev-digital/e-paper-dashboard";
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(3)];
+    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, githubUrl);
+    
+    // Draw QR code in bottom right corner
+    int qrX = 550;
+    int qrY = 150;
+    int moduleSize = 6;
+    
+    for (uint8_t y = 0; y < qrcode.size; y++) {
+      for (uint8_t x = 0; x < qrcode.size; x++) {
+        if (qrcode_getModule(&qrcode, x, y)) {
+          display.fillRect(qrX + x * moduleSize, qrY + y * moduleSize, moduleSize, moduleSize, GxEPD_BLACK);
+        }
+      }
+    }
+    
+    // QR code label
+    display.setFont(&FreeSans12pt7b);
+    display.setCursor(qrX + 10, qrY + qrcode.size * moduleSize + 30);
+    display.print("GitHub");
+    
+  }
+  while (display.nextPage());
+  
+  Serial.println("Welcome page displayed");
+}
+
 void createConfiguration()
 {
   pinMode(LED_PIN, OUTPUT);
@@ -343,8 +424,14 @@ void createConfiguration()
   WiFi.softAPConfig(apIP, gateway, subnet);
   WiFi.softAP("EPaperDashboard-AP");
   apIP = WiFi.softAPIP();
+  String macAddress = WiFi.macAddress();
   Serial.print("AP IP address: ");
   Serial.println(apIP);
+  Serial.print("MAC address: ");
+  Serial.println(macAddress);
+
+  // Display welcome page on e-paper
+  showWelcomePage(apIP, macAddress);
 
   // DNS server setup: redirect all domains to ESP32 AP IP
   const byte DNS_PORT = 53;
