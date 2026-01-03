@@ -7,9 +7,12 @@
 #include <driver/rtc_io.h>
 #include "version.h"
 
-#define ENABLE_GxEPD2_GFX 0
+#define ENABLE_GxEPD2_GFX 1
 
 #include <GxEPD2_3C.h>
+#include <qrcode.h>
+#include <Fonts/FreeSansBold18pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
 
 #define GxEPD2_DISPLAY_CLASS GxEPD2_3C
 #define GxEPD2_DRIVER_CLASS GxEPD2_750c_Z08 // GDEW075Z08  800x480, EK79655 (GD7965), (WFT0583CZ61)
@@ -34,6 +37,7 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 #define SEC_TO_USEC_FACTOR 1000000
 #define RESET_WAKEUP_PIN GPIO_NUM_33
 #define RESET_REQUEST_TIMEOUT 10
+#define LED_PIN 2
 
 static const char *CONFIGURATION_NAMESPACE = "config";
 static const char *CONFIGURATION_SSID = "ssid";
@@ -46,10 +50,10 @@ static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
 static const uint16_t frameWidth = displayWidth;
-static const uint16_t frameHeight = 32;
+static const uint16_t frameHeight = 160;
 static const uint16_t frameBytes = frameWidth * frameHeight / 8;
-static uint8_t epd_bitmap_BW[frameBytes] = {0};
-static uint8_t epd_bitmap_RW[frameBytes] = {0};
+static uint8_t *epd_bitmap_BW = nullptr;
+static uint8_t *epd_bitmap_RW = nullptr;
 
 SPIClass hspi(HSPI);
 
@@ -68,6 +72,7 @@ std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
 void clearConfiguration();
 void createConfiguration();
+void showWelcomePage(const IPAddress &ip, const String &mac);
 bool isResetRequested();
 void resetDevice();
 
@@ -81,11 +86,20 @@ void setup()
 {
   Serial.begin(115200);
   hspi.begin(13, 12, 14, 15); // remap hspi for EPD (swap pins)
-  display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  display.epd2.selectSPI(hspi, SPISettings(20000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
 
   Serial.print("E-Paper Dashboard Firmware v");
   Serial.println(FIRMWARE_VERSION);
+
+  epd_bitmap_BW = (uint8_t *)malloc(frameBytes);
+  epd_bitmap_RW = (uint8_t *)malloc(frameBytes);
+  
+  if (!epd_bitmap_BW || !epd_bitmap_RW)
+  {
+    Serial.println("Failed to allocate frame buffers!");
+    ESP.restart();
+  }
 
   if (isResetRequested())
   {
@@ -122,6 +136,7 @@ void fetchBinaryData(const Configuration &config)
   Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
+  client.setTimeout(5000);
   if (!trySendGetRequest(client, "/api/render/binary?width=800&height=480", config))
   {
     Serial.println("Failed to connect to the remote server...");
@@ -135,6 +150,9 @@ void fetchBinaryData(const Configuration &config)
   }
 
   Serial.println("Reading image content...");
+  
+  display.setPartialWindow(0, 0, displayWidth, displayHeight);
+  
   int16_t x = 0;
   int16_t y = 0;
 
@@ -142,41 +160,40 @@ void fetchBinaryData(const Configuration &config)
   {
     const size_t bytesNeeded = static_cast<size_t>(frameBytes) * 2;
     size_t idx = 0;
-    const unsigned long frameTimeoutMs = 5000;
-    unsigned long startMs = millis();
 
     memset(epd_bitmap_BW, 0, frameBytes);
     memset(epd_bitmap_RW, 0, frameBytes);
 
     while (idx < bytesNeeded && (client.connected() || client.available()))
     {
-      if (client.available())
+      size_t available = client.available();
+      if (available > 0)
       {
-        int b = client.read();
-        if (b < 0)
+        size_t toRead = min(available, bytesNeeded - idx);
+        uint8_t buffer[1024];
+        size_t chunkSize = min(toRead, sizeof(buffer));
+        size_t bytesRead = client.read(buffer, chunkSize);
+        
+        for (size_t i = 0; i < bytesRead; i++)
         {
-          break;
+          if ((idx & 1) == 0)
+          {
+            epd_bitmap_BW[idx / 2] = buffer[i];
+          }
+          else
+          {
+            epd_bitmap_RW[idx / 2] = buffer[i];
+          }
+          ++idx;
         }
-
-        if ((idx & 1) == 0)
-        {
-          epd_bitmap_BW[idx / 2] = static_cast<uint8_t>(b);
-        }
-        else
-        {
-          epd_bitmap_RW[idx / 2] = static_cast<uint8_t>(b);
-        }
-
-        ++idx;
-        startMs = millis();
       }
       else
       {
-        if (millis() - startMs > frameTimeoutMs)
+        if (!client.connected())
         {
           break;
         }
-        delay(1);
+        yield();
       }
     }
 
@@ -186,7 +203,6 @@ void fetchBinaryData(const Configuration &config)
       break;
     }
 
-    display.setPartialWindow(x, y, frameWidth, frameHeight);
     display.writeImage(epd_bitmap_BW, epd_bitmap_RW, x, y, frameWidth, frameHeight);
     y += frameHeight;
   }
@@ -265,7 +281,8 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   client.print(config.dashboardUrl);
   client.print(":");
   client.println(config.dashboardPort);
-  client.println(); // This line sends the request
+  client.println("Connection: close");
+  client.println();
   return true;
 }
 
@@ -319,16 +336,102 @@ void clearConfiguration()
   preferences.end();
 }
 
+void showWelcomePage(const IPAddress &ip, const String &mac)
+{
+  Serial.println("Displaying welcome page...");
+  
+  display.setRotation(0);
+  display.setFullWindow();
+  display.firstPage();
+  do
+  {
+    display.fillScreen(GxEPD_WHITE);
+    
+    // Title
+    display.setFont(&FreeSansBold18pt7b);
+    display.setTextColor(GxEPD_BLACK);
+    int16_t tbx, tby; uint16_t tbw, tbh;
+    display.getTextBounds("E-Paper Dashboard", 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor((displayWidth - tbw) / 2, 60);
+    display.print("E-Paper Dashboard");
+    
+    // Setup mode text
+    display.setFont(&FreeSans12pt7b);
+    display.getTextBounds("Setup Mode", 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.setCursor((displayWidth - tbw) / 2, 100);
+    display.print("Setup Mode");
+    
+    // IP Address
+    display.setFont(&FreeSans12pt7b);
+    String ipText = "IP: " + ip.toString();
+    display.setCursor(50, 160);
+    display.print(ipText);
+    
+    // MAC Address
+    String macText = "MAC: " + mac;
+    display.setCursor(50, 200);
+    display.print(macText);
+    
+    // Instructions
+    display.setCursor(50, 260);
+    display.print("1. Connect to WiFi:");
+    display.setCursor(70, 290);
+    display.print("EPaperDashboard-AP");
+    
+    display.setCursor(50, 330);
+    display.print("2. Open browser to:");
+    display.setCursor(70, 360);
+    display.print(ip.toString());
+    
+    // Generate QR code for GitHub repo
+    const char* githubUrl = "https://github.com/izdev-digital/e-paper-dashboard";
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(3)];
+    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, githubUrl);
+    
+    // Draw QR code in bottom right corner
+    int qrX = 550;
+    int qrY = 150;
+    int moduleSize = 6;
+    
+    for (uint8_t y = 0; y < qrcode.size; y++) {
+      for (uint8_t x = 0; x < qrcode.size; x++) {
+        if (qrcode_getModule(&qrcode, x, y)) {
+          display.fillRect(qrX + x * moduleSize, qrY + y * moduleSize, moduleSize, moduleSize, GxEPD_BLACK);
+        }
+      }
+    }
+    
+    // QR code label
+    display.setFont(&FreeSans12pt7b);
+    display.setCursor(qrX + 10, qrY + qrcode.size * moduleSize + 30);
+    display.print("GitHub");
+    
+  }
+  while (display.nextPage());
+  
+  Serial.println("Welcome page displayed");
+}
+
 void createConfiguration()
 {
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  
   IPAddress apIP(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, gateway, subnet);
   WiFi.softAP("EPaperDashboard-AP");
   apIP = WiFi.softAPIP();
+  String macAddress = WiFi.macAddress();
   Serial.print("AP IP address: ");
   Serial.println(apIP);
+  Serial.print("MAC address: ");
+  Serial.println(macAddress);
+
+  // Display welcome page on e-paper
+  showWelcomePage(apIP, macAddress);
 
   // DNS server setup: redirect all domains to ESP32 AP IP
   const byte DNS_PORT = 53;
@@ -476,6 +579,7 @@ void createConfiguration()
     storeConfiguration(config);
 
     server.send(200, "text/html", "Settings saved. Rebooting...");
+    digitalWrite(LED_PIN, LOW);
     delay(1000);
     ESP.restart(); });
 
@@ -499,10 +603,23 @@ void createConfiguration()
   server.begin();
   Serial.println("HTTP server started");
 
+  unsigned long lastBlinkTime = 0;
+  bool ledState = false;
+  const unsigned long blinkInterval = 500;
+
   while (true)
   {
     dnsServer.processNextRequest();
     server.handleClient();
+    
+    unsigned long currentTime = millis();
+    if (currentTime - lastBlinkTime >= blinkInterval)
+    {
+      lastBlinkTime = currentTime;
+      ledState = !ledState;
+      digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+    }
+    
     delay(2);
   }
 }
