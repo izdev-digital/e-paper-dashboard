@@ -46,10 +46,10 @@ static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
 static const uint16_t frameWidth = displayWidth;
-static const uint16_t frameHeight = 32;
+static const uint16_t frameHeight = 80;
 static const uint16_t frameBytes = frameWidth * frameHeight / 8;
-static uint8_t epd_bitmap_BW[frameBytes] = {0};
-static uint8_t epd_bitmap_RW[frameBytes] = {0};
+static uint8_t *epd_bitmap_BW = nullptr;  // Dynamically allocated to avoid DRAM overflow
+static uint8_t *epd_bitmap_RW = nullptr;
 
 SPIClass hspi(HSPI);
 
@@ -81,11 +81,20 @@ void setup()
 {
   Serial.begin(115200);
   hspi.begin(13, 12, 14, 15); // remap hspi for EPD (swap pins)
-  display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  display.epd2.selectSPI(hspi, SPISettings(20000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
 
   Serial.print("E-Paper Dashboard Firmware v");
   Serial.println(FIRMWARE_VERSION);
+
+  // Allocate frame buffers dynamically to avoid DRAM overflow
+  epd_bitmap_BW = (uint8_t *)malloc(frameBytes);
+  epd_bitmap_RW = (uint8_t *)malloc(frameBytes);
+  if (!epd_bitmap_BW || !epd_bitmap_RW)
+  {
+    Serial.println("Failed to allocate frame buffers!");
+    ESP.restart();
+  }
 
   if (isResetRequested())
   {
@@ -122,6 +131,7 @@ void fetchBinaryData(const Configuration &config)
   Serial.println("Connecting to the remote server...");
 
   WiFiClient client;
+  client.setTimeout(5000);
   if (!trySendGetRequest(client, "/api/render/binary?width=800&height=480", config))
   {
     Serial.println("Failed to connect to the remote server...");
@@ -142,41 +152,41 @@ void fetchBinaryData(const Configuration &config)
   {
     const size_t bytesNeeded = static_cast<size_t>(frameBytes) * 2;
     size_t idx = 0;
-    const unsigned long frameTimeoutMs = 5000;
-    unsigned long startMs = millis();
 
     memset(epd_bitmap_BW, 0, frameBytes);
     memset(epd_bitmap_RW, 0, frameBytes);
 
     while (idx < bytesNeeded && (client.connected() || client.available()))
     {
-      if (client.available())
+      size_t available = client.available();
+      if (available > 0)
       {
-        int b = client.read();
-        if (b < 0)
+        // Read in larger chunks for better performance
+        size_t toRead = min(available, bytesNeeded - idx);
+        uint8_t buffer[512];
+        size_t chunkSize = min(toRead, sizeof(buffer));
+        size_t bytesRead = client.read(buffer, chunkSize);
+        
+        for (size_t i = 0; i < bytesRead; i++)
         {
-          break;
+          if ((idx & 1) == 0)
+          {
+            epd_bitmap_BW[idx / 2] = buffer[i];
+          }
+          else
+          {
+            epd_bitmap_RW[idx / 2] = buffer[i];
+          }
+          ++idx;
         }
-
-        if ((idx & 1) == 0)
-        {
-          epd_bitmap_BW[idx / 2] = static_cast<uint8_t>(b);
-        }
-        else
-        {
-          epd_bitmap_RW[idx / 2] = static_cast<uint8_t>(b);
-        }
-
-        ++idx;
-        startMs = millis();
       }
       else
       {
-        if (millis() - startMs > frameTimeoutMs)
+        if (!client.connected())
         {
           break;
         }
-        delay(1);
+        yield();
       }
     }
 
