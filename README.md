@@ -2,7 +2,11 @@
 
 # E-Paper Dashboard
 
-![Real Device](device.jpeg)
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+  <img src="device_setup.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
+  <img src="device_graph.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
+  <img src="device_todo.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
+</div>
 
 E-Paper Dashboard helps users display dynamic, web-based dashboards—such as [Home Assistant](https://www.home-assistant.io/) dashboards—on E-Paper screens, delivering scheduled updates with clear visuals and low power usage. Designed for smart homes and personal automation, this solution is currently intended for home networks and removes the need for manual firmware updates by allowing server-driven changes to dashboard content and layout. While functional, the solution has room for improvement and welcomes feedback and contributions.
 
