@@ -81,24 +81,17 @@ jobs:
             print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | Root: {is_root} | HasShape: {has_shape} | STD_Part: {is_std_part}")
         print("="*50 + "\n")
         
-        # Export only specified top-level STD_Part objects
+        # Export specified objects that have valid shapes
         exported_count = 0
         for obj in doc.Objects:
             # Check if object is in the export list
             if obj.Label not in export_names:
                 continue
             
-            # Only export STD_Part objects (App::Part or Part::Feature)
-            if obj.TypeId not in ['App::Part', 'Part::Feature']:
-                print(f"Skipping {obj.Label} - not a STD_Part (Type: {obj.TypeId})")
-                continue
+            print(f"\nFound export candidate: {obj.Label} (Type: {obj.TypeId})")
             
-            # Check if object is at root level
-            is_root = not hasattr(obj, 'InList') or len(obj.InList) == 0
-            if not is_root:
-                print(f"Skipping {obj.Label} - not at root level")
-                continue
-            print(f"\nProcessing object: {obj.Label} (Type: {obj.TypeId})")
+            # Try to export any object with a valid shape, regardless of type
+            # This is more lenient than checking for specific TypeIds
             
             # Check if object has a Shape attribute
             if hasattr(obj, 'Shape') and obj.Shape and not obj.Shape.isNull():
