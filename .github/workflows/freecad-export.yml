@@ -35,8 +35,17 @@ jobs:
         print("Starting FreeCAD STL export...")
         print(f"Opening file: {sys.argv[1]}")
         
-        # Open the FreeCAD file
-        doc = FreeCAD.open(sys.argv[1])
+        # Open the FreeCAD file (suppress Assembly warnings)
+        try:
+            doc = FreeCAD.open(sys.argv[1])
+        except Exception as e:
+            print(f"Warning during file open: {e}")
+            # Try to get the document anyway
+            doc = FreeCAD.ActiveDocument
+            if not doc:
+                print("Failed to open document")
+                sys.exit(1)
+        
         output_dir = sys.argv[2]
         
         print(f"Document opened: {doc.Name}")
@@ -52,14 +61,20 @@ jobs:
             in_list_count = len(obj.InList) if hasattr(obj, 'InList') else 'N/A'
             has_shape = hasattr(obj, 'Shape') and obj.Shape and not obj.Shape.isNull()
             is_root = not hasattr(obj, 'InList') or len(obj.InList) == 0
-            print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | Root: {is_root} | HasShape: {has_shape}")
+            is_std_part = obj.TypeId in ['App::Part', 'Part::Feature']
+            print(f"  - {obj.Label} | Type: {obj.TypeId} | InList: {in_list_count} | Root: {is_root} | HasShape: {has_shape} | STD_Part: {is_std_part}")
         print("="*50 + "\n")
         
-        # Export only specified top-level objects
+        # Export only specified top-level STD_Part objects
         exported_count = 0
         for obj in doc.Objects:
             # Check if object is in the export list
             if obj.Label not in export_names:
+                continue
+            
+            # Only export STD_Part objects (App::Part or Part::Feature)
+            if obj.TypeId not in ['App::Part', 'Part::Feature']:
+                print(f"Skipping {obj.Label} - not a STD_Part (Type: {obj.TypeId})")
                 continue
             
             # Check if object is at root level
@@ -110,6 +125,10 @@ jobs:
         print(f"Export complete!")
         print(f"Total objects exported: {exported_count}")
         print(f"{'='*50}")
+        
+        if exported_count == 0:
+            print("ERROR: No objects were exported!")
+            sys.exit(1)
         
         FreeCAD.closeDocument(doc.Name)
         EOF
