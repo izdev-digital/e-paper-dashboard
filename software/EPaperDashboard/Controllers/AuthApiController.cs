@@ -42,6 +42,7 @@ public class AuthApiController(UserService userService) : ControllerBase
         {
             id = user.Value.Id.ToString(),
             username = user.Value.Username,
+            nickname = user.Value.Nickname,
             isSuperUser = user.Value.IsSuperUser
         });
     }
@@ -81,6 +82,7 @@ public class AuthApiController(UserService userService) : ControllerBase
         {
             id = user.Value.Id.ToString(),
             username = user.Value.Username,
+            nickname = user.Value.Nickname,
             isSuperUser = user.Value.IsSuperUser
         });
     }
@@ -101,14 +103,23 @@ public class AuthApiController(UserService userService) : ControllerBase
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var username = User.FindFirst(ClaimTypes.Name)?.Value;
-        var isSuperUser = User.FindFirst("IsSuperUser")?.Value == "true";
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = _userService.GetUserById(new LiteDB.ObjectId(userId));
+        if (user.HasNoValue)
+        {
+            return Unauthorized();
+        }
 
         return Ok(new
         {
-            id = userId,
-            username = username,
-            isSuperUser = isSuperUser
+            id = user.Value.Id.ToString(),
+            username = user.Value.Username,
+            nickname = user.Value.Nickname,
+            isSuperUser = user.Value.IsSuperUser
         });
     }
 }

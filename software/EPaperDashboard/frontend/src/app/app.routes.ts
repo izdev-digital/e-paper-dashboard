@@ -35,5 +35,10 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./components/dashboard-delete/dashboard-delete.component').then(m => m.DashboardDeleteComponent)
   },
+  { 
+    path: 'users/profile', 
+    canActivate: [authGuard],
+    loadComponent: () => import('./components/profile/profile.component').then(m => m.ProfileComponent)
+  },
   { path: '**', redirectTo: '/home' }
 ];

@@ -27,10 +27,12 @@
               <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown"
                   role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="fa-regular fa-user me-1"></i> <span>{{ user.username }}</span>
+                  <i class="fa-regular fa-user me-1"></i> <span>{{ user.nickname || user.username }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                  <li><a class="dropdown-item" (click)="logout()">Logout</a></li>
+                  <li><a class="dropdown-item" routerLink="/users/profile">Profile</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><button class="dropdown-item" type="button" (click)="logout()">Logout</button></li>
                 </ul>
               </li>
             } @else {
