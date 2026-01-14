@@ -1,0 +1,67 @@
+<div class="d-flex flex-column min-vh-100">
+  <header>
+    <nav class="navbar navbar-expand-sm navbar-toggleable-sm border-bottom box-shadow mb-3">
+      <div class="container">
+        <a class="navbar-brand" routerLink="/home">E-Paper Dashboard</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+          aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav flex-grow-1">
+            @if (authService.isAuthenticated()) {
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
+              </li>
+            }
+          </ul>
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <button type="button" class="nav-link" (click)="toggleTheme()" 
+                style="border: none; background: none; cursor: pointer; padding: 0.5rem 1rem; color: inherit;"
+                [attr.aria-label]="'Toggle theme'">
+                <i [class]="themeIcon()"></i>
+              </button>
+            </li>
+            @if (authService.currentUser(); as user) {
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown"
+                  role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fa-regular fa-user me-1"></i> <span>{{ user.username }}</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                  <li><a class="dropdown-item" (click)="logout()">Logout</a></li>
+                </ul>
+              </li>
+            } @else {
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="loginDropdown" role="button"
+                  data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="fa-regular fa-user"></i>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="loginDropdown">
+                  <li><a class="dropdown-item" routerLink="/login">Login</a></li>
+                  <li><a class="dropdown-item" routerLink="/register">Register</a></li>
+                </ul>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <div class="flex-grow-1 d-flex flex-column">
+    <main role="main" class="pb-3 flex-grow-1">
+      <div class="container">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+
+  <footer class="border-top footer text-muted mt-auto">
+    <div class="container">
+      &copy; 2025 - izdev.digital - E-Paper Dashboard - <a routerLink="/privacy">Privacy</a>
+    </div>
+  </footer>
+</div>

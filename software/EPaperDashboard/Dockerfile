@@ -39,10 +39,15 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
 ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 ARG VERSION=1.0.0
+
+# Install Node.js for Angular build
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g npm@latest
+
 WORKDIR /src
 COPY . .
 WORKDIR /src/EPaperDashboard
-
 
 # Map Docker build args to .NET architecture and Runtime Identifier (RID)
 # TARGETARCH is set by buildkit; TARGETVARIANT may be used for specific variants.

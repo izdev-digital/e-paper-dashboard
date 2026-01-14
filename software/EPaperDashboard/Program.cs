@@ -18,7 +18,10 @@ if (configValidation.IsFailure)
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
-builder.Services.AddRazorPages();
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+	configuration.RootPath = "frontend/dist/frontend/browser";
+});
 
 #if DEBUG
 builder.Services.AddSwaggerGen(options =>
@@ -128,6 +131,12 @@ builder.Services.Configure<RazorPagesOptions>(options =>
 	options.Conventions.AllowAnonymousToPage("/Privacy");
 });
 
+// Configure SPA static files
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+	configuration.RootPath = "frontend/dist/frontend/browser";
+});
+
 var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -170,7 +179,17 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapRazorPages().RequireAuthorization();
-app.UseStaticFiles();
+
+// Serve Angular SPA
+app.UseSpaStaticFiles();
+app.UseSpa(spa =>
+{
+	spa.Options.SourcePath = "frontend";
+
+	if (app.Environment.IsDevelopment())
+	{
+		spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
+	}
+});
 
 app.Run();
