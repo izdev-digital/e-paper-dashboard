@@ -1,12 +1,13 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { DashboardService } from '../../services/dashboard.service';
 import { AuthService } from '../../services/auth.service';
 import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-list',
+  standalone: true,
   imports: [CommonModule, RouterModule],
   template: `
     <h1>Dashboards</h1>
@@ -24,7 +25,7 @@ import { Dashboard } from '../../models/types';
     } @else if (dashboards().length > 0) {
       <div class="row g-4 mb-4">
         @for (dashboard of dashboards(); track dashboard.id) {
-          <div class="dashboard-tile-col">
+          <div class="col-12">
             <div class="card h-100 shadow-sm dashboard-tile">
               <div class="card-body d-flex flex-row justify-content-between align-items-center flex-wrap">
                 <div class="flex-grow-1 min-width-0">
@@ -39,8 +40,8 @@ import { Dashboard } from '../../models/types';
                   </div>
                 </div>
                 <div class="d-flex flex-row gap-2 ms-3 mt-2 mt-md-0">
-                  <a [routerLink]="['/dashboards', dashboard.id, 'edit']" class="btn btn-warning btn-sm">Edit</a>
-                  <a [routerLink]="['/dashboards', dashboard.id, 'delete']" class="btn btn-danger btn-sm">Delete</a>
+                  <button type="button" class="btn btn-warning btn-sm" (click)="editDashboard(dashboard.id)">Edit</button>
+                  <button type="button" class="btn btn-danger btn-sm" (click)="deleteDashboard(dashboard.id)">Delete</button>
                 </div>
               </div>
             </div>
@@ -67,24 +68,16 @@ import { Dashboard } from '../../models/types';
     }
   `,
   styles: [`
-    .dashboard-tile-col {
-      width: 100%;
-    }
-    @media (min-width: 768px) {
-      .dashboard-tile-col {
-        width: 50%;
-      }
-    }
-    @media (min-width: 1200px) {
-      .dashboard-tile-col {
-        width: 33.333%;
-      }
+    .api-key-display {
+      background-color: var(--bs-secondary-bg);
+      color: var(--bs-body-color);
     }
   `]
 })
 export class DashboardListComponent implements OnInit {
   private readonly dashboardService = inject(DashboardService);
   private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   // Signal-based state
   readonly dashboards = signal<Dashboard[]>([]);
@@ -134,5 +127,13 @@ export class DashboardListComponent implements OnInit {
       // Fallback: show alert if clipboard fails
       alert(`API Key: ${apiKey}`);
     });
+  }
+
+  editDashboard(id: string): void {
+    this.router.navigate(['/dashboards', id, 'edit']);
+  }
+
+  deleteDashboard(id: string): void {
+    this.router.navigate(['/dashboards', id, 'delete']);
   }
 }

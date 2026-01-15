@@ -16,11 +16,6 @@ export const routes: Routes = [
     loadComponent: () => import('./components/register/register.component').then(m => m.RegisterComponent)
   },
   { 
-    path: 'dashboards', 
-    canActivate: [authGuard],
-    loadComponent: () => import('./components/dashboard-list/dashboard-list.component').then(m => m.DashboardListComponent)
-  },
-  { 
     path: 'dashboards/create', 
     canActivate: [authGuard],
     loadComponent: () => import('./components/dashboard-create/dashboard-create.component').then(m => m.DashboardCreateComponent)
@@ -34,6 +29,11 @@ export const routes: Routes = [
     path: 'dashboards/:id/delete', 
     canActivate: [authGuard],
     loadComponent: () => import('./components/dashboard-delete/dashboard-delete.component').then(m => m.DashboardDeleteComponent)
+  },
+  { 
+    path: 'dashboards', 
+    canActivate: [authGuard],
+    loadComponent: () => import('./components/dashboard-list/dashboard-list.component').then(m => m.DashboardListComponent)
   },
   { 
     path: 'users/profile', 

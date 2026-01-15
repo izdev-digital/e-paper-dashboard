@@ -6,6 +6,7 @@ import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-delete',
+  standalone: true,
   imports: [CommonModule],
   template: `
     <div class="container mt-5">

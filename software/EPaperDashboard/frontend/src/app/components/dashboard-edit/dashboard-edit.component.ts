@@ -7,6 +7,7 @@ import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-edit',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <h2>Edit Dashboard</h2>

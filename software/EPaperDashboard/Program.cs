@@ -7,6 +7,9 @@ using EPaperDashboard.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using LiteDB;
 
 var configValidation = EnvironmentConfiguration.ValidateConfiguration();
 if (configValidation.IsFailure)
@@ -17,7 +20,11 @@ if (configValidation.IsFailure)
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+	.AddJsonOptions(options =>
+	{
+		options.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
+	});
 builder.Services.AddSpaStaticFiles(configuration =>
 {
 	configuration.RootPath = "frontend/dist/frontend/browser";
@@ -193,3 +200,21 @@ app.UseSpa(spa =>
 });
 
 app.Run();
+// Custom JSON converter for LiteDB ObjectId to serialize as hex string
+public class ObjectIdJsonConverter : JsonConverter<ObjectId>
+{
+	public override ObjectId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+	{
+		var value = reader.GetString();
+		if (string.IsNullOrEmpty(value))
+		{
+			return ObjectId.Empty;
+		}
+		return new ObjectId(value);
+	}
+
+	public override void Write(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options)
+	{
+		writer.WriteStringValue(value.ToString());
+	}
+}

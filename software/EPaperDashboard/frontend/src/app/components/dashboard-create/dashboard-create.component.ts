@@ -6,6 +6,7 @@ import { DashboardService } from '../../services/dashboard.service';
 
 @Component({
   selector: 'app-dashboard-create',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <div class="container mt-5">
