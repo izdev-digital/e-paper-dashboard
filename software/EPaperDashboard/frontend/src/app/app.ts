@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { RouterOutlet, RouterModule, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from './services/auth.service';
+import { VersionService } from './services/version.service';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +12,7 @@ import { AuthService } from './services/auth.service';
 })
 export class App implements OnInit {
   protected readonly authService = inject(AuthService);
+  protected readonly versionService = inject(VersionService);
   private readonly router = inject(Router);
   
   // Signal-based theme state
