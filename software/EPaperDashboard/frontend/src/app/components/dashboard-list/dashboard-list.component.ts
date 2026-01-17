@@ -5,13 +5,15 @@ import { DashboardService } from '../../services/dashboard.service';
 import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
+import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-list',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, ToastContainerComponent],
   template: `
+    <app-toast-container></app-toast-container>
     <h1>Dashboards</h1>
 
     <p>
@@ -218,13 +220,42 @@ export class DashboardListComponent implements OnInit {
     });
   }
 
-  copyApiKey(apiKey: string): void {
-    navigator.clipboard.writeText(apiKey).then(() => {
-      this.toastService.success('API Key copied to clipboard!');
-    }).catch((err) => {
-      console.error('Failed to copy API key:', err);
-      this.toastService.error('Failed to copy API key');
-    });
+  async copyApiKey(apiKey: string): Promise<void> {
+    const tryClipboardApi = async () => {
+      if (!navigator.clipboard || !window.isSecureContext) {
+        throw new Error('Clipboard API not available');
+      }
+      await navigator.clipboard.writeText(apiKey);
+    };
+
+    try {
+      await tryClipboardApi();
+      this.toastService.success('API key copied to clipboard');
+      return;
+    } catch (err) {
+      console.warn('Clipboard API failed, attempting fallback copy', err);
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = apiKey;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      if (!copied) {
+        throw new Error('execCommand copy failed');
+      }
+
+      this.toastService.success('API key copied to clipboard');
+    } catch (fallbackErr) {
+      console.error('Fallback copy failed:', fallbackErr);
+      this.toastService.error('Unable to copy API key');
+    }
   }
 
   editDashboard(id: string): void {

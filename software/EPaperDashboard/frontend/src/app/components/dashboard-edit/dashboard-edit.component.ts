@@ -26,144 +26,143 @@ import { ToastContainerComponent } from '../toast-container/toast-container.comp
       </div>
     } @else if (dashboard()) {
       <form (ngSubmit)="onSubmit()">
-        <div class="mb-3">
-          <label class="form-label">Name</label>
-          <input 
-            type="text" 
-            class="form-control" 
-            [value]="dashboard()?.name || ''"
-            (input)="updateDashboardField('name', $event)"
-            name="name" 
-            required 
-          />
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="row g-4">
+              <div class="col-12 col-lg-6">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Name</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    [value]="dashboard()?.name || ''"
+                    (input)="updateDashboardField('name', $event)"
+                    name="name" 
+                    required 
+                  />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Description</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    [value]="dashboard()?.description || ''"
+                    (input)="updateDashboardField('description', $event)"
+                    name="description" 
+                  />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">API Key</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" [value]="dashboard()!.apiKey" readonly tabindex="-1" style="pointer-events: none;" />
+                    <button type="button" class="btn btn-outline-secondary" title="Copy API Key" (click)="copyApiKey()">
+                      <i class="fa-regular fa-clipboard"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-lg-6">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Dashboard Host</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    [value]="dashboard()?.host || ''" 
+                    (input)="updateDashboardField('host', $event)"
+                    name="host" 
+                    placeholder="https://your-ha-instance.com" 
+                  />
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Access Token</label>
+                  <div class="input-group">
+                    <input 
+                      type="password" 
+                      class="form-control" 
+                      [value]="manualAccessToken() || ''" 
+                      (input)="onTokenInput($event)"
+                      placeholder="Paste token or click Fetch Token..." 
+                    />
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-primary" 
+                      (click)="authenticateWithHomeAssistant()"
+                      [disabled]="isAuthenticating()"
+                      title="Authenticate via Home Assistant OAuth"
+                    >
+                      <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
+                    </button>
+                    @if (dashboard()?.hasAccessToken || manualAccessToken()) {
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-danger" 
+                        (click)="clearAccessToken()"
+                        title="Clear the access token"
+                      >
+                        <i class="fa-solid fa-trash"></i> Clear
+                      </button>
+                    }
+                  </div>
+                  <small class="form-text text-muted d-block mt-2">
+                    @if (dashboard()?.hasAccessToken) {
+                      <span class="d-block mt-1 text-success">Token is configured</span>
+                    }
+                  </small>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Dashboard Path</label>
+                  <div class="input-group">
+                    <input 
+                      type="text" 
+                      class="form-control" 
+                      [value]="dashboard()?.path || ''"
+                      (input)="updateDashboardField('path', $event)"
+                      name="path" 
+                      id="pathField"
+                    />
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-secondary" 
+                      (click)="openDashboardSelector()"
+                      [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())"
+                    >
+                      <i class="fa-solid fa-list"></i> Select
+                    </button>
+                  </div>
+                  <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Update Times</label>
+                  <div class="d-flex align-items-center mb-2">
+                    <input 
+                      type="time" 
+                      class="form-control me-2" 
+                      style="width: 150px;"
+                      [(ngModel)]="newUpdateTime"
+                      name="newUpdateTime"
+                    />
+                    <button type="button" class="btn btn-outline-primary" (click)="addUpdateTime()">Add</button>
+                  </div>
+                  <div id="updateTimesList" class="mb-2 d-flex flex-wrap gap-2">
+                    @for (time of updateTimes(); track $index) {
+                      <span class="badge bg-secondary">
+                        {{ time }}
+                        <button type="button" class="btn-close btn-close-white ms-2" (click)="removeUpdateTime($index)"></button>
+                      </span>
+                    }
+                  </div>
+                  <small class="form-text text-muted">Add one or more times. Example: 06:00, 12:00, 18:00</small>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label">Description</label>
-          <input 
-            type="text" 
-            class="form-control" 
-            [value]="dashboard()?.description || ''"
-            (input)="updateDashboardField('description', $event)"
-            name="description" 
-          />
-        </div>
-        <div class="mb-3">
-          <label class="form-label">API Key</label>
-          <div class="input-group">
-            <input type="text" class="form-control" [value]="dashboard()!.apiKey" readonly tabindex="-1" style="pointer-events: none;" />
-            <button type="button" class="btn btn-outline-secondary" title="Copy API Key" (click)="copyApiKey()">
-              <i class="fa-regular fa-clipboard"></i>
-            </button>
-          </div>
-        </div>
 
-        <!-- Home Assistant settings -->
-        <fieldset class="border rounded p-3 mb-3">
-          <legend class="w-auto px-2" style="font-size:1.1em;">Home Assistant Dashboard</legend>
-          
-          <div class="mb-3">
-            <label class="form-label">Dashboard Host</label>
-            <input 
-              type="text" 
-              class="form-control" 
-              [value]="dashboard()?.host || ''" 
-              (input)="updateDashboardField('host', $event)"
-              name="host" 
-              placeholder="https://your-ha-instance.com" 
-            />
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Access Token</label>
-            <div class="input-group">
-              <input 
-                type="password" 
-                class="form-control" 
-                [value]="manualAccessToken() || ''" 
-                (input)="onTokenInput($event)"
-                placeholder="Paste token or click Fetch Token..." 
-              />
-              <button 
-                type="button" 
-                class="btn btn-outline-primary" 
-                (click)="authenticateWithHomeAssistant()"
-                [disabled]="isAuthenticating()"
-                title="Authenticate via Home Assistant OAuth"
-              >
-                <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
-              </button>
-              @if (dashboard()?.hasAccessToken) {
-                <span class="btn btn-outline-success" style="pointer-events: none;">
-                  <i class="fa-solid fa-check-circle"></i>
-                </span>
-              }
-              @if (dashboard()?.hasAccessToken || manualAccessToken()) {
-                <button 
-                  type="button" 
-                  class="btn btn-outline-danger" 
-                  (click)="clearAccessToken()"
-                  title="Clear the access token"
-                >
-                  <i class="fa-solid fa-trash"></i> Clear
-                </button>
-              }
-            </div>
-            <small class="form-text text-muted d-block mt-2">
-              Paste a token manually, or click "Fetch" to authenticate via Home Assistant OAuth. Token is stored securely and never displayed.
-              @if (dashboard()?.hasAccessToken) {
-                <span class="d-block mt-1"><i class="fa-solid fa-check-circle text-success"></i> Token is configured on the server</span>
-              }
-            </small>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Dashboard Path</label>
-            <div class="input-group">
-              <input 
-                type="text" 
-                class="form-control" 
-                [value]="dashboard()?.path || ''"
-                (input)="updateDashboardField('path', $event)"
-                name="path" 
-                id="pathField"
-              />
-              <button 
-                type="button" 
-                class="btn btn-outline-secondary" 
-                (click)="openDashboardSelector()"
-                [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())"
-              >
-                <i class="fa-solid fa-list"></i> Select
-              </button>
-            </div>
-            <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">Update Times</label>
-            <div class="d-flex align-items-center mb-2">
-              <input 
-                type="time" 
-                class="form-control me-2" 
-                style="width: 150px;"
-                [(ngModel)]="newUpdateTime"
-                name="newUpdateTime"
-              />
-              <button type="button" class="btn btn-outline-primary" (click)="addUpdateTime()">Add</button>
-            </div>
-            <div id="updateTimesList" class="mb-2">
-              @for (time of updateTimes(); track $index) {
-                <span class="badge bg-secondary me-2 mb-2">
-                  {{ time }}
-                  <button type="button" class="btn-close btn-close-white ms-2" (click)="removeUpdateTime($index)"></button>
-                </span>
-              }
-            </div>
-            <small class="form-text text-muted">Add one or more times. Example: 06:00, 12:00, 18:00</small>
-          </div>
-        </fieldset>
-
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
             {{ isSaving() ? 'Saving...' : 'Save Changes' }}
           </button>
@@ -173,17 +172,6 @@ import { ToastContainerComponent } from '../toast-container/toast-container.comp
           </button>
         </div>
       </form>
-
-      @if (showCopyToast()) {
-        <div class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4 show" role="alert">
-          <div class="d-flex">
-            <div class="toast-body">
-              API Key copied to clipboard!
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" (click)="showCopyToast.set(false)"></button>
-          </div>
-        </div>
-      }
 
       <!-- Preview Modal -->
       @if (showPreviewModal()) {
@@ -231,7 +219,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly isAuthenticating = signal(false);
-  readonly showCopyToast = signal(false);
   readonly updateTimes = signal<string[]>([]);
   readonly showPreviewModal = signal(false);
   readonly previewLoading = signal(false);
@@ -471,18 +458,48 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.manualAccessToken.set(input.value);
   }
 
-  copyApiKey(): void {
+  async copyApiKey(): Promise<void> {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) return;
-    navigator.clipboard.writeText(currentDashboard.apiKey).then(() => {
-      this.showCopyToast.set(true);
-      setTimeout(() => {
-        this.showCopyToast.set(false);
-      }, 3000);
-    }).catch((err) => {
-      console.error('Failed to copy API key:', err);
-      alert(`API Key: ${currentDashboard.apiKey}`);
-    });
+
+    const apiKey = currentDashboard.apiKey;
+
+    const tryClipboardApi = async () => {
+      if (!navigator.clipboard || !window.isSecureContext) {
+        throw new Error('Clipboard API not available');
+      }
+      await navigator.clipboard.writeText(apiKey);
+    };
+
+    try {
+      await tryClipboardApi();
+      this.toastService.success('API key copied to clipboard');
+      return;
+    } catch (err) {
+      console.warn('Clipboard API failed, attempting fallback copy', err);
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = apiKey;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      if (!copied) {
+        throw new Error('execCommand copy failed');
+      }
+
+      this.toastService.success('API key copied to clipboard');
+    } catch (fallbackErr) {
+      console.error('Fallback copy failed:', fallbackErr);
+      this.toastService.error('Unable to copy API key. Showing it instead.');
+      alert(`API Key: ${apiKey}`);
+    }
   }
 
   async clearAccessToken(): Promise<void> {
