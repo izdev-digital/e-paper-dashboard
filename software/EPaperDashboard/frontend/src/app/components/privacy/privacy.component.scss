@@ -7,23 +7,23 @@
     margin-bottom: 0.5rem;
     font-size: 2.5rem;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--bs-body-color);
     letter-spacing: -0.5px;
   }
 
   .subtitle {
-    color: #999;
+    color: var(--bs-secondary-color);
     font-size: 0.95rem;
     margin-bottom: 2rem !important;
     font-style: italic;
   }
 
   .content-card {
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 8px;
     padding: 2rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .policy-section {
@@ -36,15 +36,15 @@
     h2 {
       font-size: 1.4rem;
       font-weight: 600;
-      color: #1a1a1a;
+      color: var(--bs-body-color);
       margin-bottom: 1rem;
       padding-bottom: 0.75rem;
-      border-bottom: 2px solid #f0f0f0;
+      border-bottom: 2px solid var(--bs-border-color);
     }
 
     p {
       line-height: 1.7;
-      color: #555;
+      color: var(--bs-secondary-color);
       margin-bottom: 1rem;
       font-size: 0.95rem;
 
@@ -60,7 +60,7 @@
 
       li {
         margin-bottom: 0.875rem;
-        color: #555;
+        color: var(--bs-secondary-color);
         line-height: 1.7;
         padding-left: 1.75rem;
         position: relative;
@@ -75,7 +75,7 @@
         }
 
         strong {
-          color: #1a1a1a;
+          color: var(--bs-body-color);
           font-weight: 600;
         }
       }
@@ -86,7 +86,8 @@
     margin-top: 2.5rem;
 
     .alert {
-      background-color: #e3f2fd;
+      background-color: rgba(33, 150, 243, 0.1);
+      border: 1px solid rgba(33, 150, 243, 0.3);
       border-left: 4px solid #2196f3;
       padding: 1.5rem;
       border-radius: 4px;
@@ -96,12 +97,12 @@
         margin: 0 0 0.75rem 0;
         font-size: 1.15rem;
         font-weight: 600;
-        color: #1565c0;
+        color: #2196f3;
       }
 
       p {
         margin: 0;
-        color: #555;
+        color: var(--bs-secondary-color);
         font-size: 0.95rem;
       }
     }
