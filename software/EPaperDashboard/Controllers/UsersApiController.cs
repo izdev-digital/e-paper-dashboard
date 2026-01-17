@@ -57,7 +57,53 @@ public class UsersApiController(UserService userService) : ControllerBase
 
         return BadRequest(new { message = "Failed to delete profile." });
     }
+
+    [HttpGet("all")]
+    [Authorize(Policy = "SuperUserOnly")]
+    public IActionResult GetAllUsers()
+    {
+        var users = userService.GetAllUsers();
+        return Ok(users.Select(u => new { u.Id, u.Username, u.Nickname, u.IsSuperUser }));
+    }
+
+    [HttpPost("add")]
+    [Authorize(Policy = "SuperUserOnly")]
+    public IActionResult AddUser([FromBody] AddUserRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { message = "Username and password are required." });
+        }
+
+        if (userService.TryCreateUser(request.Username, request.Password))
+        {
+            return Ok(new { message = "User added successfully." });
+        }
+
+        return BadRequest(new { message = "User already exists." });
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize(Policy = "SuperUserOnly")]
+    public IActionResult DeleteUser(string id)
+    {
+        try
+        {
+            var objectId = new ObjectId(id);
+            if (userService.TryDeleteUser(objectId))
+            {
+                return Ok(new { message = "User deleted successfully." });
+            }
+
+            return BadRequest(new { message = "Cannot delete user." });
+        }
+        catch
+        {
+            return BadRequest(new { message = "Invalid user id." });
+        }
+    }
 }
 
 public record ChangeNicknameRequest(string NewNickname);
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword, string ConfirmNewPassword);
+public record AddUserRequest(string Username, string Password);

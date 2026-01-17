@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { superUserGuard } from './guards/superuser.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -34,6 +35,15 @@ export const routes: Routes = [
     path: 'users/profile', 
     canActivate: [authGuard],
     loadComponent: () => import('./components/profile/profile.component').then(m => m.ProfileComponent)
+  },
+  { 
+    path: 'users/manage', 
+    canActivate: [authGuard, superUserGuard],
+    loadComponent: () => import('./components/users-management/users-management.component').then(m => m.UsersManagementComponent)
+  },
+  { 
+    path: 'privacy', 
+    loadComponent: () => import('./components/privacy/privacy.component').then(m => m.PrivacyComponent)
   },
   { path: '**', redirectTo: '/home' }
 ];
