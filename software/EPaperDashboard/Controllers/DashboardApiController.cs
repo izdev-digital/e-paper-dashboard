@@ -84,13 +84,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPut("{id}")]
     public IActionResult UpdateDashboard(string id, [FromBody] UpdateDashboardRequest request)
     {
-        System.Console.WriteLine($"[UpdateDashboard] Received update for ID: {id}");
-        System.Console.WriteLine($"[UpdateDashboard] Name: {request.Name}");
-        System.Console.WriteLine($"[UpdateDashboard] Host: {request.Host}");
-        System.Console.WriteLine($"[UpdateDashboard] Path: {request.Path}");
-        System.Console.WriteLine($"[UpdateDashboard] AccessToken: {(string.IsNullOrWhiteSpace(request.AccessToken) ? "NULL/EMPTY" : "SET")}");
-        System.Console.WriteLine($"[UpdateDashboard] ClearAccessToken: {request.ClearAccessToken}");
-        System.Console.WriteLine($"[UpdateDashboard] UpdateTimes count: {request.UpdateTimes?.Count ?? 0}");
 
         ObjectId objectId;
         try
@@ -133,9 +126,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         if (request.Path != null) updatedDashboard.Path = request.Path;
         if (request.UpdateTimes != null) updatedDashboard.UpdateTimes = request.UpdateTimes;
 
-        System.Console.WriteLine($"[UpdateDashboard] Saving dashboard with Host={updatedDashboard.Host}, Path={updatedDashboard.Path}, Token={(string.IsNullOrWhiteSpace(updatedDashboard.AccessToken) ? "NULL" : "SET")}");
         _dashboardService.UpdateDashboard(updatedDashboard);
-        System.Console.WriteLine($"[UpdateDashboard] Dashboard saved successfully");
 
         return Ok(DashboardResponseDto.FromDashboard(updatedDashboard));
     }

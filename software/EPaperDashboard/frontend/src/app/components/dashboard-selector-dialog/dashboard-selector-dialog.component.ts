@@ -117,8 +117,6 @@ export class DashboardSelectorDialogComponent {
       console.log('Resolving with path:', dashboard.url_path);
       this.resolveCallback(dashboard.url_path);
       this.resolveCallback = undefined;
-    } else {
-      console.warn('No resolve callback set');
     }
   }
 

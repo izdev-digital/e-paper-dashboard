@@ -70,15 +70,9 @@ public sealed class RenderToImageController(
 		}
 
 		var dashboard = dashboardResult.Value;
-		System.Console.WriteLine($"[RenderImage] Dashboard found: {dashboard.Name}");
-		System.Console.WriteLine($"[RenderImage] Host: {dashboard.Host ?? "NULL"}");
-		System.Console.WriteLine($"[RenderImage] Path: {dashboard.Path ?? "NULL"}");
-		System.Console.WriteLine($"[RenderImage] AccessToken: {(string.IsNullOrWhiteSpace(dashboard.AccessToken) ? "NULL/EMPTY" : "SET")}");
-
 		var dashboardInfo = dashboardResult.Bind(GetDashboardInfo);
 		if (dashboardInfo.HasNoValue)
 		{
-			System.Console.WriteLine($"[RenderImage] GetDashboardInfo returned None - configuration invalid");
 			return NotFound("Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.");
 		}
 

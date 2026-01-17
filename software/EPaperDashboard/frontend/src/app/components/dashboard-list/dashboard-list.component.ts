@@ -213,7 +213,6 @@ export class DashboardListComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (err) => {
-        console.error('Error loading dashboards:', err);
         this.errorMessage.set('Failed to load dashboards. Please try again.');
         this.isLoading.set(false);
       }
@@ -233,7 +232,6 @@ export class DashboardListComponent implements OnInit {
       this.toastService.success('API key copied to clipboard');
       return;
     } catch (err) {
-      console.warn('Clipboard API failed, attempting fallback copy', err);
     }
 
     try {
@@ -253,7 +251,6 @@ export class DashboardListComponent implements OnInit {
 
       this.toastService.success('API key copied to clipboard');
     } catch (fallbackErr) {
-      console.error('Fallback copy failed:', fallbackErr);
       this.toastService.error('Unable to copy API key');
     }
   }

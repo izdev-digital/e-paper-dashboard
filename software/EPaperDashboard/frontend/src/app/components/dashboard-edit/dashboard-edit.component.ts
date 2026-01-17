@@ -326,7 +326,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.oauthToken = null;
       },
       error: (error) => {
-        console.error('✗ Failed to save token:', error);
         this.toastService.error('Failed to save Home Assistant token. Please try again.');
         this.oauthToken = null;
       }
@@ -386,7 +385,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         window.location.href = response.authUrl;
       },
       error: (error) => {
-        console.error('✗ Failed to start authentication:', error);
         this.isAuthenticating.set(false);
         const errorMsg = 'Failed to start authentication: ' + (error.error?.error || error.error?.message || 'Unknown error');
         this.toastService.error(errorMsg);
@@ -429,7 +427,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           });
         },
         error: (error) => {
-          console.error('Error fetching dashboards:', error);
           this.dashboardSelectorDialog.setError(error.error?.message || 'Failed to fetch dashboards');
         }
       });
@@ -487,7 +484,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.isSaving.set(false);
       },
       error: (error) => {
-        console.error('✗ Save error:', error);
         this.toastService.error(error.error?.message || 'Failed to update dashboard.');
         this.isSaving.set(false);
       }
@@ -550,7 +546,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
       this.toastService.success('API key copied to clipboard');
     } catch (fallbackErr) {
-      console.error('Fallback copy failed:', fallbackErr);
       this.toastService.error('Unable to copy API key. Showing it instead.');
       alert(`API Key: ${apiKey}`);
     }
@@ -626,13 +621,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.previewLoading.set(false);
       },
       error: async (error) => {
-        console.error('Preview request error:', {
-          status: error.status,
-          statusText: error.statusText,
-          errorType: error.error?.constructor?.name,
-          errorSize: error.error instanceof Blob ? error.error.size : 'N/A'
-        });
-        
         this.previewLoading.set(false);
         const dashboard = this.dashboard();
         let errorMessage = 'Failed to load preview';
