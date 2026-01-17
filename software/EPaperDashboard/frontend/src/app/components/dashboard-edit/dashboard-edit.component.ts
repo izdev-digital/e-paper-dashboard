@@ -1,7 +1,8 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, effect, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { HomeAssistantService } from '../../services/home-assistant.service';
 import { Dashboard } from '../../models/types';
@@ -23,11 +24,24 @@ import { Dashboard } from '../../models/types';
       <form (ngSubmit)="onSubmit()">
         <div class="mb-3">
           <label class="form-label">Name</label>
-          <input type="text" class="form-control" [(ngModel)]="dashboard()!.name" name="name" required />
+          <input 
+            type="text" 
+            class="form-control" 
+            [value]="dashboard()?.name || ''"
+            (input)="updateDashboardField('name', $event)"
+            name="name" 
+            required 
+          />
         </div>
         <div class="mb-3">
           <label class="form-label">Description</label>
-          <input type="text" class="form-control" [(ngModel)]="dashboard()!.description" name="description" />
+          <input 
+            type="text" 
+            class="form-control" 
+            [value]="dashboard()?.description || ''"
+            (input)="updateDashboardField('description', $event)"
+            name="description" 
+          />
         </div>
         <div class="mb-3">
           <label class="form-label">API Key</label>
@@ -45,29 +59,57 @@ import { Dashboard } from '../../models/types';
           
           <div class="mb-3">
             <label class="form-label">Dashboard Host</label>
-            <input type="text" class="form-control" [(ngModel)]="dashboard()!.host" name="host" placeholder="https://your-ha-instance.com" />
+            <input 
+              type="text" 
+              class="form-control" 
+              [value]="dashboard()?.host || ''" 
+              (input)="updateDashboardField('host', $event)"
+              name="host" 
+              placeholder="https://your-ha-instance.com" 
+            />
           </div>
 
           <div class="mb-3">
             <label class="form-label">Access Token</label>
             <div class="input-group">
               <input 
-                type="text" 
+                type="password" 
                 class="form-control" 
-                [(ngModel)]="dashboard()!.accessToken" 
-                name="accessToken" 
-                id="accessTokenField"
-                placeholder="Enter token to update..." 
+                [value]="manualAccessToken() || ''" 
+                (input)="onTokenInput($event)"
+                placeholder="Paste token or click Fetch Token..." 
               />
               <button 
                 type="button" 
                 class="btn btn-outline-primary" 
                 (click)="authenticateWithHomeAssistant()"
                 [disabled]="isAuthenticating()"
+                title="Authenticate via Home Assistant OAuth"
               >
-                <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch Token' }}
+                <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
               </button>
+              @if (dashboard()?.hasAccessToken) {
+                <span class="btn btn-outline-success" style="pointer-events: none;">
+                  <i class="fa-solid fa-check-circle"></i>
+                </span>
+              }
+              @if (dashboard()?.hasAccessToken || manualAccessToken()) {
+                <button 
+                  type="button" 
+                  class="btn btn-outline-danger" 
+                  (click)="clearAccessToken()"
+                  title="Clear the access token"
+                >
+                  <i class="fa-solid fa-trash"></i> Clear
+                </button>
+              }
             </div>
+            <small class="form-text text-muted d-block mt-2">
+              Paste a token manually, or click "Fetch" to authenticate via Home Assistant OAuth. Token is stored securely and never displayed.
+              @if (dashboard()?.hasAccessToken) {
+                <span class="d-block mt-1"><i class="fa-solid fa-check-circle text-success"></i> Token is configured on the server</span>
+              }
+            </small>
           </div>
 
           <div class="mb-3">
@@ -76,7 +118,8 @@ import { Dashboard } from '../../models/types';
               <input 
                 type="text" 
                 class="form-control" 
-                [(ngModel)]="dashboard()!.path" 
+                [value]="dashboard()?.path || ''"
+                (input)="updateDashboardField('path', $event)"
                 name="path" 
                 id="pathField"
               />
@@ -84,7 +127,7 @@ import { Dashboard } from '../../models/types';
                 type="button" 
                 class="btn btn-outline-secondary" 
                 (click)="openDashboardSelector()"
-                [disabled]="!dashboard()!.host || !dashboard()!.accessToken"
+                [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())"
               >
                 <i class="fa-solid fa-list"></i> Select
               </button>
@@ -128,6 +171,9 @@ import { Dashboard } from '../../models/types';
             {{ isSaving() ? 'Saving...' : 'Save Changes' }}
           </button>
           <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+          <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())">
+            <i class="fa-solid fa-eye"></i> Preview
+          </button>
         </div>
       </form>
 
@@ -141,14 +187,46 @@ import { Dashboard } from '../../models/types';
           </div>
         </div>
       }
+
+      <!-- Preview Modal -->
+      @if (showPreviewModal()) {
+        <div class="position-fixed top-0 start-0 w-100 h-100" style="background-color: rgba(0,0,0,0.5); z-index: 1050; overflow: hidden;">
+          <div class="position-absolute top-50 start-50 translate-middle rounded" style="width: 90vw; height: 90vh; max-width: 900px; max-height: 600px; display: flex; flex-direction: column; background-color: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color);">
+            <!-- Modal Header -->
+            <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom: 1px solid var(--bs-border-color);">
+              <h5 class="mb-0">Dashboard Preview</h5>
+              <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-sm" title="Reload Preview" (click)="openPreview()">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+                <button type="button" class="btn-close" aria-label="Close" (click)="showPreviewModal.set(false)"></button>
+              </div>
+            </div>
+            <!-- Modal Body -->
+            <div class="flex-grow-1 overflow-auto p-3 d-flex justify-content-center align-items-flex-start" style="background-color: var(--bs-secondary-bg);">
+              @if (previewLoading()) {
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              } @else if (previewError()) {
+                <div class="alert alert-danger mb-0">{{ previewError() }}</div>
+              } @else if (previewImageUrl()) {
+                <img [src]="previewImageUrl()" style="max-width: 100%; height: auto; object-fit: contain;" alt="Dashboard preview" />
+              }
+            </div>
+          </div>
+        </div>
+      }
     }
   `
 })
-export class DashboardEditComponent implements OnInit {
+export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly dashboardService = inject(DashboardService);
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly http = inject(HttpClient);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   readonly dashboard = signal<Dashboard | null>(null);
   readonly isLoading = signal(false);
@@ -158,11 +236,32 @@ export class DashboardEditComponent implements OnInit {
   readonly successMessage = signal('');
   readonly showCopyToast = signal(false);
   readonly updateTimes = signal<string[]>([]);
+  readonly showPreviewModal = signal(false);
+  readonly previewLoading = signal(false);
+  readonly previewError = signal('');
+  readonly previewImageUrl = signal('');
+  readonly shouldClearAccessToken = signal(false);
+  readonly manualAccessToken = signal('');
   newUpdateTime: string = '';
+  private previewObjectUrl: string | null = null;
+  private oauthProcessed = false;
+  private oauthToken: string | null = null;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
+    console.log('DashboardEdit init - id:', id);
+    
     if (id) {
+      // Check for OAuth callback params
+      this.route.queryParams.subscribe(params => {
+        if (params['access_token'] && params['auth_callback'] === 'true' && !this.oauthProcessed) {
+          console.log('✓ OAuth callback detected in query params');
+          console.log('  - Token:', params['access_token'].substring(0, 20) + '...');
+          this.oauthProcessed = true;
+          this.oauthToken = params['access_token'];
+        }
+      });
+      
       this.loadDashboard(id);
     }
   }
@@ -177,11 +276,63 @@ export class DashboardEditComponent implements OnInit {
           this.updateTimes.set(dashboard.updateTimes);
         }
         this.isLoading.set(false);
+        
+        // Now process OAuth if we have a token
+        if (this.oauthToken && !dashboard.hasAccessToken) {
+          console.log('✓ Saving OAuth token for dashboard:', id);
+          this.saveOAuthToken(id);
+        }
+        
+        // Force change detection to ensure UI updates
+        this.cdr.detectChanges();
       },
       error: () => {
         this.router.navigate(['/dashboards']);
       }
     });
+  }
+
+  private saveOAuthToken(dashboardId: string): void {
+    if (!this.oauthToken) {
+      console.warn('No OAuth token to save');
+      return;
+    }
+
+    const updatePayload = {
+      accessToken: this.oauthToken
+    };
+    
+    console.log('  - Sending token to backend...');
+    this.dashboardService.updateDashboard(dashboardId, updatePayload).subscribe({
+      next: (updated) => {
+        console.log('✓✓✓ Token saved successfully!');
+        console.log('  - Updated dashboard:', { hasToken: updated.hasAccessToken });
+        this.dashboard.set(updated);
+        this.successMessage.set('Home Assistant token saved successfully!');
+        
+        // Clean the query params from URL without navigating away
+        setTimeout(() => {
+          console.log('✓ Clearing OAuth params from URL');
+          window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
+        }, 500);
+        
+        this.oauthToken = null;
+      },
+      error: (error) => {
+        console.error('✗ Failed to save token:', error);
+        this.errorMessage.set('Failed to save Home Assistant token. Please try again.');
+        this.oauthToken = null;
+      }
+    });
+  }
+
+  updateDashboardField(field: keyof Dashboard, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const currentDashboard = this.dashboard();
+    if (currentDashboard) {
+      const updated = { ...currentDashboard, [field]: target.value };
+      this.dashboard.set(updated);
+    }
   }
 
   addUpdateTime(): void {
@@ -206,16 +357,23 @@ export class DashboardEditComponent implements OnInit {
       return;
     }
 
+    console.log('✓ Starting Home Assistant OAuth flow...');
+    console.log('  - Host:', currentDashboard.host);
+    console.log('  - Dashboard ID:', currentDashboard.id);
+
     this.isAuthenticating.set(true);
     this.errorMessage.set('');
+    this.successMessage.set('');
 
     // Call backend to start OAuth flow
     this.homeAssistantService.startAuth(currentDashboard.host, currentDashboard.id).subscribe({
       next: (response) => {
+        console.log('✓ OAuth URL received, redirecting to Home Assistant...');
         // Redirect to Home Assistant OAuth URL
         window.location.href = response.authUrl;
       },
       error: (error) => {
+        console.error('✗ Failed to start authentication:', error);
         this.isAuthenticating.set(false);
         this.errorMessage.set('Failed to start authentication: ' + (error.error?.error || error.error?.message || 'Unknown error'));
       }
@@ -224,7 +382,7 @@ export class DashboardEditComponent implements OnInit {
 
   openDashboardSelector(): void {
     const currentDashboard = this.dashboard();
-    if (!currentDashboard || !currentDashboard.host || !currentDashboard.accessToken) {
+    if (!currentDashboard || !currentDashboard.host || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
       this.errorMessage.set('Please configure host and access token first.');
       return;
     }
@@ -249,28 +407,60 @@ export class DashboardEditComponent implements OnInit {
 
   onSubmit(): void {
     const currentDashboard = this.dashboard();
-    if (!currentDashboard) return;
+    if (!currentDashboard) {
+      console.warn('onSubmit: no dashboard');
+      return;
+    }
 
     this.isSaving.set(true);
     this.errorMessage.set('');
     this.successMessage.set('');
 
-    this.dashboardService.updateDashboard(currentDashboard.id, {
+    const updatePayload: any = {
       name: currentDashboard.name,
       description: currentDashboard.description,
       host: currentDashboard.host || undefined,
       path: currentDashboard.path || undefined,
-      accessToken: currentDashboard.accessToken || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined
-    }).subscribe({
-      next: () => {
+    };
+
+    // Handle manually entered token
+    if (this.manualAccessToken().trim().length > 0) {
+      updatePayload.accessToken = this.manualAccessToken();
+      console.log('✓ Manual token included in payload');
+      this.manualAccessToken.set(''); // Clear the input after submission
+    }
+
+    // Handle explicit token clear request
+    if (this.shouldClearAccessToken()) {
+      updatePayload.clearAccessToken = true;
+      console.log('✓ Clear token flag set');
+      this.shouldClearAccessToken.set(false); // Reset flag after adding to payload
+    }
+
+    console.log('onSubmit - current dashboard:', { 
+      id: currentDashboard.id,
+      name: currentDashboard.name,
+      host: currentDashboard.host,
+      path: currentDashboard.path,
+      hasToken: currentDashboard.hasAccessToken
+    });
+    console.log('onSubmit - payload being sent:', updatePayload);
+
+    this.dashboardService.updateDashboard(currentDashboard.id, updatePayload).subscribe({
+      next: (updated) => {
+        console.log('✓ Dashboard saved successfully:', { 
+          id: updated.id,
+          host: updated.host,
+          path: updated.path,
+          hasAccessToken: updated.hasAccessToken
+        });
+        this.dashboard.set(updated);
         this.successMessage.set('Dashboard updated successfully!');
         this.isSaving.set(false);
-        setTimeout(() => {
-          this.router.navigate(['/dashboards']);
-        }, 1500);
       },
       error: (error) => {
+        console.error('✗ Save error:', error);
         this.errorMessage.set(error.error?.message || 'Failed to update dashboard.');
         this.isSaving.set(false);
       }
@@ -279,6 +469,11 @@ export class DashboardEditComponent implements OnInit {
 
   onCancel(): void {
     this.router.navigate(['/dashboards']);
+  }
+
+  onTokenInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.manualAccessToken.set(input.value);
   }
 
   copyApiKey(): void {
@@ -293,6 +488,131 @@ export class DashboardEditComponent implements OnInit {
       console.error('Failed to copy API key:', err);
       alert(`API Key: ${currentDashboard.apiKey}`);
     });
+  }
+
+  clearAccessToken(): void {
+    if (confirm('Are you sure you want to clear the Home Assistant access token? The dashboard will no longer be able to render until you authenticate again.')) {
+      console.log('✓ User confirmed token clear');
+      this.shouldClearAccessToken.set(true);
+      this.onSubmit();
+    }
+  }
+
+  openPreview(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard) return;
+
+    // Validate that dashboard has required Home Assistant configuration
+    if (!currentDashboard.host || !currentDashboard.path || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
+      this.errorMessage.set('Preview requires Home Assistant configuration and access token. Please configure Host, Dashboard Path, and add an access token first.');
+      return;
+    }
+
+    this.showPreviewModal.set(true);
+    this.previewLoading.set(true);
+    this.previewError.set('');
+    this.previewImageUrl.set('');
+
+    // Clean up previous preview URL
+    if (this.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.previewObjectUrl);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      this.previewObjectUrl = null;
+    }
+
+    // Debug logging
+    console.log('Preview request:', {
+      dashboardId: currentDashboard.id,
+      host: currentDashboard.host,
+      path: currentDashboard.path,
+      hasAccessToken: currentDashboard.hasAccessToken,
+      apiKey: currentDashboard.apiKey
+    });
+
+    // Fetch preview image - match Razor implementation exactly
+    const url = `/api/render/original?width=800&height=480&format=png`;
+
+    console.log('Making preview request:', {
+      url,
+      apiKey: currentDashboard.apiKey,
+      headers: { 'X-Api-Key': currentDashboard.apiKey }
+    });
+
+    this.http.get(url, {
+      headers: { 'X-Api-Key': currentDashboard.apiKey },
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        console.log('Preview response received, blob size:', blob.size);
+        const imageUrl = URL.createObjectURL(blob);
+        this.previewObjectUrl = imageUrl;
+        this.previewImageUrl.set(imageUrl);
+        this.previewLoading.set(false);
+      },
+      error: async (error) => {
+        console.error('Preview request error:', {
+          status: error.status,
+          statusText: error.statusText,
+          errorType: error.error?.constructor?.name,
+          errorSize: error.error instanceof Blob ? error.error.size : 'N/A'
+        });
+        
+        this.previewLoading.set(false);
+        const dashboard = this.dashboard();
+        let errorMessage = 'Failed to load preview';
+        
+        // Try to extract error message from blob response
+        if (error.error instanceof Blob) {
+          try {
+            const text = await error.error.text();
+            console.log('Error blob text:', text);
+            
+            // Try to parse as JSON first
+            try {
+              const json = JSON.parse(text);
+              console.log('Error JSON parsed:', json);
+              errorMessage = json.title || json.error || json.message || text;
+            } catch (jsonError) {
+              // Not JSON, use plain text
+              console.log('Error is plain text, not JSON');
+              errorMessage = text || `HTTP Error ${error.status}`;
+            }
+          } catch (e) {
+            console.log('Failed to read error blob:', e);
+            errorMessage = `HTTP Error ${error.status}`;
+          }
+        } else if (error.status === 404) {
+          // Debug: show what config was sent
+          const configDebug = dashboard ? `Host: ${dashboard.host || 'MISSING'}, Path: ${dashboard.path || 'MISSING'}, Token: ${dashboard.hasAccessToken ? 'SET' : 'MISSING'}` : 'No dashboard';
+          errorMessage = `404 Not Found. Config: [${configDebug}] - Make sure Home Assistant settings are complete and saved.`;
+        } else if (error.error && typeof error.error === 'string') {
+          errorMessage = error.error;
+        } else if (error.error && error.error.error) {
+          errorMessage = error.error.error;
+        } else if (error.error && error.error.message) {
+          errorMessage = error.error.message;
+        } else if (error.status) {
+          errorMessage = `HTTP Error ${error.status}`;
+        }
+        
+        console.log('Final error message:', errorMessage);
+        this.previewError.set(errorMessage);
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    // Clean up preview URL on component destroy
+    if (this.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.previewObjectUrl);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
 

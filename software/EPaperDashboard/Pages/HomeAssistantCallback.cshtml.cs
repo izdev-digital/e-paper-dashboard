@@ -30,11 +30,9 @@ public class HomeAssistantCallbackModel(
             return Page();
         }
 
-        return RedirectToPage("/Dashboards/Edit", new 
-        { 
-            id = result.DashboardId,
-            auth_callback = "true",
-            access_token = result.AccessToken
-        });
+        // Redirect to the Angular SPA dashboard edit page with OAuth params
+        var redirectUrl = $"/dashboards/{result.DashboardId}?auth_callback=true&access_token={Uri.EscapeDataString(result.AccessToken)}";
+        _logger.LogInformation("OAuth callback successful, redirecting to: {RedirectUrl}", redirectUrl);
+        return Redirect(redirectUrl);
     }
 }

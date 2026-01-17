@@ -25,7 +25,7 @@ import { Dashboard } from '../../models/types';
     } @else if (dashboards().length > 0) {
       <div class="row g-4 mb-4">
         @for (dashboard of dashboards(); track dashboard.id) {
-          <div class="col-12">
+          <div class="dashboard-tile-col">
             <div class="card h-100 shadow-sm dashboard-tile">
               <div class="card-body d-flex flex-row justify-content-between align-items-center flex-wrap">
                 <div class="flex-grow-1 min-width-0">

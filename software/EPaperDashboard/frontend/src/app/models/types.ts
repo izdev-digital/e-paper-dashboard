@@ -21,7 +21,7 @@ export interface Dashboard {
   name: string;
   description: string;
   apiKey: string;
-  accessToken?: string;
+  hasAccessToken: boolean;
   host?: string;
   path?: string;
   updateTimes?: string[];
@@ -36,6 +36,7 @@ export interface UpdateDashboardRequest {
   name?: string;
   description?: string;
   accessToken?: string;
+  clearAccessToken?: boolean;
   host?: string;
   path?: string;
   updateTimes?: string[];

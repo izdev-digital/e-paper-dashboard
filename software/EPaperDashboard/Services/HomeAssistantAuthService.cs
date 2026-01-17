@@ -18,6 +18,8 @@ public class HomeAssistantAuthService(
     private static byte[] StateSigningKey => _stateSigningKey.Value;
     
     private readonly ConcurrentDictionary<string, bool> _activeAuthFlows = new();
+    private readonly ConcurrentDictionary<string, DateTime> _authFlowTimestamps = new();
+    private const int AUTH_FLOW_TIMEOUT_SECONDS = 600; // 10 minutes
 
     public AuthStartResult StartAuth(string host, string dashboardId)
     {
@@ -31,16 +33,42 @@ public class HomeAssistantAuthService(
             return AuthStartResult.Failure("DashboardId is required");
         }
 
+        // Check if auth flow exists and if it's timed out, remove it
+        if (_activeAuthFlows.TryGetValue(dashboardId, out _))
+        {
+            if (_authFlowTimestamps.TryGetValue(dashboardId, out var timestamp))
+            {
+                var age = (DateTime.UtcNow - timestamp).TotalSeconds;
+                if (age > AUTH_FLOW_TIMEOUT_SECONDS)
+                {
+                    // Clear the stale auth flow
+                    _activeAuthFlows.TryRemove(dashboardId, out _);
+                    _authFlowTimestamps.TryRemove(dashboardId, out _);
+                    _logger.LogInformation("Cleared stale auth flow for dashboard {DashboardId} (age: {Age}s)", dashboardId, age);
+                }
+                else
+                {
+                    return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
+                }
+            }
+            else
+            {
+                return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
+            }
+        }
+
         if (!_activeAuthFlows.TryAdd(dashboardId, true))
         {
             return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
         }
 
+        _authFlowTimestamps[dashboardId] = DateTime.UtcNow;
+
         try
         {
             var hostUri = new Uri(host);
             var clientId = EnvironmentConfiguration.ClientUri.ToString().TrimEnd('/');
-            var redirectUri = $"{clientId}/HomeAssistantCallback";
+            var redirectUri = $"{clientId}/api/homeassistant/callback";
             var hostUrl = hostUri.ToString().TrimEnd('/');
 
             var stateData = new StateData
@@ -60,6 +88,7 @@ public class HomeAssistantAuthService(
         catch (Exception ex)
         {
             _activeAuthFlows.TryRemove(dashboardId, out _);
+            _authFlowTimestamps.TryRemove(dashboardId, out _);
             _logger.LogError(ex, "Error starting Home Assistant authentication");
             return AuthStartResult.Failure($"Failed to start authentication: {ex.Message}");
         }
@@ -146,6 +175,7 @@ public class HomeAssistantAuthService(
         finally
         {
             _activeAuthFlows.TryRemove(stateData.DashboardId, out _);
+            _authFlowTimestamps.TryRemove(stateData.DashboardId, out _);
         }
     }
 

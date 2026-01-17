@@ -24,6 +24,7 @@ builder.Services.AddControllers()
 	.AddJsonOptions(options =>
 	{
 		options.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
+		options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 	});
 builder.Services.AddSpaStaticFiles(configuration =>
 {
@@ -216,5 +217,31 @@ public class ObjectIdJsonConverter : JsonConverter<ObjectId>
 	public override void Write(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options)
 	{
 		writer.WriteStringValue(value.ToString());
+	}
+}
+
+// Custom JSON converter for TimeOnly to handle serialization/deserialization
+public class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
+{
+	private const string Format = "HH:mm";
+
+	public override TimeOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+	{
+		var value = reader.GetString();
+		if (string.IsNullOrEmpty(value))
+		{
+			return TimeOnly.MinValue;
+		}
+		if (TimeOnly.TryParseExact(value, Format, null, System.Globalization.DateTimeStyles.None, out var result))
+		{
+			return result;
+		}
+		// Try parsing without specific format as fallback
+		return TimeOnly.Parse(value);
+	}
+
+	public override void Write(Utf8JsonWriter writer, TimeOnly value, JsonSerializerOptions options)
+	{
+		writer.WriteStringValue(value.ToString(Format));
 	}
 }
