@@ -1,0 +1,41 @@
+.app-root {
+	/* Use dynamic viewport units for mobile browsers with UI chrome */
+	height: 100vh;   /* fallback */
+	height: 100dvh;  /* dynamic viewport */
+	height: 100svh;  /* small viewport */
+	overflow: hidden; /* prevent body/page scrolling */
+	/* Ensure the main flex child can shrink and scroll */
+	.app-content {
+		min-height: 0; /* critical for flex children to allow internal scrolling */
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 auto;
+
+		main {
+			flex: 1 1 auto;
+			overflow-y: auto; /* only the content scrolls */
+			overscroll-behavior-y: contain; /* avoid rubber-band scrolling bubbling to page */
+			-webkit-overflow-scrolling: touch; /* smooth on iOS */
+		}
+	}
+}
+
+/* Optional: keep footer visible without causing page scroll jumps */
+footer.footer {
+	flex-shrink: 0;
+}
+
+/* Ensure header and footer stay visible while content scrolls */
+header {
+	position: sticky;
+	top: 0;
+	z-index: 1020; /* above content */
+	background: var(--bs-body-bg);
+}
+
+footer.footer {
+	position: sticky;
+	bottom: 0;
+	z-index: 1020;
+	background: var(--bs-body-bg);
+}

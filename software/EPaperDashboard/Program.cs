@@ -7,6 +7,9 @@ using EPaperDashboard.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using LiteDB;
 
 var configValidation = EnvironmentConfiguration.ValidateConfiguration();
 if (configValidation.IsFailure)
@@ -17,8 +20,16 @@ if (configValidation.IsFailure)
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddControllers();
-builder.Services.AddRazorPages();
+builder.Services.AddControllers()
+	.AddJsonOptions(options =>
+	{
+		options.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
+		options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
+	});
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+	configuration.RootPath = "frontend/dist/frontend/browser";
+});
 
 #if DEBUG
 builder.Services.AddSwaggerGen(options =>
@@ -128,6 +139,12 @@ builder.Services.Configure<RazorPagesOptions>(options =>
 	options.Conventions.AllowAnonymousToPage("/Privacy");
 });
 
+// Configure SPA static files
+builder.Services.AddSpaStaticFiles(configuration =>
+{
+	configuration.RootPath = "frontend/dist/frontend/browser";
+});
+
 var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -170,7 +187,61 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapRazorPages().RequireAuthorization();
-app.UseStaticFiles();
+
+// Serve Angular SPA
+app.UseSpaStaticFiles();
+app.UseSpa(spa =>
+{
+	spa.Options.SourcePath = "frontend";
+
+	if (app.Environment.IsDevelopment())
+	{
+		spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
+	}
+});
 
 app.Run();
+// Custom JSON converter for LiteDB ObjectId to serialize as hex string
+public class ObjectIdJsonConverter : JsonConverter<ObjectId>
+{
+	public override ObjectId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+	{
+		var value = reader.GetString();
+		if (string.IsNullOrEmpty(value))
+		{
+			return ObjectId.Empty;
+		}
+		return new ObjectId(value);
+	}
+
+	public override void Write(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options)
+	{
+		writer.WriteStringValue(value.ToString());
+	}
+}
+
+// Custom JSON converter for TimeOnly to handle serialization/deserialization
+public class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
+{
+	private const string Format = "HH:mm";
+
+	public override TimeOnly Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+	{
+		var value = reader.GetString();
+		if (string.IsNullOrEmpty(value))
+		{
+			return TimeOnly.MinValue;
+		}
+		if (TimeOnly.TryParseExact(value, Format, null, System.Globalization.DateTimeStyles.None, out var result))
+		{
+			return result;
+		}
+		// Try parsing without specific format as fallback
+		return TimeOnly.Parse(value);
+	}
+
+	public override void Write(Utf8JsonWriter writer, TimeOnly value, JsonSerializerOptions options)
+	{
+		writer.WriteStringValue(value.ToString(Format));
+	}
+}

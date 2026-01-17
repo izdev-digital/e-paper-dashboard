@@ -63,10 +63,17 @@ public sealed class RenderToImageController(
 		string format,
 		Func<IImage, IImage>? transform = null)
 	{
-		var dashboardInfo = dashboardService.GetDashboardByApiKey(apiKey).Bind(GetDashboardInfo);
+		var dashboardResult = dashboardService.GetDashboardByApiKey(apiKey);
+		if (dashboardResult.HasNoValue)
+		{
+			return NotFound("Dashboard not found for this API key");
+		}
+
+		var dashboard = dashboardResult.Value;
+		var dashboardInfo = dashboardResult.Bind(GetDashboardInfo);
 		if (dashboardInfo.HasNoValue)
 		{
-			return NotFound();
+			return NotFound("Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.");
 		}
 
 		var (contentType, encoder) = GetEncoder(format);

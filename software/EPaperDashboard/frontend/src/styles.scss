@@ -1,0 +1,36 @@
+@use 'bootstrap/scss/bootstrap';
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Prevent page-level scrolling; delegate scroll to app content */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.dashboard-tile-col {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .dashboard-tile-col {
+    width: 50%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .dashboard-tile-col {
+    width: 33.333%;
+  }
+}
+
+.welcome-epaper-dashboard h1 {
+  letter-spacing: -1px;
+}
+
+.welcome-epaper-dashboard img {
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}

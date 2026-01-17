@@ -20,6 +20,7 @@
   <ItemGroup>
     <PackageReference Include="CSharpFunctionalExtensions" Version="3.6.0" />
     <PackageReference Include="LiteDB" Version="5.0.21" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaServices.Extensions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Playwright" Version="1.52.0" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets"
       Version="1.19.5" />
@@ -30,4 +31,35 @@
   <ItemGroup Condition="'$(Configuration)' == 'Debug'">
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
+
+  <!-- SPA Configuration -->
+  <PropertyGroup>
+    <SpaRoot>frontend/</SpaRoot>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(SpaRoot)node_modules/**;$(SpaRoot).angular/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude frontend source files from publish -->
+    <Content Remove="$(SpaRoot)**" />
+    <None Remove="$(SpaRoot)**" />
+    
+    <!-- Include only the built Angular files -->
+    <Content Include="$(SpaRoot)dist/frontend/browser/**" Condition="Exists('$(SpaRoot)dist/frontend/browser')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Build Angular app during .NET publish -->
+  <Target Name="BuildAngularApp" BeforeTargets="Build" Condition="'$(SkipAngularBuild)' != 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" />
+    <Exec Command="npm run build" WorkingDirectory="$(SpaRoot)" />
+  </Target>
+
+  <!-- Clean Angular build output -->
+  <Target Name="CleanAngularApp" AfterTargets="Clean">
+    <RemoveDir Directories="$(SpaRoot)dist" />
+    <RemoveDir Directories="$(SpaRoot).angular" />
+  </Target>
+
 </Project>
