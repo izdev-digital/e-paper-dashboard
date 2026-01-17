@@ -84,23 +84,23 @@
         No users found
       </div>
 
-      <div class="row row-cols-1 g-3" *ngIf="!loading() && getFilteredUsers().length > 0">
-        <div class="col" *ngFor="let user of getFilteredUsers()">
-          <div class="card h-100 shadow-sm user-card">
-            <div class="card-body d-flex flex-row align-items-center justify-content-between">
-              <div>
-                <h5 class="card-title mb-1">{{ user.username }}</h5>
-                <span class="badge" [ngClass]="user.isSuperUser ? 'bg-primary' : 'bg-secondary'">
-                  {{ user.isSuperUser ? 'Superuser' : 'User' }}
-                </span>
-              </div>
+      <div class="users-list" *ngIf="!loading() && getFilteredUsers().length > 0">
+        <div class="user-card" *ngFor="let user of getFilteredUsers()">
+          <div class="user-card-header">
+            <div class="user-info">
+              <h5 class="user-title">{{ user.username }}</h5>
+              <span class="badge" [ngClass]="user.isSuperUser ? 'bg-primary' : 'bg-secondary'">
+                {{ user.isSuperUser ? 'Superuser' : 'User' }}
+              </span>
+            </div>
+            <div class="user-actions">
               <button
                 *ngIf="!user.isSuperUser"
                 (click)="deleteUser(user.id, user.username)"
-                class="btn btn-danger btn-sm ms-auto"
+                class="btn btn-danger btn-sm"
                 [disabled]="isDeletingUser()[user.id]"
               >
-                {{ isDeletingUser()[user.id] ? 'Deleting...' : 'Delete' }}
+                <i class="fa-solid fa-trash me-2"></i>{{ isDeletingUser()[user.id] ? 'Deleting...' : 'Delete' }}
               </button>
             </div>
           </div>
