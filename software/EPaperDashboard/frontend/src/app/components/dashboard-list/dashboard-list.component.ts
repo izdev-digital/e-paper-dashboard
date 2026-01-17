@@ -25,25 +25,30 @@ import { Dashboard } from '../../models/types';
         </div>
       </div>
     } @else if (dashboards().length > 0) {
-      <div class="row g-4 mb-4">
+      <div class="dashboard-list">
         @for (dashboard of dashboards(); track dashboard.id) {
-          <div class="dashboard-tile-col">
-            <div class="card h-100 shadow-sm dashboard-tile">
-              <div class="card-body d-flex flex-row justify-content-between align-items-center flex-wrap">
-                <div class="flex-grow-1 min-width-0">
-                  <h5 class="card-title mb-2 text-truncate">{{ dashboard.name }}</h5>
-                  <p class="card-text text-muted mb-2 text-truncate">{{ dashboard.description }}</p>
-                  <div class="mb-2 d-flex align-items-center flex-wrap gap-2">
-                    <span class="badge bg-secondary">API Key</span>
-                    <span class="api-key-display" style="font-family: monospace; font-size: 0.95em; padding: 2px 6px; border-radius: 4px; word-break: break-all; max-width: 100%; display: inline-block;">{{ dashboard.apiKey }}</span>
-                    <button class="btn btn-outline-secondary btn-sm" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
-                      <i class="fa-regular fa-clipboard"></i>
-                    </button>
-                  </div>
-                </div>
-                <div class="d-flex flex-row gap-2 ms-3 mt-2 mt-md-0">
-                  <button type="button" class="btn btn-warning btn-sm" (click)="editDashboard(dashboard.id)">Edit</button>
-                  <button type="button" class="btn btn-danger btn-sm" (click)="deleteDashboard(dashboard.id)">Delete</button>
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <div class="dashboard-info">
+                <h5 class="dashboard-title">{{ dashboard.name }}</h5>
+              </div>
+              <div class="dashboard-actions">
+                <button type="button" class="btn btn-outline-primary btn-sm" (click)="editDashboard(dashboard.id)">
+                  <i class="fa-solid fa-pen-to-square me-1"></i> Edit
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteDashboard(dashboard.id)">
+                  <i class="fa-solid fa-trash me-1"></i> Delete
+                </button>
+              </div>
+            </div>
+            <div class="dashboard-card-body">
+              <div class="api-key-section">
+                <span class="api-key-label">API Key</span>
+                <div class="api-key-container">
+                  <code class="api-key-value">{{ dashboard.apiKey }}</code>
+                  <button class="btn btn-sm btn-outline-secondary" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
+                    <i class="fa-regular fa-clipboard"></i>
+                  </button>
                 </div>
               </div>
             </div>
@@ -59,9 +64,114 @@ import { Dashboard } from '../../models/types';
     }
   `,
   styles: [`
-    .api-key-display {
-      background-color: var(--bs-secondary-bg);
+    .dashboard-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .dashboard-card {
+      background: var(--bs-body-bg);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .dashboard-card:hover {
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .dashboard-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem 1.5rem;
+      background: var(--bs-secondary-bg);
+      border-bottom: 1px solid var(--bs-border-color);
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .dashboard-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dashboard-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
       color: var(--bs-body-color);
+    }
+
+    .dashboard-description {
+      margin: 0.25rem 0 0 0;
+      color: var(--bs-secondary-color);
+      font-size: 0.9rem;
+    }
+
+    .dashboard-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .dashboard-card-body {
+      padding: 1.25rem 1.5rem;
+    }
+
+    .api-key-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .api-key-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--bs-secondary-color);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .api-key-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: var(--bs-secondary-bg);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.375rem;
+    }
+
+    .api-key-value {
+      flex: 1;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.875rem;
+      color: var(--bs-body-color);
+      word-break: break-all;
+      background: transparent;
+      border: none;
+      padding: 0;
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .dashboard-actions {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .dashboard-actions button {
+        flex: 1;
+      }
     }
   `]
 })
