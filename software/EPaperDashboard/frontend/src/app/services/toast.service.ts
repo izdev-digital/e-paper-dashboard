@@ -18,10 +18,8 @@ export class ToastService {
     const id = `toast-${this.toastIdCounter++}`;
     const toast: Toast = { id, message, type, duration };
     
-    // Remove any existing toasts and add new one
     this.toasts.set([toast]);
     
-    // Auto-remove after duration
     if (duration > 0) {
       setTimeout(() => {
         this.remove(id);

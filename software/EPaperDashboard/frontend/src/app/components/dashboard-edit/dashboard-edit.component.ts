@@ -243,14 +243,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    console.log('DashboardEdit init - id:', id);
     
     if (id) {
-      // Check for OAuth callback params
       this.route.queryParams.subscribe(params => {
         if (params['access_token'] && params['auth_callback'] === 'true' && !this.oauthProcessed) {
-          console.log('✓ OAuth callback detected in query params');
-          console.log('  - Token:', params['access_token'].substring(0, 20) + '...');
           this.oauthProcessed = true;
           this.oauthToken = params['access_token'];
         }
@@ -267,7 +263,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.dashboard.set(dashboard);
         this.originalDashboard = JSON.parse(JSON.stringify(dashboard)); // Deep copy for comparison
         
-        // Populate the form with dashboard data using reset to properly initialize pristine state
         this.dashboardForm.reset({
           name: dashboard.name || '',
           description: dashboard.description || '',
@@ -297,7 +292,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         
         // Now process OAuth if we have a token
         if (this.oauthToken && !dashboard.hasAccessToken) {
-          console.log('✓ Saving OAuth token for dashboard:', id);
           this.saveOAuthToken(id);
         }
         
@@ -312,7 +306,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   private saveOAuthToken(dashboardId: string): void {
     if (!this.oauthToken) {
-      console.warn('No OAuth token to save');
       return;
     }
 
@@ -320,17 +313,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       accessToken: this.oauthToken
     };
     
-    console.log('  - Sending token to backend...');
     this.dashboardService.updateDashboard(dashboardId, updatePayload).subscribe({
       next: (updated) => {
-        console.log('✓✓✓ Token saved successfully!');
-        console.log('  - Updated dashboard:', { hasToken: updated.hasAccessToken });
         this.dashboard.set(updated);
         this.toastService.success('Home Assistant token saved successfully!');
         
         // Clean the query params from URL without navigating away
         setTimeout(() => {
-          console.log('✓ Clearing OAuth params from URL');
           window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
         }, 500);
         
@@ -423,7 +412,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.homeAssistantService.getDashboards(hostValue, currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
-          console.log('Fetched raw dashboards:', dashboards);
           
           // Transform dashboards to have url_path property (use id as the path)
           const transformedDashboards = dashboards.map((item: any) => ({
@@ -432,11 +420,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
             id: item.id
           }));
           
-          console.log('Transformed dashboards for dialog:', transformedDashboards);
-          
-          // Now show the dashboards and set up the promise
           this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
-            console.log('Promise resolved with path:', selectedPath);
             if (selectedPath) {
               // Update the form with the selected path
               this.dashboardForm.patchValue({ path: selectedPath });
@@ -454,7 +438,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) {
-      console.warn('onSubmit: no dashboard');
       return;
     }
 
@@ -474,38 +457,18 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined
     };
 
-    // Handle manually entered token
     if (formValue.accessToken?.trim().length > 0) {
       updatePayload.accessToken = formValue.accessToken;
-      console.log('✓ Manual token included in payload');
     }
 
-    // Handle explicit token clear request
     if (this.shouldClearAccessToken()) {
       updatePayload.clearAccessToken = true;
-      console.log('✓ Clear token flag set');
       this.shouldClearAccessToken.set(false); // Reset flag after adding to payload
     }
 
-    console.log('onSubmit - current dashboard:', { 
-      id: currentDashboard.id,
-      name: currentDashboard.name,
-      host: currentDashboard.host,
-      path: currentDashboard.path,
-      hasToken: currentDashboard.hasAccessToken
-    });
-    console.log('onSubmit - payload being sent:', updatePayload);
-
     this.dashboardService.updateDashboard(currentDashboard.id, updatePayload).subscribe({
       next: (updated) => {
-        console.log('✓ Dashboard saved successfully:', { 
-          id: updated.id,
-          host: updated.host,
-          path: updated.path,
-          hasAccessToken: updated.hasAccessToken
-        });
         this.dashboard.set(updated);
-        // Update form with saved values to reset dirty state
         this.dashboardForm.patchValue({
           name: updated.name || '',
           description: updated.description || '',
@@ -567,7 +530,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.toastService.success('API key copied to clipboard');
       return;
     } catch (err) {
-      console.warn('Clipboard API failed, attempting fallback copy', err);
+      // Clipboard API failed, attempt fallback
     }
 
     try {
@@ -600,7 +563,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       confirmLabel: 'Clear Token',
       isDangerous: true,
       onConfirm: () => {
-        console.log('✓ User confirmed token clear');
         this.shouldClearAccessToken.set(true);
         this.dashboardForm.markAsDirty();
         this.onSubmit();
@@ -612,7 +574,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) return;
 
-    // Validate that dashboard has required Home Assistant configuration
     const hostValue = this.dashboardForm.get('host')?.value;
     const pathValue = this.dashboardForm.get('path')?.value;
     const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
@@ -659,7 +620,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       responseType: 'blob'
     }).subscribe({
       next: (blob) => {
-        console.log('Preview response received, blob size:', blob.size);
         const imageUrl = URL.createObjectURL(blob);
         this.previewObjectUrl = imageUrl;
         this.previewImageUrl.set(imageUrl);
@@ -711,7 +671,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           errorMessage = `HTTP Error ${error.status}`;
         }
         
-        console.log('Final error message:', errorMessage);
         this.previewError.set(errorMessage);
         this.toastService.error(errorMessage);
       }

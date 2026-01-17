@@ -20,9 +20,7 @@ export const authGuard: CanActivateFn = (route, state) => {
         if (authService.isAuthReady()) {
           clearInterval(checkInterval);
           const canActivate = authService.isAuthenticated();
-          console.log('Auth now ready, authenticated:', canActivate);
-          if (!canActivate) {
-            console.log('Redirecting to login from:', state.url);
+        if (!canActivate) {
             router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
           }
           resolve(canActivate);
