@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,13 +9,15 @@ import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { Dashboard } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
+import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastContainerComponent],
+  imports: [CommonModule, FormsModule, ToastContainerComponent, DashboardSelectorDialogComponent],
   template: `
     <app-toast-container></app-toast-container>
+    <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
     <h2>Edit Dashboard</h2>
 
     @if (isLoading()) {
@@ -215,6 +217,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
 
+  @ViewChild(DashboardSelectorDialogComponent) dashboardSelectorDialog!: DashboardSelectorDialogComponent;
+
   readonly dashboard = signal<Dashboard | null>(null);
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
@@ -371,20 +375,43 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
+    console.log('Opening dashboard selector for dashboard:', currentDashboard.id);
+
+    // Open dialog with loading state
+    this.dashboardSelectorDialog.openWithLoading();
+
     // Fetch available dashboards from Home Assistant
     this.homeAssistantService.getDashboards(currentDashboard.host, currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
-          // Simple selection: for now just show a dialog
-          const paths = dashboards.map((d: any) => d.url_path).join('\n');
-          const selected = prompt('Available dashboards:\n\n' + paths + '\n\nEnter dashboard path:');
-          if (selected) {
-            currentDashboard.path = selected;
-            this.dashboard.set({ ...currentDashboard });
-          }
+          console.log('Fetched raw dashboards:', dashboards);
+          
+          // Transform dashboards to have url_path property (use id as the path)
+          const transformedDashboards = dashboards.map((item: any) => ({
+            url_path: item.id,
+            title: item.title,
+            id: item.id
+          }));
+          
+          console.log('Transformed dashboards for dialog:', transformedDashboards);
+          
+          // Now show the dashboards and set up the promise
+          this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
+            console.log('Promise resolved with path:', selectedPath);
+            if (selectedPath) {
+              // Directly update the dashboard signal with the selected path
+              const dashboard = this.dashboard();
+              if (dashboard) {
+                const updated = { ...dashboard, path: selectedPath };
+                console.log('Updating dashboard with:', updated);
+                this.dashboard.set(updated);
+              }
+            }
+          });
         },
         error: (error) => {
-          this.toastService.error('Failed to fetch dashboards: ' + (error.error?.message || 'Unknown error'));
+          console.error('Error fetching dashboards:', error);
+          this.dashboardSelectorDialog.setError(error.error?.message || 'Failed to fetch dashboards');
         }
       });
   }

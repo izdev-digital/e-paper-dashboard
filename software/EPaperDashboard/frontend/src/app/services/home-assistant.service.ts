@@ -18,7 +18,10 @@ export class HomeAssistantService {
 
   getDashboards(host: string, dashboardId: string): Observable<any[]> {
     // Fetch dashboards from Home Assistant through our backend
-    return this.http.post<{ dashboards: any[] }>('/api/homeassistant/fetch-dashboards', dashboardId).pipe(
+    // Backend uses the stored access token from the dashboard record
+    return this.http.post<{ dashboards: any[] }>('/api/homeassistant/fetch-dashboards', {
+      dashboardId: dashboardId
+    }).pipe(
       map(response => response.dashboards || [])
     );
   }
