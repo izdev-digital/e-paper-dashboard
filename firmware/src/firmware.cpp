@@ -89,7 +89,7 @@ void setup()
   display.epd2.selectSPI(hspi, SPISettings(20000000, MSBFIRST, SPI_MODE0));
   display.init(115200);
 
-  Serial.print("E-Paper Dashboard Firmware v");
+  Serial.print("izPanel Firmware v");
   Serial.println(FIRMWARE_VERSION);
 
   epd_bitmap_BW = (uint8_t *)malloc(frameBytes);
@@ -351,9 +351,9 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
     display.setFont(&FreeSansBold18pt7b);
     display.setTextColor(GxEPD_BLACK);
     int16_t tbx, tby; uint16_t tbw, tbh;
-    display.getTextBounds("E-Paper Dashboard", 0, 0, &tbx, &tby, &tbw, &tbh);
+    display.getTextBounds("izPanel", 0, 0, &tbx, &tby, &tbw, &tbh);
     display.setCursor((displayWidth - tbw) / 2, 60);
-    display.print("E-Paper Dashboard");
+    display.print("izPanel");
     
     // Setup mode text
     display.setFont(&FreeSans12pt7b);
@@ -422,7 +422,7 @@ void createConfiguration()
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, gateway, subnet);
-  WiFi.softAP("EPaperDashboard-AP");
+  WiFi.softAP("izPanel-AP");
   apIP = WiFi.softAPIP();
   String macAddress = WiFi.macAddress();
   Serial.print("AP IP address: ");
@@ -446,7 +446,7 @@ void createConfiguration()
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>E-Paper Dashboard Setup</title>
+        <title>izPanel Setup</title>
         <style>
             /* Minimal Bootstrap 5 styles for used classes */
             .container { max-width: 960px; margin-right: auto; margin-left: auto; padding-right: 12px; padding-left: 12px; }
@@ -471,7 +471,7 @@ void createConfiguration()
     <body>
 
         <div class="container mt-5">
-            <h2 class="text-center">E-Paper Dashboard Setup</h2>
+            <h2 class="text-center">izPanel Setup</h2>
 
             <form action="/submit" method="post">
                 <div class="card mb-3">

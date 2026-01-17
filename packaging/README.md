@@ -1,10 +1,10 @@
-# E-Paper Dashboard Packaging
+# izPanel Packaging
 
-Hardware enclosure designs for the E-Paper Dashboard device.
+Hardware enclosure designs for the izPanel device.
 
 ## Contents
 
-This directory contains CAD files for 3D-printable enclosures and mounting solutions for the E-Paper Dashboard hardware.
+This directory contains CAD files for 3D-printable enclosures and mounting solutions for the izPanel hardware.
 
 ## Supported Hardware
 

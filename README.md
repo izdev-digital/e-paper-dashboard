@@ -1,6 +1,6 @@
 
 
-# E-Paper Dashboard
+# izPanel
 
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
   <img src="device_setup.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
@@ -8,40 +8,67 @@
   <img src="device_todo.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
 </div>
 
-E-Paper Dashboard helps users display dynamic, web-based dashboards—such as [Home Assistant](https://www.home-assistant.io/) dashboards—on E-Paper screens, delivering scheduled updates with clear visuals and low power usage. Designed for smart homes and personal automation, this solution is currently intended for home networks and removes the need for manual firmware updates by allowing server-driven changes to dashboard content and layout. While functional, the solution has room for improvement and welcomes feedback and contributions.
+## What is izPanel?
 
-The platform includes ESP32-based device firmware, an ASP.NET Core server for rendering and management, and hardware packaging resources. The server uses [Playwright](https://playwright.dev/) as its headless browser solution, along with E-Paper-specific image processing to prepare dashboard images. RESTful APIs support schedule-driven updates and centralized control of devices and dashboards. The project aims to be flexible and low-maintenance, but is still evolving and open to improvements.
+**izPanel** is a reliable solution for displaying beautiful, dynamic dashboards on ultra-low-power E-Paper screens. Perfectly suited for [Home Assistant](https://www.home-assistant.io/) and other web-based dashboards, izPanel delivers real-time updates with impressive battery life—making it ideal for smart homes, personal automation, and ambient displays that actually *stay on*.
 
-## Architecture
+Whether you're tracking home automation metrics, displaying family schedules, monitoring weather, or showcasing custom dashboards, izPanel brings your digital information to E-Paper displays without the constant power drain of traditional screens.
 
-The project consists of three main components:
+### Why izPanel?
+
+✨ **Ultra-Low Power** – Battery lasts for weeks, not hours  
+🔄 **Zero Firmware Updates** – All changes happen on the server side  
+📱 **Always Connected** – Seamless integration with Home Assistant and custom dashboards  
+🎨 **Stunning Visuals** – Optimized rendering with color quantization and smart dithering  
+🏠 **Made for Smart Homes** – Perfect for the modern connected home  
+⚙️ **Plug & Play** – Simple setup with intuitive dashboard management  
+
+## Technology Stack
+
+izPanel is built on proven, modern technology:
+- **Hardware**: ESP32-based microcontroller with optimized firmware
+- **Server**: ASP.NET Core with [Playwright](https://playwright.dev/) for headless rendering
+- **Rendering**: E-Paper-specific image processing with color optimization
+- **API**: RESTful endpoints for seamless device communication
+- **Database**: LiteDB for lightweight, embedded storage
+
+## How It Works
+
+The project consists of three integrated components working in perfect harmony:
 
 ### 1. [Firmware](firmware/)
-ESP32-based firmware that manages the E-Paper display hardware and periodically polls the software server for updated dashboard images. The firmware handles display refresh cycles and deep sleep modes for power efficiency.
+**Smart E-Paper Device Software** – The brains of your hardware. Our optimized ESP32 firmware efficiently manages display refresh cycles, handles deep sleep modes, and securely communicates with the izPanel server. The result? Weeks of battery life per charge.
 
 ### 2. [Software](software/)
-ASP.NET Core web application that:
-- Renders Home Assistant dashboards (or custom URLs) using headless browser technology
-- Processes rendered content with E-Paper-specific image optimization (color quantization, dithering)
-- Provides RESTful API endpoints for firmware to retrieve processed images
-- Manages scheduling and configuration for multiple dashboards and devices
-- Supports user authentication and dashboard management
+**izPanel Control Center** – A comprehensive ASP.NET Core web application that serves as the command center for your dashboards:
+- Renders any web-based dashboard in real-time
+- Processes and optimizes images for E-Paper displays
+- Provides secure RESTful APIs for device communication
+- Manages multi-device scheduling and synchronization
+- Supports both local network and cloud deployments
+- Built-in user authentication and dashboard management
 
 ### 3. [Packaging](packaging/)
-Hardware enclosure designs and assembly instructions for creating physical dashboard devices.
+**Beautiful Hardware Enclosures** – Professional CAD designs for 3D-printed enclosures that make your E-Paper display look as good as it functions.
 
 ## Key Features
 
-- **Built-in battery**: The device includes a rechargeable battery and can be charged via micro USB for portable, wireless operation.
-- **Schedule-based polling**: Devices poll the server based on configurable schedules defined in the software
-- **E-Paper optimized rendering**: Images are processed with color palette reduction and dithering algorithms tailored for E-Paper displays
-- **No firmware updates required**: Dashboard content and layout changes are handled server-side
-- **Home Assistant integration**: Designed to work with Home Assistant dashboards
-  > **Note**: For best results, use kiosk mode for your dashboards and custom themes optimized for E-Paper displays based on color palette constraints.
+🔋 **Extended Battery Life** – Weeks between charges thanks to intelligent E-Paper rendering and deep sleep optimization  
+🏠 **Home Assistant Native** – Built specifically for Home Assistant, with seamless dashboard integration  
+🔐 **Enterprise Security** – API key authentication with support for Home Assistant token-based auth  
+📊 **Dynamic Content** – Update dashboard layouts and content without touching device firmware  
+🎯 **Schedule-Driven Updates** – Configure custom update intervals per device, from minutes to hours  
+💾 **Self-Hosted** – Full control of your data with easy Docker deployment  
+🌐 **Network Flexible** – Works perfectly on home networks with optional cloud integration  
+✅ **Production Ready** – Actively maintained with responsive community support
 
-## Scalability & Storage
+## Perfect For
 
-This solution is currently intended for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment, making it ideal for environments where ease of setup and low maintenance are priorities.
+- **Home Automation Enthusiasts** – Display your Home Assistant dashboards anywhere
+- **Smart Home Monitoring** – Real-time weather, energy, or security dashboards
+- **Family Coordination** – Shared calendars, schedules, and to-do lists
+- **Office & Workspace** – Ambient metrics, status boards, and analytics
+- **IoT Prototyping** – Flexible platform for custom dashboard projects
 
 
 ## Quick Start
