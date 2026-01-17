@@ -6,7 +6,7 @@ import { RouterModule } from '@angular/router';
   imports: [RouterModule],
   template: `
     <div class="welcome-epaper-dashboard d-flex flex-column align-items-center justify-content-center" style="min-height:60vh;">
-      <img src="/icon.svg" alt="EPaper Dashboard Logo" style="width:96px;height:96px;margin-bottom:1rem;">
+      <img src="/icon.svg" alt="EPaper Dashboard Logo" style="width:240px;height:240px;margin-bottom:1rem;">
       <h1 class="display-3 mb-3 fw-bold">Welcome to EPaper Dashboard</h1>
       <p class="lead mb-4 text-secondary" style="max-width:600px;">
         Effortlessly manage your e-paper displays with a secure, user-friendly dashboard. <br />
