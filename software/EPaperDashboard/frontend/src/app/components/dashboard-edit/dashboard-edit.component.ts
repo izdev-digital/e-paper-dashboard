@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
@@ -14,7 +14,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ToastContainerComponent, DashboardSelectorDialogComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent],
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
@@ -27,7 +27,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
         </div>
       </div>
     } @else if (dashboard()) {
-      <form (ngSubmit)="onSubmit()">
+      <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm">
         <div class="card shadow-sm mb-3">
           <div class="card-body">
             <div class="row g-4">
@@ -37,9 +37,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                   <input 
                     type="text" 
                     class="form-control" 
-                    [value]="dashboard()?.name || ''"
-                    (input)="updateDashboardField('name', $event)"
-                    name="name" 
+                    formControlName="name"
                     required 
                   />
                 </div>
@@ -48,9 +46,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                   <input 
                     type="text" 
                     class="form-control" 
-                    [value]="dashboard()?.description || ''"
-                    (input)="updateDashboardField('description', $event)"
-                    name="description" 
+                    formControlName="description"
                   />
                 </div>
                 <div class="mb-3">
@@ -70,9 +66,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                   <input 
                     type="text" 
                     class="form-control" 
-                    [value]="dashboard()?.host || ''" 
-                    (input)="updateDashboardField('host', $event)"
-                    name="host" 
+                    formControlName="host"
                     placeholder="https://your-ha-instance.com" 
                   />
                 </div>
@@ -83,8 +77,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                     <input 
                       type="password" 
                       class="form-control" 
-                      [value]="manualAccessToken() || ''" 
-                      (input)="onTokenInput($event)"
+                      formControlName="accessToken"
                       placeholder="Paste token or click Fetch Token..." 
                     />
                     <button 
@@ -96,7 +89,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                     >
                       <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
                     </button>
-                    @if (dashboard()?.hasAccessToken || manualAccessToken()) {
+                    @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
                       <button 
                         type="button" 
                         class="btn btn-outline-danger" 
@@ -120,16 +113,14 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                     <input 
                       type="text" 
                       class="form-control" 
-                      [value]="dashboard()?.path || ''"
-                      (input)="updateDashboardField('path', $event)"
-                      name="path" 
+                      formControlName="path"
                       id="pathField"
                     />
                     <button 
                       type="button" 
                       class="btn btn-outline-secondary" 
                       (click)="openDashboardSelector()"
-                      [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())"
+                      [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
                     >
                       <i class="fa-solid fa-list"></i> Select
                     </button>
@@ -145,6 +136,7 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                       class="form-control me-2" 
                       style="width: 150px;"
                       [(ngModel)]="newUpdateTime"
+                      [ngModelOptions]="{standalone: true}"
                       name="newUpdateTime"
                     />
                     <button type="button" class="btn btn-outline-primary" (click)="addUpdateTime()">Add</button>
@@ -155,6 +147,8 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                         {{ time }}
                         <button type="button" class="btn-close btn-close-white ms-2" (click)="removeUpdateTime($index)"></button>
                       </span>
+                    } @empty {
+                      <span class="text-muted">No update times configured</span>
                     }
                   </div>
                   <small class="form-text text-muted">Add one or more times. Example: 06:00, 12:00, 18:00</small>
@@ -165,11 +159,13 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
         </div>
 
         <div class="d-flex flex-wrap gap-2">
-          <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
-            {{ isSaving() ? 'Saving...' : 'Save Changes' }}
+          <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
+            <i class="fa-solid fa-floppy-disk"></i> Save
           </button>
-          <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
-          <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboard()!.host || (!dashboard()!.hasAccessToken && !manualAccessToken())">
+          <button type="button" class="btn btn-secondary" (click)="onCancel()">
+            <i class="fa-solid fa-arrow-left"></i> Close
+          </button>
+          <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
             <i class="fa-solid fa-eye"></i> Preview
           </button>
         </div>
@@ -229,12 +225,21 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewError = signal('');
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
-  readonly manualAccessToken = signal('');
+
+  readonly dashboardForm = new FormGroup({
+    name: new FormControl('', { validators: Validators.required, nonNullable: true }),
+    description: new FormControl('', { nonNullable: true }),
+    host: new FormControl('', { nonNullable: true }),
+    path: new FormControl('', { nonNullable: true }),
+    accessToken: new FormControl('', { nonNullable: true }),
+  });
   
   newUpdateTime: string = '';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
   private oauthToken: string | null = null;
+  private originalDashboard: Dashboard | null = null;
+  private originalUpdateTimes: string[] = [];
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -260,9 +265,33 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.dashboardService.getDashboard(id).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
-        // Convert update times to array for display
-        if (dashboard.updateTimes && Array.isArray(dashboard.updateTimes)) {
-          this.updateTimes.set(dashboard.updateTimes);
+        this.originalDashboard = JSON.parse(JSON.stringify(dashboard)); // Deep copy for comparison
+        
+        // Populate the form with dashboard data using reset to properly initialize pristine state
+        this.dashboardForm.reset({
+          name: dashboard.name || '',
+          description: dashboard.description || '',
+          host: dashboard.host || '',
+          path: dashboard.path || '',
+          accessToken: '',
+        });
+        
+        // Convert update times to array for display (normalize string or array)
+        if (dashboard.updateTimes) {
+          let times: string[] = [];
+          if (Array.isArray(dashboard.updateTimes)) {
+            times = dashboard.updateTimes.filter(t => !!t);
+          } else if (typeof (dashboard as any).updateTimes === 'string') {
+            times = (dashboard as any).updateTimes
+              .split(',')
+              .map((t: string) => t.trim())
+              .filter((t: string) => t.length > 0);
+          }
+          this.updateTimes.set(times);
+          this.originalUpdateTimes = [...times]; // Store original for comparison
+        } else {
+          this.updateTimes.set([]);
+          this.originalUpdateTimes = [];
         }
         this.isLoading.set(false);
         
@@ -315,45 +344,53 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateDashboardField(field: keyof Dashboard, event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const currentDashboard = this.dashboard();
-    if (currentDashboard) {
-      const updated = { ...currentDashboard, [field]: target.value };
-      this.dashboard.set(updated);
-    }
-  }
+
 
   addUpdateTime(): void {
     if (this.newUpdateTime) {
       const current = this.updateTimes();
       if (!current.includes(this.newUpdateTime)) {
-        this.updateTimes.set([...current, this.newUpdateTime].sort());
+        const newTimes = [...current, this.newUpdateTime].sort();
+        this.updateTimes.set(newTimes);
         this.newUpdateTime = '';
+        this.checkUpdateTimesChanged(newTimes);
       }
     }
   }
 
   removeUpdateTime(index: number): void {
     const current = this.updateTimes();
-    this.updateTimes.set(current.filter((_, i) => i !== index));
+    const newTimes = current.filter((_, i) => i !== index);
+    this.updateTimes.set(newTimes);
+    this.checkUpdateTimesChanged(newTimes);
+  }
+
+  private checkUpdateTimesChanged(currentTimes: string[]): void {
+    // Compare current times with original
+    const timesChanged = JSON.stringify(currentTimes.sort()) !== JSON.stringify(this.originalUpdateTimes.sort());
+    
+    // If times changed, mark form as dirty
+    if (timesChanged) {
+      this.dashboardForm.markAsDirty();
+    }
   }
 
   authenticateWithHomeAssistant(): void {
     const currentDashboard = this.dashboard();
-    if (!currentDashboard || !currentDashboard.host) {
+    const hostValue = this.dashboardForm.get('host')?.value;
+    if (!currentDashboard || !hostValue) {
       this.toastService.error('Please enter Home Assistant host first.');
       return;
     }
 
     console.log('✓ Starting Home Assistant OAuth flow...');
-    console.log('  - Host:', currentDashboard.host);
+    console.log('  - Host:', hostValue);
     console.log('  - Dashboard ID:', currentDashboard.id);
 
     this.isAuthenticating.set(true);
 
     // Call backend to start OAuth flow
-    this.homeAssistantService.startAuth(currentDashboard.host, currentDashboard.id).subscribe({
+    this.homeAssistantService.startAuth(hostValue, currentDashboard.id).subscribe({
       next: (response) => {
         console.log('✓ OAuth URL received, redirecting to Home Assistant...');
         // Redirect to Home Assistant OAuth URL
@@ -370,7 +407,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   openDashboardSelector(): void {
     const currentDashboard = this.dashboard();
-    if (!currentDashboard || !currentDashboard.host || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
+    const hostValue = this.dashboardForm.get('host')?.value;
+    const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+    if (!currentDashboard || !hostValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
       this.toastService.error('Please configure host and access token first.');
       return;
     }
@@ -381,7 +420,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.dashboardSelectorDialog.openWithLoading();
 
     // Fetch available dashboards from Home Assistant
-    this.homeAssistantService.getDashboards(currentDashboard.host, currentDashboard.id)
+    this.homeAssistantService.getDashboards(hostValue, currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
           console.log('Fetched raw dashboards:', dashboards);
@@ -399,13 +438,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
             console.log('Promise resolved with path:', selectedPath);
             if (selectedPath) {
-              // Directly update the dashboard signal with the selected path
-              const dashboard = this.dashboard();
-              if (dashboard) {
-                const updated = { ...dashboard, path: selectedPath };
-                console.log('Updating dashboard with:', updated);
-                this.dashboard.set(updated);
-              }
+              // Update the form with the selected path
+              this.dashboardForm.patchValue({ path: selectedPath });
+              this.dashboardForm.markAsDirty();
             }
           });
         },
@@ -423,21 +458,26 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.dashboardForm.valid) {
+      this.toastService.error('Please fill in all required fields.');
+      return;
+    }
+
     this.isSaving.set(true);
 
+    const formValue = this.dashboardForm.getRawValue();
     const updatePayload: any = {
-      name: currentDashboard.name,
-      description: currentDashboard.description,
-      host: currentDashboard.host || undefined,
-      path: currentDashboard.path || undefined,
+      name: formValue.name || undefined,
+      description: formValue.description || undefined,
+      host: formValue.host || undefined,
+      path: formValue.path || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined
     };
 
     // Handle manually entered token
-    if (this.manualAccessToken().trim().length > 0) {
-      updatePayload.accessToken = this.manualAccessToken();
+    if (formValue.accessToken?.trim().length > 0) {
+      updatePayload.accessToken = formValue.accessToken;
       console.log('✓ Manual token included in payload');
-      this.manualAccessToken.set(''); // Clear the input after submission
     }
 
     // Handle explicit token clear request
@@ -465,6 +505,21 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           hasAccessToken: updated.hasAccessToken
         });
         this.dashboard.set(updated);
+        // Update form with saved values to reset dirty state
+        this.dashboardForm.patchValue({
+          name: updated.name || '',
+          description: updated.description || '',
+          host: updated.host || '',
+          path: updated.path || '',
+          accessToken: '' // Clear the token field after successful save
+        });
+        this.dashboardForm.markAsPristine();
+        // Update original update times after save
+        if (updated.updateTimes && Array.isArray(updated.updateTimes)) {
+          this.originalUpdateTimes = [...updated.updateTimes];
+        } else {
+          this.originalUpdateTimes = [];
+        }
         this.toastService.success('Dashboard updated successfully!');
         this.isSaving.set(false);
       },
@@ -477,13 +532,22 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   onCancel(): void {
-    this.router.navigate(['/dashboards']);
+    if (this.dashboardForm.dirty) {
+      this.dialogService.confirm({
+        title: 'Unsaved Changes',
+        message: 'You have unsaved changes. Are you sure you want to leave without saving?',
+        confirmLabel: 'Leave',
+        isDangerous: true,
+        onConfirm: () => {
+          this.router.navigate(['/dashboards']);
+        }
+      });
+    } else {
+      this.router.navigate(['/dashboards']);
+    }
   }
 
-  onTokenInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.manualAccessToken.set(input.value);
-  }
+
 
   async copyApiKey(): Promise<void> {
     const currentDashboard = this.dashboard();
@@ -538,6 +602,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       onConfirm: () => {
         console.log('✓ User confirmed token clear');
         this.shouldClearAccessToken.set(true);
+        this.dashboardForm.markAsDirty();
         this.onSubmit();
       }
     });
@@ -548,7 +613,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     if (!currentDashboard) return;
 
     // Validate that dashboard has required Home Assistant configuration
-    if (!currentDashboard.host || !currentDashboard.path || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
+    const hostValue = this.dashboardForm.get('host')?.value;
+    const pathValue = this.dashboardForm.get('path')?.value;
+    const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+    if (!hostValue || !pathValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
       this.toastService.error('Preview requires Home Assistant configuration and access token. Please configure Host, Dashboard Path, and add an access token first.');
       return;
     }
