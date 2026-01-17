@@ -34,8 +34,6 @@ export class ProfileComponent {
   readonly currentPassword = signal('');
   readonly newPassword = signal('');
   readonly confirmNewPassword = signal('');
-  readonly successMessage = signal('');
-  readonly errorMessage = signal('');
   readonly isChangingNickname = signal(false);
   readonly isChangingPassword = signal(false);
   readonly isDeletingProfile = signal(false);
@@ -45,7 +43,7 @@ export class ProfileComponent {
   }
 
   changeNickname(): void {
-    this.clearMessages();
+    this.toastService.clear();
     this.isChangingNickname.set(true);
 
     const request: ChangeNicknameRequest = {
@@ -57,29 +55,29 @@ export class ProfileComponent {
         const message = this.newNickname().trim() 
           ? 'Nickname changed successfully.' 
           : 'Nickname cleared.';
-        this.successMessage.set(message);
+        this.toastService.success(message);
         this.newNickname.set('');
         this.isChangingNickname.set(false);
         // Refresh user data
         this.authService.getCurrentUser().subscribe();
       },
       error: (err) => {
-        this.errorMessage.set(err.error?.message || 'Nickname change failed.');
+        this.toastService.error(err.error?.message || 'Nickname change failed.');
         this.isChangingNickname.set(false);
       }
     });
   }
 
   changePassword(): void {
-    this.clearMessages();
+    this.toastService.clear();
 
     if (!this.currentPassword() || !this.newPassword() || !this.confirmNewPassword()) {
-      this.errorMessage.set('All password fields are required.');
+      this.toastService.error('All password fields are required.');
       return;
     }
 
     if (this.newPassword() !== this.confirmNewPassword()) {
-      this.errorMessage.set('New password and confirmation do not match.');
+      this.toastService.error('New password and confirmation do not match.');
       return;
     }
 
@@ -93,7 +91,7 @@ export class ProfileComponent {
 
     this.http.post('/api/users/change-password', request).subscribe({
       next: () => {
-        this.successMessage.set('Password changed successfully. Please log in again.');
+        this.toastService.success('Password changed successfully. Please log in again.');
         this.clearPasswordFields();
         this.isChangingPassword.set(false);
         // Log out after password change
@@ -104,7 +102,7 @@ export class ProfileComponent {
         }, 2000);
       },
       error: (err) => {
-        this.errorMessage.set(err.error?.message || 'Password change failed.');
+        this.toastService.error(err.error?.message || 'Password change failed.');
         this.isChangingPassword.set(false);
       }
     });
@@ -132,8 +130,7 @@ export class ProfileComponent {
   }
 
   private clearMessages(): void {
-    this.successMessage.set('');
-    this.errorMessage.set('');
+    this.toastService.clear();
   }
 
   private clearPasswordFields(): void {

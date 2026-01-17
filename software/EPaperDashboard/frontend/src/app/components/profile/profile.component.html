@@ -2,12 +2,6 @@
   <div class="col-md-8 offset-md-2">
     <h2>My Profile</h2>
 
-    @if (successMessage()) {
-      <div class="alert alert-success">{{ successMessage() }}</div>
-    }
-    @if (errorMessage()) {
-      <div class="alert alert-danger">{{ errorMessage() }}</div>
-    }
 
     <p><strong>Username:</strong> {{ currentUser?.username }}</p>
 
