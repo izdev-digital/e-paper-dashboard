@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { DialogService } from '../../services/dialog.service';
+import { ToastService } from '../../services/toast.service';
 import { HttpClient } from '@angular/common/http';
 
 interface ChangeNicknameRequest {
@@ -25,6 +27,8 @@ export class ProfileComponent {
   private readonly http = inject(HttpClient);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly dialogService = inject(DialogService);
+  private readonly toastService = inject(ToastService);
 
   readonly newNickname = signal('');
   readonly currentPassword = signal('');
@@ -106,22 +110,23 @@ export class ProfileComponent {
     });
   }
 
-  deleteProfile(): void {
-    if (!confirm('Are you sure you want to delete your profile? This action cannot be undone.')) {
-      return;
-    }
-
-    this.isDeletingProfile.set(true);
-
-    this.http.delete('/api/users/delete-profile').subscribe({
-      next: () => {
-        this.authService.logout().subscribe(() => {
+  async deleteProfile(): Promise<void> {
+    await this.dialogService.confirm({
+      title: 'Delete Profile?',
+      message: 'Are you sure you want to delete your profile? This action cannot be undone and you will be logged out.',
+      confirmLabel: 'Delete Profile',
+      isDangerous: true,
+      onConfirm: async () => {
+        this.isDeletingProfile.set(true);
+        try {
+          await this.http.delete('/api/users/delete-profile').toPromise();
+          this.toastService.success('Profile deleted');
+          await this.authService.logout().toPromise();
           this.router.navigate(['/home']);
-        });
-      },
-      error: (err) => {
-        this.errorMessage.set(err.error?.message || 'Failed to delete profile.');
-        this.isDeletingProfile.set(false);
+        } catch (err: any) {
+          this.toastService.error(err.error?.message || 'Failed to delete profile');
+          this.isDeletingProfile.set(false);
+        }
       }
     });
   }

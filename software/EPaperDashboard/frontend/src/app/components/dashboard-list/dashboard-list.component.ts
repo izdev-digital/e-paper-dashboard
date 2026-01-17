@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { DashboardService } from '../../services/dashboard.service';
 import { AuthService } from '../../services/auth.service';
+import { DialogService } from '../../services/dialog.service';
+import { ToastService } from '../../services/toast.service';
 import { Dashboard } from '../../models/types';
 
 @Component({
@@ -55,17 +57,6 @@ import { Dashboard } from '../../models/types';
     @if (errorMessage()) {
       <div class="alert alert-danger">{{ errorMessage() }}</div>
     }
-
-    @if (showCopyToast()) {
-      <div class="toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-4 show" role="alert">
-        <div class="d-flex">
-          <div class="toast-body">
-            API Key copied to clipboard!
-          </div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" (click)="showCopyToast.set(false)"></button>
-        </div>
-      </div>
-    }
   `,
   styles: [`
     .api-key-display {
@@ -78,11 +69,12 @@ export class DashboardListComponent implements OnInit {
   private readonly dashboardService = inject(DashboardService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly dialogService = inject(DialogService);
+  private readonly toastService = inject(ToastService);
 
   // Signal-based state
   readonly dashboards = signal<Dashboard[]>([]);
   readonly isLoading = signal(false);
-  readonly showCopyToast = signal(false);
   readonly errorMessage = signal('');
 
   ngOnInit(): void {
@@ -118,14 +110,10 @@ export class DashboardListComponent implements OnInit {
 
   copyApiKey(apiKey: string): void {
     navigator.clipboard.writeText(apiKey).then(() => {
-      this.showCopyToast.set(true);
-      setTimeout(() => {
-        this.showCopyToast.set(false);
-      }, 3000);
+      this.toastService.success('API Key copied to clipboard!');
     }).catch((err) => {
       console.error('Failed to copy API key:', err);
-      // Fallback: show alert if clipboard fails
-      alert(`API Key: ${apiKey}`);
+      this.toastService.error('Failed to copy API key');
     });
   }
 
@@ -133,7 +121,24 @@ export class DashboardListComponent implements OnInit {
     this.router.navigate(['/dashboards', id, 'edit']);
   }
 
-  deleteDashboard(id: string): void {
-    this.router.navigate(['/dashboards', id, 'delete']);
+  async deleteDashboard(id: string): Promise<void> {
+    const dashboard = this.dashboards().find(d => d.id === id);
+    if (!dashboard) return;
+
+    await this.dialogService.confirm({
+      title: 'Delete Dashboard?',
+      message: `Are you sure you want to delete "${dashboard.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await this.dashboardService.deleteDashboard(id).toPromise();
+          this.toastService.success('Dashboard deleted successfully');
+          this.loadDashboards();
+        } catch (error: any) {
+          this.toastService.error(error.error?.message || 'Failed to delete dashboard');
+        }
+      }
+    });
   }
 }

@@ -1,17 +1,21 @@
-import { Component, inject, OnInit, OnDestroy, signal, effect, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { HomeAssistantService } from '../../services/home-assistant.service';
+import { ToastService } from '../../services/toast.service';
+import { DialogService } from '../../services/dialog.service';
 import { Dashboard } from '../../models/types';
+import { ToastContainerComponent } from '../toast-container/toast-container.component';
 
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ToastContainerComponent],
   template: `
+    <app-toast-container></app-toast-container>
     <h2>Edit Dashboard</h2>
 
     @if (isLoading()) {
@@ -159,13 +163,6 @@ import { Dashboard } from '../../models/types';
           </div>
         </fieldset>
 
-        @if (errorMessage()) {
-          <div class="alert alert-danger">{{ errorMessage() }}</div>
-        }
-        @if (successMessage()) {
-          <div class="alert alert-success">{{ successMessage() }}</div>
-        }
-
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
             {{ isSaving() ? 'Saving...' : 'Save Changes' }}
@@ -227,13 +224,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly toastService = inject(ToastService);
+  private readonly dialogService = inject(DialogService);
 
   readonly dashboard = signal<Dashboard | null>(null);
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly isAuthenticating = signal(false);
-  readonly errorMessage = signal('');
-  readonly successMessage = signal('');
   readonly showCopyToast = signal(false);
   readonly updateTimes = signal<string[]>([]);
   readonly showPreviewModal = signal(false);
@@ -242,6 +239,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
   readonly manualAccessToken = signal('');
+  
   newUpdateTime: string = '';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
@@ -308,7 +306,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         console.log('✓✓✓ Token saved successfully!');
         console.log('  - Updated dashboard:', { hasToken: updated.hasAccessToken });
         this.dashboard.set(updated);
-        this.successMessage.set('Home Assistant token saved successfully!');
+        this.toastService.success('Home Assistant token saved successfully!');
         
         // Clean the query params from URL without navigating away
         setTimeout(() => {
@@ -320,7 +318,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('✗ Failed to save token:', error);
-        this.errorMessage.set('Failed to save Home Assistant token. Please try again.');
+        this.toastService.error('Failed to save Home Assistant token. Please try again.');
         this.oauthToken = null;
       }
     });
@@ -353,7 +351,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   authenticateWithHomeAssistant(): void {
     const currentDashboard = this.dashboard();
     if (!currentDashboard || !currentDashboard.host) {
-      this.errorMessage.set('Please enter Home Assistant host first.');
+      this.toastService.error('Please enter Home Assistant host first.');
       return;
     }
 
@@ -362,8 +360,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     console.log('  - Dashboard ID:', currentDashboard.id);
 
     this.isAuthenticating.set(true);
-    this.errorMessage.set('');
-    this.successMessage.set('');
 
     // Call backend to start OAuth flow
     this.homeAssistantService.startAuth(currentDashboard.host, currentDashboard.id).subscribe({
@@ -375,7 +371,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       error: (error) => {
         console.error('✗ Failed to start authentication:', error);
         this.isAuthenticating.set(false);
-        this.errorMessage.set('Failed to start authentication: ' + (error.error?.error || error.error?.message || 'Unknown error'));
+        const errorMsg = 'Failed to start authentication: ' + (error.error?.error || error.error?.message || 'Unknown error');
+        this.toastService.error(errorMsg);
       }
     });
   }
@@ -383,7 +380,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   openDashboardSelector(): void {
     const currentDashboard = this.dashboard();
     if (!currentDashboard || !currentDashboard.host || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
-      this.errorMessage.set('Please configure host and access token first.');
+      this.toastService.error('Please configure host and access token first.');
       return;
     }
 
@@ -400,7 +397,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           }
         },
         error: (error) => {
-          this.errorMessage.set('Failed to fetch dashboards: ' + (error.error?.message || 'Unknown error'));
+          this.toastService.error('Failed to fetch dashboards: ' + (error.error?.message || 'Unknown error'));
         }
       });
   }
@@ -413,8 +410,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     }
 
     this.isSaving.set(true);
-    this.errorMessage.set('');
-    this.successMessage.set('');
 
     const updatePayload: any = {
       name: currentDashboard.name,
@@ -456,12 +451,12 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           hasAccessToken: updated.hasAccessToken
         });
         this.dashboard.set(updated);
-        this.successMessage.set('Dashboard updated successfully!');
+        this.toastService.success('Dashboard updated successfully!');
         this.isSaving.set(false);
       },
       error: (error) => {
         console.error('✗ Save error:', error);
-        this.errorMessage.set(error.error?.message || 'Failed to update dashboard.');
+        this.toastService.error(error.error?.message || 'Failed to update dashboard.');
         this.isSaving.set(false);
       }
     });
@@ -490,12 +485,18 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     });
   }
 
-  clearAccessToken(): void {
-    if (confirm('Are you sure you want to clear the Home Assistant access token? The dashboard will no longer be able to render until you authenticate again.')) {
-      console.log('✓ User confirmed token clear');
-      this.shouldClearAccessToken.set(true);
-      this.onSubmit();
-    }
+  async clearAccessToken(): Promise<void> {
+    await this.dialogService.confirm({
+      title: 'Clear Access Token',
+      message: 'Are you sure you want to clear the Home Assistant access token? The dashboard will no longer be able to render until you authenticate again.',
+      confirmLabel: 'Clear Token',
+      isDangerous: true,
+      onConfirm: () => {
+        console.log('✓ User confirmed token clear');
+        this.shouldClearAccessToken.set(true);
+        this.onSubmit();
+      }
+    });
   }
 
   openPreview(): void {
@@ -504,7 +505,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
     // Validate that dashboard has required Home Assistant configuration
     if (!currentDashboard.host || !currentDashboard.path || (!currentDashboard.hasAccessToken && !this.manualAccessToken())) {
-      this.errorMessage.set('Preview requires Home Assistant configuration and access token. Please configure Host, Dashboard Path, and add an access token first.');
+      this.toastService.error('Preview requires Home Assistant configuration and access token. Please configure Host, Dashboard Path, and add an access token first.');
       return;
     }
 
@@ -600,6 +601,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         
         console.log('Final error message:', errorMessage);
         this.previewError.set(errorMessage);
+        this.toastService.error(errorMessage);
       }
     });
   }
