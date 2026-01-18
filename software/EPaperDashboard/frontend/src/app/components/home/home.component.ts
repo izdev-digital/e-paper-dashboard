@@ -6,48 +6,52 @@ import { RouterModule } from '@angular/router';
   imports: [RouterModule],
   template: `
     <div class="izboard-hero d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:80px;">
-      <div class="px-3" style="max-width:700px;width:100%;margin:0 auto;">
+      <div class="px-3" style="max-width:680px;width:100%;margin:0 auto;">
         <!-- Logo -->
-        <div class="mb-6 text-center">
+        <div class="mb-5 text-center">
           <img src="/icon.svg" alt="izBoard Logo" class="hero-logo">
         </div>
-        
+
         <!-- Headline -->
-        <h1 class="fw-bold hero-title mb-3 text-center" style="font-size:3.5rem;letter-spacing:-1.5px;line-height:1.1;margin-bottom:2rem !important;">
+        <h1 class="fw-bold hero-title mb-3 text-center" style="font-size:3rem;letter-spacing:-1px;line-height:1.2;margin-bottom:1rem !important;">
           izBoard
         </h1>
-        
+
         <!-- Subtitle -->
-        <p class="hero-subtitle text-center mb-4" style="font-size:1.35rem;margin-bottom:3rem !important;font-weight:500;">
-          E-Paper dashboards for Home Assistant
+        <p class="hero-subtitle text-center mb-5" style="font-size:1.2rem;margin-bottom:2.5rem !important;line-height:1.5;color:var(--bs-secondary-color);max-width:520px;margin-left:auto;margin-right:auto;">
+          Bring Home Assistant dashboards to an E‑Paper display
         </p>
-        
-        <!-- Description -->
-        <div class="hero-features mb-5" style="margin-bottom:3rem !important;">
-          <div style="display:flex;gap:1.2rem;margin-bottom:1.2rem;align-items:flex-start;">
-            <i class="fa-solid fa-cog" style="width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="flex:1;font-size:1.05rem;line-height:1.6;color:var(--bs-body-color);">Set up once, display dashboards everywhere</div>
+
+        <!-- Core features -->
+        <div class="hero-features mb-5" style="margin-bottom:2.5rem !important;max-width:560px;margin-left:auto;margin-right:auto;">
+          <div style="display:flex;gap:1.1rem;margin-bottom:1rem;align-items:flex-start;">
+            <i class="fa-solid fa-house" style="width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.2rem;"></i>
+            <div style="flex:1;font-size:1rem;line-height:1.55;color:var(--bs-body-color);text-align:left;">Supports Home Assistant dashboard views</div>
           </div>
-          <div style="display:flex;gap:1.2rem;margin-bottom:1.2rem;align-items:flex-start;">
-            <i class="fa-solid fa-battery-full" style="width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="flex:1;font-size:1.05rem;line-height:1.6;color:var(--bs-body-color);">Long battery life<span style="font-size:0.85rem;color:var(--bs-secondary-color);"> (depends on update schedule)</span></div>
+          <div style="display:flex;gap:1.1rem;margin-bottom:1rem;align-items:flex-start;">
+            <i class="fa-solid fa-microchip" style="width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.2rem;"></i>
+            <div style="flex:1;font-size:1rem;line-height:1.55;color:var(--bs-body-color);text-align:left;">An ESP32-based device pulls rendered images on a schedule</div>
           </div>
-          <div style="display:flex;gap:1.2rem;margin-bottom:1.2rem;align-items:flex-start;">
-            <i class="fa-solid fa-bolt" style="width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="flex:1;font-size:1.05rem;line-height:1.6;color:var(--bs-body-color);">Real-time updates</div>
+          <div style="display:flex;gap:1.1rem;margin-bottom:1rem;align-items:flex-start;">
+            <i class="fa-solid fa-globe" style="width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.2rem;"></i>
+            <div style="flex:1;font-size:1rem;line-height:1.55;color:var(--bs-body-color);text-align:left;">Web application to configure the device and schedule updates</div>
           </div>
-          <div style="display:flex;gap:1.2rem;align-items:flex-start;">
-            <i class="fa-solid fa-wrench" style="width:1.5rem;height:1.5rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="flex:1;font-size:1.05rem;line-height:1.6;color:var(--bs-body-color);">Minimal maintenance</div>
+          <div style="display:flex;gap:1.1rem;margin-bottom:1rem;align-items:flex-start;">
+            <i class="fa-solid fa-battery-three-quarters" style="width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.2rem;"></i>
+            <div style="flex:1;font-size:1rem;line-height:1.55;color:var(--bs-body-color);text-align:left;">Long battery life – days to weeks depending on update schedule</div>
+          </div>
+          <div style="display:flex;gap:1.1rem;align-items:flex-start;">
+            <i class="fa-solid fa-table-columns" style="width:1.4rem;height:1.4rem;display:flex;align-items:center;justify-content:center;color:var(--bs-primary);flex-shrink:0;margin-top:0.2rem;"></i>
+            <div style="flex:1;font-size:1rem;line-height:1.55;color:var(--bs-body-color);text-align:left;">7.5" Black/White/Red E‑Paper display</div>
           </div>
         </div>
-        
+
         <!-- CTA Buttons -->
-        <div class="d-flex gap-3 justify-content-center flex-wrap" style="margin-bottom:1.5rem;">
-          <a class="btn btn-primary btn-lg px-5 hero-btn-primary" routerLink="/dashboards" style="font-weight:600;font-size:1.1rem;padding:0.85rem 2.5rem !important;">
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+          <a class="btn btn-primary btn-lg px-5 hero-btn-primary" routerLink="/dashboards" style="font-weight:600;font-size:1.05rem;padding:0.75rem 2.25rem !important;">
             Get Started
           </a>
-          <a class="btn btn-outline-primary btn-lg px-5 hero-btn-github" href="https://github.com/izdev-digital/e-paper-dashboard" target="_blank" style="font-weight:600;font-size:1.1rem;padding:0.85rem 2.5rem !important;border-width:1.5px;">
+          <a class="btn btn-outline-primary btn-lg px-5 hero-btn-github" href="https://github.com/izdev-digital/e-paper-dashboard" target="_blank" style="font-weight:600;font-size:1.05rem;padding:0.75rem 2.25rem !important;border-width:1.5px;">
             GitHub
           </a>
         </div>
