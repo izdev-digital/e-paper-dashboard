@@ -376,7 +376,7 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
     display.setCursor(50, 260);
     display.print("1. Connect to WiFi:");
     display.setCursor(70, 290);
-    display.print("EPaperDashboard-AP");
+    display.print("izPanel-AP");
     
     display.setCursor(50, 330);
     display.print("2. Open browser to:");
