@@ -36,31 +36,27 @@
   <rect x="71" y="84" width="370" height="344" rx="8" fill="#f8f9fa" filter="url(#dropShadow)"/>
   
   <!-- Dashboard grid with 5 rectangles, 2 columns -->
-  <!-- Color scheme: 4 colors -->
-  <!-- Color 1: Red -->
-  <!-- Color 2: Green -->
-  <!-- Color 3: Blue -->
-  <!-- Color 4: Orange -->
+  <!-- Color scheme: Bootstrap blue palette -->
   
   <!-- Left column: 2 rectangles -->
-  <!-- Small square on top left (Color 1 - Dark Red) -->
-  <rect x="91" y="104" width="90" height="96" rx="4" fill="#b71c1c" filter="url(#dropShadow)"/>
+  <!-- Small square on top left (Color 1 - Dark Blue) -->
+  <rect x="91" y="104" width="90" height="96" rx="4" fill="#084298" filter="url(#dropShadow)"/>
   <rect x="91" y="104" width="90" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
   <rect x="91" y="104" width="90" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
-  <!-- Larger rectangle below it - spans 2nd and 3rd row (Color 2 - Medium-Dark Red) -->
-  <rect x="91" y="212" width="90" height="196" rx="4" fill="#c62828" filter="url(#dropShadow)"/>
+  <!-- Larger rectangle below it - spans 2nd and 3rd row (Color 2 - Dark Blue) -->
+  <rect x="91" y="212" width="90" height="196" rx="4" fill="#0b5ed7" filter="url(#dropShadow)"/>
   <rect x="91" y="212" width="90" height="196" rx="4" fill="url(#grad1)" pointer-events="none"/>
   <rect x="91" y="212" width="90" height="196" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
   <!-- Right column: 3 rectangles, top split into asymmetrical squares -->
-  <!-- Top-left square (Color 3 - Medium Red) wider -->
-  <rect x="193" y="104" width="130" height="96" rx="4" fill="#d32f2f" filter="url(#dropShadow)"/>
-  <rect x="193" y="104" width="130" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
-  <rect x="193" y="104" width="130" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  <!-- Top-left square (Color 3 - Primary Blue) wider -->
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="#0d6efd" filter="url(#dropShadow)"/>
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
-  <!-- Top-right square (Color 3 - Light Red) narrower with uniform gap -->
-  <rect x="339" y="104" width="82" height="96" rx="4" fill="#ef5350" filter="url(#dropShadow)"/>
+  <!-- Top-right square (Color 3 - Light Blue) narrower with uniform gap -->
+  <rect x="339" y="104" width="82" height="96" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/>
   <rect x="339" y="104" width="82" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
   <rect x="339" y="104" width="82" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
@@ -70,27 +66,27 @@
       <rect x="193" y="212" width="228" height="96" rx="4"/>
     </clipPath>
   </defs>
-  <!-- Top-left shape (Color 6 - Darker Light Red) -->
+  <!-- Top-left shape (Color 6 - Light Blue) -->
   <g clip-path="url(#middleClip)" filter="url(#dropShadow)">
-    <polygon points="193,212 327,212 277,308 193,308" fill="#ef9a9a"/>
+    <polygon points="193,212 327,212 277,308 193,308" fill="#75c7ff"/>
   </g>
   <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/>
   <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/>
-  <!-- Bottom-right shape (Color 5 - Lighter Red) -->
+  <!-- Bottom-right shape (Color 5 - Medium-Light Blue) -->
   <g clip-path="url(#middleClip)" filter="url(#dropShadow)">
-    <polygon points="339,212 421,212 421,308 289,308" fill="#f44336"/>
+    <polygon points="339,212 421,212 421,308 289,308" fill="#54b6ff"/>
   </g>
   <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/>
   <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/>
   
-  <!-- Bottom rectangle (Color 4 - Red) split into two parts -->
+  <!-- Bottom rectangle (Color 4 - Blue) split into two parts -->
   <!-- Left segment -->
-  <rect x="193" y="320" width="84" height="88" rx="4" fill="#ef5350" filter="url(#dropShadow)"/>
+  <rect x="193" y="320" width="84" height="88" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/>
   <rect x="193" y="320" width="84" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/>
   <rect x="193" y="320" width="84" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
   <!-- Right segment with gap further left -->
-  <rect x="289" y="320" width="132" height="88" rx="4" fill="#f44336" filter="url(#dropShadow)"/>
+  <rect x="289" y="320" width="132" height="88" rx="4" fill="#54b6ff" filter="url(#dropShadow)"/>
   <rect x="289" y="320" width="132" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/>
   <rect x="289" y="320" width="132" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/>
   
