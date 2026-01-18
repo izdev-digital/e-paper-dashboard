@@ -1,10 +1,10 @@
-# izPanel Packaging
+# izBoard Packaging
 
-Hardware enclosure designs for the izPanel device.
+Hardware enclosure designs for the izBoard device.
 
 ## Contents
 
-This directory contains CAD files for 3D-printable enclosures and mounting solutions for the izPanel hardware.
+This directory contains CAD files for 3D-printable enclosures and mounting solutions for the izBoard hardware.
 
 ## Supported Hardware
 

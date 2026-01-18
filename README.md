@@ -1,6 +1,6 @@
 
 
-# izPanel
+# izBoard
 
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
   <img src="device_setup.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
@@ -8,13 +8,13 @@
   <img src="device_todo.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
 </div>
 
-## What is izPanel?
+## What is izBoard?
 
-**izPanel** is a reliable solution for displaying beautiful, dynamic dashboards on ultra-low-power E-Paper screens. Perfectly suited for [Home Assistant](https://www.home-assistant.io/) and other web-based dashboards, izPanel delivers real-time updates with impressive battery life—making it ideal for smart homes, personal automation, and ambient displays that actually *stay on*.
+**izBoard** is a reliable solution for displaying beautiful, dynamic dashboards on ultra-low-power E-Paper screens. Perfectly suited for [Home Assistant](https://www.home-assistant.io/) and other web-based dashboards, izBoard delivers real-time updates with impressive battery life—making it ideal for smart homes, personal automation, and ambient displays that actually *stay on*.
 
-Whether you're tracking home automation metrics, displaying family schedules, monitoring weather, or showcasing custom dashboards, izPanel brings your digital information to E-Paper displays without the constant power drain of traditional screens.
+Whether you're tracking home automation metrics, displaying family schedules, monitoring weather, or showcasing custom dashboards, izBoard brings your digital information to E-Paper displays without the constant power drain of traditional screens.
 
-### Why izPanel?
+### Why izBoard?
 
 ✨ **Ultra-Low Power** – Battery lasts for weeks, not hours  
 🔄 **Zero Firmware Updates** – All changes happen on the server side  
@@ -25,7 +25,7 @@ Whether you're tracking home automation metrics, displaying family schedules, mo
 
 ## Technology Stack
 
-izPanel is built on proven, modern technology:
+izBoard is built on proven, modern technology:
 - **Hardware**: ESP32-based microcontroller with optimized firmware
 - **Server**: ASP.NET Core with [Playwright](https://playwright.dev/) for headless rendering
 - **Rendering**: E-Paper-specific image processing with color optimization
@@ -37,10 +37,10 @@ izPanel is built on proven, modern technology:
 The project consists of three integrated components working in perfect harmony:
 
 ### 1. [Firmware](firmware/)
-**Smart E-Paper Device Software** – The brains of your hardware. Our optimized ESP32 firmware efficiently manages display refresh cycles, handles deep sleep modes, and securely communicates with the izPanel server. The result? Weeks of battery life per charge.
+**Smart E-Paper Device Software** – The brains of your hardware. Our optimized ESP32 firmware efficiently manages display refresh cycles, handles deep sleep modes, and securely communicates with the izBoard server. The result? Weeks of battery life per charge.
 
 ### 2. [Software](software/)
-**izPanel Control Center** – A comprehensive ASP.NET Core web application that serves as the command center for your dashboards:
+**izBoard Control Center** – A comprehensive ASP.NET Core web application that serves as the command center for your dashboards:
 - Renders any web-based dashboard in real-time
 - Processes and optimizes images for E-Paper displays
 - Provides secure RESTful APIs for device communication

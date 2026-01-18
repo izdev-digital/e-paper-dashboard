@@ -3,7 +3,7 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 LABEL org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
-      org.opencontainers.image.title="izPanel" \
+  org.opencontainers.image.title="izBoard" \
       org.opencontainers.image.description="Application for managing the dashboards for e-paper display"
 RUN apt-get update && apt-get install -y \
   libasound2 \

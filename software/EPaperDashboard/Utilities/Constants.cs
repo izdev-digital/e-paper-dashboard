@@ -3,7 +3,7 @@ namespace EPaperDashboard.Utilities;
 
 public static class Constants
 {
-    public const string AppName = "izPanel";
+    public const string AppName = "izBoard";
 
     public const string CompanyName = "izdev.digital";
 

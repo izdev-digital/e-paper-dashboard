@@ -1,9 +1,9 @@
 
-# izPanel Firmware
+# izBoard Firmware
 
 ## Overview
 
-izPanel Firmware is designed for ESP32-based devices equipped with E-Paper displays. The firmware integrates with a remote izPanel server to provide scheduled dashboard updates and display management. Updates are performed at configurable intervals, allowing the device to enter deep sleep between updates to conserve energy. Features include WiFi connectivity, scheduled polling, power-saving modes, and support for display refresh cycles.
+izBoard Firmware is designed for ESP32-based devices equipped with E-Paper displays. The firmware integrates with a remote izBoard server to provide scheduled dashboard updates and display management. Updates are performed at configurable intervals, allowing the device to enter deep sleep between updates to conserve energy. Features include WiFi connectivity, scheduled polling, power-saving modes, and support for display refresh cycles.
 
 ## Hardware
 
@@ -35,7 +35,7 @@ This project uses PlatformIO for building and flashing the firmware.
 When powered up for the first time, the firmware will create a WiFi access point for initial setup. Connect to this access point and configure:
 
 - **WiFi credentials**: SSID and password for your network
-- **Server URL**: The URL of your running izPanel server
+- **Server URL**: The URL of your running izBoard server
 - **API Key**: Dashboard API key (found in the running backend server's dashboard management interface)
 
 Once configured, the device will connect to your WiFi network and begin polling the server for dashboard updates.

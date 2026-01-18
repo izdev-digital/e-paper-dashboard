@@ -5,16 +5,16 @@ import { RouterModule } from '@angular/router';
   selector: 'app-home',
   imports: [RouterModule],
   template: `
-    <div class="izpanel-hero d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:80px;">
+    <div class="izboard-hero d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:80px;">
       <div class="px-3" style="max-width:700px;width:100%;margin:0 auto;">
         <!-- Logo -->
         <div class="mb-6 text-center">
-          <img src="/icon.svg" alt="izPanel Logo" class="hero-logo">
+          <img src="/icon.svg" alt="izBoard Logo" class="hero-logo">
         </div>
         
         <!-- Headline -->
         <h1 class="fw-bold hero-title mb-3 text-center" style="font-size:3.5rem;letter-spacing:-1.5px;line-height:1.1;margin-bottom:2rem !important;">
-          izPanel
+          izBoard
         </h1>
         
         <!-- Subtitle -->
@@ -55,7 +55,7 @@ import { RouterModule } from '@angular/router';
     </div>
   `,
   styles: [`
-    .izpanel-hero {
+    .izboard-hero {
       position:relative;
       overflow:hidden;
       background: var(--bs-body-bg);
@@ -63,16 +63,16 @@ import { RouterModule } from '@angular/router';
     }
     
     /* Light mode - subtle neutral gradient */
-    [data-bs-theme="light"] .izpanel-hero {
+    [data-bs-theme="light"] .izboard-hero {
       background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
     }
     
     /* Dark mode - subtle dark gradient */
-    [data-bs-theme="dark"] .izpanel-hero {
+    [data-bs-theme="dark"] .izboard-hero {
       background: linear-gradient(135deg, #212529 0%, #1a1d20 100%);
     }
     
-    .izpanel-hero::before {
+    .izboard-hero::before {
       content:'';
       position:absolute;
       top:0;
@@ -84,20 +84,20 @@ import { RouterModule } from '@angular/router';
     }
     
     /* Light mode - very subtle accent pattern */
-    [data-bs-theme="light"] .izpanel-hero::before {
+    [data-bs-theme="light"] .izboard-hero::before {
       background-image:
         radial-gradient(circle at 20% 80%, rgba(108, 117, 125, 0.04) 0%, transparent 50%),
         radial-gradient(circle at 80% 20%, rgba(108, 117, 125, 0.04) 0%, transparent 50%);
     }
     
     /* Dark mode - slightly visible accent pattern */
-    [data-bs-theme="dark"] .izpanel-hero::before {
+    [data-bs-theme="dark"] .izboard-hero::before {
       background-image:
         radial-gradient(circle at 20% 80%, rgba(108, 117, 125, 0.08) 0%, transparent 50%),
         radial-gradient(circle at 80% 20%, rgba(108, 117, 125, 0.08) 0%, transparent 50%);
     }
     
-    .izpanel-hero > * {
+    .izboard-hero > * {
       position:relative;
       z-index:1;
     }
