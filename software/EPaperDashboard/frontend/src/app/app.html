@@ -11,7 +11,7 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav flex-grow-1">
+          <ul class="navbar-nav flex-grow-1 d-none d-sm-flex">
             @if (authService.isAuthenticated()) {
               <li class="nav-item">
                 <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
@@ -62,6 +62,26 @@
           <!-- Mobile Footer (inside collapsible menu) -->
           <div class="mobile-footer d-sm-none border-top mt-3 pt-3">
             <ul class="list-unstyled mb-0">
+              <!-- Navigation Items -->
+              @if (authService.isAuthenticated()) {
+                <li class="mobile-footer-item">
+                  <a routerLink="/dashboards" class="mobile-footer-link">
+                    <i class="fa-solid fa-gauge" aria-hidden="true"></i>
+                    <span>Dashboards</span>
+                  </a>
+                </li>
+                @if (authService.currentUser(); as user) {
+                  @if (user.isSuperUser) {
+                    <li class="mobile-footer-item">
+                      <a routerLink="/users/manage" class="mobile-footer-link">
+                        <i class="fa-solid fa-users" aria-hidden="true"></i>
+                        <span>Users</span>
+                      </a>
+                    </li>
+                  }
+                }
+              }
+              
               <!-- Auth Menu Items -->
               @if (authService.currentUser(); as user) {
                 <li class="mobile-footer-item">
@@ -156,14 +176,6 @@
                 <span class="d-none d-lg-inline ms-1">Privacy</span>
               </a>
             </li>
-            @if (authService.isAuthenticated()) {
-              <li class="d-none d-md-block">
-                <a routerLink="/dashboards" class="footer-link" aria-label="Go to dashboards">
-                  <i class="fa-solid fa-gauge" aria-hidden="true"></i>
-                  <span class="d-none d-lg-inline ms-1">Dashboards</span>
-                </a>
-              </li>
-            }
           </ul>
         </nav>
       </div>
