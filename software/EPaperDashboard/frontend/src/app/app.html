@@ -25,13 +25,13 @@
               }
             }
           </ul>
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <button type="button" class="nav-link" (click)="toggleTheme()" 
-                style="border: none; background: none; cursor: pointer; padding: 0.5rem 1rem; color: inherit;"
-                [attr.aria-label]="'Toggle theme'">
-                <i [class]="themeIcon()"></i>
-              </button>
+          <ul class="navbar-nav ms-auto align-items-center">
+            <li class="nav-item me-3 d-flex align-items-center">
+              <div class="form-check form-switch m-0 theme-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch" 
+                  [checked]="isDark()" (change)="setTheme($event.target.checked)"
+                  [attr.aria-label]="'Toggle theme'" />
+              </div>
             </li>
             @if (authService.currentUser(); as user) {
               <li class="nav-item dropdown">
