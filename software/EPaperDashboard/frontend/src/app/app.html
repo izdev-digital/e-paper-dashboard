@@ -26,7 +26,7 @@
             }
           </ul>
           <ul class="navbar-nav ms-auto align-items-center">
-            <li class="nav-item me-3 d-flex align-items-center">
+            <li class="nav-item me-3 d-none d-sm-flex align-items-center">
               <div class="form-check form-switch m-0 theme-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch" 
                   [checked]="isDark()" (change)="setTheme($event.target.checked)"
@@ -34,7 +34,7 @@
               </div>
             </li>
             @if (authService.currentUser(); as user) {
-              <li class="nav-item dropdown">
+              <li class="nav-item dropdown d-none d-sm-block">
                 <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown"
                   role="button" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="fa-regular fa-user me-1"></i> <span>{{ user.nickname || user.username }}</span>
@@ -46,7 +46,7 @@
                 </ul>
               </li>
             } @else {
-              <li class="nav-item dropdown">
+              <li class="nav-item dropdown d-none d-sm-block">
                 <a class="nav-link dropdown-toggle" href="#" id="loginDropdown" role="button"
                   data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="fa-regular fa-user"></i>
@@ -58,6 +58,71 @@
               </li>
             }
           </ul>
+          
+          <!-- Mobile Footer (inside collapsible menu) -->
+          <div class="mobile-footer d-sm-none border-top mt-3 pt-3">
+            <ul class="list-unstyled mb-0">
+              <!-- Auth Menu Items -->
+              @if (authService.currentUser(); as user) {
+                <li class="mobile-footer-item">
+                  <a routerLink="/users/profile" class="mobile-footer-link">
+                    <i class="fa-regular fa-user" aria-hidden="true"></i>
+                    <span>{{ user.nickname || user.username }}</span>
+                  </a>
+                </li>
+                <li class="mobile-footer-item">
+                  <button class="mobile-footer-link text-danger" type="button" (click)="logout()">
+                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                    <span>Logout</span>
+                  </button>
+                </li>
+              } @else {
+                <li class="mobile-footer-item">
+                  <a routerLink="/login" class="mobile-footer-link">
+                    <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+                    <span>Login</span>
+                  </a>
+                </li>
+                <li class="mobile-footer-item">
+                  <a routerLink="/register" class="mobile-footer-link">
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+                    <span>Register</span>
+                  </a>
+                </li>
+              }
+              
+              <!-- Privacy Link -->
+              <li class="mobile-footer-item">
+                <a routerLink="/privacy" class="mobile-footer-link">
+                  <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                  <span>Privacy Policy</span>
+                </a>
+              </li>
+              
+              <!-- Theme Switch -->
+              <li class="mobile-footer-item d-flex align-items-center justify-content-between">
+                <span class="d-flex align-items-center gap-2">
+                  <i class="fa-solid fa-circle-half-stroke text-muted" aria-hidden="true"></i>
+                  <span>Theme</span>
+                </span>
+                <div class="form-check form-switch m-0 theme-switch">
+                  <input class="form-check-input" type="checkbox" role="switch" id="themeSwitchMobile" 
+                    [checked]="isDark()" (change)="setTheme($event.target.checked)"
+                    [attr.aria-label]="'Toggle theme'" />
+                </div>
+              </li>
+              
+              <!-- Copyright -->
+              <li class="mobile-footer-item border-top pt-2 mt-2">
+                <div class="d-flex align-items-center justify-content-between small text-muted px-3">
+                  <span>&copy; 2025 izBoard</span>
+                  @if (versionService.version()) { 
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis">v{{ versionService.version() }}</span>
+                  }
+                </div>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </nav>
@@ -71,9 +136,37 @@
     </main>
   </div>
 
-  <footer class="border-top footer text-muted mt-auto bg-transition-300">
+  <footer class="border-top footer text-muted mt-auto bg-transition-300 d-none d-sm-block" role="contentinfo" aria-label="Site footer">
     <div class="container">
-      &copy; 2025 - izdev.digital - izBoard @if (versionService.version()) { - {{ versionService.version() }} } - <a routerLink="/privacy">Privacy</a>
+      <div class="footer-content d-flex flex-row align-items-center justify-content-between gap-2">
+        <div class="footer-info d-flex align-items-center gap-2">
+          <span class="footer-brand">
+            <span class="d-none d-sm-inline">&copy; 2025 izdev.digital • </span>
+            <span>izBoard</span>
+          </span>
+          @if (versionService.version()) { 
+            <span class="footer-version badge rounded-pill d-none d-sm-inline" title="Application version">v{{ versionService.version() }}</span>
+          }
+        </div>
+        <nav class="footer-nav" aria-label="Footer navigation">
+          <ul class="footer-links list-unstyled d-flex gap-2 mb-0">
+            <li>
+              <a routerLink="/privacy" class="footer-link" aria-label="Privacy policy">
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                <span class="d-none d-lg-inline ms-1">Privacy</span>
+              </a>
+            </li>
+            @if (authService.isAuthenticated()) {
+              <li class="d-none d-md-block">
+                <a routerLink="/dashboards" class="footer-link" aria-label="Go to dashboards">
+                  <i class="fa-solid fa-gauge" aria-hidden="true"></i>
+                  <span class="d-none d-lg-inline ms-1">Dashboards</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </nav>
+      </div>
     </div>
   </footer>
 </div>
