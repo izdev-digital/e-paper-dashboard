@@ -1,6 +1,6 @@
-# E-Paper Dashboard Software
+# izBoard Software
 
-The server component of the E-Paper Dashboard system. This ASP.NET Core web application renders web-based dashboards into images processed for E-Paper display characteristics. Currently works with Home Assistant dashboards and can be extended to support any other URLs.
+The server component of the izBoard system. This ASP.NET Core web application renders web-based dashboards into images processed for E-Paper display characteristics. Currently works with Home Assistant dashboards and can be extended to support any other URLs.
 
 ## Features
 

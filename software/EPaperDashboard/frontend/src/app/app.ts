@@ -22,6 +22,7 @@ export class App implements OnInit {
   readonly themeIcon = computed(() => 
     this.theme() === 'dark' ? 'fa-regular fa-sun' : 'fa-regular fa-moon'
   );
+  readonly isDark = computed(() => this.theme() === 'dark');
 
   constructor() {
     // Effect to sync theme changes to DOM
@@ -48,6 +49,10 @@ export class App implements OnInit {
   toggleTheme(): void {
     const newTheme = this.theme() === 'dark' ? 'light' : 'dark';
     this.theme.set(newTheme);
+  }
+
+  setTheme(checked: boolean): void {
+    this.theme.set(checked ? 'dark' : 'light');
   }
 
   private getInitialTheme(): string {

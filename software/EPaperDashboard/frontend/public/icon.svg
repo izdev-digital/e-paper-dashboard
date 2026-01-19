@@ -1,34 +1,95 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- E-Paper display frame with proper padding (10% safe zone) -->
-  <rect x="51" y="64" width="410" height="384" rx="20" fill="#212529"/>
-  
-  <!-- Inner screen area - white e-paper display -->
-  <rect x="71" y="84" width="370" height="344" rx="8" fill="#f8f9fa"/>
-  
-  <!-- Dashboard grid with consistent 12px gaps and visual hierarchy -->
-  <!-- Hero tile - primary focal point (Bootstrap primary) -->
-  <rect x="91" y="104" width="156" height="156" rx="6" fill="#0d6efd"/>
-  
-  <!-- Secondary tiles - right column (Bootstrap dark) -->
-  <rect x="259" y="104" width="162" height="72" rx="6" fill="#343a40"/>
-  <rect x="259" y="188" width="162" height="72" rx="6" fill="#495057"/>
-  
-  <!-- Bottom row - tertiary info tiles (various Bootstrap colors) -->
-  <rect x="91" y="272" width="75" height="60" rx="6" fill="#198754"/>
-  <rect x="178" y="272" width="75" height="60" rx="6" fill="#dc3545"/>
-  <rect x="265" y="272" width="75" height="60" rx="6" fill="#ffc107"/>
-  <rect x="352" y="272" width="69" height="60" rx="6" fill="#0dcaf0"/>
-  
-  <!-- Status bar - bottom accent (Bootstrap secondary and dark) -->
-  <rect x="91" y="344" width="330" height="24" rx="4" fill="#6c757d"/>
-  <rect x="91" y="380" width="160" height="28" rx="4" fill="#343a40"/>
-  <rect x="263" y="380" width="158" height="28" rx="4" fill="#495057"/>
-  
-  <!-- E-Paper scanlines overlay for texture -->
   <defs>
+    <!-- Material Design elevation shadow -->
+    <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.2" flood-color="#000000"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.14" flood-color="#000000"/>
+    </filter>
+    <!-- Inset shadow for inner depth -->
+    <filter id="insetShadow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
+      <feOffset dx="0" dy="1.5" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+    </filter>
+    <!-- Subtle gradient for Material Design depth -->
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.03" />
+      <stop offset="100%" style="stop-color:black;stop-opacity:0.02" />
+    </linearGradient>
+    <!-- Minimal highlight -->
+    <radialGradient id="highlight" cx="35%" cy="20%" r="65%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.02" />
+      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+    </radialGradient>
+    <!-- E-Paper scanlines pattern for texture -->
     <pattern id="scanlines" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
       <rect x="0" y="0" width="2" height="1" fill="#000000" opacity="0.02"/>
     </pattern>
   </defs>
+  
+  <!-- E-Paper display frame with proper padding (10% safe zone) -->
+  <rect x="51" y="64" width="410" height="384" rx="20" fill="#212529" filter="url(#dropShadow)"/>
+  
+  <!-- Inner screen area - white e-paper display -->
+  <rect x="71" y="84" width="370" height="344" rx="8" fill="#f8f9fa" filter="url(#dropShadow)"/>
+  
+  <!-- Dashboard grid with 5 rectangles, 2 columns -->
+  <!-- Color scheme: Bootstrap blue palette -->
+  
+  <!-- Left column: 2 rectangles -->
+  <!-- Small square on top left (Color 1 - Dark Blue) -->
+  <rect x="91" y="104" width="90" height="96" rx="4" fill="#084298" filter="url(#dropShadow)"/>
+  <rect x="91" y="104" width="90" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="91" y="104" width="90" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- Larger rectangle below it - spans 2nd and 3rd row (Color 2 - Dark Blue) -->
+  <rect x="91" y="212" width="90" height="196" rx="4" fill="#0b5ed7" filter="url(#dropShadow)"/>
+  <rect x="91" y="212" width="90" height="196" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="91" y="212" width="90" height="196" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- Right column: 3 rectangles, top split into asymmetrical squares -->
+  <!-- Top-left square (Color 3 - Primary Blue) wider -->
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="#0d6efd" filter="url(#dropShadow)"/>
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="193" y="104" width="134" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- Top-right square (Color 3 - Light Blue) narrower with uniform gap -->
+  <rect x="339" y="104" width="82" height="96" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/>
+  <rect x="339" y="104" width="82" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="339" y="104" width="82" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- Middle rectangle with diagonal split (Color 3 top-left, Color 4 bottom-right) -->
+  <defs>
+    <clipPath id="middleClip">
+      <rect x="193" y="212" width="228" height="96" rx="4"/>
+    </clipPath>
+  </defs>
+  <!-- Top-left shape (Color 6 - Light Blue) -->
+  <g clip-path="url(#middleClip)" filter="url(#dropShadow)">
+    <polygon points="193,212 327,212 277,308 193,308" fill="#75c7ff"/>
+  </g>
+  <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/>
+  <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/>
+  <!-- Bottom-right shape (Color 5 - Medium-Light Blue) -->
+  <g clip-path="url(#middleClip)" filter="url(#dropShadow)">
+    <polygon points="339,212 421,212 421,308 289,308" fill="#54b6ff"/>
+  </g>
+  <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/>
+  <rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/>
+  
+  <!-- Bottom rectangle (Color 4 - Blue) split into two parts -->
+  <!-- Left segment -->
+  <rect x="193" y="320" width="84" height="88" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/>
+  <rect x="193" y="320" width="84" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="193" y="320" width="84" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- Right segment with gap further left -->
+  <rect x="289" y="320" width="132" height="88" rx="4" fill="#54b6ff" filter="url(#dropShadow)"/>
+  <rect x="289" y="320" width="132" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/>
+  <rect x="289" y="320" width="132" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/>
+  
+  <!-- E-Paper scanlines overlay for texture -->
   <rect x="71" y="84" width="370" height="344" rx="8" fill="url(#scanlines)" pointer-events="none"/>
 </svg>

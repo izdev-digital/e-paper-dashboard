@@ -2,14 +2,15 @@
 <html lang="en" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
-  <title>EPaper Dashboard</title>
+  <title>izBoard - Smart E-Paper Dashboard</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="icon" type="image/svg+xml" href="icon-tab.svg">
   <meta name="theme-color" content="#0d6efd">
+  <meta name="description" content="izBoard: Configure once, leverage every day. Stunning E-Paper dashboards for Home Assistant with weeks of battery life, real-time updates, and zero maintenance.">
   <script>
     // Prevent flash: set theme immediately on page load
-    const stored = localStorage.getItem('epaper-theme');
+    const stored = localStorage.getItem('izboard-theme');
     if (stored === 'dark') {
       document.documentElement.setAttribute('data-bs-theme', 'dark');
     } else if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {

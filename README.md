@@ -1,48 +1,40 @@
+<p align="center" style="margin:0 0 12px 0;">
+  <img src="software/EPaperDashboard/frontend/public/icon.svg" alt="izBoard icon" width="140" height="140" style="max-width:140px;" />
+</p>
 
+<h1 align="center">izBoard</h1>
 
-# E-Paper Dashboard
+<p align="center" style="margin:0 0 20px 0; font-weight:600;">Bring Home Assistant dashboards to an E-Paper display</p>
+<p align="center" style="margin:0 0 16px 0;">
+  <a href="quick-start/QUICK_START.md">Quick Start</a> ·
+  <a href="software/README.md">Software</a> ·
+  <a href="firmware/README.md">Firmware</a>
+</p>
 
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+**izBoard** displays your [Home Assistant](https://www.home-assistant.io/) dashboards on a battery-powered E-Paper device. The device automatically fetches updated dashboard images from a server on a schedule you control. The server converts your dashboards into the right format for the display. Because the device only uses power during updates, a single battery charge can last weeks or even months. See examples of the device and real dashboards below.
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center; margin:12px 0 20px 0;">
   <img src="device_setup.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
   <img src="device_graph.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
   <img src="device_todo.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
 </div>
 
-E-Paper Dashboard helps users display dynamic, web-based dashboards—such as [Home Assistant](https://www.home-assistant.io/) dashboards—on E-Paper screens, delivering scheduled updates with clear visuals and low power usage. Designed for smart homes and personal automation, this solution is currently intended for home networks and removes the need for manual firmware updates by allowing server-driven changes to dashboard content and layout. While functional, the solution has room for improvement and welcomes feedback and contributions.
+## Features
+- Supports Home Assistant dashboard views
+- ESP32-based device pulls rendered images on a schedule
+- Web app to configure the device and schedule updates
+- Long battery life: days to weeks depending on update schedule
+- 7.5" black/white/red E-Paper display
 
-The platform includes ESP32-based device firmware, an ASP.NET Core server for rendering and management, and hardware packaging resources. The server uses [Playwright](https://playwright.dev/) as its headless browser solution, along with E-Paper-specific image processing to prepare dashboard images. RESTful APIs support schedule-driven updates and centralized control of devices and dashboards. The project aims to be flexible and low-maintenance, but is still evolving and open to improvements.
+## How It Works
 
-## Architecture
+izBoard has three components that work together:
 
-The project consists of three main components:
+**1. [Firmware](firmware/)** – Runs on the ESP32 device. Connects to the server, fetches dashboard images on schedule, displays them on the E-Paper screen, and goes to sleep to save battery.
 
-### 1. [Firmware](firmware/)
-ESP32-based firmware that manages the E-Paper display hardware and periodically polls the software server for updated dashboard images. The firmware handles display refresh cycles and deep sleep modes for power efficiency.
+**2. [Software](software/)** – Server application that renders your Home Assistant dashboards, converts them to E-Paper format, and serves them via API. Includes a web interface to manage devices and schedules.
 
-### 2. [Software](software/)
-ASP.NET Core web application that:
-- Renders Home Assistant dashboards (or custom URLs) using headless browser technology
-- Processes rendered content with E-Paper-specific image optimization (color quantization, dithering)
-- Provides RESTful API endpoints for firmware to retrieve processed images
-- Manages scheduling and configuration for multiple dashboards and devices
-- Supports user authentication and dashboard management
-
-### 3. [Packaging](packaging/)
-Hardware enclosure designs and assembly instructions for creating physical dashboard devices.
-
-## Key Features
-
-- **Built-in battery**: The device includes a rechargeable battery and can be charged via micro USB for portable, wireless operation.
-- **Schedule-based polling**: Devices poll the server based on configurable schedules defined in the software
-- **E-Paper optimized rendering**: Images are processed with color palette reduction and dithering algorithms tailored for E-Paper displays
-- **No firmware updates required**: Dashboard content and layout changes are handled server-side
-- **Home Assistant integration**: Designed to work with Home Assistant dashboards
-  > **Note**: For best results, use kiosk mode for your dashboards and custom themes optimized for E-Paper displays based on color palette constraints.
-
-## Scalability & Storage
-
-This solution is currently intended for **small home networks** and personal use. It uses [LiteDB](https://www.litedb.org/) as an embedded database for simplicity and ease of deployment, making it ideal for environments where ease of setup and low maintenance are priorities.
-
+**3. [Packaging](packaging/)** – 3D-printable enclosure designs for the device hardware.
 
 ## Quick Start
 
