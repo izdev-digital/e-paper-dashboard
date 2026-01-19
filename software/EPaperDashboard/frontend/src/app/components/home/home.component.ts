@@ -5,7 +5,7 @@ import { RouterModule } from '@angular/router';
   selector: 'app-home',
   imports: [RouterModule],
   template: `
-    <div class="izboard-hero d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:56px;">
+    <div class="izboard-hero bg-transition-300 d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:56px;">
       <div class="px-3" style="max-width:680px;width:100%;margin:0 auto;">
         <!-- Logo -->
         <div class="mb-4 text-center">
@@ -63,7 +63,6 @@ import { RouterModule } from '@angular/router';
       position:relative;
       overflow:hidden;
       background: var(--bs-body-bg);
-      transition: background-color 0.3s ease;
     }
     
     /* Light mode - subtle neutral gradient */
@@ -85,6 +84,7 @@ import { RouterModule } from '@angular/router';
       bottom:0;
       pointer-events:none;
       opacity:0.4;
+      transition: inherit;
     }
     
     /* Light mode - very subtle accent pattern */
