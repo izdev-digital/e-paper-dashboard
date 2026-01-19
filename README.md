@@ -1,75 +1,40 @@
+<p align="center" style="margin:0 0 12px 0;">
+  <img src="software/EPaperDashboard/frontend/public/icon.svg" alt="izBoard icon" width="140" height="140" style="max-width:140px;" />
+</p>
 
+<h1 align="center">izBoard</h1>
 
-# izBoard
+<p align="center" style="margin:0 0 20px 0; font-weight:600;">Bring Home Assistant dashboards to an E-Paper display</p>
+<p align="center" style="margin:0 0 16px 0;">
+  <a href="quick-start/QUICK_START.md">Quick Start</a> ·
+  <a href="software/README.md">Software</a> ·
+  <a href="firmware/README.md">Firmware</a>
+</p>
 
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+**izBoard** displays your [Home Assistant](https://www.home-assistant.io/) dashboards on a battery-powered E-Paper device. The device automatically fetches updated dashboard images from a server on a schedule you control. The server converts your dashboards into the right format for the display. Because the device only uses power during updates, a single battery charge can last weeks or even months. See examples of the device and real dashboards below.
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center; margin:12px 0 20px 0;">
   <img src="device_setup.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
   <img src="device_graph.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
   <img src="device_todo.jpeg" alt="Device" style="width:32%;max-width:320px;border-radius:6px;" />
 </div>
 
-## What is izBoard?
-
-**izBoard** is a reliable solution for displaying beautiful, dynamic dashboards on ultra-low-power E-Paper screens. Perfectly suited for [Home Assistant](https://www.home-assistant.io/) and other web-based dashboards, izBoard delivers real-time updates with impressive battery life—making it ideal for smart homes, personal automation, and ambient displays that actually *stay on*.
-
-Whether you're tracking home automation metrics, displaying family schedules, monitoring weather, or showcasing custom dashboards, izBoard brings your digital information to E-Paper displays without the constant power drain of traditional screens.
-
-### Why izBoard?
-
-✨ **Ultra-Low Power** – Battery lasts for weeks, not hours  
-🔄 **Zero Firmware Updates** – All changes happen on the server side  
-📱 **Always Connected** – Seamless integration with Home Assistant and custom dashboards  
-🎨 **Stunning Visuals** – Optimized rendering with color quantization and smart dithering  
-🏠 **Made for Smart Homes** – Perfect for the modern connected home  
-⚙️ **Plug & Play** – Simple setup with intuitive dashboard management  
-
-## Technology Stack
-
-izBoard is built on proven, modern technology:
-- **Hardware**: ESP32-based microcontroller with optimized firmware
-- **Server**: ASP.NET Core with [Playwright](https://playwright.dev/) for headless rendering
-- **Rendering**: E-Paper-specific image processing with color optimization
-- **API**: RESTful endpoints for seamless device communication
-- **Database**: LiteDB for lightweight, embedded storage
+## Features
+- Supports Home Assistant dashboard views
+- ESP32-based device pulls rendered images on a schedule
+- Web app to configure the device and schedule updates
+- Long battery life: days to weeks depending on update schedule
+- 7.5" black/white/red E-Paper display
 
 ## How It Works
 
-The project consists of three integrated components working in perfect harmony:
+izBoard has three components that work together:
 
-### 1. [Firmware](firmware/)
-**Smart E-Paper Device Software** – The brains of your hardware. Our optimized ESP32 firmware efficiently manages display refresh cycles, handles deep sleep modes, and securely communicates with the izBoard server. The result? Weeks of battery life per charge.
+**1. [Firmware](firmware/)** – Runs on the ESP32 device. Connects to the server, fetches dashboard images on schedule, displays them on the E-Paper screen, and goes to sleep to save battery.
 
-### 2. [Software](software/)
-**izBoard Control Center** – A comprehensive ASP.NET Core web application that serves as the command center for your dashboards:
-- Renders any web-based dashboard in real-time
-- Processes and optimizes images for E-Paper displays
-- Provides secure RESTful APIs for device communication
-- Manages multi-device scheduling and synchronization
-- Supports both local network and cloud deployments
-- Built-in user authentication and dashboard management
+**2. [Software](software/)** – Server application that renders your Home Assistant dashboards, converts them to E-Paper format, and serves them via API. Includes a web interface to manage devices and schedules.
 
-### 3. [Packaging](packaging/)
-**Beautiful Hardware Enclosures** – Professional CAD designs for 3D-printed enclosures that make your E-Paper display look as good as it functions.
-
-## Key Features
-
-🔋 **Extended Battery Life** – Weeks between charges thanks to intelligent E-Paper rendering and deep sleep optimization  
-🏠 **Home Assistant Native** – Built specifically for Home Assistant, with seamless dashboard integration  
-🔐 **Enterprise Security** – API key authentication with support for Home Assistant token-based auth  
-📊 **Dynamic Content** – Update dashboard layouts and content without touching device firmware  
-🎯 **Schedule-Driven Updates** – Configure custom update intervals per device, from minutes to hours  
-💾 **Self-Hosted** – Full control of your data with easy Docker deployment  
-🌐 **Network Flexible** – Works perfectly on home networks with optional cloud integration  
-✅ **Production Ready** – Actively maintained with responsive community support
-
-## Perfect For
-
-- **Home Automation Enthusiasts** – Display your Home Assistant dashboards anywhere
-- **Smart Home Monitoring** – Real-time weather, energy, or security dashboards
-- **Family Coordination** – Shared calendars, schedules, and to-do lists
-- **Office & Workspace** – Ambient metrics, status boards, and analytics
-- **IoT Prototyping** – Flexible platform for custom dashboard projects
-
+**3. [Packaging](packaging/)** – 3D-printable enclosure designs for the device hardware.
 
 ## Quick Start
 
