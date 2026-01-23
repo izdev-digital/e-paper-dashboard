@@ -14,5 +14,6 @@ namespace EPaperDashboard.Models
         public string? Host { get; set; }
         public string? Path { get; set; }
         public List<TimeOnly>? UpdateTimes { get; set; }
+        public DateTimeOffset? LastUpdateTime { get; set; }
     }
 }

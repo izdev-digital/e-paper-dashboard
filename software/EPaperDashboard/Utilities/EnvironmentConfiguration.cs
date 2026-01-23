@@ -10,6 +10,8 @@ public static class EnvironmentConfiguration
 	private const string SuperuserUsernameKey = "SUPERUSER_USERNAME";
 	private const string SuperuserPasswordKey = "SUPERUSER_PASSWORD";
 	private const string StateSigningKeyKey = "STATE_SIGNING_KEY";
+	private const string DashboardScheduleCheckIntervalMinutesKey = "DASHBOARD_SCHEDULE_CHECK_INTERVAL_MINUTES";
+	private const string DashboardMissedScheduleToleranceMinutesKey = "DASHBOARD_MISSED_SCHEDULE_TOLERANCE_MINUTES";
 
 	private static readonly Lazy<JsonDocument?> _jsonConfig = new(LoadJsonConfig);
 
@@ -25,6 +27,12 @@ public static class EnvironmentConfiguration
 	private static readonly Lazy<string?> _stateSigningKey = new(() =>
 		GetStringFromEnvOrConfig(StateSigningKeyKey));
 
+	private static readonly Lazy<TimeSpan> _dashboardScheduleCheckInterval = new(() =>
+		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardScheduleCheckIntervalMinutesKey, 720))); // 12 hours default
+
+	private static readonly Lazy<TimeSpan> _dashboardMissedScheduleTolerance = new(() =>
+		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardMissedScheduleToleranceMinutesKey, 15))); // 15 minutes default
+
 	private static readonly Lazy<string> _configDir = new(() =>
 		Path.Combine(AppContext.BaseDirectory, "config"));
 
@@ -35,6 +43,10 @@ public static class EnvironmentConfiguration
 	public static string SuperUserPassword => Guard.NeitherNullNorWhitespace(_superuserPassword.Value);
 
 	public static string StateSigningKey => Guard.NeitherNullNorWhitespace(_stateSigningKey.Value);
+
+	public static TimeSpan DashboardScheduleCheckInterval => _dashboardScheduleCheckInterval.Value;
+
+	public static TimeSpan DashboardMissedScheduleTolerance => _dashboardMissedScheduleTolerance.Value;
 
 	public static string ConfigDir => _configDir.Value;
 
@@ -83,6 +95,12 @@ public static class EnvironmentConfiguration
 	{
 		var value = GetStringFromEnvOrConfig(variable);
 		return !string.IsNullOrWhiteSpace(value) ? new Uri(value, kind) : null;
+	}
+
+	private static int GetIntFromEnvOrConfig(string key, int defaultValue)
+	{
+		var stringValue = GetStringFromEnvOrConfig(key);
+		return int.TryParse(stringValue, out var intValue) ? intValue : defaultValue;
 	}
 
 	public static UnitResult<string> ValidateConfiguration()

@@ -26,4 +26,7 @@ public sealed class DashboardService(LiteDbContext dbContext)
 
     public Maybe<Dashboard> GetDashboardById(ObjectId dashboardId) => _dbContext
         .Dashboards.FindById(dashboardId);
+
+    public IEnumerable<Dashboard> GetAllDashboards() => _dbContext
+        .Dashboards.FindAll();
 }
