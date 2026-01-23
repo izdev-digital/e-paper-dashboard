@@ -1,4 +1,5 @@
 using EPaperDashboard.Models;
+using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Services;
 
@@ -6,8 +7,8 @@ public class DashboardScheduleMonitorService : BackgroundService
 {
     private readonly ILogger<DashboardScheduleMonitorService> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromHours(12);
-    private readonly TimeSpan _missedScheduleTolerance = TimeSpan.FromMinutes(15);
+    private readonly TimeSpan _checkInterval;
+    private readonly TimeSpan _missedScheduleTolerance;
 
     public DashboardScheduleMonitorService(
         ILogger<DashboardScheduleMonitorService> logger,
@@ -15,6 +16,8 @@ public class DashboardScheduleMonitorService : BackgroundService
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _checkInterval = EnvironmentConfiguration.DashboardScheduleCheckInterval;
+        _missedScheduleTolerance = EnvironmentConfiguration.DashboardMissedScheduleTolerance;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -166,7 +169,7 @@ public class DashboardScheduleMonitorService : BackgroundService
         var result = await homeAssistantService.SendNotification(
             dashboard,
             message,
-            "EPaper Dashboard - Missed Update");
+            $"{Constants.AppName} - Missed Update");
 
         if (result.IsSuccess)
         {
