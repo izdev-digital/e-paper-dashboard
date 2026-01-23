@@ -179,6 +179,64 @@ public class HomeAssistantService(
         }
     }
 
+    public async Task<Result<bool, string>> SendNotification(Models.Dashboard dashboard, string message, string title = "EPaper Dashboard")
+    {
+        var validationResult = ValidateAndGetDashboard(dashboard.Id.ToString());
+        if (validationResult.IsFailure)
+        {
+            return validationResult.Error;
+        }
+
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            
+            var messageId = _messageId++;
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "call_service",
+                domain = "persistent_notification",
+                service = "create",
+                service_data = new
+                {
+                    title = title,
+                    message = message,
+                    notification_id = $"epaper_dashboard_{dashboard.Id}"
+                }
+            });
+
+            var response = await ReceiveMessageAsync(ws);
+            var result = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+
+            var isSuccess = result.TryGetProperty("success", out var success) && success.GetBoolean();
+            if (!isSuccess)
+            {
+                var errorMsg = result.TryGetProperty("error", out var error) 
+                    ? error.GetProperty("message").GetString() 
+                    : "Unknown error";
+                return $"Failed to send notification: {errorMsg}";
+            }
+
+            _logger.LogInformation("Notification sent to Home Assistant for dashboard {DashboardName}", dashboard.Name);
+            return true;
+        }
+        catch (WebSocketException ex)
+        {
+            _logger.LogError(ex, "Unable to connect to Home Assistant for dashboard {DashboardName}", dashboard.Name);
+            return "Unable to connect to Home Assistant WebSocket";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending notification for dashboard {DashboardName}", dashboard.Name);
+            return $"Failed to send notification: {ex.Message}";
+        }
+    }
+
     private static IEnumerable<HassUrlInfo> CreateDefaultDashboardInfo(string hostUrl, string urlPath, string dashboardTitle)
     {
         yield return new HassUrlInfo

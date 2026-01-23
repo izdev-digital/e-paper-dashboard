@@ -69,7 +69,8 @@ builder.Services
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
 	.AddSingleton<HomeAssistantAuthService>()
-	.AddSingleton<HomeAssistantService>();
+	.AddSingleton<HomeAssistantService>()
+	.AddHostedService<DashboardScheduleMonitorService>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
