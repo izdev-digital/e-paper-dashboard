@@ -1,3 +1,4 @@
+
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -23,8 +24,6 @@ export class HomeAssistantService {
   }
 
   getDashboards(host: string, dashboardId: string): Observable<any[]> {
-    // Fetch dashboards from Home Assistant through our backend
-    // Backend uses the stored access token from the dashboard record
     return this.http.post<{ dashboards: any[] }>('/api/homeassistant/fetch-dashboards', {
       dashboardId: dashboardId
     }).pipe(
@@ -46,6 +45,17 @@ export class HomeAssistantService {
       entityIds
     }).pipe(map(res => res.states || []));
   }
+
+  getTodoItems(dashboardId: string, todoEntityId: string): Observable<TodoItem[]> {
+    return this.http.get<TodoItem[]>(`/api/homeassistant/${dashboardId}/todo-items/${todoEntityId}`);
+  }
+}
+
+// Type for todo items returned from backend
+export interface TodoItem {
+  summary: string;
+  status: string;
+  uid: string;
 }
 
 

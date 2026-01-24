@@ -70,7 +70,7 @@
                   >
                     <!-- Widget header removed: no name, no delete button -->
                     <div class="widget-content">
-                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()"></app-widget-preview>
+                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"></app-widget-preview>
                     </div>
                     <!-- Resize Handles -->
                     @if (selectedWidget()?.id === widget.id) {

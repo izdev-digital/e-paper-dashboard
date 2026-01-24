@@ -62,4 +62,15 @@ public class HomeAssistantController(
     public record FetchDashboardsRequest(string DashboardId);
     public record FetchEntitiesRequest(string DashboardId);
     public record FetchEntityStatesRequest(string DashboardId, string[] EntityIds);
+
+    [HttpGet("{dashboardId}/todo-items/{todoEntityId}")]
+    public async Task<IActionResult> GetTodoItems(string dashboardId, string todoEntityId)
+    {
+        var result = await _homeAssistantService.FetchTodoItems(dashboardId, todoEntityId);
+        if (result.IsFailure)
+        {
+            return BadRequest(result.Error);
+        }
+        return Ok(result.Value);
+    }
 }
