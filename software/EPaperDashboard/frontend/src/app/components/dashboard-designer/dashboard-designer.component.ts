@@ -156,6 +156,11 @@ export class DashboardDesignerComponent implements OnInit {
   ];
 
   selectedWidget = signal<WidgetConfig | null>(null);
+
+  onWidgetSelect(widget: WidgetConfig) {
+    this.selectedWidget.set(widget);
+    this.activeTab.set('properties');
+  }
   isLoading = signal(false);
   livePreviewLoading = signal(false);
   entityStates = signal<Record<string, HassEntityState>>({});
@@ -180,10 +185,8 @@ export class DashboardDesignerComponent implements OnInit {
 
   ngOnInit(): void {
     this.dashboardId = this.route.snapshot.paramMap.get('id') || '';
-    console.log('Dashboard ID:', this.dashboardId);
     if (this.dashboardId) {
       this.isLoading.set(true);
-      console.log('Loading set to true, calling loadDashboard');
       this.loadDashboard();
     } else {
       this.toastService.show('No dashboard ID provided', 'error');
@@ -192,15 +195,12 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   loadDashboard(): void {
-    console.log('loadDashboard called for ID:', this.dashboardId);
     this.dashboardService.getDashboard(this.dashboardId).subscribe({
       next: (dashboard) => {
-        console.log('Dashboard loaded:', dashboard);
         this.dashboard.set(dashboard);
         if (dashboard.layoutConfig) {
           try {
             const parsedLayout = JSON.parse(dashboard.layoutConfig);
-            console.log('Parsed layout:', parsedLayout);
             // Ensure colorScheme is a full object, not just a reference
             const colorScheme = parsedLayout.colorScheme?.name 
               ? this.colorSchemes.find(cs => cs.name === parsedLayout.colorScheme.name) || DEFAULT_COLOR_SCHEMES[0]
@@ -216,21 +216,17 @@ export class DashboardDesignerComponent implements OnInit {
               canvasPadding: typeof parsedLayout.canvasPadding === 'number' ? parsedLayout.canvasPadding : 16,
               widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4
             });
-            console.log('Layout set:', this.layout());
           } catch (e) {
             console.error('Failed to parse layout config', e);
           }
         }
-        console.log('Setting isLoading to false');
         this.isLoading.set(false);
-        console.log('isLoading is now:', this.isLoading());
         this.refreshLivePreview();
       },
       error: (err) => {
         console.error('Error loading dashboard:', err);
         this.toastService.show('Failed to load dashboard', 'error');
         this.isLoading.set(false);
-        console.log('isLoading set to false after error:', this.isLoading());
       }
     });
   }
@@ -414,7 +410,6 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     const ids = this.collectEntityIds();
-    console.log('Collected entity IDs:', ids);
     
     if (ids.length === 0) {
       this.entityStates.set({});
@@ -424,7 +419,6 @@ export class DashboardDesignerComponent implements OnInit {
     this.livePreviewLoading.set(true);
     this.homeAssistantService.getEntityStates(this.dashboardId, ids).subscribe({
       next: (states) => {
-        console.log('Received entity states:', states);
         const map: Record<string, HassEntityState> = {};
         states.forEach(s => { map[s.entityId] = s; });
         this.entityStates.set(map);
