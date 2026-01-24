@@ -212,7 +212,9 @@ export class DashboardDesignerComponent implements OnInit {
               gridCols: parsedLayout.gridCols || 12,
               gridRows: parsedLayout.gridRows || 8,
               colorScheme: colorScheme,
-              widgets: parsedLayout.widgets || []
+              widgets: parsedLayout.widgets || [],
+              canvasPadding: typeof parsedLayout.canvasPadding === 'number' ? parsedLayout.canvasPadding : 16,
+              widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4
             });
             console.log('Layout set:', this.layout());
           } catch (e) {

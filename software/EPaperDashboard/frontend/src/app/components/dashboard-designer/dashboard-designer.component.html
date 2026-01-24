@@ -38,13 +38,13 @@
             <div class="widget-list">
               @for (widget of availableWidgets; track widget.type) {
                 <div
-                  class="btn btn-outline-primary w-100 mb-2 toolbox-drag-item"
+                  class="widget-item toolbox-drag-item"
                   (mousedown)="onToolboxWidgetMouseDown($event, widget)"
                   tabindex="0"
                   title="Drag to canvas"
                 >
                   <i class="fa {{ widget.icon }}"></i>
-                  {{ widget.label }}
+                  <span>{{ widget.label }}</span>
                 </div>
               }
             </div>
@@ -68,15 +68,7 @@
                     [class.selected]="selectedWidget()?.id === widget.id"
                     (mousedown)="onWidgetMouseDown($event, widget)"
                   >
-                    <div class="widget-header">
-                      <span class="widget-type">{{ widget.type }}</span>
-                      <button
-                        class="btn btn-sm btn-danger delete-btn"
-                        (click)="deleteWidget(widget); $event.stopPropagation()"
-                      >
-                        <i class="fa fa-trash"></i>
-                      </button>
-                    </div>
+                    <!-- Widget header removed: no name, no delete button -->
                     <div class="widget-content">
                       <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()"></app-widget-preview>
                     </div>
