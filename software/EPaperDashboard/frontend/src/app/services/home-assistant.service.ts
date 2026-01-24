@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { HassEntityState } from '../models/types';
 
 export interface HassEntity {
   entityId: string;
@@ -37,6 +38,13 @@ export class HomeAssistantService {
     }).pipe(
       map(response => response.entities || [])
     );
+  }
+
+  getEntityStates(dashboardId: string, entityIds: string[]): Observable<HassEntityState[]> {
+    return this.http.post<{ states: HassEntityState[] }>('/api/homeassistant/fetch-entity-states', {
+      dashboardId,
+      entityIds
+    }).pipe(map(res => res.states || []));
   }
 }
 

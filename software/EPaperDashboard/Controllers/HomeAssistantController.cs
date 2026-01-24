@@ -44,6 +44,22 @@ public class HomeAssistantController(
             : BadRequest(new { error = result.Error });
     }
 
+    [HttpPost("fetch-entity-states")]
+    public async Task<IActionResult> FetchEntityStates([FromBody] FetchEntityStatesRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.DashboardId))
+        {
+            return BadRequest(new { error = "Dashboard ID is required" });
+        }
+
+        var result = await _homeAssistantService.FetchEntityStates(request.DashboardId, request.EntityIds ?? []);
+
+        return result.IsSuccess
+            ? Ok(new { states = result.Value })
+            : BadRequest(new { error = result.Error });
+    }
+
     public record FetchDashboardsRequest(string DashboardId);
     public record FetchEntitiesRequest(string DashboardId);
+    public record FetchEntityStatesRequest(string DashboardId, string[] EntityIds);
 }

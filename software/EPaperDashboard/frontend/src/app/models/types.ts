@@ -113,6 +113,12 @@ export interface ColorScheme {
   text: string;
 }
 
+export interface HassEntityState {
+  entityId: string;
+  state: string;
+  attributes?: Record<string, any>;
+}
+
 export const DEFAULT_COLOR_SCHEMES: ColorScheme[] = [
   {
     name: 'E-Paper (Black/Red/White)',

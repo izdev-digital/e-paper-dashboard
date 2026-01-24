@@ -15,16 +15,18 @@
     </div>
   </div>
 
-  @if (!isLoading()) {
-    <div class="row mb-3">
-      <div class="col-12">
-        <div class="alert alert-info mb-0">
-          <i class="fa fa-info-circle"></i>
-          <strong>How to use:</strong> Click widgets in the toolbar to add them. Select a widget on the canvas to edit its position, size, and properties in the right panel. Use arrow buttons or input fields to position widgets.
+  @if (isLoading()) {
+    <div class="row">
+      <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
         </div>
+        <p class="mt-3">Loading dashboard...</p>
       </div>
     </div>
+  }
 
+  @if (!isLoading()) {
     <div class="row">
       <!-- Left Panel - Widget Toolbar -->
       <div class="col-md-2">
@@ -33,61 +35,29 @@
             <h5>Widgets</h5>
           </div>
           <div class="card-body p-2">
-            <div class="widget-list">
+            <div class="widget-list" cdkDropList [cdkDropListData]="availableWidgets" [cdkDropListEnterPredicate]="toolboxDropPredicate">
               @for (widget of availableWidgets; track widget.type) {
-                <button
-                  class="btn btn-outline-primary w-100 mb-2"
-                  (click)="addWidget(widget.type)"
+                <div
+                  class="btn btn-outline-primary w-100 mb-2 toolbox-drag-item"
+                  cdkDrag
+                  [cdkDragData]="widget.type"
+                  cdkDragLockAxis="y"
+                  [cdkDragDisabled]="false"
+                  [cdkDragFreeDragPosition]="{x: 0, y: 0}"
                 >
                   <i class="fa {{ widget.icon }}"></i>
                   {{ widget.label }}
-                </button>
+                  <ng-template cdkDragPreview>
+                    <div class="toolbox-drag-preview">
+                      <i class="fa {{ widget.icon }}"></i>
+                      {{ widget.label }}
+                    </div>
+                  </ng-template>
+                  <ng-template cdkDragPlaceholder>
+                    <div class="toolbox-drag-placeholder"></div>
+                  </ng-template>
+                </div>
               }
-            </div>
-          </div>
-        </div>
-
-        <!-- Color Scheme Selector -->
-        <div class="card mt-3">
-          <div class="card-header">
-            <h5>Color Scheme</h5>
-          </div>
-          <div class="card-body p-2">
-            <select
-              class="form-select"
-              [ngModel]="layout().colorScheme"
-              (ngModelChange)="updateColorScheme($event)"
-            >
-              @for (scheme of colorSchemes; track scheme.name) {
-                <option [ngValue]="scheme">
-                  {{ scheme.name }}
-                </option>
-              }
-            </select>
-          </div>
-        </div>
-
-        <!-- Layout Settings -->
-        <div class="card mt-3">
-          <div class="card-header">
-            <h5>Layout</h5>
-          </div>
-          <div class="card-body p-2">
-            <div class="mb-2">
-              <label class="form-label small">Width</label>
-              <input type="number" class="form-control form-control-sm" [ngModel]="layout().width" (ngModelChange)="updateLayoutWidth($event)" />
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">Height</label>
-              <input type="number" class="form-control form-control-sm" [ngModel]="layout().height" (ngModelChange)="updateLayoutHeight($event)" />
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">Grid Columns</label>
-              <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridCols" (ngModelChange)="updateLayoutGridCols($event)" />
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">Grid Rows</label>
-              <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridRows" (ngModelChange)="updateLayoutGridRows($event)" />
             </div>
           </div>
         </div>
@@ -100,8 +70,8 @@
             <h5>Canvas</h5>
           </div>
           <div class="card-body" style="overflow: auto;">
-            <div class="canvas-wrapper d-flex justify-content-center">
-              <div class="dashboard-canvas" [ngStyle]="getGridStyle()">
+            <div class="canvas-wrapper">
+              <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()" cdkDropList [cdkDropListConnectedTo]="[]" [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="onToolboxDrop($event)">
                 @for (widget of layout().widgets; track widget.id) {
                   <div
                     class="widget-container"
@@ -119,7 +89,7 @@
                       </button>
                     </div>
                     <div class="widget-content">
-                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"></app-widget-preview>
+                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()"></app-widget-preview>
                     </div>
                     
                     <!-- Resize Handles -->
@@ -140,109 +110,173 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-header">
-            <h5>Properties</h5>
+            <div class="custom-tab-bar-scroll">
+              <button class="tab-switch-btn left" (click)="switchTab('left')" type="button" aria-label="Previous tab">
+                <i class="fa fa-chevron-left"></i>
+              </button>
+              <div class="custom-tab-bar" #tabBar>
+                <button class="tab-btn" [class.active]="activeTab() === 'dashboard'" (click)="activeTab.set('dashboard')">Dashboard Settings</button>
+                <button class="tab-btn" [class.active]="activeTab() === 'widgets'" (click)="activeTab.set('widgets')">Widgets ({{ layout().widgets.length }})</button>
+                <button class="tab-btn" [class.active]="activeTab() === 'properties'" (click)="activeTab.set('properties')">Widget Properties</button>
+              </div>
+              <button class="tab-switch-btn right" (click)="switchTab('right')" type="button" aria-label="Next tab">
+                <i class="fa fa-chevron-right"></i>
+              </button>
+            </div>
           </div>
           <div class="card-body">
-            @if (!selectedWidget()) {
-              <div class="text-muted text-center py-4">
-                Select a widget to edit its properties
+            @if (activeTab() === 'dashboard') {
+              <!-- Color Scheme Selector -->
+              <div class="card mb-3">
+                <div class="card-header">
+                  <h5>Color Scheme</h5>
+                </div>
+                <div class="card-body p-2">
+                  <select
+                    class="form-select"
+                    [ngModel]="layout().colorScheme"
+                    (ngModelChange)="updateColorScheme($event)"
+                  >
+                    @for (scheme of colorSchemes; track scheme.name) {
+                      <option [ngValue]="scheme">
+                        {{ scheme.name }}
+                      </option>
+                    }
+                  </select>
+                </div>
+              </div>
+              <!-- Layout Settings -->
+              <div class="card">
+                <div class="card-header">
+                  <h5>Layout</h5>
+                </div>
+                <div class="card-body p-2">
+                  <div class="mb-2">
+                    <label class="form-label small">Width</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().width" (ngModelChange)="updateLayoutWidth($event)" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Height</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().height" (ngModelChange)="updateLayoutHeight($event)" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Grid Columns</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridCols" (ngModelChange)="updateLayoutGridCols($event)" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Grid Rows</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridRows" (ngModelChange)="updateLayoutGridRows($event)" />
+                  </div>
+                </div>
               </div>
             }
 
-            @if (selectedWidget()) {
-              <h6>{{ selectedWidget()!.type | titlecase }}</h6>
-              <hr />
+            @if (activeTab() === 'properties') {
+              @if (!selectedWidget()) {
+                <div class="text-muted text-center py-4">
+                  Select a widget to edit its properties
+                </div>
+              }
 
-              <!-- Position Settings -->
-              <div class="mb-3">
-                <label class="form-label small">Position & Size</label>
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label small">X</label>
-                    <input
-                      type="number"
-                      class="form-control form-control-sm"
-                      [ngModel]="selectedWidget()!.position.x"
-                      (ngModelChange)="updateWidgetPosition(selectedWidget()!, { x: $event })"
-                      min="0"
-                      [max]="layout().gridCols - 1"
-                    />
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small">Y</label>
-                    <input
-                      type="number"
-                      class="form-control form-control-sm"
-                      [ngModel]="selectedWidget()!.position.y"
-                      (ngModelChange)="updateWidgetPosition(selectedWidget()!, { y: $event })"
-                      min="0"
-                      [max]="layout().gridRows - 1"
-                    />
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small">Width</label>
-                    <input
-                      type="number"
-                      class="form-control form-control-sm"
-                      [ngModel]="selectedWidget()!.position.w"
-                      (ngModelChange)="updateWidgetPosition(selectedWidget()!, { w: $event })"
-                      min="1"
-                      [max]="layout().gridCols"
-                    />
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label small">Height</label>
-                    <input
-                      type="number"
-                      class="form-control form-control-sm"
-                      [ngModel]="selectedWidget()!.position.h"
-                      (ngModelChange)="updateWidgetPosition(selectedWidget()!, { h: $event })"
-                      min="1"
-                      [max]="layout().gridRows"
-                    />
+              @if (selectedWidget()) {
+                <h6>{{ selectedWidget()!.type | titlecase }}</h6>
+                <hr />
+
+                <!-- Position Settings -->
+                <div class="mb-3">
+                  <label class="form-label small">Position & Size</label>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label small">X</label>
+                      <input
+                        type="number"
+                        class="form-control form-control-sm"
+                        [ngModel]="selectedWidget()!.position.x"
+                        (ngModelChange)="updateWidgetPosition(selectedWidget()!, { x: $event })"
+                        min="0"
+                        [max]="layout().gridCols - 1"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small">Y</label>
+                      <input
+                        type="number"
+                        class="form-control form-control-sm"
+                        [ngModel]="selectedWidget()!.position.y"
+                        (ngModelChange)="updateWidgetPosition(selectedWidget()!, { y: $event })"
+                        min="0"
+                        [max]="layout().gridRows - 1"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small">Width</label>
+                      <input
+                        type="number"
+                        class="form-control form-control-sm"
+                        [ngModel]="selectedWidget()!.position.w"
+                        (ngModelChange)="updateWidgetPosition(selectedWidget()!, { w: $event })"
+                        min="1"
+                        [max]="layout().gridCols"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small">Height</label>
+                      <input
+                        type="number"
+                        class="form-control form-control-sm"
+                        [ngModel]="selectedWidget()!.position.h"
+                        (ngModelChange)="updateWidgetPosition(selectedWidget()!, { h: $event })"
+                        min="1"
+                        [max]="layout().gridRows"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Widget-Specific Config -->
-              <app-widget-config
-                [widget]="selectedWidget()!"
-                [dashboard]="dashboard()"
-              ></app-widget-config>
+                <!-- Widget-Specific Config -->
+                <app-widget-config
+                  [widget]="selectedWidget()!"
+                  [dashboard]="dashboard()"
+                ></app-widget-config>
+              }
+            }
 
-              <!-- Quick Move Controls -->
-              <div class="mt-3">
-                <label class="form-label small">Quick Move</label>
-                <div class="btn-group w-100 mb-2" role="group">
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveWidget(selectedWidget()!, -1, 0)" title="Move Left">
-                    <i class="fa fa-arrow-left"></i>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveWidget(selectedWidget()!, 0, -1)" title="Move Up">
-                    <i class="fa fa-arrow-up"></i>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveWidget(selectedWidget()!, 0, 1)" title="Move Down">
-                    <i class="fa fa-arrow-down"></i>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveWidget(selectedWidget()!, 1, 0)" title="Move Right">
-                    <i class="fa fa-arrow-right"></i>
-                  </button>
+            @if (activeTab() === 'widgets') {
+              @if (layout().widgets.length === 0) {
+                <div class="text-muted text-center py-4">
+                  <p>No widgets added yet.</p>
+                  <small>Drag widgets from the toolbar or click to add them.</small>
                 </div>
-                <label class="form-label small">Quick Resize</label>
-                <div class="btn-group w-100" role="group">
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resizeWidget(selectedWidget()!, -1, 0)" title="Narrower">
-                    <i class="fa fa-compress-arrows-alt"></i> W-
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resizeWidget(selectedWidget()!, 1, 0)" title="Wider">
-                    <i class="fa fa-expand-arrows-alt"></i> W+
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resizeWidget(selectedWidget()!, 0, -1)" title="Shorter">
-                    <i class="fa fa-compress-arrows-alt"></i> H-
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="resizeWidget(selectedWidget()!, 0, 1)" title="Taller">
-                    <i class="fa fa-expand-arrows-alt"></i> H+
-                  </button>
+              }
+              @if (layout().widgets.length > 0) {
+                <div class="widgets-list">
+                  @for (w of layout().widgets; track w.id) {
+                    <div
+                      class="widget-item mb-2 p-2 border rounded"
+                      [class.active]="selectedWidget()?.id === w.id"
+                      (click)="selectWidget(w); activeTab.set('properties')"
+                    >
+                      <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                          <div class="fw-bold">{{ w.type | titlecase }}</div>
+                          <small class="text-muted">ID: {{ w.id }}</small>
+                          <div class="small mt-1">
+                            <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
+                            <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
+                          </div>
+                        </div>
+                        <button
+                          class="btn btn-sm btn-danger"
+                          (click)="deleteWidget(w); $event.stopPropagation()"
+                          title="Delete widget"
+                        >
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+                  }
                 </div>
-              </div>
+              }
             }
           </div>
         </div>
