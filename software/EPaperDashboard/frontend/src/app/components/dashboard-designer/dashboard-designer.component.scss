@@ -163,12 +163,17 @@
 
 .widget-container {
   position: relative;
-  transition: all 0.2s ease;
-  
+  transition: box-shadow 0.2s ease;
+  box-sizing: border-box;
+  /* Strict sizing: widgets only use their grid span */
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  pointer-events: auto;
   &:hover {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
   }
-  
   &.selected {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.8);
   }

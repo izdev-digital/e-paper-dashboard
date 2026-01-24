@@ -451,7 +451,6 @@ export class DashboardDesignerComponent implements OnInit {
   onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
     event.stopPropagation();
     this.selectedWidget.set(widget);
-    
     // Check if clicking on resize handle
     const target = event.target as HTMLElement;
     if (target.classList.contains('resize-handle')) {
@@ -507,33 +506,25 @@ export class DashboardDesignerComponent implements OnInit {
     let isResizing = true;
     this.dragStartPos = { x: event.clientX, y: event.clientY };
     this.dragStartWidget = { ...widget.position };
-    
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const layout = this.layout();
     const cellWidth = rect.width / layout.gridCols;
     const cellHeight = rect.height / layout.gridRows;
-    
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      
       const deltaX = e.clientX - this.dragStartPos.x;
       const deltaY = e.clientY - this.dragStartPos.y;
-      
       const gridDeltaX = Math.round(deltaX / cellWidth);
       const gridDeltaY = Math.round(deltaY / cellHeight);
-      
       let newW = widget.position.w;
       let newH = widget.position.h;
-      
       if (direction === 'e' || direction === 'se') {
         newW = Math.max(1, Math.min(layout.gridCols - widget.position.x, this.dragStartWidget.w + gridDeltaX));
       }
-      
       if (direction === 's' || direction === 'se') {
         newH = Math.max(1, Math.min(layout.gridRows - widget.position.y, this.dragStartWidget.h + gridDeltaY));
       }
-      
       this.layout.update(l => ({
         ...l,
         widgets: l.widgets.map(w => 
@@ -541,13 +532,11 @@ export class DashboardDesignerComponent implements OnInit {
         )
       }));
     };
-    
     const onMouseUp = () => {
       isResizing = false;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-    
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }
