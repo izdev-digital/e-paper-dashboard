@@ -27,6 +27,11 @@ export const routes: Routes = [
     loadComponent: () => import('./components/dashboard-edit/dashboard-edit.component').then(m => m.DashboardEditComponent)
   },
   { 
+    path: 'dashboards/:id/designer', 
+    canActivate: [authGuard],
+    loadComponent: () => import('./components/dashboard-designer/dashboard-designer.component').then(m => m.DashboardDesignerComponent)
+  },
+  { 
     path: 'dashboards', 
     canActivate: [authGuard],
     loadComponent: () => import('./components/dashboard-list/dashboard-list.component').then(m => m.DashboardListComponent)

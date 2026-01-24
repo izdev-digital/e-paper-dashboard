@@ -44,6 +44,71 @@ public class HomeAssistantService(
         }
     }
 
+    public async Task<Result<List<HassEntity>, string>> FetchEntities(string dashboardId)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            
+            await SendMessageAsync(ws, new
+            {
+                id = 1,
+                type = "get_states"
+            });
+
+            var statesResponse = await ReceiveMessageAsync(ws);
+            var statesResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(statesResponse);
+
+            var entities = new List<HassEntity>();
+            
+            if (statesResult.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                statesResult.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in result.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    var friendlyName = string.Empty;
+                    
+                    if (entity.TryGetProperty("attributes", out var attrs) &&
+                        attrs.TryGetProperty("friendly_name", out var fname))
+                    {
+                        friendlyName = fname.GetString() ?? string.Empty;
+                    }
+
+                    if (!string.IsNullOrEmpty(entityId))
+                    {
+                        entities.Add(new HassEntity
+                        {
+                            EntityId = entityId,
+                            FriendlyName = friendlyName
+                        });
+                    }
+                }
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+
+            return entities;
+        }
+        catch (WebSocketException)
+        {
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to fetch entities: {ex.Message}";
+        }
+    }
+
     private Result<Models.Dashboard, string> ValidateAndGetDashboard(string dashboardId)
     {
         if (string.IsNullOrWhiteSpace(dashboardId))
@@ -282,4 +347,10 @@ public record HassUrlInfo
     public string Url { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string Id { get; init; } = string.Empty;
+}
+
+public record HassEntity
+{
+    public string EntityId { get; init; } = string.Empty;
+    public string FriendlyName { get; init; } = string.Empty;
 }

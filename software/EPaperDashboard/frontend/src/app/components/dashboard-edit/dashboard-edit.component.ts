@@ -165,6 +165,9 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
           <button type="button" class="btn btn-secondary" (click)="onCancel()">
             <i class="fa-solid fa-arrow-left"></i> Close
           </button>
+          <button type="button" class="btn btn-success" (click)="openDesigner()">
+            <i class="fa-solid fa-paint-brush"></i> Layout Designer
+          </button>
           <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
             <i class="fa-solid fa-eye"></i> Preview
           </button>
@@ -503,6 +506,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       });
     } else {
       this.router.navigate(['/dashboards']);
+    }
+  }
+
+  openDesigner(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.router.navigate(['/dashboards', id, 'designer']);
     }
   }
 
