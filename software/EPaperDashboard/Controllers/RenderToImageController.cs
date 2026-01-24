@@ -79,12 +79,20 @@ public sealed class RenderToImageController(
 		var (contentType, encoder) = GetEncoder(format);
 		var authStrategy = new HassAuthStrategy(dashboardInfo.Value.Tokens);
 
-		return await renderingService
+		var result = await renderingService
 			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-			.Map(image => transform?.Invoke(image) ?? image)
-			.Match(
-				image => ConvertToResult(image, encoder, contentType),
-				error => Task.FromResult<IActionResult>(BadRequest(error)));
+			.Map(image => transform?.Invoke(image) ?? image);
+
+		// Update last update time on successful render
+		if (result.IsSuccess)
+		{
+			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
+			dashboardService.UpdateDashboard(dashboard);
+		}
+
+		return await result.Match(
+			image => ConvertToResult(image, encoder, contentType),
+			error => Task.FromResult<IActionResult>(BadRequest(error)));
 	}
 
 	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard)
