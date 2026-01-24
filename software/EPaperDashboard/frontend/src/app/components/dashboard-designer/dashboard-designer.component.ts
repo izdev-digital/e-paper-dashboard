@@ -1,3 +1,8 @@
+
+
+
+
+
 import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +32,65 @@ import {
   styleUrls: ['./dashboard-designer.component.scss']
 })
 export class DashboardDesignerComponent implements OnInit {
+    // Handle mousedown on toolbox widget to start drag with template preview
+    onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
+      event.preventDefault();
+      const layout = this.layout();
+      const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
+      if (!canvas) return;
+
+      // Create a preview element
+      const preview = document.createElement('div');
+      preview.className = 'toolbox-drag-preview';
+      preview.style.position = 'fixed';
+      preview.style.pointerEvents = 'none';
+      preview.style.zIndex = '9999';
+      preview.style.opacity = '0.85';
+      preview.innerHTML = `<i class='fa ${widget.icon}'></i> ${widget.label}`;
+      document.body.appendChild(preview);
+
+      const movePreview = (e: MouseEvent) => {
+        preview.style.left = e.clientX + 8 + 'px';
+        preview.style.top = e.clientY + 8 + 'px';
+      };
+      movePreview(event);
+
+      const onMouseMove = (e: MouseEvent) => movePreview(e);
+      const onMouseUp = (e: MouseEvent) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        preview.remove();
+
+        // Check if mouse is over the canvas
+        const rect = canvas.getBoundingClientRect();
+        if (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        ) {
+          // Calculate grid position
+          const cellWidth = rect.width / layout.gridCols;
+          const cellHeight = rect.height / layout.gridRows;
+          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor((e.clientX - rect.left) / cellWidth)));
+          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor((e.clientY - rect.top) / cellHeight)));
+          const newWidget: WidgetConfig = {
+            id: this.generateId(),
+            type: widget.type,
+            position: {
+              x,
+              y,
+              w: Math.min(4, layout.gridCols - x),
+              h: Math.min(2, layout.gridRows - y)
+            },
+            config: this.getDefaultConfig(widget.type)
+          };
+          this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
+        }
+      };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
 
   switchTab(direction: 'left' | 'right') {

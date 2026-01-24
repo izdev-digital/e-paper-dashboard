@@ -35,27 +35,16 @@
             <h5>Widgets</h5>
           </div>
           <div class="card-body p-2">
-            <div class="widget-list" cdkDropList [cdkDropListData]="availableWidgets" [cdkDropListEnterPredicate]="toolboxDropPredicate">
+            <div class="widget-list">
               @for (widget of availableWidgets; track widget.type) {
                 <div
                   class="btn btn-outline-primary w-100 mb-2 toolbox-drag-item"
-                  cdkDrag
-                  [cdkDragData]="widget.type"
-                  cdkDragLockAxis="y"
-                  [cdkDragDisabled]="false"
-                  [cdkDragFreeDragPosition]="{x: 0, y: 0}"
+                  (mousedown)="onToolboxWidgetMouseDown($event, widget)"
+                  tabindex="0"
+                  title="Drag to canvas"
                 >
                   <i class="fa {{ widget.icon }}"></i>
                   {{ widget.label }}
-                  <ng-template cdkDragPreview>
-                    <div class="toolbox-drag-preview">
-                      <i class="fa {{ widget.icon }}"></i>
-                      {{ widget.label }}
-                    </div>
-                  </ng-template>
-                  <ng-template cdkDragPlaceholder>
-                    <div class="toolbox-drag-placeholder"></div>
-                  </ng-template>
                 </div>
               }
             </div>
@@ -71,7 +60,7 @@
           </div>
           <div class="card-body" style="overflow: auto;">
             <div class="canvas-wrapper">
-              <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()" cdkDropList [cdkDropListConnectedTo]="[]" [cdkDropListSortingDisabled]="true" (cdkDropListDropped)="onToolboxDrop($event)">
+              <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()">
                 @for (widget of layout().widgets; track widget.id) {
                   <div
                     class="widget-container"
