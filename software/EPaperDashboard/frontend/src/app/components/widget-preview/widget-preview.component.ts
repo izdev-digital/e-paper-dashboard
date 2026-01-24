@@ -499,15 +499,24 @@ export class WidgetPreviewComponent {
   getTodoItems(entityId?: string): Array<{ id: string | number; complete: boolean; summary: string }> {
     if (this.todoItemsByEntityId && entityId && this.todoItemsByEntityId[entityId]) {
       // Map backend items to expected format for display
-      return this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
+      const mapped = this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
         ...item,
         id: item.uid || item.id || idx,
         // Home Assistant todo items may represent completion in different ways
         complete: (item.status && (item.status === 'completed' || item.status === 'done')) || item.complete === true || item.completed === true || false,
         summary: item.summary || item.title || ''
       }));
+      // Prefer showing incomplete items first
+      mapped.sort((a, b) => {
+        const ac = a.complete ? 1 : 0;
+        const bc = b.complete ? 1 : 0;
+        return ac - bc;
+      });
+      console.debug('widget-preview: todo items for', entityId, mapped);
+      return mapped;
     }
     // fallback to old state-based logic (should not be used)
+    console.debug('widget-preview: fallback to entity state for', entityId);
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];
@@ -525,8 +534,8 @@ export class WidgetPreviewComponent {
   }
 
   getTodoItemsLimited(entityId?: string, w = 2, h = 2): any[] {
-    // Estimate how many items fit: 1 row per h, 2 items per w (roughly)
-    const max = Math.max(1, w * h);
+    // Estimate how many items fit: roughly w * (h * 2)
+    const max = Math.max(1, w * Math.max(1, h * 2));
     return this.getTodoItems(entityId).slice(0, max);
   }
 }

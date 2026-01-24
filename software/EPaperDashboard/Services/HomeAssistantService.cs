@@ -129,31 +129,62 @@ public class HomeAssistantService(
             await SendMessageAsync(ws, new
             {
                 id = messageId,
-                type = "todo/get_items",
-                entity_id = todoEntityId
+                type = "call_service",
+                domain = "todo",
+                service = "get_items",
+                service_data = new
+                {
+                    target = new { entity_id = todoEntityId },
+                    status = new[] { "needs_action" }
+                }
             });
 
             var response = await ReceiveMessageAsync(ws);
+            _logger.LogDebug("HomeAssistant FetchTodoItems raw response: {Response}", response);
+
             var json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
 
             var items = new List<TodoItem>();
-            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
-                json.TryGetProperty("result", out var result) &&
-                result.TryGetProperty(todoEntityId, out var entityObj) &&
-                entityObj.TryGetProperty("items", out var itemsArray) &&
-                itemsArray.ValueKind == JsonValueKind.Array)
+
+            // Try multiple possible shapes for the service result:
+            // 1) result.items
+            // 2) result.<entity_id>.items
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() && json.TryGetProperty("result", out var result))
             {
-                foreach (var item in itemsArray.EnumerateArray())
+                // Case: result is an object with 'items'
+                if (result.ValueKind == JsonValueKind.Object)
                 {
-                    var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
-                    var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
-                    var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
-                    items.Add(new TodoItem
+                    if (result.TryGetProperty("items", out var itemsArray) && itemsArray.ValueKind == JsonValueKind.Array)
                     {
-                        Summary = summary ?? string.Empty,
-                        Status = status ?? string.Empty,
-                        Uid = uid ?? string.Empty
-                    });
+                        foreach (var item in itemsArray.EnumerateArray())
+                        {
+                            var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
+                            var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
+                            var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
+                            items.Add(new TodoItem
+                            {
+                                Summary = summary ?? string.Empty,
+                                Status = status ?? string.Empty,
+                                Uid = uid ?? string.Empty
+                            });
+                        }
+                    }
+                    else if (result.TryGetProperty(todoEntityId, out var entityObj) && entityObj.ValueKind == JsonValueKind.Object &&
+                             entityObj.TryGetProperty("items", out var itemsArray2) && itemsArray2.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in itemsArray2.EnumerateArray())
+                        {
+                            var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
+                            var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
+                            var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
+                            items.Add(new TodoItem
+                            {
+                                Summary = summary ?? string.Empty,
+                                Status = status ?? string.Empty,
+                                Uid = uid ?? string.Empty
+                            });
+                        }
+                    }
                 }
             }
 
