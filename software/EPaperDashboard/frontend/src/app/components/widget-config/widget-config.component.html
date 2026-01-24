@@ -1,3 +1,14 @@
+<!-- Debug logs removed -->
+<!-- Universal Entity Selection Dropdown -->
+<div *ngIf="entities().length > 0 && widget.config && 'entityId' in widget.config" class="mb-3">
+  <label class="form-label">Data Source Entity</label>
+  <select class="form-select" [(ngModel)]="widget.config.entityId">
+    <option value="">Select entity...</option>
+    <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+    </ng-container>
+  </select>
+</div>
 <ng-container [ngSwitch]="widget.type">
 
   <ng-container *ngSwitchCase="'header'">
@@ -16,7 +27,7 @@
           </div>
           <select class="form-select form-select-sm mt-1" [(ngModel)]="badge.entityId">
             <option [ngValue]="undefined">No Entity</option>
-            <ng-container *ngFor="let entity of entities; trackBy: trackByEntityId">
+            <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
               <option [ngValue]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
             </ng-container>
           </select>
@@ -36,9 +47,9 @@
                 <label class="form-label">Calendar Entity</label>
                 <select class="form-select" [(ngModel)]="calendarConfig.entityId">
                   <option value="">Select entity...</option>
-                  @for (entity of entities; track entity.entity_id) {
-                  <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                  }
+                  <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+                    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+                  </ng-container>
                 </select>
               </div>
               <div class="mb-3">
@@ -52,9 +63,9 @@
                   <label class="form-label">Weather Entity</label>
                   <select class="form-select" [(ngModel)]="weatherConfig.entityId">
                     <option value="">Select entity...</option>
-                    @for (entity of entities; track entity.entity_id) {
-                    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                    }
+                    <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+                      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+                    </ng-container>
                   </select>
                 </div>
               </ng-container>
@@ -64,9 +75,9 @@
                   <label class="form-label">Weather Entity</label>
                   <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId">
                     <option value="">Select entity...</option>
-                    @for (entity of entities; track entity.entity_id) {
-                    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                    }
+                    <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+                      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+                    </ng-container>
                   </select>
                 </div>
               </ng-container>
@@ -76,9 +87,9 @@
                   <label class="form-label">Sensor Entity</label>
                   <select class="form-select" [(ngModel)]="graphConfig.entityId">
                     <option value="">Select entity...</option>
-                    @for (entity of entities; track entity.entity_id) {
-                    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                    }
+                    <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+                      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+                    </ng-container>
                   </select>
                 </div>
                 <div class="mb-3">
@@ -100,12 +111,16 @@
               <ng-container *ngSwitchCase="'todo'">
                 <div class="mb-3">
                   <label class="form-label">Todo Entity</label>
-                  <select class="form-select" [(ngModel)]="todoConfig.entityId">
+                  <select class="form-select" [(ngModel)]="todoConfig.entityId" [disabled]="loadingEntities()">
                     <option value="">Select entity...</option>
-                    @for (entity of entities; track entity.entity_id) {
-                    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                    }
+                    <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
+                      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+                    </ng-container>
                   </select>
+                  <div *ngIf="!loadingEntities() && entities().length === 0" class="alert alert-warning mt-2 p-2 small">
+                    No data sources found. Make sure your dashboard is connected to Home Assistant and try again.
+                  </div>
+                  <div *ngIf="loadingEntities()" class="text-muted small mt-2">Loading data sources...</div>
                 </div>
               </ng-container>
 

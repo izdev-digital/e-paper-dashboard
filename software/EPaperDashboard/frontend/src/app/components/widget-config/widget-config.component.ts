@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
@@ -20,7 +20,7 @@ import { HomeAssistantService } from '../../services/home-assistant.service';
   templateUrl: './widget-config.component.html',
   styleUrls: ['./widget-config.component.scss']
 })
-export class WidgetConfigComponent implements OnInit {
+export class WidgetConfigComponent implements OnChanges {
   // TrackBy function for badges in ngFor
   trackByBadgeLabel(index: number, badge: any) {
     return badge.label || badge.entityId || index;
@@ -31,11 +31,13 @@ export class WidgetConfigComponent implements OnInit {
   }
   private readonly homeAssistantService = inject(HomeAssistantService);
 
+
   @Input() widget!: WidgetConfig;
   @Input() dashboard!: Dashboard | null;
 
-  entities: any[] = [];
-  loadingEntities = false;
+  entities = signal<any[]>([]);
+  loadingEntities = signal(false);
+  entityFetchError: string | null = null;
 
   get headerConfig(): HeaderConfig {
     return this.widget.config as HeaderConfig;
@@ -65,35 +67,30 @@ export class WidgetConfigComponent implements OnInit {
     return this.widget.config as TodoConfig;
   }
 
-  ngOnInit(): void {
-    if (this.dashboard?.hasAccessToken && this.dashboard?.host) {
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host) {
       this.loadEntities();
     }
   }
 
   loadEntities(): void {
     if (!this.dashboard) return;
-    
-    this.loadingEntities = true;
+    this.loadingEntities.set(true);
+    this.entityFetchError = null;
     this.homeAssistantService.getEntities(this.dashboard.id).subscribe({
       next: (entities) => {
-        this.entities = entities.map(e => ({
+        const mapped = entities.map(e => ({
           entity_id: e.entityId,
           friendly_name: e.friendlyName
         }));
-        this.loadingEntities = false;
+        this.entities.set(mapped);
+        this.loadingEntities.set(false);
       },
       error: (err) => {
         console.error('Failed to fetch entities', err);
-        // Fallback to placeholder data
-        this.entities = [
-          { entity_id: 'sensor.temperature', friendly_name: 'Temperature' },
-          { entity_id: 'sensor.humidity', friendly_name: 'Humidity' },
-          { entity_id: 'weather.home', friendly_name: 'Weather' },
-          { entity_id: 'calendar.events', friendly_name: 'Events' },
-          { entity_id: 'todo.shopping', friendly_name: 'Shopping List' }
-        ];
-        this.loadingEntities = false;
+        this.entityFetchError = (err?.error?.message || err?.message || err?.toString() || 'Unknown error');
+        this.entities.set([]);
+        this.loadingEntities.set(false);
       }
     });
   }
