@@ -44,8 +44,19 @@ export interface UpdateDashboardRequest {
   layoutConfig?: string;
 }
 
+
 // Dashboard Designer Types
-export type WidgetType = 'header' | 'markdown' | 'calendar' | 'weather' | 'weather-forecast' | 'graph' | 'todo';
+export type WidgetType =
+  | 'header'
+  | 'markdown'
+  | 'calendar'
+  | 'weather'
+  | 'weather-forecast'
+  | 'graph'
+  | 'todo'
+  | 'display'
+  | 'app-icon'
+  | 'image';
 
 export interface WidgetPosition {
   x: number;
@@ -54,11 +65,37 @@ export interface WidgetPosition {
   h: number;
 }
 
+
+export interface DisplayConfig {
+  text: string;
+  fontSize?: number;
+  color?: string;
+}
+
+export interface AppIconConfig {
+  iconUrl?: string; // fallback to default app icon if not set
+  size?: number;
+}
+
+export interface ImageConfig {
+  imageUrl: string;
+  fit?: 'contain' | 'cover' | 'fill';
+}
+
 export interface WidgetConfig {
   id: string;
   type: WidgetType;
   position: WidgetPosition;
-  config: HeaderConfig | MarkdownConfig | CalendarConfig | WeatherConfig | GraphConfig | TodoConfig;
+  config:
+    | HeaderConfig
+    | MarkdownConfig
+    | CalendarConfig
+    | WeatherConfig
+    | GraphConfig
+    | TodoConfig
+    | DisplayConfig
+    | AppIconConfig
+    | ImageConfig;
 }
 
 export interface HeaderConfig {
@@ -103,6 +140,8 @@ export interface DashboardLayout {
   gridRows: number;
   colorScheme: ColorScheme;
   widgets: WidgetConfig[];
+  canvasPadding?: number;
+  widgetGap?: number;
 }
 
 export interface ColorScheme {
