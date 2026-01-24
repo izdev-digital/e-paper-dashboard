@@ -1,3 +1,4 @@
+
 using System.Text.Json;
 using System.Net.WebSockets;
 using System.Text;
@@ -106,6 +107,66 @@ public class HomeAssistantService(
         catch (Exception ex)
         {
             return $"Failed to fetch entities: {ex.Message}";
+        }
+    }
+
+    public async Task<Result<List<TodoItem>, string>> FetchTodoItems(string dashboardId, string todoEntityId)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+
+            var messageId = _messageId++;
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "todo/get_items",
+                entity_id = todoEntityId
+            });
+
+            var response = await ReceiveMessageAsync(ws);
+            var json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
+
+            var items = new List<TodoItem>();
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) &&
+                result.TryGetProperty(todoEntityId, out var entityObj) &&
+                entityObj.TryGetProperty("items", out var itemsArray) &&
+                itemsArray.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in itemsArray.EnumerateArray())
+                {
+                    var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
+                    var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
+                    var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
+                    items.Add(new TodoItem
+                    {
+                        Summary = summary ?? string.Empty,
+                        Status = status ?? string.Empty,
+                        Uid = uid ?? string.Empty
+                    });
+                }
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return items;
+        }
+        catch (WebSocketException)
+        {
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to fetch todo items: {ex.Message}";
         }
     }
 
@@ -451,4 +512,11 @@ public record HassEntityState
     public string EntityId { get; init; } = string.Empty;
     public string State { get; init; } = string.Empty;
     public Dictionary<string, object?> Attributes { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public record TodoItem
+{
+    public string Summary { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public string Uid { get; init; } = string.Empty;
 }

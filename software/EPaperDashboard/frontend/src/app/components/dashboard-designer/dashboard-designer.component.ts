@@ -13,6 +13,8 @@ import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService } from '../../services/home-assistant.service';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
+
+import type { TodoItem } from '../../services/home-assistant.service';
 import {
   Dashboard,
   DashboardLayout,
@@ -32,6 +34,9 @@ import {
   styleUrls: ['./dashboard-designer.component.scss']
 })
 export class DashboardDesignerComponent implements OnInit {
+  todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
+
+// Only one @Component and class definition should exist
     // Handle mousedown on toolbox widget to start drag with template preview
     onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
       event.preventDefault();
@@ -422,7 +427,41 @@ export class DashboardDesignerComponent implements OnInit {
         const map: Record<string, HassEntityState> = {};
         states.forEach(s => { map[s.entityId] = s; });
         this.entityStates.set(map);
-        this.livePreviewLoading.set(false);
+
+        // For each todo entity, fetch its items
+        const todoEntityIds = this.layout().widgets
+          .filter(w => w.type === 'todo' && (w.config as any).entityId)
+          .map(w => (w.config as any).entityId)
+          .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+
+        if (todoEntityIds.length === 0) {
+          this.todoItemsByEntityId.set({});
+          this.livePreviewLoading.set(false);
+          return;
+        }
+
+        let completed = 0;
+        const todoMap: Record<string, TodoItem[]> = {};
+        todoEntityIds.forEach(entityId => {
+          this.homeAssistantService.getTodoItems(this.dashboardId, entityId).subscribe({
+            next: (items) => {
+              todoMap[entityId] = items || [];
+              completed++;
+              if (completed === todoEntityIds.length) {
+                this.todoItemsByEntityId.set(todoMap);
+                this.livePreviewLoading.set(false);
+              }
+            },
+            error: () => {
+              todoMap[entityId] = [];
+              completed++;
+              if (completed === todoEntityIds.length) {
+                this.todoItemsByEntityId.set(todoMap);
+                this.livePreviewLoading.set(false);
+              }
+            }
+          });
+        });
       },
       error: (err) => {
         console.error('Failed to load live data from Home Assistant:', err);

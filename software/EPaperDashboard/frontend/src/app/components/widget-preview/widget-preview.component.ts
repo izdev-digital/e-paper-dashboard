@@ -1,4 +1,5 @@
 import { Component, Input } from '@angular/core';
+import type { TodoItem } from '../../services/home-assistant.service';
 import { CommonModule } from '@angular/common';
 import {
   WidgetConfig,
@@ -151,23 +152,41 @@ import {
             </ng-container>
             <ng-container *ngIf="getEntityState(asTodoConfig(widget.config).entityId)">
               <div class="todo-content">
-                <h4>Tasks</h4>
-                <div class="todo-state">{{ getEntityState(asTodoConfig(widget.config).entityId)!.state }}</div>
-                <ng-container *ngIf="getTodoItems(asTodoConfig(widget.config).entityId).length">
-                  <div class="todo-items">
-                    <ng-container *ngFor="let item of getTodoItems(asTodoConfig(widget.config).entityId); trackBy: trackByItemId">
-                      <div class="todo-item">
-                        <ng-container *ngIf="item.complete; else notComplete">
-                          <i class="fa fa-check-circle"></i>
-                        </ng-container>
-                        <ng-template #notComplete>
-                          <i class="fa fa-circle"></i>
-                        </ng-template>
-                        <span [class.completed]="item.complete">{{ item.summary }}</span>
-                      </div>
-                    </ng-container>
+                <ng-container *ngIf="widget.position.w === 1 && widget.position.h === 1; else todoListView">
+                  <div class="todo-count" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
+                    <i class="fa fa-list-check" style="font-size:1.2rem;"></i>
+                    <span style="font-size:1.2rem;font-weight:bold;">{{ getPendingTodoCount(asTodoConfig(widget.config).entityId) }}</span>
+                    <small>Pending</small>
                   </div>
                 </ng-container>
+                <ng-template #todoListView>
+                  <h4>Tasks</h4>
+                  <ng-container *ngIf="getTodoItemsLimited(asTodoConfig(widget.config).entityId, widget.position.w, widget.position.h).length > 0; else noTasks">
+                    <div class="todo-items">
+                      <ng-container *ngFor="let item of getTodoItemsLimited(asTodoConfig(widget.config).entityId, widget.position.w, widget.position.h); trackBy: trackByItemId">
+                        <div class="todo-item">
+                          <ng-container *ngIf="item.complete; else notComplete">
+                            <i class="fa fa-check-circle"></i>
+                          </ng-container>
+                          <ng-template #notComplete>
+                            <i class="fa fa-circle"></i>
+                          </ng-template>
+                          <span [class.completed]="item.complete">{{ item.summary }}</span>
+                        </div>
+                      </ng-container>
+                    </div>
+                  </ng-container>
+                  <ng-template #noTasks>
+                    <div class="empty-state">
+                      <i class="fa fa-list-check"></i>
+                      <p>No tasks found.</p>
+                      <small *ngIf="getEntityState(asTodoConfig(widget.config).entityId)">
+                        State: {{ getEntityState(asTodoConfig(widget.config).entityId)!.state }}<br>
+                        Attributes: {{ getEntityState(asTodoConfig(widget.config).entityId)!.attributes | json }}
+                      </small>
+                    </div>
+                  </ng-template>
+                </ng-template>
               </div>
             </ng-container>
           </div>
@@ -403,6 +422,8 @@ import {
   `]
 })
 export class WidgetPreviewComponent {
+  @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
+  // ...existing code...
   // Add missing config helpers for new widget types
   asDisplayConfig(config: any) {
     return config as any;
@@ -475,15 +496,37 @@ export class WidgetPreviewComponent {
     return item.temperature || '';
   }
 
-  getTodoItems(entityId?: string) {
+  getTodoItems(entityId?: string): Array<{ id: string | number; complete: boolean; summary: string }> {
+    if (this.todoItemsByEntityId && entityId && this.todoItemsByEntityId[entityId]) {
+      // Map backend items to expected format for display
+      return this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
+        ...item,
+        id: item.uid || item.id || idx,
+        // Home Assistant todo items may represent completion in different ways
+        complete: (item.status && (item.status === 'completed' || item.status === 'done')) || item.complete === true || item.completed === true || false,
+        summary: item.summary || item.title || ''
+      }));
+    }
+    // fallback to old state-based logic (should not be used)
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];
-    return items.slice(0, 3).map((item, idx) => ({
+    return items.map((item: any, idx: number) => ({
       ...item,
       id: idx,
       complete: item.complete || false,
       summary: item.summary || ''
     }));
+  }
+
+  getPendingTodoCount(entityId?: string): number {
+    const items = this.getTodoItems(entityId);
+    return items.filter(i => !i.complete).length;
+  }
+
+  getTodoItemsLimited(entityId?: string, w = 2, h = 2): any[] {
+    // Estimate how many items fit: 1 row per h, 2 items per w (roughly)
+    const max = Math.max(1, w * h);
+    return this.getTodoItems(entityId).slice(0, max);
   }
 }
