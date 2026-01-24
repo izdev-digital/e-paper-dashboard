@@ -109,6 +109,83 @@ public class HomeAssistantService(
         }
     }
 
+    public async Task<Result<List<HassEntityState>, string>> FetchEntityStates(string dashboardId, IEnumerable<string> entityIds)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        var requestedIds = new HashSet<string>(entityIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+        if (requestedIds.Count == 0)
+        {
+            return Result.Success<List<HassEntityState>, string>(new List<HassEntityState>());
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+
+            await SendMessageAsync(ws, new
+            {
+                id = 1,
+                type = "get_states"
+            });
+
+            var statesResponse = await ReceiveMessageAsync(ws);
+            var statesResult = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(statesResponse);
+
+            var entityStates = new List<HassEntityState>();
+
+            if (statesResult.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                statesResult.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in result.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(entityId) || !requestedIds.Contains(entityId))
+                    {
+                        continue;
+                    }
+
+                    var state = entity.TryGetProperty("state", out var stateProp) ? stateProp.GetString() : string.Empty;
+                    var attributes = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+                    if (entity.TryGetProperty("attributes", out var attrs) && attrs.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var attr in attrs.EnumerateObject())
+                        {
+                            attributes[attr.Name] = ExtractJsonValue(attr.Value);
+                        }
+                    }
+
+                    entityStates.Add(new HassEntityState
+                    {
+                        EntityId = entityId,
+                        State = state ?? string.Empty,
+                        Attributes = attributes
+                    });
+                }
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+
+            return entityStates;
+        }
+        catch (WebSocketException)
+        {
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to fetch entity states: {ex.Message}";
+        }
+    }
+
     private Result<Models.Dashboard, string> ValidateAndGetDashboard(string dashboardId)
     {
         if (string.IsNullOrWhiteSpace(dashboardId))
@@ -195,6 +272,20 @@ public class HomeAssistantService(
         var json = System.Text.Json.JsonSerializer.Serialize(message);
         var bytes = Encoding.UTF8.GetBytes(json);
         await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+
+    private static object? ExtractJsonValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.TryGetDouble(out var d) ? d : null,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Object => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(element.ToString()) ?? new Dictionary<string, object?>(),
+            JsonValueKind.Array => System.Text.Json.JsonSerializer.Deserialize<List<object?>>(element.ToString()) ?? new List<object?>(),
+            _ => null
+        };
     }
 
     private async Task GetDashboardViews(ClientWebSocket ws, string hostUrl, string urlPath, string dashboardTitle, List<HassUrlInfo> results)
@@ -353,4 +444,11 @@ public record HassEntity
 {
     public string EntityId { get; init; } = string.Empty;
     public string FriendlyName { get; init; } = string.Empty;
+}
+
+public record HassEntityState
+{
+    public string EntityId { get; init; } = string.Empty;
+    public string State { get; init; } = string.Empty;
+    public Dictionary<string, object?> Attributes { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
