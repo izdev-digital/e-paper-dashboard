@@ -1,15 +1,15 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { 
-  WidgetConfig, 
-  ColorScheme, 
-  HeaderConfig, 
-  MarkdownConfig, 
-  CalendarConfig, 
-  WeatherConfig, 
-  GraphConfig, 
+import {
+  WidgetConfig,
+  ColorScheme,
+  HeaderConfig,
+  MarkdownConfig,
+  CalendarConfig,
+  WeatherConfig,
+  GraphConfig,
   TodoConfig,
-  HassEntityState 
+  HassEntityState
 } from '../../models/types';
 
 @Component({
@@ -18,168 +18,161 @@ import {
   imports: [CommonModule],
   template: `
     <div class="widget-preview">
-      @switch (widget.type) {
+      <ng-container [ngSwitch]="widget.type">
+        <!-- Display Widget -->
+
+        <ng-container *ngSwitchCase="'display'">
+          <div class="display-widget" [ngStyle]="{'font-size.px': asDisplayConfig(widget.config).fontSize || 18, 'color': asDisplayConfig(widget.config).color || colorScheme.foreground}">
+            {{ asDisplayConfig(widget.config).text }}
+          </div>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'app-icon'">
+          <div class="app-icon-widget" style="display:flex;align-items:center;justify-content:center;height:100%;">
+            <img [src]="asAppIconConfig(widget.config).iconUrl || '/icon.svg'" [style.width.px]="asAppIconConfig(widget.config).size || 48" [style.height.px]="asAppIconConfig(widget.config).size || 48" alt="App Icon" style="object-fit:contain;" />
+          </div>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'image'">
+          <div class="image-widget" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+            <img [src]="asImageConfig(widget.config).imageUrl" alt="Image" [style.object-fit]="asImageConfig(widget.config).fit || 'contain'" style="max-width:100%;max-height:100%;" />
+          </div>
+        </ng-container>
+
         <!-- Header Widget -->
-        @case ('header') {
+        <ng-container *ngSwitchCase="'header'">
           <div class="header-widget">
             <h3 class="header-title">{{ asHeaderConfig(widget.config).title }}</h3>
-            @if (asHeaderConfig(widget.config).badges?.length) {
-              <div class="badges">
-                @for (badge of asHeaderConfig(widget.config).badges; track badge.label) {
-                  @if (badge.entityId && getEntityState(badge.entityId)) {
-                    <span class="badge">
-                      @if (badge.icon) {
-                        <i class="fa" [ngClass]="badge.icon"></i>
-                      }
-                      {{ badge.label }}: 
-                      <span class="badge-value">{{ getEntityState(badge.entityId)!.state }}</span>
-                    </span>
-                  }
-                }
-              </div>
-            }
+            <div class="badges" *ngIf="asHeaderConfig(widget.config).badges?.length">
+              <span class="badge" *ngFor="let badge of asHeaderConfig(widget.config).badges; trackBy: trackByBadgeLabel">
+                <ng-container *ngIf="badge.entityId && getEntityState(badge.entityId)">
+                  {{ getEntityState(badge.entityId)?.state }}
+                  <span class="badge-value" *ngIf="getEntityState(badge.entityId)?.attributes?.['unit_of_measurement']">
+                    {{ getEntityState(badge.entityId)?.attributes?.['unit_of_measurement'] }}
+                  </span>
+                </ng-container>
+                <ng-container *ngIf="!badge.entityId || !getEntityState(badge.entityId)">
+                  {{ badge.label }}
+                </ng-container>
+              </span>
+            </div>
           </div>
-        }
-
-        <!-- Markdown Widget -->
-        @case ('markdown') {
-          <div class="markdown-widget">
-            <div class="markdown-content">{{ asMarkdownConfig(widget.config).content }}</div>
-          </div>
-        }
-
-        <!-- Calendar Widget -->
-        @case ('calendar') {
-          <div class="calendar-widget">
-            @if (!getEntityState(asCalendarConfig(widget.config).entityId)) {
-              <div class="empty-state">
-                <i class="fa fa-calendar"></i>
-                <p>Not configured</p>
-              </div>
-            }
-            @if (getEntityState(asCalendarConfig(widget.config).entityId)) {
-              <div class="calendar-content">
-                <h4>Calendar</h4>
-                <div class="calendar-state">{{ getEntityState(asCalendarConfig(widget.config).entityId)?.state }}</div>
-                @if (getEntityState(asCalendarConfig(widget.config).entityId)?.attributes?.['message']) {
-                  <div class="calendar-message">
-                    {{ getEntityState(asCalendarConfig(widget.config).entityId)?.attributes?.['message'] }}
-                  </div>
-                }
-              </div>
-            }
-          </div>
-        }
+        </ng-container>
 
         <!-- Weather Widget -->
-        @case ('weather') {
+        <ng-container *ngSwitchCase="'weather'">
           <div class="weather-widget">
-            @if (!getEntityState(asWeatherConfig(widget.config).entityId)) {
+            <ng-container *ngIf="!getEntityState(asWeatherConfig(widget.config).entityId)">
               <div class="empty-state">
                 <i class="fa fa-cloud-sun"></i>
                 <p>Not configured</p>
               </div>
-            } @else {
+            </ng-container>
+            <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)">
               <div class="weather-content">
                 <div class="weather-condition">{{ getEntityState(asWeatherConfig(widget.config).entityId)!.state }}</div>
-                @if (getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['temperature']) {
+                <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['temperature']">
                   <div class="weather-temp">{{ getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['temperature'] }}°</div>
-                }
-                @if (getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['humidity']) {
+                </ng-container>
+                <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['humidity']">
                   <div class="weather-humidity">
                     <i class="fa fa-droplet"></i> {{ getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['humidity'] }}%
                   </div>
-                }
-                @if (getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['wind_speed']) {
+                </ng-container>
+                <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['wind_speed']">
                   <div class="weather-wind">
                     <i class="fa fa-wind"></i> {{ getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['wind_speed'] }}
                   </div>
-                }
+                </ng-container>
               </div>
-            }
+            </ng-container>
           </div>
-        }
+        </ng-container>
 
         <!-- Weather Forecast Widget -->
-        @case ('weather-forecast') {
+        <ng-container *ngSwitchCase="'weather-forecast'">
           <div class="weather-forecast-widget">
-            @if (!getEntityState(asWeatherConfig(widget.config).entityId)) {
+            <ng-container *ngIf="!getEntityState(asWeatherConfig(widget.config).entityId)">
               <div class="empty-state">
                 <i class="fa fa-cloud-sun-rain"></i>
                 <p>Not configured</p>
               </div>
-            } @else {
+            </ng-container>
+            <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)">
               <div class="forecast-content">
                 <div class="forecast-header">{{ getEntityState(asWeatherConfig(widget.config).entityId)!.state }}</div>
-                @if (getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['forecast']) {
+                <ng-container *ngIf="getEntityState(asWeatherConfig(widget.config).entityId)!.attributes?.['forecast']">
                   <div class="forecast-items">
-                    @for (item of getForecastItems(asWeatherConfig(widget.config).entityId); track item.id) {
+                    <ng-container *ngFor="let item of getForecastItems(asWeatherConfig(widget.config).entityId); trackBy: trackByItemId">
                       <div class="forecast-item">
                         <small>{{ getItemDate(item) }}</small>
                         <div>{{ getItemCondition(item) }}</div>
                         <small>{{ getItemTemp(item) }}°</small>
                       </div>
-                    }
+                    </ng-container>
                   </div>
-                }
+                </ng-container>
               </div>
-            }
+            </ng-container>
           </div>
-        }
+        </ng-container>
 
         <!-- Graph Widget -->
-        @case ('graph') {
+        <ng-container *ngSwitchCase="'graph'">
           <div class="graph-widget">
-            @if (!getEntityState(asGraphConfig(widget.config).entityId)) {
+            <ng-container *ngIf="!getEntityState(asGraphConfig(widget.config).entityId)">
               <div class="empty-state">
                 <i class="fa fa-chart-line"></i>
                 <p>Not configured</p>
               </div>
-            } @else {
+            </ng-container>
+            <ng-container *ngIf="getEntityState(asGraphConfig(widget.config).entityId)">
               <div class="graph-content">
                 <div class="graph-label">{{ asGraphConfig(widget.config).label || getEntityState(asGraphConfig(widget.config).entityId)!.entityId }}</div>
                 <div class="graph-value">{{ getEntityState(asGraphConfig(widget.config).entityId)!.state }}</div>
                 <div class="graph-unit">
-                  @if (getEntityState(asGraphConfig(widget.config).entityId)!.attributes?.['unit_of_measurement']) {
+                  <ng-container *ngIf="getEntityState(asGraphConfig(widget.config).entityId)!.attributes?.['unit_of_measurement']">
                     {{ getEntityState(asGraphConfig(widget.config).entityId)!.attributes?.['unit_of_measurement'] }}
-                  }
+                  </ng-container>
                 </div>
               </div>
-            }
+            </ng-container>
           </div>
-        }
+        </ng-container>
 
         <!-- Todo Widget -->
-        @case ('todo') {
+        <ng-container *ngSwitchCase="'todo'">
           <div class="todo-widget">
-            @if (!getEntityState(asTodoConfig(widget.config).entityId)) {
+            <ng-container *ngIf="!getEntityState(asTodoConfig(widget.config).entityId)">
               <div class="empty-state">
                 <i class="fa fa-list-check"></i>
                 <p>Not configured</p>
               </div>
-            } @else {
+            </ng-container>
+            <ng-container *ngIf="getEntityState(asTodoConfig(widget.config).entityId)">
               <div class="todo-content">
                 <h4>Tasks</h4>
                 <div class="todo-state">{{ getEntityState(asTodoConfig(widget.config).entityId)!.state }}</div>
-                @if (getTodoItems(asTodoConfig(widget.config).entityId).length) {
+                <ng-container *ngIf="getTodoItems(asTodoConfig(widget.config).entityId).length">
                   <div class="todo-items">
-                    @for (item of getTodoItems(asTodoConfig(widget.config).entityId); track item.id) {
+                    <ng-container *ngFor="let item of getTodoItems(asTodoConfig(widget.config).entityId); trackBy: trackByItemId">
                       <div class="todo-item">
-                        @if (item.complete) {
+                        <ng-container *ngIf="item.complete; else notComplete">
                           <i class="fa fa-check-circle"></i>
-                        } @else {
+                        </ng-container>
+                        <ng-template #notComplete>
                           <i class="fa fa-circle"></i>
-                        }
+                        </ng-template>
                         <span [class.completed]="item.complete">{{ item.summary }}</span>
                       </div>
-                    }
+                    </ng-container>
                   </div>
-                }
+                </ng-container>
               </div>
-            }
+            </ng-container>
           </div>
-        }
-      }
+        </ng-container>
+      </ng-container>
     </div>
   `,
   styles: [`
@@ -410,6 +403,24 @@ import {
   `]
 })
 export class WidgetPreviewComponent {
+  // Add missing config helpers for new widget types
+  asDisplayConfig(config: any) {
+    return config as any;
+  }
+  asAppIconConfig(config: any) {
+    return config as any;
+  }
+  asImageConfig(config: any) {
+    return config as any;
+  }
+
+  // Add trackBy functions for *ngFor
+  trackByBadgeLabel(index: number, badge: any) {
+    return badge.label || badge.entityId || index;
+  }
+  trackByItemId(index: number, item: any) {
+    return item.id || index;
+  }
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
@@ -468,8 +479,8 @@ export class WidgetPreviewComponent {
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];
-    return items.slice(0, 3).map((item, idx) => ({ 
-      ...item, 
+    return items.slice(0, 3).map((item, idx) => ({
+      ...item,
       id: idx,
       complete: item.complete || false,
       summary: item.summary || ''

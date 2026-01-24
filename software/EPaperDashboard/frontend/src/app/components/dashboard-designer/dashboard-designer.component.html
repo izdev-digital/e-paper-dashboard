@@ -155,6 +155,14 @@
                     <label class="form-label small">Grid Rows</label>
                     <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridRows" (ngModelChange)="updateLayoutGridRows($event)" />
                   </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Canvas Padding</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().canvasPadding" (ngModelChange)="updateCanvasPadding($event)" min="0" max="128" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Gap</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetGap" (ngModelChange)="updateWidgetGap($event)" min="0" max="64" />
+                  </div>
                 </div>
               </div>
             }

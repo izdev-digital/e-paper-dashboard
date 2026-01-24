@@ -136,7 +136,9 @@ export class DashboardDesignerComponent implements OnInit {
     gridCols: 12,
     gridRows: 8,
     colorScheme: DEFAULT_COLOR_SCHEMES[0],
-    widgets: []
+    widgets: [],
+    canvasPadding: 16,
+    widgetGap: 4
   });
 
   colorSchemes = DEFAULT_COLOR_SCHEMES;
@@ -147,7 +149,10 @@ export class DashboardDesignerComponent implements OnInit {
     { type: 'weather', label: 'Weather', icon: 'fa-cloud-sun' },
     { type: 'weather-forecast', label: 'Weather Forecast', icon: 'fa-cloud-sun-rain' },
     { type: 'graph', label: 'Graph', icon: 'fa-chart-line' },
-    { type: 'todo', label: 'Todo List', icon: 'fa-list-check' }
+    { type: 'todo', label: 'Todo List', icon: 'fa-list-check' },
+    { type: 'display', label: 'Display', icon: 'fa-display' },
+    { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
+    { type: 'image', label: 'Image', icon: 'fa-image' }
   ];
 
   selectedWidget = signal<WidgetConfig | null>(null);
@@ -303,6 +308,12 @@ export class DashboardDesignerComponent implements OnInit {
         return { entityId: '', period: '24h', label: '' };
       case 'todo':
         return { entityId: '' };
+      case 'display':
+        return { text: 'Display Text', fontSize: 18, color: '' };
+      case 'app-icon':
+        return { iconUrl: '', size: 48 };
+      case 'image':
+        return { imageUrl: '', fit: 'contain' };
       default:
         return {};
     }
@@ -551,10 +562,18 @@ export class DashboardDesignerComponent implements OnInit {
       display: 'grid',
       gridTemplateColumns: `repeat(${layout.gridCols}, 1fr)`,
       gridTemplateRows: `repeat(${layout.gridRows}, 1fr)`,
-      gap: '4px',
+      gap: `${layout.widgetGap ?? 0}px`,
+      padding: `${layout.canvasPadding ?? 0}px`,
       position: 'relative',
-      boxSizing: 'content-box',
+      boxSizing: 'border-box',
     };
+  }
+  updateCanvasPadding(padding: number): void {
+    this.layout.update(layout => ({ ...layout, canvasPadding: padding }));
+  }
+
+  updateWidgetGap(gap: number): void {
+    this.layout.update(layout => ({ ...layout, widgetGap: gap }));
   }
 
   getWidgetStyle(widget: WidgetConfig): any {

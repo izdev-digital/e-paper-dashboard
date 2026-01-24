@@ -21,6 +21,14 @@ import { HomeAssistantService } from '../../services/home-assistant.service';
   styleUrls: ['./widget-config.component.scss']
 })
 export class WidgetConfigComponent implements OnInit {
+  // TrackBy function for badges in ngFor
+  trackByBadgeLabel(index: number, badge: any) {
+    return badge.label || badge.entityId || index;
+  }
+  // TrackBy function for entities in ngFor
+  trackByEntityId(index: number, entity: any) {
+    return entity.entity_id || index;
+  }
   private readonly homeAssistantService = inject(HomeAssistantService);
 
   @Input() widget!: WidgetConfig;
