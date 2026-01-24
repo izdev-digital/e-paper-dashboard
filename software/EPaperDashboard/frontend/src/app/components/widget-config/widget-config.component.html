@@ -1,0 +1,166 @@
+@switch (widget.type) {
+  <!-- Header Config -->
+  @case ('header') {
+    <div class="mb-3">
+      <label class="form-label">Title</label>
+      <input type="text" class="form-control" [(ngModel)]="headerConfig.title" />
+    </div>
+    
+    <div class="mb-3">
+      <label class="form-label">Badges</label>
+      @for (badge of headerConfig.badges; track badge.label; let i = $index) {
+        <div class="badge-item mb-2">
+          <div class="input-group input-group-sm">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Label"
+              [(ngModel)]="badge.label"
+            />
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Icon (e.g., fa-home)"
+              [(ngModel)]="badge.icon"
+            />
+            <button class="btn btn-danger" (click)="removeBadge(i)">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+          <select class="form-select form-select-sm mt-1" [(ngModel)]="badge.entityId">
+            <option [ngValue]="undefined">No Entity</option>
+            @for (entity of entities; track entity.entity_id) {
+              <option [ngValue]="entity.entity_id">
+                {{ entity.friendly_name || entity.entity_id }}
+              </option>
+            }
+          </select>
+        </div>
+      }
+      <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()">
+        <i class="fa fa-plus"></i> Add Badge
+      </button>
+    </div>
+  }
+
+  <!-- Markdown Config -->
+  @case ('markdown') {
+    <div class="mb-3">
+      <label class="form-label">Content</label>
+      <textarea
+        class="form-control"
+        rows="6"
+        [(ngModel)]="markdownConfig.content"
+        placeholder="# Markdown content here"
+      ></textarea>
+    </div>
+  }
+
+  <!-- Calendar Config -->
+  @case ('calendar') {
+    <div class="mb-3">
+      <label class="form-label">Calendar Entity</label>
+      <select class="form-select" [(ngModel)]="calendarConfig.entityId">
+        <option value="">Select entity...</option>
+        @for (entity of entities; track entity.entity_id) {
+          <option [value]="entity.entity_id">
+            {{ entity.friendly_name || entity.entity_id }}
+          </option>
+        }
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Max Events</label>
+      <input
+        type="number"
+        class="form-control"
+        [(ngModel)]="calendarConfig.maxEvents"
+        min="1"
+        max="20"
+      />
+    </div>
+  }
+
+  <!-- Weather Config -->
+  @case ('weather') {
+    <div class="mb-3">
+      <label class="form-label">Weather Entity</label>
+      <select class="form-select" [(ngModel)]="weatherConfig.entityId">
+        <option value="">Select entity...</option>
+        @for (entity of entities; track entity.entity_id) {
+          <option [value]="entity.entity_id">
+            {{ entity.friendly_name || entity.entity_id }}
+          </option>
+        }
+      </select>
+    </div>
+  }
+
+  <!-- Weather Forecast Config -->
+  @case ('weather-forecast') {
+    <div class="mb-3">
+      <label class="form-label">Weather Entity</label>
+      <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId">
+        <option value="">Select entity...</option>
+        @for (entity of entities; track entity.entity_id) {
+          <option [value]="entity.entity_id">
+            {{ entity.friendly_name || entity.entity_id }}
+          </option>
+        }
+      </select>
+    </div>
+  }
+
+  <!-- Graph Config -->
+  @case ('graph') {
+    <div class="mb-3">
+      <label class="form-label">Sensor Entity</label>
+      <select class="form-select" [(ngModel)]="graphConfig.entityId">
+        <option value="">Select entity...</option>
+        @for (entity of entities; track entity.entity_id) {
+          <option [value]="entity.entity_id">
+            {{ entity.friendly_name || entity.entity_id }}
+          </option>
+        }
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Period</label>
+      <select class="form-select" [(ngModel)]="graphConfig.period">
+        <option value="1h">1 Hour</option>
+        <option value="6h">6 Hours</option>
+        <option value="24h">24 Hours</option>
+        <option value="7d">7 Days</option>
+        <option value="30d">30 Days</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Label (optional)</label>
+      <input type="text" class="form-control" [(ngModel)]="graphConfig.label" />
+    </div>
+  }
+
+  <!-- Todo Config -->
+  @case ('todo') {
+    <div class="mb-3">
+      <label class="form-label">Todo Entity</label>
+      <select class="form-select" [(ngModel)]="todoConfig.entityId">
+        <option value="">Select entity...</option>
+        @for (entity of entities; track entity.entity_id) {
+          <option [value]="entity.entity_id">
+            {{ entity.friendly_name || entity.entity_id }}
+          </option>
+        }
+      </select>
+    </div>
+  }
+}
+
+@if (!dashboard?.hasAccessToken) {
+  <div class="alert alert-warning mt-3">
+    <small>
+      <i class="fa fa-exclamation-triangle"></i>
+      Configure Home Assistant access token in dashboard settings to bind entities.
+    </small>
+  </div>
+}

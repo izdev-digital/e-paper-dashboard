@@ -25,6 +25,7 @@ export interface Dashboard {
   host?: string;
   path?: string;
   updateTimes?: string[];
+  layoutConfig?: string;
 }
 
 export interface CreateDashboardRequest {
@@ -40,4 +41,98 @@ export interface UpdateDashboardRequest {
   host?: string;
   path?: string;
   updateTimes?: string[];
+  layoutConfig?: string;
 }
+
+// Dashboard Designer Types
+export type WidgetType = 'header' | 'markdown' | 'calendar' | 'weather' | 'weather-forecast' | 'graph' | 'todo';
+
+export interface WidgetPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface WidgetConfig {
+  id: string;
+  type: WidgetType;
+  position: WidgetPosition;
+  config: HeaderConfig | MarkdownConfig | CalendarConfig | WeatherConfig | GraphConfig | TodoConfig;
+}
+
+export interface HeaderConfig {
+  title: string;
+  badges?: BadgeConfig[];
+}
+
+export interface BadgeConfig {
+  label: string;
+  entityId?: string;
+  icon?: string;
+}
+
+export interface MarkdownConfig {
+  content: string;
+}
+
+export interface CalendarConfig {
+  entityId: string;
+  maxEvents: number;
+}
+
+export interface WeatherConfig {
+  entityId: string;
+  showForecast: boolean;
+}
+
+export interface GraphConfig {
+  entityId: string;
+  period: '1h' | '6h' | '24h' | '7d' | '30d';
+  label?: string;
+}
+
+export interface TodoConfig {
+  entityId: string;
+}
+
+export interface DashboardLayout {
+  width: number;
+  height: number;
+  gridCols: number;
+  gridRows: number;
+  colorScheme: ColorScheme;
+  widgets: WidgetConfig[];
+}
+
+export interface ColorScheme {
+  name: string;
+  background: string;
+  foreground: string;
+  accent: string;
+  text: string;
+}
+
+export const DEFAULT_COLOR_SCHEMES: ColorScheme[] = [
+  {
+    name: 'E-Paper (Black/Red/White)',
+    background: '#ffffff',
+    foreground: '#000000',
+    accent: '#ff0000',
+    text: '#000000'
+  },
+  {
+    name: 'E-Paper (Black/White)',
+    background: '#ffffff',
+    foreground: '#000000',
+    accent: '#666666',
+    text: '#000000'
+  },
+  {
+    name: 'E-Paper (Yellow/Black/White)',
+    background: '#ffffff',
+    foreground: '#000000',
+    accent: '#ffcc00',
+    text: '#000000'
+  }
+];

@@ -125,6 +125,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         if (request.Host != null) updatedDashboard.Host = request.Host;
         if (request.Path != null) updatedDashboard.Path = request.Path;
         if (request.UpdateTimes != null) updatedDashboard.UpdateTimes = request.UpdateTimes;
+        if (request.LayoutConfig != null) updatedDashboard.LayoutConfig = request.LayoutConfig;
 
         _dashboardService.UpdateDashboard(updatedDashboard);
 
@@ -172,7 +173,8 @@ public record UpdateDashboardRequest(
     bool? ClearAccessToken,
     string? Host,
     string? Path,
-    List<TimeOnly>? UpdateTimes
+    List<TimeOnly>? UpdateTimes,
+    string? LayoutConfig
 );
 
 // DTO that hides the actual access token from the frontend (only exposes whether one is set)
@@ -185,7 +187,8 @@ public record DashboardResponseDto(
     bool HasAccessToken,
     string? Host,
     string? Path,
-    List<TimeOnly>? UpdateTimes
+    List<TimeOnly>? UpdateTimes,
+    string? LayoutConfig
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard) => new(
@@ -197,6 +200,7 @@ public record DashboardResponseDto(
         HasAccessToken: !string.IsNullOrWhiteSpace(dashboard.AccessToken),
         Host: dashboard.Host,
         Path: dashboard.Path,
-        UpdateTimes: dashboard.UpdateTimes
+        UpdateTimes: dashboard.UpdateTimes,
+        LayoutConfig: dashboard.LayoutConfig
     );
 }

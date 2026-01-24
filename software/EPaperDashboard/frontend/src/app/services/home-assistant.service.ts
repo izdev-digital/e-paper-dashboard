@@ -3,6 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+export interface HassEntity {
+  entityId: string;
+  friendlyName: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -23,6 +28,14 @@ export class HomeAssistantService {
       dashboardId: dashboardId
     }).pipe(
       map(response => response.dashboards || [])
+    );
+  }
+
+  getEntities(dashboardId: string): Observable<HassEntity[]> {
+    return this.http.post<{ entities: HassEntity[] }>('/api/homeassistant/fetch-entities', {
+      dashboardId: dashboardId
+    }).pipe(
+      map(response => response.entities || [])
     );
   }
 }
