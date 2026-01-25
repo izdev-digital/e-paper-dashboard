@@ -40,22 +40,23 @@
   flex-direction: row;
   align-items: center;
   width: 100%;
-  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
-  background: var(--bs-card-header-bg, #f8f9fa);
-  padding: 0;
+  border-bottom: 1px solid var(--bs-border-color, #e9ecef);
+  background: transparent;
+  padding: 0 6px;
   margin: 0;
-  min-height: 48px;
+  min-height: 40px;
 }
 
 
 .custom-tab-bar {
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: center;
   overflow-x: auto;
   white-space: nowrap;
   max-width: 100%;
   scrollbar-width: none;
+  gap: 6px;
 }
 .custom-tab-bar::-webkit-scrollbar {
   display: none;
@@ -63,32 +64,34 @@
 
 
 .tab-btn {
-  padding: 0.5rem 1.2rem;
-  background: none;
+  padding: 0.35rem 0.6rem;
+  background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
   color: var(--bs-nav-link-color, #495057);
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  transition: color 0.12s, background 0.12s;
   outline: none;
   white-space: nowrap;
-  height: 48px;
-  line-height: 1.2;
-  background: transparent;
-  border-radius: 0.25rem 0.25rem 0 0;
-  margin: 0 2px;
+  height: 34px;
+  line-height: 1;
+  border-radius: 0;
+  margin: 0;
   box-sizing: border-box;
   display: flex;
   align-items: center;
 }
+.tab-btn:hover {
+  background: rgba(0,0,0,0.02);
+}
+.tab-btn:focus {
+  outline: 2px solid rgba(0,0,0,0.06);
+  border-radius: 4px;
+}
 .tab-btn.active {
-  border-bottom: 2.5px solid var(--bs-primary, #007bff);
   color: var(--bs-primary, #007bff);
-  background: var(--bs-body-bg, #fff);
-  z-index: 1;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
+  font-weight: 600;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -111,18 +114,19 @@
 }
 
 .tab-switch-btn {
-  background: none;
+  background: transparent;
   border: none;
   color: var(--bs-secondary, #6c757d);
-  font-size: 1.2rem;
-  padding: 0 8px;
+  font-size: 1rem;
+  padding: 0 6px;
   cursor: pointer;
   z-index: 2;
-  transition: color 0.2s;
+  transition: color 0.12s;
   align-self: center;
 }
 .tab-switch-btn:focus {
-  outline: none;
+  outline: 2px solid rgba(0,123,255,0.12);
+  border-radius: 4px;
   color: var(--bs-primary, #007bff);
 }
 
