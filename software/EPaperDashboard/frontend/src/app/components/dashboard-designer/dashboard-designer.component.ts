@@ -44,7 +44,7 @@ export class DashboardDesignerComponent implements OnInit {
       const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
       if (!canvas) return;
 
-      // Create a preview element
+      // Create a small preview element that follows the cursor
       const preview = document.createElement('div');
       preview.className = 'toolbox-drag-preview';
       preview.style.position = 'fixed';
@@ -60,39 +60,43 @@ export class DashboardDesignerComponent implements OnInit {
       };
       movePreview(event);
 
-      const onMouseMove = (e: MouseEvent) => movePreview(e);
+      const onMouseMove = (e: MouseEvent) => {
+        movePreview(e);
+
+        // Update ghost if over canvas
+        const rect = canvas.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const cellWidth = rect.width / layout.gridCols;
+          const cellHeight = rect.height / layout.gridRows;
+          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor((e.clientX - rect.left) / cellWidth)));
+          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor((e.clientY - rect.top) / cellHeight)));
+          const w = Math.min(4, layout.gridCols - x);
+          const h = Math.min(2, layout.gridRows - y);
+          this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
+        } else {
+          this.ghost.set(null);
+        }
+      };
+
       const onMouseUp = (e: MouseEvent) => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         preview.remove();
 
-        // Check if mouse is over the canvas
-        const rect = canvas.getBoundingClientRect();
-        if (
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom
-        ) {
-          // Calculate grid position
-          const cellWidth = rect.width / layout.gridCols;
-          const cellHeight = rect.height / layout.gridRows;
-          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor((e.clientX - rect.left) / cellWidth)));
-          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor((e.clientY - rect.top) / cellHeight)));
+        // If ghost present, commit widget
+        const g = this.ghost();
+        if (g) {
           const newWidget: WidgetConfig = {
             id: this.generateId(),
             type: widget.type,
-            position: {
-              x,
-              y,
-              w: Math.min(4, layout.gridCols - x),
-              h: Math.min(2, layout.gridRows - y)
-            },
+            position: { ...g.position },
             config: this.getDefaultConfig(widget.type)
           };
           this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
         }
+        this.ghost.set(null);
       };
+
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     }
@@ -161,6 +165,7 @@ export class DashboardDesignerComponent implements OnInit {
   ];
 
   selectedWidget = signal<WidgetConfig | null>(null);
+  readonly ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
 
   onWidgetSelect(widget: WidgetConfig) {
     this.selectedWidget.set(widget);
@@ -197,6 +202,9 @@ export class DashboardDesignerComponent implements OnInit {
       this.toastService.show('No dashboard ID provided', 'error');
       this.isLoading.set(false);
     }
+
+    // Keyboard shortcuts: arrow keys move selected widget by one grid cell (Shift = larger step)
+    window.addEventListener('keydown', this.onGlobalKeyDown);
   }
 
   loadDashboard(): void {
@@ -510,39 +518,46 @@ export class DashboardDesignerComponent implements OnInit {
     let isDragging = true;
     this.dragStartPos = { x: event.clientX, y: event.clientY };
     this.dragStartWidget = { ...widget.position };
-    
+
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const layout = this.layout();
     const cellWidth = rect.width / layout.gridCols;
     const cellHeight = rect.height / layout.gridRows;
-    
+
+    // Initialize ghost with current position
+    this.ghost.set({ id: widget.id, position: { ...widget.position } });
+
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
-      
+
       const deltaX = e.clientX - this.dragStartPos.x;
       const deltaY = e.clientY - this.dragStartPos.y;
-      
+
       const gridDeltaX = Math.round(deltaX / cellWidth);
       const gridDeltaY = Math.round(deltaY / cellHeight);
-      
+
       const newX = Math.max(0, Math.min(layout.gridCols - widget.position.w, this.dragStartWidget.x + gridDeltaX));
       const newY = Math.max(0, Math.min(layout.gridRows - widget.position.h, this.dragStartWidget.y + gridDeltaY));
-      
-      this.layout.update(l => ({
-        ...l,
-        widgets: l.widgets.map(w => 
-          w.id === widget.id ? { ...w, position: { ...w.position, x: newX, y: newY } } : w
-        )
-      }));
+
+      this.ghost.set({ id: widget.id, position: { ...widget.position, x: newX, y: newY } });
     };
-    
+
     const onMouseUp = () => {
       isDragging = false;
+      // commit ghost to layout
+      const g = this.ghost();
+      if (g) {
+        this.layout.update(l => ({
+          ...l,
+          widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
+        }));
+      }
+      this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-    
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }
@@ -557,6 +572,10 @@ export class DashboardDesignerComponent implements OnInit {
     const layout = this.layout();
     const cellWidth = rect.width / layout.gridCols;
     const cellHeight = rect.height / layout.gridRows;
+
+    // initialize ghost
+    this.ghost.set({ id: widget.id, position: { ...widget.position } });
+
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
       const deltaX = e.clientX - this.dragStartPos.x;
@@ -571,15 +590,19 @@ export class DashboardDesignerComponent implements OnInit {
       if (direction === 's' || direction === 'se') {
         newH = Math.max(1, Math.min(layout.gridRows - widget.position.y, this.dragStartWidget.h + gridDeltaY));
       }
-      this.layout.update(l => ({
-        ...l,
-        widgets: l.widgets.map(w => 
-          w.id === widget.id ? { ...w, position: { ...w.position, w: newW, h: newH } } : w
-        )
-      }));
+
+      this.ghost.set({ id: widget.id, position: { ...widget.position, w: newW, h: newH } });
     };
     const onMouseUp = () => {
       isResizing = false;
+      const g = this.ghost();
+      if (g) {
+        this.layout.update(l => ({
+          ...l,
+          widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
+        }));
+      }
+      this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
@@ -607,6 +630,56 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, canvasPadding: padding }));
   }
 
+  // Render a subtle grid overlay using CSS background gradients sized to the layout cells
+  getGridOverlayStyle(): any {
+    const layout = this.layout();
+    const padding = layout.canvasPadding ?? 0;
+    const gap = layout.widgetGap ?? 0;
+    const cols = Math.max(1, layout.gridCols);
+    const rows = Math.max(1, layout.gridRows);
+
+    // Compute the inner area available for grid cells (subtract padding and gaps)
+    const innerWidth = Math.max(0, layout.width - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, layout.height - padding * 2 - gap * (rows - 1));
+
+    const cellWidth = innerWidth / cols;
+    const cellHeight = innerHeight / rows;
+    const lineColor = 'rgba(0,0,0,0.06)';
+
+    return {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      right: '0',
+      bottom: '0',
+      pointerEvents: 'none',
+      backgroundImage: `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
+      backgroundSize: `${cellWidth + gap}px ${cellHeight + gap}px, ${cellWidth + gap}px ${cellHeight + gap}px`,
+      backgroundPosition: `${padding}px ${padding}px, ${padding}px ${padding}px`,
+      zIndex: 1,
+      opacity: 0.6
+    };
+  }
+
+  // Move selected widget via keyboard arrows
+  private onGlobalKeyDown = (e: KeyboardEvent) => {
+    const sel = this.selectedWidget();
+    if (!sel) return;
+
+    let dx = 0;
+    let dy = 0;
+    const step = e.shiftKey ? 5 : 1;
+    switch (e.key) {
+      case 'ArrowLeft': dx = -step; break;
+      case 'ArrowRight': dx = step; break;
+      case 'ArrowUp': dy = -step; break;
+      case 'ArrowDown': dy = step; break;
+      default: return;
+    }
+    e.preventDefault();
+    this.moveWidget(sel, dx, dy);
+  }
+
   updateWidgetGap(gap: number): void {
     this.layout.update(layout => ({ ...layout, widgetGap: gap }));
   }
@@ -624,6 +697,25 @@ export class DashboardDesignerComponent implements OnInit {
       cursor: 'grab',
       position: 'relative',
       userSelect: 'none'
+    };
+  }
+
+  getGhostStyle(ghost: { id: string; position: WidgetPosition }): any {
+    const layout = this.layout();
+    const p = ghost.position;
+    return {
+      gridColumn: `${p.x + 1} / span ${p.w}`,
+      gridRow: `${p.y + 1} / span ${p.h}`,
+      backgroundColor: 'transparent',
+      border: `2px dashed ${layout.colorScheme.foreground}`,
+      color: layout.colorScheme.text,
+      padding: '8px',
+      overflow: 'visible',
+      cursor: 'grabbing',
+      position: 'relative',
+      userSelect: 'none',
+      zIndex: 3,
+      opacity: 0.7
     };
   }
 

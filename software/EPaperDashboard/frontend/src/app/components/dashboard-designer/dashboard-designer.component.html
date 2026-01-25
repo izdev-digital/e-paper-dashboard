@@ -61,6 +61,7 @@
           <div class="card-body" style="overflow: auto;">
             <div class="canvas-wrapper">
               <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()">
+                <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
                 @for (widget of layout().widgets; track widget.id) {
                   <div
                     class="widget-container"
@@ -79,6 +80,9 @@
                       <div class="resize-handle resize-se" data-direction="se"></div>
                     }
                   </div>
+                }
+                @if (ghost()) {
+                  <div class="widget-ghost" [ngStyle]="getGhostStyle(ghost()!)"></div>
                 }
               </div>
             </div>
@@ -125,6 +129,7 @@
                   </select>
                 </div>
               </div>
+              <!-- Preview removed per request -->
               <!-- Layout Settings -->
               <div class="card">
                 <div class="card-header">
