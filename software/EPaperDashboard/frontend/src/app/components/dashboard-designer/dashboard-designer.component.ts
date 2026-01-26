@@ -66,10 +66,20 @@ export class DashboardDesignerComponent implements OnInit {
         // Update ghost if over canvas
         const rect = canvas.getBoundingClientRect();
         if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-          const cellWidth = rect.width / layout.gridCols;
-          const cellHeight = rect.height / layout.gridRows;
-          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor((e.clientX - rect.left) / cellWidth)));
-          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor((e.clientY - rect.top) / cellHeight)));
+          const padding = layout.canvasPadding ?? 0;
+          const gap = layout.widgetGap ?? 0;
+          const cols = Math.max(1, layout.gridCols);
+          const rows = Math.max(1, layout.gridRows);
+          const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
+          const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
+          const cellWidth = innerWidth / cols;
+          const cellHeight = innerHeight / rows;
+          const slotWidth = cellWidth + gap;
+          const slotHeight = cellHeight + gap;
+          const relX = e.clientX - rect.left - padding;
+          const relY = e.clientY - rect.top - padding;
+          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relX / slotWidth)));
+          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relY / slotHeight)));
           const w = Math.min(4, layout.gridCols - x);
           const h = Math.min(2, layout.gridRows - y);
           this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
@@ -193,6 +203,8 @@ export class DashboardDesignerComponent implements OnInit {
     });
   }
 
+  
+
   ngOnInit(): void {
     this.dashboardId = this.route.snapshot.paramMap.get('id') || '';
     if (this.dashboardId) {
@@ -268,14 +280,22 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const cellWidth = rect.width / layout.gridCols;
-    const cellHeight = rect.height / layout.gridRows;
+    const padding = layout.canvasPadding ?? 0;
+    const gap = layout.widgetGap ?? 0;
+    const cols = Math.max(1, layout.gridCols);
+    const rows = Math.max(1, layout.gridRows);
+    const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
+    const cellWidth = innerWidth / cols;
+    const cellHeight = innerHeight / rows;
+    const slotWidth = cellWidth + gap;
+    const slotHeight = cellHeight + gap;
 
-    const relativeX = event.dropPoint.x - rect.left;
-    const relativeY = event.dropPoint.y - rect.top;
+    const relativeX = event.dropPoint.x - rect.left - padding;
+    const relativeY = event.dropPoint.y - rect.top - padding;
 
-    const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relativeX / cellWidth)));
-    const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relativeY / cellHeight)));
+    const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relativeX / slotWidth)));
+    const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relativeY / slotHeight)));
 
     const newWidget: WidgetConfig = {
       id: this.generateId(),
@@ -508,10 +528,13 @@ export class DashboardDesignerComponent implements OnInit {
     // Check if clicking on resize handle
     const target = event.target as HTMLElement;
     if (target.classList.contains('resize-handle')) {
-      this.startResize(event, widget, target.dataset['direction'] as 'e' | 's' | 'se');
-    } else {
-      this.startDrag(event, widget);
+      const dir = target.dataset['direction'];
+      if (dir) {
+        this.startResize(event, widget, dir as 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw');
+        return;
+      }
     }
+    this.startDrag(event, widget);
   }
 
   private startDrag(event: MouseEvent, widget: WidgetConfig): void {
@@ -522,8 +545,16 @@ export class DashboardDesignerComponent implements OnInit {
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const layout = this.layout();
-    const cellWidth = rect.width / layout.gridCols;
-    const cellHeight = rect.height / layout.gridRows;
+    const padding = layout.canvasPadding ?? 0;
+    const gap = layout.widgetGap ?? 0;
+    const cols = Math.max(1, layout.gridCols);
+    const rows = Math.max(1, layout.gridRows);
+    const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
+    const cellWidth = innerWidth / cols;
+    const cellHeight = innerHeight / rows;
+    const slotWidth = cellWidth + gap;
+    const slotHeight = cellHeight + gap;
 
     // Initialize ghost with current position
     this.ghost.set({ id: widget.id, position: { ...widget.position } });
@@ -534,8 +565,8 @@ export class DashboardDesignerComponent implements OnInit {
       const deltaX = e.clientX - this.dragStartPos.x;
       const deltaY = e.clientY - this.dragStartPos.y;
 
-      const gridDeltaX = Math.round(deltaX / cellWidth);
-      const gridDeltaY = Math.round(deltaY / cellHeight);
+      const gridDeltaX = Math.round(deltaX / slotWidth);
+      const gridDeltaY = Math.round(deltaY / slotHeight);
 
       const newX = Math.max(0, Math.min(layout.gridCols - widget.position.w, this.dragStartWidget.x + gridDeltaX));
       const newY = Math.max(0, Math.min(layout.gridRows - widget.position.h, this.dragStartWidget.y + gridDeltaY));
@@ -562,7 +593,7 @@ export class DashboardDesignerComponent implements OnInit {
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  private startResize(event: MouseEvent, widget: WidgetConfig, direction: 'e' | 's' | 'se'): void {
+  private startResize(event: MouseEvent, widget: WidgetConfig, direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'): void {
     event.stopPropagation();
     let isResizing = true;
     this.dragStartPos = { x: event.clientX, y: event.clientY };
@@ -570,8 +601,16 @@ export class DashboardDesignerComponent implements OnInit {
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
     const rect = canvas.getBoundingClientRect();
     const layout = this.layout();
-    const cellWidth = rect.width / layout.gridCols;
-    const cellHeight = rect.height / layout.gridRows;
+    const padding = layout.canvasPadding ?? 0;
+    const gap = layout.widgetGap ?? 0;
+    const cols = Math.max(1, layout.gridCols);
+    const rows = Math.max(1, layout.gridRows);
+    const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
+    const cellWidth = innerWidth / cols;
+    const cellHeight = innerHeight / rows;
+    const slotWidth = cellWidth + gap;
+    const slotHeight = cellHeight + gap;
 
     // initialize ghost
     this.ghost.set({ id: widget.id, position: { ...widget.position } });
@@ -580,18 +619,67 @@ export class DashboardDesignerComponent implements OnInit {
       if (!isResizing) return;
       const deltaX = e.clientX - this.dragStartPos.x;
       const deltaY = e.clientY - this.dragStartPos.y;
-      const gridDeltaX = Math.round(deltaX / cellWidth);
-      const gridDeltaY = Math.round(deltaY / cellHeight);
-      let newW = widget.position.w;
-      let newH = widget.position.h;
-      if (direction === 'e' || direction === 'se') {
-        newW = Math.max(1, Math.min(layout.gridCols - widget.position.x, this.dragStartWidget.w + gridDeltaX));
+      const gridDeltaX = Math.round(deltaX / slotWidth);
+      const gridDeltaY = Math.round(deltaY / slotHeight);
+      // Start from drag start values
+      let newX = this.dragStartWidget.x;
+      let newY = this.dragStartWidget.y;
+      let newW = this.dragStartWidget.w;
+      let newH = this.dragStartWidget.h;
+
+      // Horizontal adjustments
+      if (direction.includes('e')) {
+        // expand/shrink to the right
+        newW = Math.max(1, Math.min(cols - this.dragStartWidget.x, this.dragStartWidget.w + gridDeltaX));
       }
-      if (direction === 's' || direction === 'se') {
-        newH = Math.max(1, Math.min(layout.gridRows - widget.position.y, this.dragStartWidget.h + gridDeltaY));
+      if (direction.includes('w')) {
+        // move left edge: x changes and width inversely changes
+        newX = this.dragStartWidget.x + gridDeltaX;
+        newW = this.dragStartWidget.w - gridDeltaX;
+        if (newX < 0) {
+          // shift back into bounds
+          newW += newX; // newX is negative
+          newX = 0;
+        }
+        if (newW < 1) {
+          const diff = 1 - newW;
+          newW = 1;
+          newX = Math.max(0, newX - diff);
+        }
+        // ensure not overflowing right
+        if (newX + newW > cols) {
+          newW = cols - newX;
+        }
       }
 
-      this.ghost.set({ id: widget.id, position: { ...widget.position, w: newW, h: newH } });
+      // Vertical adjustments
+      if (direction.includes('s')) {
+        newH = Math.max(1, Math.min(rows - this.dragStartWidget.y, this.dragStartWidget.h + gridDeltaY));
+      }
+      if (direction.includes('n')) {
+        newY = this.dragStartWidget.y + gridDeltaY;
+        newH = this.dragStartWidget.h - gridDeltaY;
+        if (newY < 0) {
+          newH += newY;
+          newY = 0;
+        }
+        if (newH < 1) {
+          const diff = 1 - newH;
+          newH = 1;
+          newY = Math.max(0, newY - diff);
+        }
+        if (newY + newH > rows) {
+          newH = rows - newY;
+        }
+      }
+
+      // Clamp final values
+      newX = Math.max(0, Math.min(cols - 1, newX));
+      newY = Math.max(0, Math.min(rows - 1, newY));
+      newW = Math.max(1, Math.min(cols - newX, newW));
+      newH = Math.max(1, Math.min(rows - newY, newH));
+
+      this.ghost.set({ id: widget.id, position: { x: newX, y: newY, w: newW, h: newH } });
     };
     const onMouseUp = () => {
       isResizing = false;
@@ -637,14 +725,22 @@ export class DashboardDesignerComponent implements OnInit {
     const gap = layout.widgetGap ?? 0;
     const cols = Math.max(1, layout.gridCols);
     const rows = Math.max(1, layout.gridRows);
+    // Prefer the real rendered canvas size for pixel-accurate overlay
+    const canvasEl = document.querySelector('.dashboard-canvas') as HTMLElement | null;
+    const rect = canvasEl ? canvasEl.getBoundingClientRect() : null;
+    const totalWidth = rect ? rect.width : layout.width;
+    const totalHeight = rect ? rect.height : layout.height;
 
     // Compute the inner area available for grid cells (subtract padding and gaps)
-    const innerWidth = Math.max(0, layout.width - padding * 2 - gap * (cols - 1));
-    const innerHeight = Math.max(0, layout.height - padding * 2 - gap * (rows - 1));
+    const innerWidth = Math.max(0, totalWidth - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, totalHeight - padding * 2 - gap * (rows - 1));
 
     const cellWidth = innerWidth / cols;
     const cellHeight = innerHeight / rows;
+    const slotWidth = cellWidth + gap;
+    const slotHeight = cellHeight + gap;
     const lineColor = 'rgba(0,0,0,0.06)';
+    const offset = padding - gap / 2; // shift the guideline by -half the gap so lines align between cells
 
     return {
       position: 'absolute',
@@ -654,8 +750,8 @@ export class DashboardDesignerComponent implements OnInit {
       bottom: '0',
       pointerEvents: 'none',
       backgroundImage: `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
-      backgroundSize: `${cellWidth + gap}px ${cellHeight + gap}px, ${cellWidth + gap}px ${cellHeight + gap}px`,
-      backgroundPosition: `${padding}px ${padding}px, ${padding}px ${padding}px`,
+      backgroundSize: `${slotWidth}px ${slotHeight}px, ${slotWidth}px ${slotHeight}px`,
+      backgroundPosition: `${offset}px ${offset}px, ${offset}px ${offset}px`,
       zIndex: 1,
       opacity: 0.6
     };

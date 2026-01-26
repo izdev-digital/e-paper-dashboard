@@ -246,6 +246,22 @@
     cursor: ew-resize;
   }
   
+  &.resize-w {
+    left: -4px;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+  }
+  
+  &.resize-n {
+    left: 0;
+    right: 0;
+    top: -4px;
+    height: 8px;
+    cursor: ns-resize;
+  }
+  
   &.resize-s {
     left: 0;
     right: 0;
@@ -261,6 +277,33 @@
     height: 12px;
     cursor: nwse-resize;
     border-radius: 0 0 4px 0;
+  }
+  
+  &.resize-ne {
+    right: -4px;
+    top: -4px;
+    width: 12px;
+    height: 12px;
+    cursor: nesw-resize;
+    border-radius: 0 4px 0 0;
+  }
+
+  &.resize-nw {
+    left: -4px;
+    top: -4px;
+    width: 12px;
+    height: 12px;
+    cursor: nwse-resize;
+    border-radius: 4px 0 0 0;
+  }
+
+  &.resize-sw {
+    left: -4px;
+    bottom: -4px;
+    width: 12px;
+    height: 12px;
+    cursor: nesw-resize;
+    border-radius: 0 0 0 4px;
   }
   
   &:hover {

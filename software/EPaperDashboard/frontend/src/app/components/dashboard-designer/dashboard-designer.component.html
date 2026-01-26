@@ -75,10 +75,15 @@
                     </div>
                     <!-- Resize Handles -->
                     @if (selectedWidget()?.id === widget.id) {
-                      <div class="resize-handle resize-e" data-direction="e"></div>
-                      <div class="resize-handle resize-s" data-direction="s"></div>
-                      <div class="resize-handle resize-se" data-direction="se"></div>
-                    }
+                          <div class="resize-handle resize-n" data-direction="n"></div>
+                          <div class="resize-handle resize-e" data-direction="e"></div>
+                          <div class="resize-handle resize-s" data-direction="s"></div>
+                          <div class="resize-handle resize-w" data-direction="w"></div>
+                          <div class="resize-handle resize-nw" data-direction="nw"></div>
+                          <div class="resize-handle resize-ne" data-direction="ne"></div>
+                          <div class="resize-handle resize-sw" data-direction="sw"></div>
+                          <div class="resize-handle resize-se" data-direction="se"></div>
+                        }
                   </div>
                 }
                 @if (ghost()) {
