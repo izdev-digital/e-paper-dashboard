@@ -36,8 +36,8 @@ import {
     WeatherWidgetComponent,
     WeatherForecastWidgetComponent,
     GraphWidgetComponent,
-    TodoWidgetComponent
-    ,CalendarWidgetComponent
+    TodoWidgetComponent,
+    CalendarWidgetComponent
   ],
   template: `
     <div class="widget-preview">
@@ -52,7 +52,8 @@ import {
       <app-widget-todo *ngIf="widget.type === 'todo'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId"></app-widget-todo>
       <app-widget-calendar *ngIf="widget.type === 'calendar'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-calendar>
     </div>
-  `
+  `,
+  styleUrls: ['./widget-preview.component.scss']
 })
 export class WidgetPreviewComponent {
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
