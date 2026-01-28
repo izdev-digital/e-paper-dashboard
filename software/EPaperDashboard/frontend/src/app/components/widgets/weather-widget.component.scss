@@ -1,0 +1,30 @@
+.weather-widget {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.weather-content {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  align-items: center;
+  text-align: center;
+}
+
+.weather-condition {
+  font-size: 0.9rem;
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
+.weather-temp {
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.weather-humidity,
+.weather-wind {
+  font-size: 0.8rem;
+}

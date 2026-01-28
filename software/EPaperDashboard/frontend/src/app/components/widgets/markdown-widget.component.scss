@@ -1,0 +1,13 @@
+.markdown-widget {
+  overflow: hidden;
+}
+
+.markdown-content {
+  font-size: 0.85rem;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}

@@ -7,6 +7,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
   selector: 'app-widget-todo',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./todo-widget.component.scss'],
   template: `
     <div class="todo-widget">
       <ng-container *ngIf="!getEntityState(config.entityId)">

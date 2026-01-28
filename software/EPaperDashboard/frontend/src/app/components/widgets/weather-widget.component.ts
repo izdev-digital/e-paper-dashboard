@@ -6,6 +6,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
   selector: 'app-widget-weather',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./weather-widget.component.scss'],
   template: `
     <div class="weather-widget">
       <ng-container *ngIf="!getEntityState(config.entityId)">

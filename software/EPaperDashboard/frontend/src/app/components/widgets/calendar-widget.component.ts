@@ -6,6 +6,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig } from '../.
   selector: 'app-widget-calendar',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./calendar-widget.component.scss'],
   template: `
     <div class="calendar-widget">
       <ng-container *ngIf="!getEntityState(config.entityId)">

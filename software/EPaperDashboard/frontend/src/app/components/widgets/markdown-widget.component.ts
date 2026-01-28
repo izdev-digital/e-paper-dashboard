@@ -6,6 +6,7 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
   selector: 'app-widget-markdown',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./markdown-widget.component.scss'],
   template: `
     <div class="markdown-widget">
       <div class="markdown-content">{{ asMarkdownConfig(widget.config).content }}</div>

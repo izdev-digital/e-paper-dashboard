@@ -6,9 +6,10 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
   selector: 'app-widget-app-icon',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./app-icon-widget.component.scss'],
   template: `
-    <div class="app-icon-widget" style="display:flex;align-items:center;justify-content:center;height:100%;">
-      <img [src]="asAppIconConfig(widget.config).iconUrl || '/icon.svg'" [style.width.px]="asAppIconConfig(widget.config).size || 48" [style.height.px]="asAppIconConfig(widget.config).size || 48" alt="App Icon" style="object-fit:contain;" />
+    <div class="app-icon-widget">
+      <img [src]="asAppIconConfig(widget.config).iconUrl || '/icon.svg'" [style.width.px]="asAppIconConfig(widget.config).size || 48" [style.height.px]="asAppIconConfig(widget.config).size || 48" alt="App Icon" />
     </div>
   `
 })

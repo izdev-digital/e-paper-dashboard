@@ -1,0 +1,33 @@
+.header-widget {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  word-break: break-word;
+}
+
+.badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-value {
+  margin-left: 2px;
+  opacity: 0.8;
+}

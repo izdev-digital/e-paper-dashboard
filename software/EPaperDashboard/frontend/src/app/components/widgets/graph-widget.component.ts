@@ -6,6 +6,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig } from '../../m
   selector: 'app-widget-graph',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./graph-widget.component.scss'],
   template: `
     <div class="graph-widget">
       <ng-container *ngIf="!getEntityState(config.entityId)">

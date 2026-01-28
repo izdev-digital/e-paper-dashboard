@@ -1,0 +1,33 @@
+.calendar-widget {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.calendar-content {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.calendar-content h4 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.calendar-state {
+  font-size: 0.85rem;
+}
+
+.calendar-message {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

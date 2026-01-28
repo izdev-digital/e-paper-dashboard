@@ -6,6 +6,7 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
   selector: 'app-widget-header',
   standalone: true,
   imports: [CommonModule],
+  styleUrls: ['./header-widget.component.scss'],
   template: `
     <div class="header-widget">
       <h3 class="header-title">{{ asHeaderConfig(widget.config).title }}</h3>

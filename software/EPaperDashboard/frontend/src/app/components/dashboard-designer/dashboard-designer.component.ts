@@ -702,7 +702,11 @@ export class DashboardDesignerComponent implements OnInit {
     const layout = this.layout();
     return {
       width: `${layout.width}px`,
+      minWidth: `${layout.width}px`,
+      'min-width': `${layout.width}px`,
       height: `${layout.height}px`,
+      minHeight: `${layout.height}px`,
+      'min-height': `${layout.height}px`,
       backgroundColor: layout.colorScheme.background,
       color: layout.colorScheme.text,
       display: 'grid',

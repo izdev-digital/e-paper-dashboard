@@ -16,3 +16,23 @@
   place-items: stretch;
   overflow: auto;
 }
+
+.empty-state {
+  display: grid;
+  grid-auto-flow: row;
+  place-items: center;
+  height: 100%;
+  gap: 4px;
+  text-align: center;
+}
+
+.empty-state i {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #666;
+}
