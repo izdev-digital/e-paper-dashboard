@@ -1,11 +1,23 @@
-.app-icon-widget {
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
-.app-icon-widget img {
-  object-fit: contain;
+.app-icon {
+  display: block;
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
+  object-fit: contain;
+  object-position: center;
+  margin: 0 auto;
+  padding: 0;
 }
