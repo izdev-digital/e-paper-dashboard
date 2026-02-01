@@ -104,6 +104,7 @@ export interface HeaderConfig {
   fontSize?: number;
   iconUrl?: string;
   iconSize?: number;
+  titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 }
 
 export interface BadgeConfig {

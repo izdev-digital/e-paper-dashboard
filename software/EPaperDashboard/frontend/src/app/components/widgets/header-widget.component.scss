@@ -1,71 +1,105 @@
 .header-widget {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  padding: 8px 12px;
+  padding: 0;
   margin: 0;
   overflow: hidden;
+
+  &.align-top-left {
+    align-content: flex-start;
+    justify-content: flex-start;
+  }
+
+  &.align-top-right {
+    align-content: flex-start;
+    justify-content: flex-end;
+  }
+
+  &.align-bottom-left {
+    align-content: flex-end;
+    justify-content: flex-start;
+  }
+
+  &.align-bottom-right {
+    align-content: flex-end;
+    justify-content: flex-end;
+  }
 }
 
 .title-section {
   display: flex;
   align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 0;
+  min-height: 0;
+  
+  &.order-last {
+    order: 9999;
+  }
+}
+
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+  flex: 1 1 auto;
   min-width: 0;
-  flex: 0 1 auto;
-  overflow: hidden;
+  min-height: 0;
 }
 
 .header-icon {
   flex: 0 0 auto;
   display: block;
-  border-radius: 6px;
+  border-radius: 8px;
   object-fit: contain;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.125rem;
   font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1 1 auto;
-}
-
-.badges-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  overflow: hidden;
-  min-width: 0;
-  flex: 1 1 auto;
-  max-width: 60%;
+  min-height: 0;
 }
 
 .badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.08);
+  padding: 0 14px;
+  flex: 0 0 auto;
+  width: 110px;
+  height: 36px;
+  min-height: 0;
+  background: rgba(0, 0, 0, 0.06);
   color: inherit;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
   white-space: nowrap;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 0;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .badge-value {
-  margin-left: 2px;
-  opacity: 0.8;
-  font-size: 0.85em;
+  opacity: 0.7;
+  font-size: 0.813rem;
+  font-weight: 400;
 }

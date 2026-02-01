@@ -21,6 +21,16 @@
       <input type="number" class="form-control" [(ngModel)]="headerConfig.fontSize" min="8" max="72" placeholder="16" />
     </div>
     <div class="mb-3">
+      <label class="form-label">Title Position</label>
+      <select class="form-select" [(ngModel)]="headerConfig.titleAlign">
+        <option [ngValue]="'top-left'">Top Left (Default)</option>
+        <option [ngValue]="'top-right'">Top Right</option>
+        <option [ngValue]="'bottom-left'">Bottom Left</option>
+        <option [ngValue]="'bottom-right'">Bottom Right</option>
+      </select>
+      <small class="form-text text-muted">Badges will wrap around the title and fill remaining space.</small>
+    </div>
+    <div class="mb-3">
       <label class="form-label">App Icon</label>
       <input type="text" class="form-control" [(ngModel)]="headerConfig.iconUrl" placeholder="/icon.svg (default)" />
       <small class="form-text text-muted">Leave blank to use the default app icon (icon.svg).</small>
