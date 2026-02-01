@@ -10,26 +10,36 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
   template: `
     <div class="header-widget" [class]="'align-' + (asHeaderConfig(widget.config).titleAlign || 'top-left')">
       <div class="title-section" [class.order-last]="!isIconOnLeft()">
-        <img *ngIf="isIconOnLeft()" class="header-icon"
-          [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
-          [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-          [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-          alt="App Icon"/>
+        @if (isIconOnLeft()) {
+          <img class="header-icon"
+            [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
+            [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            alt="App Icon"/>
+        }
         <div class="title" [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16">{{ asHeaderConfig(widget.config).title }}</div>
-        <img *ngIf="!isIconOnLeft()" class="header-icon"
-          [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
-          [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-          [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-          alt="App Icon"/>
+        @if (!isIconOnLeft()) {
+          <img class="header-icon"
+            [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
+            [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            alt="App Icon"/>
+        }
       </div>
-      <div class="badges-container" *ngIf="visibleBadges().length">
-        <span class="badge" *ngFor="let badge of visibleBadges()">
-          {{ badge.entityId ? (getEntityState(badge.entityId)?.state || badge.label) : badge.label }}
-          <span class="badge-value" *ngIf="getEntityAttribute(badge.entityId, 'unit_of_measurement')">
-            {{ getEntityAttribute(badge.entityId, 'unit_of_measurement') }}
-          </span>
-        </span>
-      </div>
+      @if (visibleBadges().length) {
+        <div class="badges-container">
+          @for (badge of visibleBadges(); track badge.label) {
+            <span class="badge">
+              {{ badge.entityId ? (getEntityState(badge.entityId)?.state || badge.label) : badge.label }}
+              @if (getEntityAttribute(badge.entityId, 'unit_of_measurement')) {
+                <span class="badge-value">
+                  {{ getEntityAttribute(badge.entityId, 'unit_of_measurement') }}
+                </span>
+              }
+            </span>
+          }
+        </div>
+      }
     </div>
   `
 })

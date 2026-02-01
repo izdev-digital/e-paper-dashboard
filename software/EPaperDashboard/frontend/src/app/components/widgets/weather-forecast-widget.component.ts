@@ -9,28 +9,28 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
   styleUrls: ['./weather-forecast-widget.component.scss'],
   template: `
     <div class="weather-forecast-widget">
-      <ng-container *ngIf="!getEntityState(config.entityId)">
+      @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-cloud-sun-rain"></i>
           <p>Not configured</p>
         </div>
-      </ng-container>
-      <ng-container *ngIf="getEntityState(config.entityId)">
+      }
+      @if (getEntityState(config.entityId)) {
         <div class="forecast-content">
           <div class="forecast-header">{{ getEntityState(config.entityId)!.state }}</div>
-          <ng-container *ngIf="getEntityState(config.entityId)!.attributes?.['forecast']">
+          @if (getEntityState(config.entityId)!.attributes?.['forecast']) {
             <div class="forecast-items">
-              <ng-container *ngFor="let item of getForecastItems(config.entityId); trackBy: trackByItemId">
+              @for (item of getForecastItems(config.entityId); track trackByItemId($index, item)) {
                 <div class="forecast-item">
                   <small>{{ getItemDate(item) }}</small>
                   <div>{{ getItemCondition(item) }}</div>
                   <small>{{ getItemTemp(item) }}°</small>
                 </div>
-              </ng-container>
+              }
             </div>
-          </ng-container>
+          }
         </div>
-      </ng-container>
+      }
     </div>
   `
 })

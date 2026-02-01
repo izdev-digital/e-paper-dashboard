@@ -10,51 +10,50 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
   styleUrls: ['./todo-widget.component.scss'],
   template: `
     <div class="todo-widget">
-      <ng-container *ngIf="!getEntityState(config.entityId)">
+      @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-list-check"></i>
           <p>Not configured</p>
         </div>
-      </ng-container>
-      <ng-container *ngIf="getEntityState(config.entityId)">
+      }
+      @if (getEntityState(config.entityId)) {
         <div class="todo-content">
-          <ng-container *ngIf="widget.position.w === 1 && widget.position.h === 1; else todoListView">
+          @if (widget.position.w === 1 && widget.position.h === 1) {
             <div class="todo-count" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
               <i class="fa fa-list-check" style="font-size:1.2rem;"></i>
               <span style="font-size:1.2rem;font-weight:bold;">{{ getPendingTodoCount(config.entityId) }}</span>
               <small>Pending</small>
             </div>
-          </ng-container>
-          <ng-template #todoListView>
+          } @else {
             <h4>Tasks</h4>
-            <ng-container *ngIf="getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0; else noTasks">
+            @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
               <div class="todo-items">
-                <ng-container *ngFor="let item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); trackBy: trackByItemId">
+                @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {
                   <div class="todo-item">
-                    <ng-container *ngIf="item.complete; else notComplete">
+                    @if (item.complete) {
                       <i class="fa fa-check-circle"></i>
-                    </ng-container>
-                    <ng-template #notComplete>
+                    } @else {
                       <i class="fa fa-circle"></i>
-                    </ng-template>
+                    }
                     <span [class.completed]="item.complete">{{ item.summary }}</span>
                   </div>
-                </ng-container>
+                }
               </div>
-            </ng-container>
-            <ng-template #noTasks>
+            } @else {
               <div class="empty-state">
                 <i class="fa fa-list-check"></i>
                 <p>No tasks found.</p>
-                <small *ngIf="getEntityState(config.entityId)">
-                  State: {{ getEntityState(config.entityId)!.state }}<br>
-                  Attributes: {{ getEntityState(config.entityId)!.attributes | json }}
-                </small>
+                @if (getEntityState(config.entityId)) {
+                  <small>
+                    State: {{ getEntityState(config.entityId)!.state }}<br>
+                    Attributes: {{ getEntityState(config.entityId)!.attributes | json }}
+                  </small>
+                }
               </div>
-            </ng-template>
-          </ng-template>
+            }
+          }
         </div>
-      </ng-container>
+      }
     </div>
   `
 })

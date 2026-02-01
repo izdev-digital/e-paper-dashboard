@@ -9,26 +9,26 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
   styleUrls: ['./weather-widget.component.scss'],
   template: `
     <div class="weather-widget">
-      <ng-container *ngIf="!getEntityState(config.entityId)">
+      @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-cloud-sun"></i>
           <p>Not configured</p>
         </div>
-      </ng-container>
-      <ng-container *ngIf="getEntityState(config.entityId)">
+      }
+      @if (getEntityState(config.entityId)) {
         <div class="weather-content">
           <div class="weather-condition">{{ getEntityState(config.entityId)!.state }}</div>
-          <ng-container *ngIf="getEntityState(config.entityId)!.attributes?.['temperature']">
+          @if (getEntityState(config.entityId)!.attributes?.['temperature']) {
             <div class="weather-temp">{{ getEntityState(config.entityId)!.attributes?.['temperature'] }}°</div>
-          </ng-container>
-          <ng-container *ngIf="getEntityState(config.entityId)!.attributes?.['humidity']">
+          }
+          @if (getEntityState(config.entityId)!.attributes?.['humidity']) {
             <div class="weather-humidity"><i class="fa fa-droplet"></i> {{ getEntityState(config.entityId)!.attributes?.['humidity'] }}%</div>
-          </ng-container>
-          <ng-container *ngIf="getEntityState(config.entityId)!.attributes?.['wind_speed']">
+          }
+          @if (getEntityState(config.entityId)!.attributes?.['wind_speed']) {
             <div class="weather-wind"><i class="fa fa-wind"></i> {{ getEntityState(config.entityId)!.attributes?.['wind_speed'] }}</div>
-          </ng-container>
+          }
         </div>
-      </ng-container>
+      }
     </div>
   `
 })

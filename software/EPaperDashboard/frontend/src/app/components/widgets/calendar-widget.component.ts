@@ -9,29 +9,30 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig } from '../.
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
     <div class="calendar-widget">
-      <ng-container *ngIf="!getEntityState(config.entityId)">
+      @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-calendar"></i>
           <p>Not configured</p>
         </div>
-      </ng-container>
-      <ng-container *ngIf="getEntityState(config.entityId)">
+      }
+      @if (getEntityState(config.entityId)) {
         <div class="calendar-content">
           <h4>Events</h4>
-          <ng-container *ngIf="getEvents(config.entityId).length > 0; else noEvents">
-            <div *ngFor="let ev of getEvents(config.entityId); trackBy: trackByEvent" class="calendar-event">
-              <div class="calendar-state">{{ formatEventDate(ev) }}</div>
-              <div class="calendar-message">{{ ev.summary || ev.title || ev.description || '-' }}</div>
-            </div>
-          </ng-container>
-          <ng-template #noEvents>
+          @if (getEvents(config.entityId).length > 0) {
+            @for (ev of getEvents(config.entityId); track trackByEvent($index, ev)) {
+              <div class="calendar-event">
+                <div class="calendar-state">{{ formatEventDate(ev) }}</div>
+                <div class="calendar-message">{{ ev.summary || ev.title || ev.description || '-' }}</div>
+              </div>
+            }
+          } @else {
             <div class="empty-state">
               <i class="fa fa-calendar-days"></i>
               <p>No upcoming events</p>
             </div>
-          </ng-template>
+          }
         </div>
-      </ng-container>
+      }
     </div>
   `
 })

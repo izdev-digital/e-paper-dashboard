@@ -41,16 +41,36 @@ import {
   ],
   template: `
     <div class="widget-preview">
-      <app-widget-display *ngIf="widget.type === 'display'" [widget]="widget" [colorScheme]="colorScheme"></app-widget-display>
-      <app-widget-app-icon *ngIf="widget.type === 'app-icon'" [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
-      <app-widget-image *ngIf="widget.type === 'image'" [widget]="widget" [colorScheme]="colorScheme"></app-widget-image>
-      <app-widget-header *ngIf="widget.type === 'header'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-header>
-      <app-widget-markdown *ngIf="widget.type === 'markdown'" [widget]="widget" [colorScheme]="colorScheme"></app-widget-markdown>
-      <app-widget-weather *ngIf="widget.type === 'weather'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather>
-      <app-widget-weather-forecast *ngIf="widget.type === 'weather-forecast'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather-forecast>
-      <app-widget-graph *ngIf="widget.type === 'graph'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-graph>
-      <app-widget-todo *ngIf="widget.type === 'todo'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId"></app-widget-todo>
-      <app-widget-calendar *ngIf="widget.type === 'calendar'" [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-calendar>
+      @if (widget.type === 'display') {
+        <app-widget-display [widget]="widget" [colorScheme]="colorScheme"></app-widget-display>
+      }
+      @if (widget.type === 'app-icon') {
+        <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
+      }
+      @if (widget.type === 'image') {
+        <app-widget-image [widget]="widget" [colorScheme]="colorScheme"></app-widget-image>
+      }
+      @if (widget.type === 'header') {
+        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-header>
+      }
+      @if (widget.type === 'markdown') {
+        <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme"></app-widget-markdown>
+      }
+      @if (widget.type === 'weather') {
+        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather>
+      }
+      @if (widget.type === 'weather-forecast') {
+        <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather-forecast>
+      }
+      @if (widget.type === 'graph') {
+        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-graph>
+      }
+      @if (widget.type === 'todo') {
+        <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId"></app-widget-todo>
+      }
+      @if (widget.type === 'calendar') {
+        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-calendar>
+      }
     </div>
   `,
   styleUrls: ['./widget-preview.component.scss']
@@ -69,7 +89,7 @@ export class WidgetPreviewComponent {
     return config as any;
   }
 
-  // Add trackBy functions for *ngFor
+  // TrackBy functions for @for loops
   trackByBadgeLabel(index: number, badge: any) {
     return badge.label || badge.entityId || index;
   }
