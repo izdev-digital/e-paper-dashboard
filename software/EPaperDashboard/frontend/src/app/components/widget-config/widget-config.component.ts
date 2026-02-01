@@ -12,7 +12,7 @@ import {
   TodoConfig,
   AppIconConfig
 } from '../../models/types';
-import { HomeAssistantService } from '../../services/home-assistant.service';
+import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 
 @Component({
   selector: 'app-widget-config',
@@ -36,6 +36,8 @@ export class WidgetConfigComponent implements OnChanges {
 
   @Input() widget!: WidgetConfig;
   @Input() dashboard!: Dashboard | null;
+  @Input() availableEntities: HassEntity[] = [];
+  @Input() entitiesLoading: boolean = false;
 
   entities = signal<any[]>([]);
   loadingEntities = signal(false);
@@ -74,7 +76,19 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host) {
+    // If availableEntities input is provided, use it instead of fetching
+    if (changes['availableEntities'] && this.availableEntities && this.availableEntities.length > 0) {
+      const mapped = this.availableEntities.map(e => ({
+        entity_id: e.entityId,
+        friendly_name: e.friendlyName
+      }));
+      this.entities.set(mapped);
+      this.loadingEntities.set(false);
+      this.entityFetchError = null;
+    } else if (changes['entitiesLoading']) {
+      this.loadingEntities.set(this.entitiesLoading);
+    } else if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && !this.availableEntities.length) {
+      // Fallback: only fetch if no availableEntities provided
       this.loadEntities();
     }
   }

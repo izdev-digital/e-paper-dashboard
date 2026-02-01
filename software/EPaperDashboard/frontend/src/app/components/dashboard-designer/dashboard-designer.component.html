@@ -3,8 +3,14 @@
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Dashboard Designer - {{ dashboard()?.name }}</h2>
-        <div>
-          <button class="btn btn-secondary me-2" (click)="goBack()">
+        <div>          <button class="btn btn-info me-2" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()">
+            @if (livePreviewLoading()) {
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            } @else {
+              <i class="fa fa-sync"></i>
+            }
+            Refresh Preview Data
+          </button>          <button class="btn btn-secondary me-2" (click)="goBack()">
             <i class="fa fa-arrow-left"></i> Back
           </button>
           <button class="btn btn-primary" (click)="saveDashboard()">
@@ -239,6 +245,8 @@
                 <app-widget-config
                   [widget]="selectedWidget()!"
                   [dashboard]="dashboard()"
+                  [availableEntities]="availableEntities()"
+                  [entitiesLoading]="entitiesLoading()"
                   [attr.key]="selectedWidget()!.id"
                 ></app-widget-config>
               }

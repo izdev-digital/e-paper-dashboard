@@ -10,7 +10,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
-import { HomeAssistantService } from '../../services/home-assistant.service';
+import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 
@@ -185,6 +185,8 @@ export class DashboardDesignerComponent implements OnInit {
   isLoading = signal(false);
   livePreviewLoading = signal(false);
   entityStates = signal<Record<string, HassEntityState>>({});
+  availableEntities = signal<HassEntity[]>([]);
+  entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   
   // Drag state
@@ -195,13 +197,7 @@ export class DashboardDesignerComponent implements OnInit {
   private resizeDirection: 'e' | 's' | 'se' | null = null;
 
   constructor() {
-    // Auto-refresh live preview whenever layout changes
-    effect(() => {
-      this.layout(); // Depend on layout changes
-      if (this.dashboardId && !this.isLoading()) {
-        this.refreshLivePreview();
-      }
-    });
+    // Removed auto-refresh effect for better performance during design
   }
 
   
@@ -211,6 +207,7 @@ export class DashboardDesignerComponent implements OnInit {
     if (this.dashboardId) {
       this.isLoading.set(true);
       this.loadDashboard();
+      this.loadAvailableEntities();
     } else {
       this.toastService.show('No dashboard ID provided', 'error');
       this.isLoading.set(false);
@@ -248,7 +245,7 @@ export class DashboardDesignerComponent implements OnInit {
           }
         }
         this.isLoading.set(false);
-        this.refreshLivePreview();
+        // Manual refresh only - no auto-refresh on load
       },
       error: (err) => {
         console.error('Error loading dashboard:', err);
@@ -436,6 +433,26 @@ export class DashboardDesignerComponent implements OnInit {
       }
     }
     return Array.from(ids);
+  }
+
+  loadAvailableEntities(): void {
+    if (!this.dashboardId) {
+      console.warn('Dashboard ID missing, cannot load entities');
+      return;
+    }
+
+    this.entitiesLoading.set(true);
+    this.homeAssistantService.getEntities(this.dashboardId).subscribe({
+      next: (entities) => {
+        this.availableEntities.set(entities);
+        this.entitiesLoading.set(false);
+      },
+      error: (err) => {
+        console.error('Failed to load available entities:', err);
+        this.availableEntities.set([]);
+        this.entitiesLoading.set(false);
+      }
+    });
   }
 
   refreshLivePreview(): void {
