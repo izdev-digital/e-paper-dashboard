@@ -9,7 +9,8 @@ import {
   CalendarConfig, 
   WeatherConfig, 
   GraphConfig, 
-  TodoConfig 
+  TodoConfig,
+  AppIconConfig
 } from '../../models/types';
 import { HomeAssistantService } from '../../services/home-assistant.service';
 
@@ -66,6 +67,10 @@ export class WidgetConfigComponent implements OnChanges {
 
   get todoConfig(): TodoConfig {
     return this.widget.config as TodoConfig;
+  }
+
+  get appIconConfig(): AppIconConfig {
+    return this.widget.config as AppIconConfig;
   }
 
   ngOnChanges(changes: SimpleChanges): void {

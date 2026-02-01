@@ -9,9 +9,17 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
   styleUrls: ['./header-widget.component.scss'],
   template: `
     <div class="header-widget">
-      <div class="title" [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16">{{ asHeaderConfig(widget.config).title }}</div>
-      <div class="badges" *ngIf="asHeaderConfig(widget.config).badges?.length">
-        <span class="badge" *ngFor="let badge of asHeaderConfig(widget.config).badges">
+      <div class="title-section">
+        <img class="header-icon"
+          [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
+          [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+          [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+          alt="App Icon"/>
+        <div class="title" [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16">{{ asHeaderConfig(widget.config).title }}</div>
+      </div>
+      <div class="badges-section" #badgesContainer *ngIf="visibleBadges().length">
+        <span class="badge" #badgeElem *ngFor="let badge of visibleBadges(); let i = index"
+          [style.display]="i < visibleCount ? 'inline-flex' : 'none'">
           {{ badge.entityId ? (getEntityState(badge.entityId)?.state || badge.label) : badge.label }}
           <span class="badge-value" *ngIf="getEntityAttribute(badge.entityId, 'unit_of_measurement')">
             {{ getEntityAttribute(badge.entityId, 'unit_of_measurement') }}
@@ -80,34 +88,44 @@ export class HeaderWidgetComponent {
 
   private updateVisibleCount() {
     const cfg = this.asHeaderConfig(this.widget.config);
-    if (!cfg || !cfg.badges || !this.badgesContainer) {
+    if (!cfg || !cfg.badges || cfg.badges.length === 0 || !this.badgesContainer) {
       this.visibleCount = 0;
       this.cdr.markForCheck();
       return;
     }
     const container = this.badgesContainer.nativeElement;
     const containerWidth = container.clientWidth;
+    
+    // If no badge elements yet, wait for next render
     if (!this.badgeElems || this.badgeElems.length === 0) {
-      this.visibleCount = cfg.badges.length;
+      this.visibleCount = 0;
       this.cdr.markForCheck();
       return;
     }
 
+    // Calculate how many badges can fit
     let used = 0;
     let count = 0;
-    const gap = 8; // approx gap between badges
+    const gap = 8; // gap between badges
     const elems = this.badgeElems.toArray();
+    
     for (let i = 0; i < elems.length; i++) {
       const el = elems[i].nativeElement;
+      // Temporarily show to measure
+      el.style.display = 'inline-flex';
       const w = el.getBoundingClientRect().width;
       const nextUsed = used === 0 ? w : used + gap + w;
+      
       if (nextUsed <= containerWidth) {
         used = nextUsed;
         count++;
       } else {
+        // Hide if it doesn't fit
+        el.style.display = 'none';
         break;
       }
     }
+    
     this.visibleCount = count;
     this.cdr.markForCheck();
   }

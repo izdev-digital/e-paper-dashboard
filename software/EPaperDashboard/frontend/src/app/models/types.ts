@@ -102,6 +102,8 @@ export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
   fontSize?: number;
+  iconUrl?: string;
+  iconSize?: number;
 }
 
 export interface BadgeConfig {

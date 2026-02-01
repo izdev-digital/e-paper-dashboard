@@ -14,14 +14,24 @@
   <ng-container *ngSwitchCase="'header'">
     <div class="mb-3">
       <label class="form-label">Title</label>
-      <input type="text" class="form-control" [(ngModel)]="headerConfig.title" />
+      <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title" />
     </div>
     <div class="mb-3">
       <label class="form-label">Title Font Size (px)</label>
-      <input type="number" class="form-control" [(ngModel)]="headerConfig.fontSize" min="8" max="72" />
+      <input type="number" class="form-control" [(ngModel)]="headerConfig.fontSize" min="8" max="72" placeholder="16" />
+    </div>
+    <div class="mb-3">
+      <label class="form-label">App Icon</label>
+      <input type="text" class="form-control" [(ngModel)]="headerConfig.iconUrl" placeholder="/icon.svg (default)" />
+      <small class="form-text text-muted">Leave blank to use the default app icon (icon.svg).</small>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Icon Size (px)</label>
+      <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32" />
     </div>
     <div class="mb-3">
       <label class="form-label">Badges</label>
+      <small class="form-text text-muted d-block mb-2">Badges automatically adjust to widget size. Only visible badges that fit will be shown.</small>
       <div *ngIf="headerConfig.badges?.length; else noBadges">
         <div *ngFor="let badge of headerConfig.badges; let i = index; trackBy: trackByBadgeLabel" class="badge-item mb-2">
           <div class="d-flex gap-2 align-items-center">
@@ -152,17 +162,15 @@
   </ng-container>
 
   <ng-container *ngSwitchCase="'app-icon'">
-    <ng-container *ngIf="widget.config && ('iconUrl' in widget.config || 'size' in widget.config)">
                   <div class="mb-3">
                     <label class="form-label">Icon URL (optional)</label>
-                    <input type="text" class="form-control" [(ngModel)]="widget.config.iconUrl"
+                    <input type="text" class="form-control" [(ngModel)]="appIconConfig.iconUrl"
                       placeholder="Leave blank for default app icon" />
                   </div>
                   <div class="mb-3">
                     <label class="form-label">Size (px)</label>
-                    <input type="number" class="form-control" [(ngModel)]="widget.config.size" min="16" max="256" />
+                    <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />
                   </div>
-    </ng-container>
   </ng-container>
 
   <ng-container *ngSwitchCase="'image'">
