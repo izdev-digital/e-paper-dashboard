@@ -488,8 +488,14 @@ export class DashboardDesignerComponent implements OnInit {
       next: () => {
         this.toastService.show('Dashboard layout saved successfully', 'success');
       },
-      error: () => {
-        this.toastService.show('Failed to save dashboard layout', 'error');
+      error: (err) => {
+        console.error('Error saving dashboard:', err);
+        if (err.status === 401 || err.status === 403) {
+          this.toastService.show('Authentication error. Please log in again.', 'error');
+          this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+        } else {
+          this.toastService.show('Failed to save dashboard layout', 'error');
+        }
       }
     });
   }

@@ -42,19 +42,28 @@ export class LoginComponent implements OnInit {
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
   private returnUrl = '/dashboards';
+  private hasRedirected = false;
 
   constructor() {
+    // Read returnUrl from query params immediately, before the effect runs
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboards';
+    
     // Effect to redirect when authenticated
     effect(() => {
-      if (this.authService.isAuthReady() && this.authService.isAuthenticated()) {
+      // Only redirect once and only if we're on the login page
+      if (!this.hasRedirected && 
+          this.router.url.startsWith('/login') &&
+          this.authService.isAuthReady() && 
+          this.authService.isAuthenticated()) {
+        this.hasRedirected = true;
+        console.log('Login component: User is already authenticated, redirecting to:', this.returnUrl);
         this.router.navigate([this.returnUrl]);
       }
     });
   }
 
   ngOnInit(): void {
-    // Get return URL from route parameters or default to '/dashboards'
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboards';
+    // Return URL is already set in constructor
   }
 
   onSubmit(): void {

@@ -16,24 +16,34 @@ export const authGuard: CanActivateFn = (route, state) => {
     console.log('Auth not ready, waiting...');
     // Auth not ready yet - wait briefly
     return new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const maxAttempts = 500; // 5 seconds max
+      let attempts = 0;
+      
       const checkInterval = setInterval(() => {
+        attempts++;
         if (authService.isAuthReady()) {
           clearInterval(checkInterval);
-          const canActivate = authService.isAuthenticated();
-        if (!canActivate) {
-            router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+          if (!resolved) {
+            resolved = true;
+            const canActivate = authService.isAuthenticated();
+            console.log('Auth ready after', attempts * 10, 'ms. Authenticated:', canActivate);
+            if (!canActivate) {
+              console.log('Not authenticated, redirecting to login');
+              router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+            }
+            resolve(canActivate);
           }
-          resolve(canActivate);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          if (!resolved) {
+            resolved = true;
+            console.log('Auth guard timeout after 5 seconds, redirecting to login');
+            router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+            resolve(false);
+          }
         }
       }, 10);
-      
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        console.log('Auth guard timeout, redirecting to login');
-        router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
-        resolve(false);
-      }, 5000);
     });
   }
 
