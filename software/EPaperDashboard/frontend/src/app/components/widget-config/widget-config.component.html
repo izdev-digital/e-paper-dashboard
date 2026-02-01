@@ -17,32 +17,41 @@
       <input type="text" class="form-control" [(ngModel)]="headerConfig.title" />
     </div>
     <div class="mb-3">
+      <label class="form-label">Title Font Size (px)</label>
+      <input type="number" class="form-control" [(ngModel)]="headerConfig.fontSize" min="8" max="72" />
+    </div>
+    <div class="mb-3">
       <label class="form-label">Badges</label>
-      <ng-container *ngFor="let badge of headerConfig.badges; let i = index; trackBy: trackByBadgeLabel">
-        <div class="badge-item mb-2">
-          <div class="input-group input-group-sm">
-            <input type="text" class="form-control" placeholder="Label" [(ngModel)]="badge.label" />
-            <input type="text" class="form-control" placeholder="Icon (e.g., fa-home)" [(ngModel)]="badge.icon" />
-            <button class="btn btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
+      <div *ngIf="headerConfig.badges?.length; else noBadges">
+        <div *ngFor="let badge of headerConfig.badges; let i = index; trackBy: trackByBadgeLabel" class="badge-item mb-2">
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" class="form-control form-control-sm" placeholder="Label" [(ngModel)]="badge.label" />
+            <select class="form-select form-select-sm" [(ngModel)]="badge.entityId">
+              <option [ngValue]="undefined">No Entity</option>
+              <option *ngFor="let entity of entities(); trackBy: trackByEntityId" [ngValue]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+            </select>
+            <button class="btn btn-sm btn-outline-success" *ngIf="!isBadgeConfirmed(badge)" (click)="confirmBadge(i)">Confirm</button>
+            <button class="btn btn-sm btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
           </div>
-          <select class="form-select form-select-sm mt-1" [(ngModel)]="badge.entityId">
-            <option [ngValue]="undefined">No Entity</option>
-            <ng-container *ngFor="let entity of entities(); trackBy: trackByEntityId">
-              <option [ngValue]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-            </ng-container>
-          </select>
-          <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()"><i class="fa fa-plus"></i> Add
-            Badge</button>
+        </div>
+      </div>
+      <ng-template #noBadges>
+        <div class="text-muted small mb-2">No badges configured.</div>
+      </ng-template>
+      <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()"><i class="fa fa-plus"></i> Add Badge</button>
+    </div>
+  </ng-container>
 
-          <ng-container *ngSwitchCase="'markdown'">
+  <ng-container *ngSwitchCase="'markdown'">
             <div class="mb-3">
               <label class="form-label">Content</label>
               <textarea class="form-control" rows="6" [(ngModel)]="markdownConfig.content"
                 placeholder="# Markdown content here"></textarea>
             </div>
 
+          </ng-container>
 
-            <ng-container *ngSwitchCase="'calendar'">
+    <ng-container *ngSwitchCase="'calendar'">
               <div class="mb-3">
                 <label class="form-label">Calendar Entity</label>
                 <select class="form-select" [(ngModel)]="calendarConfig.entityId">
@@ -57,8 +66,9 @@
                 <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
               </div>
 
+            </ng-container>
 
-              <ng-container *ngSwitchCase="'weather'">
+  <ng-container *ngSwitchCase="'weather'">
                 <div class="mb-3">
                   <label class="form-label">Weather Entity</label>
                   <select class="form-select" [(ngModel)]="weatherConfig.entityId">
@@ -70,7 +80,7 @@
                 </div>
               </ng-container>
 
-              <ng-container *ngSwitchCase="'weather-forecast'">
+    <ng-container *ngSwitchCase="'weather-forecast'">
                 <div class="mb-3">
                   <label class="form-label">Weather Entity</label>
                   <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId">
@@ -80,9 +90,9 @@
                     </ng-container>
                   </select>
                 </div>
-              </ng-container>
+            </ng-container>
 
-              <ng-container *ngSwitchCase="'graph'">
+  <ng-container *ngSwitchCase="'graph'">
                 <div class="mb-3">
                   <label class="form-label">Sensor Entity</label>
                   <select class="form-select" [(ngModel)]="graphConfig.entityId">
@@ -106,9 +116,9 @@
                   <label class="form-label">Label (optional)</label>
                   <input type="text" class="form-control" [(ngModel)]="graphConfig.label" />
                 </div>
-              </ng-container>
+            </ng-container>
 
-              <ng-container *ngSwitchCase="'todo'">
+  <ng-container *ngSwitchCase="'todo'">
                 <div class="mb-3">
                   <label class="form-label">Todo Entity</label>
                   <select class="form-select" [(ngModel)]="todoConfig.entityId" [disabled]="loadingEntities()">
@@ -122,10 +132,10 @@
                   </div>
                   <div *ngIf="loadingEntities()" class="text-muted small mt-2">Loading data sources...</div>
                 </div>
-              </ng-container>
+            </ng-container>
 
-              <ng-container *ngSwitchCase="'display'">
-                <ng-container *ngIf="widget.config && 'text' in widget.config">
+  <ng-container *ngSwitchCase="'display'">
+    <ng-container *ngIf="widget.config && 'text' in widget.config">
                   <div class="mb-3">
                     <label class="form-label">Text</label>
                     <input type="text" class="form-control" [(ngModel)]="widget.config.text" />
@@ -138,11 +148,11 @@
                     <label class="form-label">Color</label>
                     <input type="color" class="form-control form-control-color" [(ngModel)]="widget.config.color" />
                   </div>
-                </ng-container>
-              </ng-container>
+    </ng-container>
+  </ng-container>
 
-              <ng-container *ngSwitchCase="'app-icon'">
-                <ng-container *ngIf="widget.config && ('iconUrl' in widget.config || 'size' in widget.config)">
+  <ng-container *ngSwitchCase="'app-icon'">
+    <ng-container *ngIf="widget.config && ('iconUrl' in widget.config || 'size' in widget.config)">
                   <div class="mb-3">
                     <label class="form-label">Icon URL (optional)</label>
                     <input type="text" class="form-control" [(ngModel)]="widget.config.iconUrl"
@@ -152,11 +162,11 @@
                     <label class="form-label">Size (px)</label>
                     <input type="number" class="form-control" [(ngModel)]="widget.config.size" min="16" max="256" />
                   </div>
-                </ng-container>
-              </ng-container>
+    </ng-container>
+  </ng-container>
 
-              <ng-container *ngSwitchCase="'image'">
-                <ng-container *ngIf="widget.config && 'imageUrl' in widget.config">
+  <ng-container *ngSwitchCase="'image'">
+    <ng-container *ngIf="widget.config && 'imageUrl' in widget.config">
                   <div class="mb-3">
                     <label class="form-label">Image URL</label>
                     <input type="text" class="form-control" [(ngModel)]="widget.config.imageUrl"
@@ -170,5 +180,6 @@
                       <option value="fill">Fill</option>
                     </select>
                   </div>
-                </ng-container>
-              </ng-container>
+    </ng-container>
+  </ng-container>
+</ng-container>

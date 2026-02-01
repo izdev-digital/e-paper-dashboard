@@ -101,12 +101,16 @@ export interface WidgetConfig {
 export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
+  fontSize?: number;
 }
 
 export interface BadgeConfig {
   label: string;
   entityId?: string;
   icon?: string;
+  // Transient flags used by the editor UI
+  _confirmed?: boolean;
+  _editing?: boolean;
 }
 
 export interface MarkdownConfig {
@@ -142,6 +146,7 @@ export interface DashboardLayout {
   widgets: WidgetConfig[];
   canvasPadding?: number;
   widgetGap?: number;
+  widgetBorder?: number;
 }
 
 export interface ColorScheme {

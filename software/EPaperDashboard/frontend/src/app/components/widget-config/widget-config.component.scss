@@ -1,7 +1,9 @@
 .badge-item {
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  background: transparent;
 }
 
 .form-label {

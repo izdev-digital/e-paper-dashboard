@@ -22,8 +22,9 @@ import { HomeAssistantService } from '../../services/home-assistant.service';
 })
 export class WidgetConfigComponent implements OnChanges {
   // TrackBy function for badges in ngFor
+  // TrackBy function for badges in ngFor — use index to avoid re-rendering while editing
   trackByBadgeLabel(index: number, badge: any) {
-    return badge.label || badge.entityId || index;
+    return index;
   }
   // TrackBy function for entities in ngFor
   trackByEntityId(index: number, entity: any) {
@@ -98,9 +99,9 @@ export class WidgetConfigComponent implements OnChanges {
   addBadge(): void {
     const config = this.headerConfig;
     if (config.badges) {
-      config.badges.push({ label: 'New Badge' });
+      config.badges.push({ label: '', entityId: undefined, icon: undefined, _confirmed: false, _editing: true });
     } else {
-      config.badges = [{ label: 'New Badge' }];
+      config.badges = [{ label: '', entityId: undefined, icon: undefined, _confirmed: false, _editing: true }];
     }
   }
 
@@ -109,5 +110,16 @@ export class WidgetConfigComponent implements OnChanges {
     if (config.badges) {
       config.badges.splice(index, 1);
     }
+  }
+
+  confirmBadge(index: number): void {
+    const config = this.headerConfig;
+    if (!config.badges || !config.badges[index]) return;
+    config.badges[index]._confirmed = true;
+    config.badges[index]._editing = false;
+  }
+
+  isBadgeConfirmed(badge: any): boolean {
+    return !!(badge && badge._confirmed);
   }
 }

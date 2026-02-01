@@ -133,14 +133,16 @@
   transition: box-shadow 0.2s ease;
   display: grid;
   box-sizing: border-box;
+  padding: 0;
+  margin: 0;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
   pointer-events: auto;
 }
-.widget-container:hover { box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5); }
-.widget-container.selected { box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.8); }
+.widget-container:hover { box-shadow: 0 0 0 var(--widget-border, 3px) rgba(0, 123, 255, 0.5); }
+.widget-container.selected { box-shadow: 0 0 0 var(--widget-border, 3px) rgba(0, 123, 255, 0.8); }
 
 .widget-content {
   width: 100%;
@@ -150,6 +152,8 @@
   display: grid;
   place-items: stretch;
   box-sizing: border-box;
+  padding: 0;
+  margin: 0;
   overflow: hidden;
 }
 

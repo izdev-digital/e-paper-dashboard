@@ -157,7 +157,8 @@ export class DashboardDesignerComponent implements OnInit {
     colorScheme: DEFAULT_COLOR_SCHEMES[0],
     widgets: [],
     canvasPadding: 16,
-    widgetGap: 4
+    widgetGap: 4,
+    widgetBorder: 3
   });
 
   colorSchemes = DEFAULT_COLOR_SCHEMES;
@@ -239,7 +240,8 @@ export class DashboardDesignerComponent implements OnInit {
               colorScheme: colorScheme,
               widgets: parsedLayout.widgets || [],
               canvasPadding: typeof parsedLayout.canvasPadding === 'number' ? parsedLayout.canvasPadding : 16,
-              widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4
+              widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4,
+              widgetBorder: typeof parsedLayout.widgetBorder === 'number' ? parsedLayout.widgetBorder : 3
             });
           } catch (e) {
             console.error('Failed to parse layout config', e);
@@ -714,6 +716,7 @@ export class DashboardDesignerComponent implements OnInit {
       gridTemplateRows: `repeat(${layout.gridRows}, 1fr)`,
       gap: `${layout.widgetGap ?? 0}px`,
       padding: `${layout.canvasPadding ?? 0}px`,
+      '--widget-border': `${layout.widgetBorder ?? 3}px`,
       position: 'relative',
       boxSizing: 'border-box',
     };
@@ -784,13 +787,17 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, widgetGap: gap }));
   }
 
+  updateWidgetBorder(border: number): void {
+    this.layout.update(layout => ({ ...layout, widgetBorder: border }));
+  }
+
   getWidgetStyle(widget: WidgetConfig): any {
     const layout = this.layout();
     return {
       gridColumn: `${widget.position.x + 1} / span ${widget.position.w}`,
       gridRow: `${widget.position.y + 1} / span ${widget.position.h}`,
       backgroundColor: layout.colorScheme.background,
-      border: `2px solid ${layout.colorScheme.foreground}`,
+      border: `${layout.widgetBorder ?? 2}px solid ${layout.colorScheme.foreground}`,
       color: layout.colorScheme.text,
       padding: '8px',
       overflow: 'visible',
@@ -807,7 +814,7 @@ export class DashboardDesignerComponent implements OnInit {
       gridColumn: `${p.x + 1} / span ${p.w}`,
       gridRow: `${p.y + 1} / span ${p.h}`,
       backgroundColor: 'transparent',
-      border: `2px dashed ${layout.colorScheme.foreground}`,
+      border: `${layout.widgetBorder ?? 2}px dashed ${layout.colorScheme.foreground}`,
       color: layout.colorScheme.text,
       padding: '8px',
       overflow: 'visible',
