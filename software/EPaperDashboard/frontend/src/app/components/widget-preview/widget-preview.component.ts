@@ -11,6 +11,7 @@ import { WeatherForecastWidgetComponent } from '../widgets/weather-forecast-widg
 import { GraphWidgetComponent } from '../widgets/graph-widget.component';
 import { TodoWidgetComponent } from '../widgets/todo-widget.component';
 import { CalendarWidgetComponent } from '../widgets/calendar-widget.component';
+import { VersionWidgetComponent } from '../widgets/version-widget.component';
 import {
   WidgetConfig,
   ColorScheme,
@@ -38,7 +39,8 @@ import {
     WeatherForecastWidgetComponent,
     GraphWidgetComponent,
     TodoWidgetComponent,
-    CalendarWidgetComponent
+    CalendarWidgetComponent,
+    VersionWidgetComponent
   ],
   template: `
     <div class="widget-preview">
@@ -71,6 +73,9 @@ import {
       }
       @if (widget.type === 'calendar') {
         <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId" [designerSettings]="designerSettings"></app-widget-calendar>
+      }
+      @if (widget.type === 'version') {
+        <app-widget-version [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-version>
       }
     </div>
   `,

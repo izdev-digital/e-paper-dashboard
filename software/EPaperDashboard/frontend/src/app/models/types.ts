@@ -56,7 +56,8 @@ export type WidgetType =
   | 'todo'
   | 'display'
   | 'app-icon'
-  | 'image';
+  | 'image'
+  | 'version';
 
 export interface WidgetPosition {
   x: number;
@@ -81,6 +82,10 @@ export interface ImageConfig {
   fit?: 'contain' | 'cover' | 'fill';
 }
 
+export interface VersionConfig {
+  // No configuration needed - displays the app version
+}
+
 export interface WidgetConfig {
   id: string;
   type: WidgetType;
@@ -94,7 +99,8 @@ export interface WidgetConfig {
     | TodoConfig
     | DisplayConfig
     | AppIconConfig
-    | ImageConfig;
+    | ImageConfig
+    | VersionConfig;
 }
 
 export interface HeaderConfig {

@@ -66,7 +66,8 @@ export class DashboardDesignerComponent implements OnInit {
     { type: 'todo', label: 'Todo List', icon: 'fa-list-check' },
     { type: 'display', label: 'Display', icon: 'fa-display' },
     { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
-    { type: 'image', label: 'Image', icon: 'fa-image' }
+    { type: 'image', label: 'Image', icon: 'fa-image' },
+    { type: 'version', label: 'Version', icon: 'fa-code-branch' }
   ];
 
   selectedWidget = signal<WidgetConfig | null>(null);
@@ -795,6 +796,8 @@ export class DashboardDesignerComponent implements OnInit {
         return { iconUrl: '', size: 48 };
       case 'image':
         return { imageUrl: '', fit: 'contain' };
+      case 'version':
+        return {};
       default:
         return {};
     }
