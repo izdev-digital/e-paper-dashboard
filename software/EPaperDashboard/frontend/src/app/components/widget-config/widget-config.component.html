@@ -5,7 +5,7 @@
     <label class="form-label">Data Source Entity</label>
     <select class="form-select" [(ngModel)]="widget.config.entityId">
       <option value="">Select entity...</option>
-      @for (entity of entities(); track trackByEntityId($index, entity)) {
+      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
         <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
       }
     </select>
@@ -145,22 +145,22 @@
             }
 
   @case ('todo') {
+                <!-- Todo widget uses the universal entity selector above -->
                 <div class="mb-3">
-                  <label class="form-label">Todo Entity</label>
-                  <select class="form-select" [(ngModel)]="todoConfig.entityId" [disabled]="loadingEntities()">
-                    <option value="">Select entity...</option>
-                    @for (entity of entities(); track trackByEntityId($index, entity)) {
-                      <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-                    }
-                  </select>
-                  @if (!loadingEntities() && entities().length === 0) {
-                    <div class="alert alert-warning mt-2 p-2 small">
-                      No data sources found. Make sure your dashboard is connected to Home Assistant and try again.
-                    </div>
-                  }
-                  @if (loadingEntities()) {
-                    <div class="text-muted small mt-2">Loading data sources...</div>
-                  }
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted">
+                    <label class="form-check-label" for="showCompleted">
+                      Show completed items
+                    </label>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Header Font Size (px)</label>
+                  <input type="number" class="form-control" [(ngModel)]="todoConfig.headerFontSize" min="8" max="32" placeholder="16" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Item Font Size (px)</label>
+                  <input type="number" class="form-control" [(ngModel)]="todoConfig.itemFontSize" min="6" max="24" placeholder="14" />
                 </div>
             }
 

@@ -134,6 +134,9 @@ export interface GraphConfig {
 
 export interface TodoConfig {
   entityId: string;
+  showCompleted?: boolean;
+  headerFontSize?: number;
+  itemFontSize?: number;
 }
 
 export interface DashboardLayout {

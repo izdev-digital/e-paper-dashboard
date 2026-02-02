@@ -77,7 +77,7 @@ export class WidgetConfigComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     // If availableEntities input is provided, use it instead of fetching
-    if (changes['availableEntities'] && this.availableEntities && this.availableEntities.length > 0) {
+    if (changes['availableEntities']) {
       const mapped = this.availableEntities.map(e => ({
         entity_id: e.entityId,
         friendly_name: e.friendlyName
@@ -85,11 +85,39 @@ export class WidgetConfigComponent implements OnChanges {
       this.entities.set(mapped);
       this.loadingEntities.set(false);
       this.entityFetchError = null;
-    } else if (changes['entitiesLoading']) {
+    }
+    
+    if (changes['entitiesLoading']) {
       this.loadingEntities.set(this.entitiesLoading);
-    } else if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && !this.availableEntities.length) {
-      // Fallback: only fetch if no availableEntities provided
+    }
+    
+    // Fallback: only fetch if no availableEntities provided
+    if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && this.availableEntities.length === 0) {
       this.loadEntities();
+    }
+  }
+
+  getFilteredEntities(): any[] {
+    const allEntities = this.entities();
+    
+    // Filter entities based on widget type
+    switch (this.widget.type) {
+      case 'todo':
+        return allEntities.filter(e => e.entity_id?.startsWith('todo.'));
+      case 'calendar':
+        return allEntities.filter(e => e.entity_id?.startsWith('calendar.'));
+      case 'weather':
+      case 'weather-forecast':
+        return allEntities.filter(e => e.entity_id?.startsWith('weather.'));
+      case 'graph':
+        // Graph can work with sensor, binary_sensor, etc.
+        return allEntities.filter(e => 
+          e.entity_id?.startsWith('sensor.') || 
+          e.entity_id?.startsWith('binary_sensor.') ||
+          e.entity_id?.startsWith('input_number.')
+        );
+      default:
+        return allEntities;
     }
   }
 

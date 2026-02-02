@@ -156,11 +156,11 @@ export class WidgetPreviewComponent {
       const mapped = this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
         ...item,
         id: item.uid || item.id || idx,
-        // Home Assistant todo items may represent completion in different ways
-        complete: (item.status && (item.status === 'completed' || item.status === 'done')) || item.complete === true || item.completed === true || false,
+        // Home Assistant uses 'status' field: 'needs_action' (incomplete) or 'completed' (complete)
+        complete: item.status === 'completed' || item.status === 'done' || item.complete === true || item.completed === true || false,
         summary: item.summary || item.title || ''
       }));
-      // Prefer showing incomplete items first
+      // Sort to show incomplete items first
       mapped.sort((a, b) => {
         const ac = a.complete ? 1 : 0;
         const bc = b.complete ? 1 : 0;
@@ -169,7 +169,7 @@ export class WidgetPreviewComponent {
       console.debug('widget-preview: todo items for', entityId, mapped);
       return mapped;
     }
-    // fallback to old state-based logic (should not be used)
+    // Fallback to entity state (legacy, should not be used)
     console.debug('widget-preview: fallback to entity state for', entityId);
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
@@ -177,7 +177,7 @@ export class WidgetPreviewComponent {
     return items.map((item: any, idx: number) => ({
       ...item,
       id: idx,
-      complete: item.complete || false,
+      complete: item.status === 'completed' || item.complete === true || false,
       summary: item.summary || ''
     }));
   }

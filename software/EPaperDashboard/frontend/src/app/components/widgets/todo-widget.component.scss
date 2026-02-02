@@ -3,13 +3,15 @@
   grid-auto-flow: row;
   gap: 4px;
   overflow: hidden;
+  align-content: start;
 }
 
 .todo-content {
   display: grid;
   grid-auto-flow: row;
-  gap: 4px;
+  gap: 8px;
   overflow: hidden;
+  align-content: start;
 }
 
 .todo-content h4 {
@@ -21,9 +23,10 @@
 .todo-items {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   font-size: 0.8rem;
   overflow: hidden;
+  align-items: flex-start;
 }
 
 .todo-item {
@@ -31,17 +34,23 @@
   gap: 4px;
   align-items: center;
   overflow: hidden;
+  width: 100%;
 }
 
 .todo-item i {
-  font-size: 0.8rem;
   flex-shrink: 0;
+  line-height: 1.2;
+  align-self: flex-start;
+  margin-top: 0.1em;
 }
 
 .todo-item span {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .todo-item span.completed {

@@ -134,9 +134,9 @@ public class HomeAssistantService(
                 service = "get_items",
                 service_data = new
                 {
-                    target = new { entity_id = todoEntityId },
-                    status = new[] { "needs_action" }
-                }
+                    entity_id = todoEntityId
+                },
+                return_response = true
             });
 
             var response = await ReceiveMessageAsync(ws);
@@ -146,46 +146,64 @@ public class HomeAssistantService(
 
             var items = new List<TodoItem>();
 
-            // Try multiple possible shapes for the service result:
-            // 1) result.items
-            // 2) result.<entity_id>.items
-            if (json.TryGetProperty("success", out var success) && success.GetBoolean() && json.TryGetProperty("result", out var result))
+            // The response structure from todo.get_items is:
+            // { "success": true, "result": { "response": { "entity_id": { "items": [...] } } } }
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() && 
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
             {
-                // Case: result is an object with 'items'
-                if (result.ValueKind == JsonValueKind.Object)
+                JsonElement itemsArray = default;
+                bool foundItems = false;
+
+                // Standard structure: result.response.<entity_id>.items
+                if (result.TryGetProperty("response", out var responseObj) && responseObj.ValueKind == JsonValueKind.Object)
                 {
-                    if (result.TryGetProperty("items", out var itemsArray) && itemsArray.ValueKind == JsonValueKind.Array)
+                    if (responseObj.TryGetProperty(todoEntityId, out var entityObj) && entityObj.ValueKind == JsonValueKind.Object &&
+                        entityObj.TryGetProperty("items", out itemsArray) && itemsArray.ValueKind == JsonValueKind.Array)
                     {
-                        foreach (var item in itemsArray.EnumerateArray())
-                        {
-                            var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
-                            var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
-                            var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
-                            items.Add(new TodoItem
-                            {
-                                Summary = summary ?? string.Empty,
-                                Status = status ?? string.Empty,
-                                Uid = uid ?? string.Empty
-                            });
-                        }
-                    }
-                    else if (result.TryGetProperty(todoEntityId, out var entityObj) && entityObj.ValueKind == JsonValueKind.Object &&
-                             entityObj.TryGetProperty("items", out var itemsArray2) && itemsArray2.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in itemsArray2.EnumerateArray())
-                        {
-                            var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
-                            var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
-                            var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
-                            items.Add(new TodoItem
-                            {
-                                Summary = summary ?? string.Empty,
-                                Status = status ?? string.Empty,
-                                Uid = uid ?? string.Empty
-                            });
-                        }
+                        foundItems = true;
+                        _logger.LogDebug("Found items at result.response.{EntityId}.items", todoEntityId);
                     }
                 }
+
+                // Fallback: result.<entity_id>.items (if response is not wrapped)
+                if (!foundItems && result.TryGetProperty(todoEntityId, out var entityObj2) && entityObj2.ValueKind == JsonValueKind.Object &&
+                    entityObj2.TryGetProperty("items", out itemsArray) && itemsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundItems = true;
+                    _logger.LogDebug("Found items at result.{EntityId}.items", todoEntityId);
+                }
+
+                // Fallback: result.items (direct array)
+                if (!foundItems && result.TryGetProperty("items", out itemsArray) && itemsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundItems = true;
+                    _logger.LogDebug("Found items at result.items");
+                }
+
+                if (foundItems)
+                {
+                    foreach (var item in itemsArray.EnumerateArray())
+                    {
+                        var summary = item.TryGetProperty("summary", out var s) ? s.GetString() : null;
+                        var status = item.TryGetProperty("status", out var st) ? st.GetString() : null;
+                        var uid = item.TryGetProperty("uid", out var u) ? u.GetString() : null;
+                        items.Add(new TodoItem
+                        {
+                            Summary = summary ?? string.Empty,
+                            Status = status ?? string.Empty,
+                            Uid = uid ?? string.Empty
+                        });
+                    }
+                    _logger.LogDebug("Parsed {Count} todo items from entity {EntityId}", items.Count, todoEntityId);
+                }
+                else
+                {
+                    _logger.LogWarning("Could not find items array in todo.get_items response for entity {EntityId}. Response was: {Response}", todoEntityId, response);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Todo items fetch returned unsuccessful response or missing result property. Response was: {Response}", response);
             }
 
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);

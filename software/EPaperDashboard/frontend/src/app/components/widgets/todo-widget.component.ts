@@ -10,13 +10,20 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
   styleUrls: ['./todo-widget.component.scss'],
   template: `
     <div class="todo-widget">
-      @if (!getEntityState(config.entityId)) {
+      @if (!config.entityId) {
         <div class="empty-state">
           <i class="fa fa-list-check"></i>
           <p>Not configured</p>
+          <small>Select a todo entity to display tasks</small>
         </div>
       }
-      @if (getEntityState(config.entityId)) {
+      @if (config.entityId && !getEntityState(config.entityId)) {
+        <div class="empty-state">
+          <i class="fa fa-list-check"></i>
+          <p>Loading...</p>
+        </div>
+      }
+      @if (config.entityId && getEntityState(config.entityId)) {
         <div class="todo-content">
           @if (widget.position.w === 1 && widget.position.h === 1) {
             <div class="todo-count" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
@@ -25,9 +32,9 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
               <small>Pending</small>
             </div>
           } @else {
-            <h4>Tasks</h4>
+            <h4 [style.font-size.px]="config.headerFontSize || 16">{{ getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
             @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
-              <div class="todo-items">
+              <div class="todo-items" [style.font-size.px]="config.itemFontSize || 14">
                 @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {
                   <div class="todo-item">
                     @if (item.complete) {
@@ -42,13 +49,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
             } @else {
               <div class="empty-state">
                 <i class="fa fa-list-check"></i>
-                <p>No tasks found.</p>
-                @if (getEntityState(config.entityId)) {
-                  <small>
-                    State: {{ getEntityState(config.entityId)!.state }}<br>
-                    Attributes: {{ getEntityState(config.entityId)!.attributes | json }}
-                  </small>
-                }
+                <p>No tasks found</p>
               </div>
             }
           }
@@ -72,12 +73,20 @@ export class TodoWidgetComponent {
 
   getTodoItems(entityId?: string): Array<{ id: string | number; complete: boolean; summary: string }> {
     if (this.todoItemsByEntityId && entityId && this.todoItemsByEntityId[entityId]) {
-      const mapped = this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
+      let mapped = this.todoItemsByEntityId[entityId].map((item: any, idx: number) => ({
         ...item,
         id: item.uid || item.id || idx,
-        complete: (item.status && (item.status === 'completed' || item.status === 'done')) || item.complete === true || item.completed === true || false,
+        // Home Assistant uses 'status' field: 'needs_action' (incomplete) or 'completed' (complete)
+        complete: item.status === 'completed' || item.status === 'done' || item.complete === true || item.completed === true || false,
         summary: item.summary || item.title || ''
       }));
+      
+      // Filter out completed items if showCompleted is false
+      if (this.config.showCompleted === false) {
+        mapped = mapped.filter(item => !item.complete);
+      }
+      
+      // Sort to show incomplete items first
       mapped.sort((a, b) => {
         const ac = a.complete ? 1 : 0;
         const bc = b.complete ? 1 : 0;
@@ -85,10 +94,15 @@ export class TodoWidgetComponent {
       });
       return mapped;
     }
+    // Fallback to entity state (legacy, should not be used)
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];
-    return items.map((item: any, idx: number) => ({ id: idx, complete: item.complete || false, summary: item.summary || '' }));
+    return items.map((item: any, idx: number) => ({ 
+      id: idx, 
+      complete: item.status === 'completed' || item.complete === true || false, 
+      summary: item.summary || '' 
+    }));
   }
 
   getPendingTodoCount(entityId?: string): number { return this.getTodoItems(entityId).filter(i => !i.complete).length; }
