@@ -47,11 +47,10 @@
   min-width: 0;
 
   i {
-    font-size: calc(var(--eventFontSize) * 1.1);
+    font-size: var(--eventFontSize);
     flex-shrink: 0;
     width: 1em;
     text-align: center;
-    opacity: 0.8;
     margin-top: 2px;
   }
 
@@ -88,11 +87,10 @@
   min-width: 0;
 
   i {
-    font-size: calc(var(--eventFontSize) * 1);
+    font-size: var(--eventFontSize);
     flex-shrink: 0;
     width: 1em;
     text-align: center;
-    opacity: 0.8;
   }
 
   span {
