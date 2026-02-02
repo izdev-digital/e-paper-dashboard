@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-graph',
@@ -33,6 +33,7 @@ export class GraphWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() designerSettings?: DashboardLayout;
 
   get config(): GraphConfig { return (this.widget?.config || {}) as GraphConfig; }
 

@@ -19,10 +19,6 @@
       <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title" />
     </div>
     <div class="mb-3">
-      <label class="form-label">Title Font Size (px)</label>
-      <input type="number" class="form-control" [(ngModel)]="headerConfig.fontSize" min="8" max="72" placeholder="16" />
-    </div>
-    <div class="mb-3">
       <label class="form-label">Title Position</label>
       <select class="form-select" [(ngModel)]="headerConfig.titleAlign">
         <option [ngValue]="'top-left'">Top Left (Default)</option>
@@ -91,14 +87,6 @@
                 <label class="form-label">Max Events</label>
                 <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
               </div>
-              <div class="mb-3">
-                <label class="form-label">Calendar Name Font Size (px)</label>
-                <input type="number" class="form-control" [(ngModel)]="calendarConfig.headerFontSize" min="8" max="32" placeholder="15" />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Event Font Size (px)</label>
-                <input type="number" class="form-control" [(ngModel)]="calendarConfig.eventFontSize" min="6" max="24" placeholder="12" />
-              </div>
 
             }
 
@@ -162,14 +150,6 @@
                     </label>
                   </div>
                 </div>
-                <div class="mb-3">
-                  <label class="form-label">Header Font Size (px)</label>
-                  <input type="number" class="form-control" [(ngModel)]="todoConfig.headerFontSize" min="8" max="32" placeholder="16" />
-                </div>
-                <div class="mb-3">
-                  <label class="form-label">Item Font Size (px)</label>
-                  <input type="number" class="form-control" [(ngModel)]="todoConfig.itemFontSize" min="6" max="24" placeholder="14" />
-                </div>
             }
 
   @case ('display') {
@@ -177,10 +157,6 @@
                   <div class="mb-3">
                     <label class="form-label">Text</label>
                     <input type="text" class="form-control" [(ngModel)]="widget.config.text" />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Font Size</label>
-                    <input type="number" class="form-control" [(ngModel)]="widget.config.fontSize" min="8" max="64" />
                   </div>
                   <div class="mb-3">
                     <label class="form-label">Color</label>

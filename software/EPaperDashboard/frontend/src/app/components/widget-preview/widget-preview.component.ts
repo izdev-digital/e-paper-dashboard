@@ -20,7 +20,8 @@ import {
   WeatherConfig,
   GraphConfig,
   TodoConfig,
-  HassEntityState
+  HassEntityState,
+  DashboardLayout
 } from '../../models/types';
 
 @Component({
@@ -42,7 +43,7 @@ import {
   template: `
     <div class="widget-preview">
       @if (widget.type === 'display') {
-        <app-widget-display [widget]="widget" [colorScheme]="colorScheme"></app-widget-display>
+        <app-widget-display [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-display>
       }
       @if (widget.type === 'app-icon') {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
@@ -51,10 +52,10 @@ import {
         <app-widget-image [widget]="widget" [colorScheme]="colorScheme"></app-widget-image>
       }
       @if (widget.type === 'header') {
-        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-header>
+        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-header>
       }
       @if (widget.type === 'markdown') {
-        <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme"></app-widget-markdown>
+        <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-markdown>
       }
       @if (widget.type === 'weather') {
         <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather>
@@ -63,13 +64,13 @@ import {
         <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-weather-forecast>
       }
       @if (widget.type === 'graph') {
-        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-graph>
+        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-graph>
       }
       @if (widget.type === 'todo') {
-        <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId"></app-widget-todo>
+        <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId" [designerSettings]="designerSettings"></app-widget-todo>
       }
       @if (widget.type === 'calendar') {
-        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId"></app-widget-calendar>
+        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId" [designerSettings]="designerSettings"></app-widget-calendar>
       }
     </div>
   `,
@@ -78,27 +79,9 @@ import {
 export class WidgetPreviewComponent {
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
   @Input() calendarEventsByEntityId?: Record<string, any[]>;
-  // ...existing code...
-  // Add missing config helpers for new widget types
-  asDisplayConfig(config: any) {
-    return config as any;
-  }
-  asAppIconConfig(config: any) {
-    return config as any;
-  }
-  asImageConfig(config: any) {
-    return config as any;
-  }
-
-  // TrackBy functions for @for loops
-  trackByBadgeLabel(index: number, badge: any) {
-    return badge.label || badge.entityId || index;
-  }
-  trackByItemId(index: number, item: any) {
-    return item.id || index;
-  }
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
+  @Input() designerSettings?: DashboardLayout;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
 
   asHeaderConfig(config: any): HeaderConfig {

@@ -1,7 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { TodoItem } from '../../services/home-assistant.service';
-import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-todo',
@@ -32,9 +32,9 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig } from '../../mo
               <small>Pending</small>
             </div>
           } @else {
-            <h4 [style.font-size.px]="config.headerFontSize || 16">{{ getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
+            <h4 [style.font-size.px]="getHeaderFontSize()">{{ getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
             @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
-              <div class="todo-items" [style.font-size.px]="config.itemFontSize || 14">
+              <div class="todo-items" [style.font-size.px]="getItemFontSize()">
                 @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {
                   <div class="todo-item">
                     @if (item.complete) {
@@ -63,8 +63,17 @@ export class TodoWidgetComponent {
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
+  @Input() designerSettings?: DashboardLayout;
 
   get config(): TodoConfig { return (this.widget?.config || {}) as TodoConfig; }
+
+  getHeaderFontSize(): number {
+    return this.designerSettings?.titleFontSize ?? 16;
+  }
+
+  getItemFontSize(): number {
+    return this.designerSettings?.textFontSize ?? 14;
+  }
 
   getEntityState(entityId?: string) {
     if (!entityId || !this.entityStates) return null;

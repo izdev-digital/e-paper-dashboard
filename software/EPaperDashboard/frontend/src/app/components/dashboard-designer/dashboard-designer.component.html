@@ -77,7 +77,7 @@
                   >
                     <!-- Widget header removed: no name, no delete button -->
                     <div class="widget-content">
-                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()" [calendarEventsByEntityId]="calendarEventsByEntityId()"></app-widget-preview>
+                      <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme" [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()" [calendarEventsByEntityId]="calendarEventsByEntityId()" [designerSettings]="layout()"></app-widget-preview>
                     </div>
                     <!-- Resize Handles -->
                     @if (selectedWidget()?.id === widget.id) {
@@ -174,6 +174,22 @@
                   <div class="mb-2">
                     <label class="form-label small">Widget Border (px)</label>
                     <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetBorder" (ngModelChange)="updateWidgetBorder($event)" min="0" max="20" />
+                  </div>
+                </div>
+              </div>
+              <!-- Designer Font Sizes -->
+              <div class="card">
+                <div class="card-header">
+                  <h5>Font Sizes</h5>
+                </div>
+                <div class="card-body p-2">
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Title Font Size (px)</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().titleFontSize" (ngModelChange)="updateTitleFontSize($event)" min="8" max="72" placeholder="16" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Text Font Size (px)</label>
+                    <input type="number" class="form-control form-control-sm" [ngModel]="layout().textFontSize" (ngModelChange)="updateTextFontSize($event)" min="6" max="48" placeholder="14" />
                   </div>
                 </div>
               </div>

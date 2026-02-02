@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../models/types';
+import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-header',
@@ -17,7 +17,7 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             alt="App Icon"/>
         }
-        <div class="title" [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16">{{ asHeaderConfig(widget.config).title }}</div>
+        <div class="title" [style.fontSize.px]="getTitleFontSize()">{{ asHeaderConfig(widget.config).title }}</div>
         @if (!isIconOnLeft()) {
           <img class="header-icon"
             [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
@@ -30,7 +30,7 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
         <div class="badges-container">
           @for (badge of visibleBadges(); track $index) {
             <span class="badge" 
-                  [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16"
+                  [style.fontSize.px]="getTextFontSize()"
                   [style.color]="colorScheme.text">
               @if (badge.icon) {
                 <i class="fa {{ badge.icon }}"></i>
@@ -52,8 +52,17 @@ export class HeaderWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() designerSettings?: DashboardLayout;
 
   asHeaderConfig(config: any): HeaderConfig { return config as HeaderConfig; }
+
+  getTitleFontSize(): number {
+    return this.designerSettings?.titleFontSize ?? 16;
+  }
+
+  getTextFontSize(): number {
+    return this.designerSettings?.textFontSize ?? 14;
+  }
 
   isIconOnLeft(): boolean {
     const align = this.asHeaderConfig(this.widget.config).titleAlign || 'top-left';

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-calendar',
@@ -8,7 +8,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig } from '../.
   imports: [CommonModule],
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
-    <div class="calendar-widget" [style.--headerFontSize]="(config.headerFontSize || 15) + 'px'" [style.--eventFontSize]="(config.eventFontSize || 12) + 'px'">
+    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'">
       @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-calendar"></i>
@@ -50,8 +50,17 @@ export class CalendarWidgetComponent {
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
   @Input() calendarEventsByEntityId: Record<string, any[]> | undefined;
+  @Input() designerSettings?: DashboardLayout;
 
   get config(): CalendarConfig { return (this.widget?.config || {}) as CalendarConfig; }
+
+  getHeaderFontSize(): number {
+    return this.designerSettings?.titleFontSize ?? 15;
+  }
+
+  getEventFontSize(): number {
+    return this.designerSettings?.textFontSize ?? 12;
+  }
 
   getEntityState(entityId?: string) {
     if (!entityId || !this.entityStates) return null;

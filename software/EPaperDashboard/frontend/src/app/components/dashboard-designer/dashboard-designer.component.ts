@@ -121,7 +121,9 @@ export class DashboardDesignerComponent implements OnInit {
               widgets: parsedLayout.widgets || [],
               canvasPadding: typeof parsedLayout.canvasPadding === 'number' ? parsedLayout.canvasPadding : 16,
               widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4,
-              widgetBorder: typeof parsedLayout.widgetBorder === 'number' ? parsedLayout.widgetBorder : 3
+              widgetBorder: typeof parsedLayout.widgetBorder === 'number' ? parsedLayout.widgetBorder : 3,
+              titleFontSize: typeof parsedLayout.titleFontSize === 'number' ? parsedLayout.titleFontSize : 16,
+              textFontSize: typeof parsedLayout.textFontSize === 'number' ? parsedLayout.textFontSize : 14
             });
           } catch (e) {
             console.error('Failed to parse layout config', e);
@@ -536,6 +538,14 @@ export class DashboardDesignerComponent implements OnInit {
 
   updateWidgetBorder(border: number): void {
     this.layout.update(layout => ({ ...layout, widgetBorder: border }));
+  }
+
+  updateTitleFontSize(fontSize: number): void {
+    this.layout.update(layout => ({ ...layout, titleFontSize: fontSize }));
+  }
+
+  updateTextFontSize(fontSize: number): void {
+    this.layout.update(layout => ({ ...layout, textFontSize: fontSize }));
   }
 
   // Live preview data

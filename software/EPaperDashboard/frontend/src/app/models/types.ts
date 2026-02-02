@@ -68,7 +68,6 @@ export interface WidgetPosition {
 
 export interface DisplayConfig {
   text: string;
-  fontSize?: number;
   color?: string;
 }
 
@@ -101,7 +100,6 @@ export interface WidgetConfig {
 export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
-  fontSize?: number;
   iconUrl?: string;
   iconSize?: number;
   titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -119,8 +117,6 @@ export interface MarkdownConfig {
 export interface CalendarConfig {
   entityId: string;
   maxEvents: number;
-  headerFontSize?: number;
-  eventFontSize?: number;
 }
 
 export interface WeatherConfig {
@@ -137,8 +133,6 @@ export interface GraphConfig {
 export interface TodoConfig {
   entityId: string;
   showCompleted?: boolean;
-  headerFontSize?: number;
-  itemFontSize?: number;
 }
 
 export interface DashboardLayout {
@@ -151,6 +145,8 @@ export interface DashboardLayout {
   canvasPadding?: number;
   widgetGap?: number;
   widgetBorder?: number;
+  titleFontSize?: number;
+  textFontSize?: number;
 }
 
 export interface ColorScheme {

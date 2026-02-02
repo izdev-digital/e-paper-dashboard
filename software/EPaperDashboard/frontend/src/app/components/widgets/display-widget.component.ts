@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, DisplayConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, DisplayConfig, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-display',
@@ -15,6 +15,7 @@ import { WidgetConfig, ColorScheme, DisplayConfig } from '../../models/types';
 export class DisplayWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
+  @Input() designerSettings?: DashboardLayout;
 
   get config(): DisplayConfig {
     return (this.widget?.config || {}) as DisplayConfig;
@@ -25,7 +26,7 @@ export class DisplayWidgetComponent {
   }
 
   get fontSize(): number {
-    return this.config.fontSize || 18;
+    return this.designerSettings?.textFontSize ?? 18;
   }
 
   get color(): string {
