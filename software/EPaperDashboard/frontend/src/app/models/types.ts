@@ -108,12 +108,8 @@ export interface HeaderConfig {
 }
 
 export interface BadgeConfig {
-  label: string;
   entityId?: string;
   icon?: string;
-  // Transient flags used by the editor UI
-  _confirmed?: boolean;
-  _editing?: boolean;
 }
 
 export interface MarkdownConfig {

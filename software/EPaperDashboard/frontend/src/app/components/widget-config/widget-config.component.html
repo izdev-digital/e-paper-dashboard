@@ -49,16 +49,13 @@
           @for (badge of headerConfig.badges; track trackByBadgeLabel($index, badge); let i = $index) {
             <div class="badge-item mb-2">
               <div class="d-flex gap-2 align-items-center">
-                <input type="text" class="form-control form-control-sm" placeholder="Label" [(ngModel)]="badge.label" />
+                <input type="text" class="form-control form-control-sm" placeholder="Icon (e.g., fa-thermometer)" [(ngModel)]="badge.icon" />
                 <select class="form-select form-select-sm" [(ngModel)]="badge.entityId">
                   <option [ngValue]="undefined">No Entity</option>
                   @for (entity of entities(); track trackByEntityId($index, entity)) {
                     <option [ngValue]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
                   }
                 </select>
-                @if (!isBadgeConfirmed(badge)) {
-                  <button class="btn btn-sm btn-outline-success" (click)="confirmBadge(i)">Confirm</button>
-                }
                 <button class="btn btn-sm btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
               </div>
             </div>

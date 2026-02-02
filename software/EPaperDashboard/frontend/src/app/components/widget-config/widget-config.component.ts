@@ -118,9 +118,9 @@ export class WidgetConfigComponent implements OnChanges {
   addBadge(): void {
     const config = this.headerConfig;
     if (config.badges) {
-      config.badges.push({ label: '', entityId: undefined, icon: undefined, _confirmed: false, _editing: true });
+      config.badges.push({ entityId: undefined, icon: undefined });
     } else {
-      config.badges = [{ label: '', entityId: undefined, icon: undefined, _confirmed: false, _editing: true }];
+      config.badges = [{ entityId: undefined, icon: undefined }];
     }
   }
 
@@ -129,16 +129,5 @@ export class WidgetConfigComponent implements OnChanges {
     if (config.badges) {
       config.badges.splice(index, 1);
     }
-  }
-
-  confirmBadge(index: number): void {
-    const config = this.headerConfig;
-    if (!config.badges || !config.badges[index]) return;
-    config.badges[index]._confirmed = true;
-    config.badges[index]._editing = false;
-  }
-
-  isBadgeConfirmed(badge: any): boolean {
-    return !!(badge && badge._confirmed);
   }
 }

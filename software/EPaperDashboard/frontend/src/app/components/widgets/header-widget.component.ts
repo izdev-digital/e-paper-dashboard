@@ -28,13 +28,18 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState } from '../../
       </div>
       @if (visibleBadges().length) {
         <div class="badges-container">
-          @for (badge of visibleBadges(); track badge.label) {
-            <span class="badge">
-              {{ badge.entityId ? (getEntityState(badge.entityId)?.state || badge.label) : badge.label }}
-              @if (getEntityAttribute(badge.entityId, 'unit_of_measurement')) {
-                <span class="badge-value">
+          @for (badge of visibleBadges(); track $index) {
+            <span class="badge" 
+                  [style.fontSize.px]="asHeaderConfig(widget.config).fontSize ?? 16"
+                  [style.color]="colorScheme.text">
+              @if (badge.icon) {
+                <i class="fa {{ badge.icon }}"></i>
+              }
+              @if (badge.entityId) {
+                {{ getEntityState(badge.entityId)?.state || '' }}
+                @if (getEntityAttribute(badge.entityId, 'unit_of_measurement')) {
                   {{ getEntityAttribute(badge.entityId, 'unit_of_measurement') }}
-                </span>
+                }
               }
             </span>
           }
@@ -69,11 +74,11 @@ export class HeaderWidgetComponent {
   visibleBadges() {
     const cfg = this.asHeaderConfig(this.widget.config);
     if (!cfg || !cfg.badges) return [];
-    // Show badges that are confirmed OR have a label/entityId set (helpful for newly added badges)
+    // Show badges that have an icon or entityId set
     return cfg.badges.filter((b: any) => {
       if (!b) return false;
-      if (b._confirmed === true) return true;
-      if ((b.label && String(b.label).trim().length > 0) || (b.entityId && String(b.entityId).trim().length > 0)) return true;
+      if ((b.entityId && String(b.entityId).trim().length > 0) ||
+          (b.icon && String(b.icon).trim().length > 0)) return true;
       return false;
     });
   }
