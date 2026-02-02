@@ -78,6 +78,7 @@ export class DashboardDesignerComponent implements OnInit {
   entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
+  calendarEventsByEntityId = signal<Record<string, any[]>>({});
   
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -578,7 +579,7 @@ export class DashboardDesignerComponent implements OnInit {
               completed++;
               if (completed === todoEntityIds.length) {
                 this.todoItemsByEntityId.set(todoMap);
-                this.livePreviewLoading.set(false);
+                this.fetchCalendarEvents();
               }
             },
             error: () => {
@@ -586,7 +587,7 @@ export class DashboardDesignerComponent implements OnInit {
               completed++;
               if (completed === todoEntityIds.length) {
                 this.todoItemsByEntityId.set(todoMap);
-                this.livePreviewLoading.set(false);
+                this.fetchCalendarEvents();
               }
             }
           });
@@ -596,6 +597,42 @@ export class DashboardDesignerComponent implements OnInit {
         console.error('Failed to load live data from Home Assistant:', err);
         this.livePreviewLoading.set(false);
       }
+    });
+  }
+
+  private fetchCalendarEvents() {
+    const calendarEntityIds = this.layout().widgets
+      .filter(w => w.type === 'calendar' && (w.config as any).entityId)
+      .map(w => (w.config as any).entityId)
+      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+
+    if (calendarEntityIds.length === 0) {
+      this.calendarEventsByEntityId.set({});
+      this.livePreviewLoading.set(false);
+      return;
+    }
+
+    let completed = 0;
+    const calendarMap: Record<string, any[]> = {};
+    calendarEntityIds.forEach(entityId => {
+      this.homeAssistantService.getCalendarEvents(this.dashboardId, entityId).subscribe({
+        next: (events) => {
+          calendarMap[entityId] = events || [];
+          completed++;
+          if (completed === calendarEntityIds.length) {
+            this.calendarEventsByEntityId.set(calendarMap);
+            this.livePreviewLoading.set(false);
+          }
+        },
+        error: () => {
+          calendarMap[entityId] = [];
+          completed++;
+          if (completed === calendarEntityIds.length) {
+            this.calendarEventsByEntityId.set(calendarMap);
+            this.livePreviewLoading.set(false);
+          }
+        }
+      });
     });
   }
 
@@ -734,7 +771,7 @@ export class DashboardDesignerComponent implements OnInit {
       case 'markdown':
         return { content: '# Markdown Content' };
       case 'calendar':
-        return { entityId: '', maxEvents: 5 };
+        return { entityId: '', maxEvents: 7, headerFontSize: 15, eventFontSize: 12 };
       case 'weather':
       case 'weather-forecast':
         return { entityId: '', showForecast: type === 'weather-forecast' };

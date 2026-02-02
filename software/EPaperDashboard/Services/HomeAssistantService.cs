@@ -219,6 +219,264 @@ public class HomeAssistantService(
         }
     }
 
+    /// <summary>
+    /// Fetches upcoming calendar events for a specific calendar entity.
+    /// Uses Home Assistant's calendar.get_events service to retrieve events within a specified duration.
+    /// Fetches a wider time window (7 days) to provide more event options, displayed count limited by maxEvents.
+    /// </summary>
+    /// <param name="dashboardId">The dashboard ID for authentication</param>
+    /// <param name="calendarEntityId">The calendar entity ID (e.g., calendar.my_calendar)</param>
+    /// <param name="durationHours">Hours into the future to fetch events (default: 168 = 7 days)</param>
+    /// <returns>List of CalendarEvent objects sorted by start time, or error message</returns>
+    public async Task<Result<List<CalendarEvent>, string>> FetchCalendarEvents(string dashboardId, string calendarEntityId, int durationHours = 168)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        if (string.IsNullOrWhiteSpace(calendarEntityId))
+        {
+            return "Calendar entity ID is required";
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+
+            var messageId = _messageId++;
+            var now = DateTime.UtcNow;
+            var endTime = now.AddHours(durationHours);
+            
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "call_service",
+                domain = "calendar",
+                service = "get_events",
+                service_data = new
+                {
+                    start_date_time = now.ToString("O"),
+                    end_date_time = endTime.ToString("O")
+                },
+                target = new
+                {
+                    entity_id = calendarEntityId
+                },
+                return_response = true
+            });
+
+            var response = await ReceiveMessageAsync(ws);
+            _logger.LogDebug("HomeAssistant FetchCalendarEvents raw response: {Response}", response);
+
+            var json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
+            var events = new List<CalendarEvent>();
+
+            // The response structure from calendar.get_events is:
+            // { "success": true, "result": { "response": { "calendar.entity_id": { "events": [...] } } } }
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
+            {
+                JsonElement eventsArray = default;
+                bool foundEvents = false;
+
+                // Try standard structure: result.response.<calendar_entity>.events
+                if (result.TryGetProperty("response", out var responseObj) && responseObj.ValueKind == JsonValueKind.Object)
+                {
+                    if (responseObj.TryGetProperty(calendarEntityId, out var entityObj) && 
+                        entityObj.ValueKind == JsonValueKind.Object &&
+                        entityObj.TryGetProperty("events", out eventsArray) && 
+                        eventsArray.ValueKind == JsonValueKind.Array)
+                    {
+                        foundEvents = true;
+                        _logger.LogDebug("Found events at result.response.{EntityId}.events", calendarEntityId);
+                    }
+                }
+
+                // Fallback: result.<calendar_entity>.events
+                if (!foundEvents && result.TryGetProperty(calendarEntityId, out var entityObj2) && 
+                    entityObj2.ValueKind == JsonValueKind.Object &&
+                    entityObj2.TryGetProperty("events", out eventsArray) && 
+                    eventsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundEvents = true;
+                    _logger.LogDebug("Found events at result.{EntityId}.events", calendarEntityId);
+                }
+
+                // Fallback: result.events (direct array)
+                if (!foundEvents && result.TryGetProperty("events", out eventsArray) && 
+                    eventsArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundEvents = true;
+                    _logger.LogDebug("Found events at result.events");
+                }
+
+                if (foundEvents)
+                {
+                    foreach (var eventElement in eventsArray.EnumerateArray())
+                    {
+                        var calendarEvent = ParseCalendarEvent(eventElement);
+                        if (calendarEvent != null)
+                        {
+                            events.Add(calendarEvent);
+                        }
+                    }
+
+                    // Sort events by start time
+                    events = events
+                        .OrderBy(e => e.Start)
+                        .ToList();
+
+                    _logger.LogDebug("Parsed {Count} calendar events from entity {EntityId} between {Start} and {End}", events.Count, calendarEntityId, now, endTime);
+                }
+                else
+                {
+                    _logger.LogWarning("Could not find events array in calendar.get_events response for entity {EntityId}. Response was: {Response}", calendarEntityId, response);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Calendar events fetch returned unsuccessful response. Response was: {Response}", response);
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return events;
+        }
+        catch (WebSocketException)
+        {
+            _logger.LogError("Unable to connect to Home Assistant WebSocket for calendar events");
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch calendar events from entity {EntityId}", calendarEntityId);
+            return $"Failed to fetch calendar events: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Parses a single calendar event from the JSON response.
+    /// Handles various date/time formats and event properties.
+    /// </summary>
+    private CalendarEvent? ParseCalendarEvent(JsonElement eventElement)
+    {
+        try
+        {
+            if (eventElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            // Extract start time (required)
+            string? start = null;
+            if (eventElement.TryGetProperty("start", out var startProp))
+            {
+                start = ExtractDateTimeString(startProp);
+            }
+
+            if (string.IsNullOrWhiteSpace(start))
+            {
+                _logger.LogWarning("Skipping calendar event with missing start time");
+                return null;
+            }
+
+            // Extract end time
+            string? end = null;
+            if (eventElement.TryGetProperty("end", out var endProp))
+            {
+                end = ExtractDateTimeString(endProp);
+            }
+
+            // Extract summary/title
+            string summary = string.Empty;
+            if (eventElement.TryGetProperty("summary", out var summaryProp))
+            {
+                summary = summaryProp.GetString() ?? string.Empty;
+            }
+
+            // Extract description
+            string? description = null;
+            if (eventElement.TryGetProperty("description", out var descProp))
+            {
+                description = descProp.GetString();
+            }
+
+            // Extract location
+            string? location = null;
+            if (eventElement.TryGetProperty("location", out var locProp))
+            {
+                location = locProp.GetString();
+            }
+
+            // Extract uid
+            string uid = string.Empty;
+            if (eventElement.TryGetProperty("uid", out var uidProp))
+            {
+                uid = uidProp.GetString() ?? Guid.NewGuid().ToString();
+            }
+            else
+            {
+                uid = Guid.NewGuid().ToString();
+            }
+
+            // Determine if all-day event
+            bool allDay = false;
+            if (eventElement.TryGetProperty("all_day", out var allDayProp))
+            {
+                allDay = allDayProp.GetBoolean();
+            }
+
+            // Try to infer all-day from start/end format (date-only vs datetime)
+            if (!allDay && !string.IsNullOrWhiteSpace(start) && start.Length == 10 && start[4] == '-' && start[7] == '-')
+            {
+                allDay = true;
+            }
+
+            // Extract recurrence rule
+            string? recurrenceRule = null;
+            if (eventElement.TryGetProperty("rrule", out var rRuleProp))
+            {
+                recurrenceRule = rRuleProp.GetString();
+            }
+
+            return new CalendarEvent
+            {
+                Uid = uid,
+                Summary = summary,
+                Description = description,
+                Location = location,
+                Start = start,
+                End = end,
+                AllDay = allDay,
+                RecurrenceRule = recurrenceRule
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse calendar event element");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extracts a date/time string from a JSON element.
+    /// Handles both string and object representations of dates.
+    /// </summary>
+    private string? ExtractDateTimeString(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Object => 
+                element.TryGetProperty("__type", out var typeElement) && typeElement.GetString() == "ISO8601_STR" &&
+                element.TryGetProperty("isoformat", out var isoProp) ? isoProp.GetString() : null,
+            _ => null
+        };
+    }
+
+
     public async Task<Result<List<HassEntityState>, string>> FetchEntityStates(string dashboardId, IEnumerable<string> entityIds)
     {
         var dashboardResult = ValidateAndGetDashboard(dashboardId);
@@ -568,4 +826,47 @@ public record TodoItem
     public string Summary { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public string Uid { get; init; } = string.Empty;
+}
+
+public record CalendarEvent
+{
+    /// <summary>
+    /// Event unique identifier
+    /// </summary>
+    public string Uid { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Event title/summary
+    /// </summary>
+    public string Summary { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Event description
+    /// </summary>
+    public string? Description { get; init; }
+
+    /// <summary>
+    /// Event location
+    /// </summary>
+    public string? Location { get; init; }
+
+    /// <summary>
+    /// Event start time (ISO 8601 format)
+    /// </summary>
+    public string Start { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Event end time (ISO 8601 format)
+    /// </summary>
+    public string? End { get; init; }
+
+    /// <summary>
+    /// Whether this is an all-day event
+    /// </summary>
+    public bool AllDay { get; init; }
+
+    /// <summary>
+    /// Recurrence rule if the event repeats
+    /// </summary>
+    public string? RecurrenceRule { get; init; }
 }

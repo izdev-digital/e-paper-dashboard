@@ -1,33 +1,124 @@
+
 .calendar-widget {
   display: grid;
   grid-auto-flow: row;
-  gap: 4px;
+  gap: 0px;
   overflow: hidden;
+  align-content: start;
+  --headerFontSize: 15px;
+  --eventFontSize: 12px;
 }
 
 .calendar-content {
   display: grid;
   grid-auto-flow: row;
-  gap: 4px;
+  gap: 3px;
   overflow: hidden;
+  align-content: start;
+
+  h4 {
+    margin: 0;
+    padding: 0;
+    font-size: var(--headerFontSize);
+    font-weight: 600;
+    opacity: 0.9;
+  }
 }
 
-.calendar-content h4 {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: bold;
+.calendar-event {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 0px;
+  padding: 2px 0;
+  opacity: 0.85;
+  min-width: 0;
+
+  &:last-child {
+    padding-bottom: 0;
+  }
 }
 
-.calendar-state {
-  font-size: 0.85rem;
+.event-datetime {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: var(--eventFontSize);
+  font-weight: 500;
+  min-width: 0;
+
+  i {
+    font-size: calc(var(--eventFontSize) * 1.1);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+
+  span {
+    letter-spacing: 0.3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+    min-width: 0;
+  }
 }
 
-.calendar-message {
-  font-size: 0.75rem;
-  opacity: 0.8;
+.event-title {
+  font-size: var(--eventFontSize);
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  word-break: break-word;
+  min-width: 0;
+}
+
+.event-location {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--eventFontSize);
+  font-weight: 500;
+  min-width: 0;
+
+  i {
+    font-size: calc(var(--eventFontSize) * 1);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+    opacity: 0.8;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 0;
+  opacity: 0.6;
+
+  i {
+    font-size: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--eventFontSize);
+  }
 }

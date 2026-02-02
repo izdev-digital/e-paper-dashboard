@@ -73,4 +73,32 @@ public class HomeAssistantController(
         }
         return Ok(result.Value);
     }
+
+    /// <summary>
+    /// Fetches upcoming calendar events for a specific calendar entity.
+    /// Fetches events for a full week by default to provide more event options.
+    /// Display count is limited by widget's maxEvents configuration.
+    /// </summary>
+    /// <param name="dashboardId">Dashboard ID for authentication</param>
+    /// <param name="calendarEntityId">Calendar entity ID (e.g., calendar.my_calendar)</param>
+    /// <param name="hoursAhead">Number of hours into the future to fetch events (default: 168 = 7 days, max: 720)</param>
+    [HttpGet("{dashboardId}/calendar-events/{calendarEntityId}")]
+    public async Task<IActionResult> GetCalendarEvents(string dashboardId, string calendarEntityId, [FromQuery] int hoursAhead = 168)
+    {
+        // Validate hours ahead (max 30 days)
+        if (hoursAhead < 1)
+            hoursAhead = 1;
+        if (hoursAhead > 720)
+            hoursAhead = 720;
+
+        var result = await _homeAssistantService.FetchCalendarEvents(dashboardId, calendarEntityId, hoursAhead);
+        if (result.IsFailure)
+        {
+            _logger.LogWarning("Failed to fetch calendar events: {Error}", result.Error);
+            return BadRequest(new { error = result.Error });
+        }
+
+        _logger.LogInformation("Successfully fetched {Count} calendar events for entity {Entity}", result.Value.Count, calendarEntityId);
+        return Ok(new { events = result.Value });
+    }
 }

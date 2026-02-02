@@ -69,7 +69,7 @@ import {
         <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId"></app-widget-todo>
       }
       @if (widget.type === 'calendar') {
-        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates"></app-widget-calendar>
+        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId"></app-widget-calendar>
       }
     </div>
   `,
@@ -77,6 +77,7 @@ import {
 })
 export class WidgetPreviewComponent {
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
+  @Input() calendarEventsByEntityId?: Record<string, any[]>;
   // ...existing code...
   // Add missing config helpers for new widget types
   asDisplayConfig(config: any) {

@@ -119,6 +119,8 @@ export interface MarkdownConfig {
 export interface CalendarConfig {
   entityId: string;
   maxEvents: number;
+  headerFontSize?: number;
+  eventFontSize?: number;
 }
 
 export interface WeatherConfig {

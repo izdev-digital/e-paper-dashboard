@@ -49,6 +49,12 @@ export class HomeAssistantService {
   getTodoItems(dashboardId: string, todoEntityId: string): Observable<TodoItem[]> {
     return this.http.get<TodoItem[]>(`/api/homeassistant/${dashboardId}/todo-items/${todoEntityId}`);
   }
+
+  getCalendarEvents(dashboardId: string, calendarEntityId: string, hoursAhead: number = 168): Observable<any[]> {
+    return this.http.get<{ events: any[] }>(`/api/homeassistant/${dashboardId}/calendar-events/${calendarEntityId}?hoursAhead=${hoursAhead}`).pipe(
+      map(response => response.events || [])
+    );
+  }
 }
 
 // Type for todo items returned from backend

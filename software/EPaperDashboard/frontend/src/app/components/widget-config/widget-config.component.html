@@ -91,6 +91,14 @@
                 <label class="form-label">Max Events</label>
                 <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
               </div>
+              <div class="mb-3">
+                <label class="form-label">Calendar Name Font Size (px)</label>
+                <input type="number" class="form-control" [(ngModel)]="calendarConfig.headerFontSize" min="8" max="32" placeholder="15" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Event Font Size (px)</label>
+                <input type="number" class="form-control" [(ngModel)]="calendarConfig.eventFontSize" min="6" max="24" placeholder="12" />
+              </div>
 
             }
 
