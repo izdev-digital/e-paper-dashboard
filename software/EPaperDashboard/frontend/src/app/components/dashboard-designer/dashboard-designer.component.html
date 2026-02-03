@@ -33,9 +33,9 @@
   }
 
   @if (!isLoading()) {
-    <div class="row">
+    <div class="designer-grid-container">
       <!-- Left Panel - Widget Toolbar -->
-      <div class="col-md-2">
+      <div class="designer-panel-left">
         <div class="card">
           <div class="card-header">
             <h5>Widgets</h5>
@@ -59,7 +59,7 @@
       </div>
 
       <!-- Center - Canvas -->
-      <div class="col-md-7">
+      <div class="designer-panel-center">
         <div class="card">
           <div class="card-header">
             <h5>Canvas</h5>
@@ -102,7 +102,7 @@
       </div>
 
       <!-- Right Panel - Widget Properties -->
-      <div class="col-md-3">
+      <div class="designer-panel-right">
         <div class="card">
           <div class="card-header">
             <div class="custom-tab-bar-scroll">
@@ -120,8 +120,8 @@
             </div>
           </div>
           <div class="card-body">
-            @if (activeTab() === 'dashboard') {
-              <!-- Color Scheme Selector -->
+            <!-- Dashboard Settings Tab -->
+            <div class="tab-pane" [class.active]="activeTab() === 'dashboard'">
               <div class="card mb-3">
                 <div class="card-header">
                   <h5>Color Scheme</h5>
@@ -140,8 +140,6 @@
                   </select>
                 </div>
               </div>
-              <!-- Preview removed per request -->
-              <!-- Layout Settings -->
               <div class="card">
                 <div class="card-header">
                   <h5>Layout</h5>
@@ -177,7 +175,6 @@
                   </div>
                 </div>
               </div>
-              <!-- Designer Font Sizes -->
               <div class="card">
                 <div class="card-header">
                   <h5>Font Sizes</h5>
@@ -193,20 +190,18 @@
                   </div>
                 </div>
               </div>
-            }
+            </div>
 
-            @if (activeTab() === 'properties') {
+            <!-- Properties Tab -->
+            <div class="tab-pane" [class.active]="activeTab() === 'properties'">
               @if (!selectedWidget()) {
                 <div class="text-muted text-center py-4">
                   Select a widget to edit its properties
                 </div>
               }
-
               @if (selectedWidget()) {
                 <h6>{{ selectedWidget()!.type | titlecase }}</h6>
                 <hr />
-
-                <!-- Position Settings -->
                 <div class="mb-3">
                   <label class="form-label small">Position & Size</label>
                   <div class="row g-2">
@@ -256,8 +251,6 @@
                     </div>
                   </div>
                 </div>
-
-                <!-- Widget-Specific Config -->
                 <app-widget-config
                   [widget]="selectedWidget()!"
                   [dashboard]="dashboard()"
@@ -266,45 +259,43 @@
                   [attr.key]="selectedWidget()!.id"
                 ></app-widget-config>
               }
-            }
+            </div>
 
-            @if (activeTab() === 'widgets') {
+            <!-- Widgets List Tab -->
+            <div class="widgets-list-pane" [class.active]="activeTab() === 'widgets'">
               @if (layout().widgets.length === 0) {
                 <div class="text-muted text-center py-4">
                   <p>No widgets added yet.</p>
                   <small>Drag widgets from the toolbar or click to add them.</small>
                 </div>
-              }
-              @if (layout().widgets.length > 0) {
-                <div class="widgets-list">
-                  @for (w of layout().widgets; track w.id) {
-                    <div
-                      class="widget-item mb-2 p-2 border rounded"
-                      [class.active]="selectedWidget()?.id === w.id"
-                      (click)="onWidgetSelect(w)"
-                    >
-                      <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                          <div class="fw-bold">{{ w.type | titlecase }}</div>
-                          <small class="text-muted">ID: {{ w.id }}</small>
-                          <div class="small mt-1">
-                            <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
-                            <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
-                          </div>
+              } @else {
+                @for (w of layout().widgets; track w.id) {
+                  <div
+                    class="widget-item mb-2 p-2 border rounded"
+                    [class.active]="selectedWidget()?.id === w.id"
+                    (click)="onWidgetSelect(w)"
+                  >
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <div class="fw-bold">{{ w.type | titlecase }}</div>
+                        <small class="text-muted">ID: {{ w.id }}</small>
+                        <div class="small mt-1">
+                          <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
+                          <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
                         </div>
-                        <button
-                          class="btn btn-sm btn-danger"
-                          (click)="deleteWidget(w); $event.stopPropagation()"
-                          title="Delete widget"
-                        >
-                          <i class="fa fa-trash"></i>
-                        </button>
                       </div>
+                      <button
+                        class="btn btn-sm btn-danger"
+                        (click)="deleteWidget(w); $event.stopPropagation()"
+                        title="Delete widget"
+                      >
+                        <i class="fa fa-trash"></i>
+                      </button>
                     </div>
-                  }
-                </div>
+                  </div>
+                }
               }
-            }
+            </div>
           </div>
         </div>
       </div>

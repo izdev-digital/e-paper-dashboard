@@ -1,5 +1,55 @@
 // Dashboard Designer component styles
 
+// Grid layout for the three main panels
+.designer-grid-container {
+  display: grid;
+  grid-template-columns: 2fr 7fr 3fr;
+  gap: 1.5rem;
+  max-height: calc(100vh - 220px);
+  align-items: stretch;
+  
+  .card {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 220px);
+    max-height: calc(100vh - 220px);
+    
+    .card-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+  }
+}
+
+.designer-panel-left,
+.designer-panel-center,
+.designer-panel-right {
+  min-width: 0;
+}
+
+// Make designer panels match canvas height
+.col-md-2 .card,
+.col-md-3 .card {
+  display: flex;
+  flex-direction: column;
+  
+  .card-body {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.col-md-7 .card {
+  display: flex;
+  flex-direction: column;
+  
+  .card-body {
+    padding: 0;
+  }
+}
+
 // Tab scroll wrapper and buttons
 .tab-scroll-wrapper {
   display: flex;
@@ -189,6 +239,24 @@
   .widget-item.active { background-color: var(--widget-item-active-bg-dark, #181a1b); color: var(--widget-item-active-color-dark, #66b0ff); border-color: var(--widget-item-active-border-dark, #66b0ff) !important; }
 }
 
+.widget-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #adb5bd #f8f9fa;
+}
+
+.widget-list::-webkit-scrollbar {
+  width: 8px;
+}
+.widget-list::-webkit-scrollbar-thumb {
+  background: #adb5bd;
+  border-radius: 4px;
+}
+.widget-list::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
 .widgets-list { max-height: 400px; overflow-y: auto; }
 
 .resize-handle { position: absolute; background: rgba(0, 123, 255, 0.7); z-index: 10; }
@@ -217,3 +285,51 @@
 .widget-list button { font-size: 0.9rem; }
 
 .card-header h5 { margin: 0; font-size: 1rem; }
+
+// Right panel settings scrolling
+.designer-panel-right .card > .card-body {
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #adb5bd #f8f9fa;
+  padding: 0;
+  
+  .tab-pane {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--bs-card-spacer-y, 1rem) var(--bs-card-spacer-x, 1rem);
+    
+    &.active {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+  
+  .widgets-list-pane {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    
+    &.active {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
+
+.col-md-3 .card > .card-body::-webkit-scrollbar {
+  width: 8px;
+}
+.col-md-3 .card > .card-body::-webkit-scrollbar-thumb {
+  background: #adb5bd;
+  border-radius: 4px;
+}
+.col-md-3 .card > .card-body::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
