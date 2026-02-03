@@ -143,43 +143,58 @@
               <div class="card mb-3">
                 <div class="card-header">
                   <h5>Color Overrides</h5>
-                  <small class="text-muted d-block">Customize colors for your dashboard</small>
+                  <small class="text-muted d-block">Customize colors (limited to scheme palette)</small>
                 </div>
                 <div class="card-body p-2">
                   <div class="mb-2">
                     <label class="form-label small">Canvas Background</label>
-                    <div class="input-group">
-                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.canvasBackgroundColor" (ngModelChange)="updateCanvasBackgroundColor($event)" />
-                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor" (ngModelChange)="updateCanvasBackgroundColor($event)" />
-                    </div>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor" (ngModelChange)="updateCanvasBackgroundColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">
+                          <span [style.backgroundColor]="color">{{ getColorName(color) }}</span>
+                        </option>
+                      }
+                    </select>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Background</label>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBackgroundColor" (ngModelChange)="updateWidgetBackgroundColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">{{ getColorName(color) }}</option>
+                      }
+                    </select>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small">Widget Border Color</label>
-                    <div class="input-group">
-                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetBorderColor" (ngModelChange)="updateWidgetBorderColor($event)" />
-                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetBorderColor" (ngModelChange)="updateWidgetBorderColor($event)" />
-                    </div>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBorderColor" (ngModelChange)="updateWidgetBorderColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">{{ getColorName(color) }}</option>
+                      }
+                    </select>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small">Widget Title Text Color</label>
-                    <div class="input-group">
-                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetTitleTextColor" (ngModelChange)="updateWidgetTitleTextColor($event)" />
-                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor" (ngModelChange)="updateWidgetTitleTextColor($event)" />
-                    </div>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor" (ngModelChange)="updateWidgetTitleTextColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">{{ getColorName(color) }}</option>
+                      }
+                    </select>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small">Widget Text Color</label>
-                    <div class="input-group">
-                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetTextColor" (ngModelChange)="updateWidgetTextColor($event)" />
-                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetTextColor" (ngModelChange)="updateWidgetTextColor($event)" />
-                    </div>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTextColor" (ngModelChange)="updateWidgetTextColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">{{ getColorName(color) }}</option>
+                      }
+                    </select>
                   </div>
                   <div class="mb-2">
                     <label class="form-label small">Icon Color</label>
-                    <div class="input-group">
-                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.iconColor" (ngModelChange)="updateIconColor($event)" />
-                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.iconColor" (ngModelChange)="updateIconColor($event)" />
-                    </div>
+                    <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.iconColor" (ngModelChange)="updateIconColor($event)">
+                      @for (color of layout().colorScheme.palette; track color) {
+                        <option [value]="color">{{ getColorName(color) }}</option>
+                      }
+                    </select>
                   </div>
                 </div>
               </div>
@@ -297,39 +312,67 @@
                 <div class="card mb-3">
                   <div class="card-header">
                     <h6 class="mb-0">Color Overrides</h6>
-                    <small class="text-muted">Leave empty to use dashboard color scheme</small>
+                    <small class="text-muted">Limited to scheme palette</small>
                   </div>
                   <div class="card-body p-2">
                     <div class="mb-2">
+                      <label class="form-label small">Widget Background Color</label>
+                      <div class="input-group">
+                        <select class="form-select form-select-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetBackgroundColor || ''" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor', $event)">
+                          <option value="">Default ({{ layout().colorScheme.widgetBackgroundColor }})</option>
+                          @for (color of layout().colorScheme.palette; track color) {
+                            <option [value]="color">{{ getColorName(color) }}</option>
+                          }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor')" title="Clear override">×</button>
+                      </div>
+                    </div>
+                    <div class="mb-2">
                       <label class="form-label small">Widget Border Color</label>
                       <div class="input-group">
-                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)" />
-                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)" placeholder="e.g., #000000" />
-                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBorderColor')" title="Clear override">Clear</button>
+                        <select class="form-select form-select-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor || ''" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)">
+                          <option value="">Default ({{ layout().colorScheme.widgetBorderColor }})</option>
+                          @for (color of layout().colorScheme.palette; track color) {
+                            <option [value]="color">{{ getColorName(color) }}</option>
+                          }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBorderColor')" title="Clear override">×</button>
                       </div>
                     </div>
                     <div class="mb-2">
                       <label class="form-label small">Widget Title Text Color</label>
                       <div class="input-group">
-                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)" />
-                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)" placeholder="e.g., #000000" />
-                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor')" title="Clear override">Clear</button>
+                        <select class="form-select form-select-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor || ''" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)">
+                          <option value="">Default ({{ layout().colorScheme.widgetTitleTextColor }})</option>
+                          @for (color of layout().colorScheme.palette; track color) {
+                            <option [value]="color">{{ getColorName(color) }}</option>
+                          }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor')" title="Clear override">×</button>
                       </div>
                     </div>
                     <div class="mb-2">
                       <label class="form-label small">Widget Text Color</label>
                       <div class="input-group">
-                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)" />
-                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)" placeholder="e.g., #333333" />
-                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTextColor')" title="Clear override">Clear</button>
+                        <select class="form-select form-select-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor || ''" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)">
+                          <option value="">Default ({{ layout().colorScheme.widgetTextColor }})</option>
+                          @for (color of layout().colorScheme.palette; track color) {
+                            <option [value]="color">{{ getColorName(color) }}</option>
+                          }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTextColor')" title="Clear override">×</button>
                       </div>
                     </div>
                     <div class="mb-2">
                       <label class="form-label small">Icon Color</label>
                       <div class="input-group">
-                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.iconColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)" />
-                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.iconColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)" placeholder="e.g., #ff0000" />
-                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'iconColor')" title="Clear override">Clear</button>
+                        <select class="form-select form-select-sm" [ngModel]="selectedWidget()!.colorOverrides?.iconColor || ''" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)">
+                          <option value="">Default ({{ layout().colorScheme.iconColor }})</option>
+                          @for (color of layout().colorScheme.palette; track color) {
+                            <option [value]="color">{{ getColorName(color) }}</option>
+                          }
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'iconColor')" title="Clear override">×</button>
                       </div>
                     </div>
                   </div>

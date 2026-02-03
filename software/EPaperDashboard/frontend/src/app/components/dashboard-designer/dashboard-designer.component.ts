@@ -586,6 +586,13 @@ export class DashboardDesignerComponent implements OnInit {
     }));
   }
 
+  updateWidgetBackgroundColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, widgetBackgroundColor: color }
+    }));
+  }
+
   updateWidgetColorOverride(widget: WidgetConfig, colorProperty: keyof WidgetColorOverrides, value: string): void {
     const updatedWidget: WidgetConfig = {
       ...widget,
@@ -618,6 +625,16 @@ export class DashboardDesignerComponent implements OnInit {
     }));
 
     this.selectedWidget.set(updatedWidget);
+  }
+
+  getColorName(color: string): string {
+    const colorMap: Record<string, string> = {
+      '#000000': 'Black',
+      '#ffffff': 'White',
+      '#ff0000': 'Red',
+      '#ffff00': 'Yellow'
+    };
+    return colorMap[color.toLowerCase()] || color;
   }
 
   // Live preview data
@@ -809,10 +826,11 @@ export class DashboardDesignerComponent implements OnInit {
   getWidgetStyle(widget: WidgetConfig): any {
     const layout = this.layout();
     const borderColor = widget.colorOverrides?.widgetBorderColor || layout.colorScheme.widgetBorderColor || layout.colorScheme.foreground;
+    const backgroundColor = widget.colorOverrides?.widgetBackgroundColor || layout.colorScheme.widgetBackgroundColor || layout.colorScheme.background;
     return {
       gridColumn: `${widget.position.x + 1} / span ${widget.position.w}`,
       gridRow: `${widget.position.y + 1} / span ${widget.position.h}`,
-      backgroundColor: layout.colorScheme.canvasBackgroundColor || layout.colorScheme.background,
+      backgroundColor: backgroundColor,
       border: `${layout.widgetBorder ?? 2}px solid ${borderColor}`,
       color: layout.colorScheme.text,
       padding: '8px',
