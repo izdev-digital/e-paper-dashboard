@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig, DashboardLayout } from '../../models/types';
 
 @Component({
   selector: 'app-widget-weather-forecast',
@@ -38,6 +38,7 @@ export class WeatherForecastWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() designerSettings?: DashboardLayout;
 
   get config(): WeatherConfig {
     return (this.widget?.config || {}) as WeatherConfig;

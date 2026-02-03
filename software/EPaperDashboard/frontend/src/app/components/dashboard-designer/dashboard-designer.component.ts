@@ -715,7 +715,7 @@ export class DashboardDesignerComponent implements OnInit {
     const calendarMap: Record<string, any[]> = {};
     calendarEntityIds.forEach(entityId => {
       this.homeAssistantService.getCalendarEvents(this.dashboardId, entityId).subscribe({
-        next: (events) => {
+        next: (events: any[]) => {
           calendarMap[entityId] = events || [];
           completed++;
           if (completed === calendarEntityIds.length) {
