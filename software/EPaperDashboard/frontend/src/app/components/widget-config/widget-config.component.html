@@ -29,11 +29,6 @@
       <small class="form-text text-muted">Badges will wrap around the title and fill remaining space.</small>
     </div>
     <div class="mb-3">
-      <label class="form-label">App Icon</label>
-      <input type="text" class="form-control" [(ngModel)]="headerConfig.iconUrl" placeholder="/icon.svg (default)" />
-      <small class="form-text text-muted">Leave blank to use the default app icon (icon.svg).</small>
-    </div>
-    <div class="mb-3">
       <label class="form-label">Icon Size (px)</label>
       <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32" />
     </div>
@@ -178,11 +173,6 @@
   }
 
   @case ('app-icon') {
-                  <div class="mb-3">
-                    <label class="form-label">Icon URL (optional)</label>
-                    <input type="text" class="form-control" [(ngModel)]="appIconConfig.iconUrl"
-                      placeholder="Leave blank for default app icon" />
-                  </div>
                   <div class="mb-3">
                     <label class="form-label">Size (px)</label>
                     <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />

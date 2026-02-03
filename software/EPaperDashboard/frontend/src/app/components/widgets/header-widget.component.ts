@@ -1,5 +1,6 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayout } from '../../models/types';
 
 @Component({
@@ -10,22 +11,20 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
   template: `
     <div class="header-widget" [class]="'align-' + (asHeaderConfig(widget.config).titleAlign || 'top-left')" [style.color]="getTitleColor()">
       <div class="title-section" [class.order-last]="!isIconOnLeft()">
-        @if (isIconOnLeft()) {
-          <img class="header-icon"
-            [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
+        @if (isIconOnLeft() && inlineSvg) {
+          <div class="header-icon"
+            [innerHTML]="inlineSvg"
             [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-            [style.color]="getIconColor()"
-            alt="App Icon"/>
+            [style.--accent-color]="getIconColor()"></div>
         }
         <div class="title" [style.fontSize.px]="getTitleFontSize()" [style.color]="getTitleColor()">{{ asHeaderConfig(widget.config).title }}</div>
-        @if (!isIconOnLeft()) {
-          <img class="header-icon"
-            [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
+        @if (!isIconOnLeft() && inlineSvg) {
+          <div class="header-icon"
+            [innerHTML]="inlineSvg"
             [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
-            [style.color]="getIconColor()"
-            alt="App Icon"/>
+            [style.--accent-color]="getIconColor()"></div>
         }
       </div>
       @if (visibleBadges().length) {
@@ -50,11 +49,40 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
     </div>
   `
 })
-export class HeaderWidgetComponent {
+export class HeaderWidgetComponent implements OnInit, OnChanges {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
   @Input() designerSettings?: DashboardLayout;
+
+  inlineSvg: SafeHtml | null = null;
+
+  constructor(private sanitizer: DomSanitizer) {}
+
+  ngOnInit(): void {
+    this.loadSvg();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['widget'] || changes['colorScheme']) {
+      this.loadSvg();
+    }
+  }
+
+  private async loadSvg(): Promise<void> {
+    try {
+      const response = await fetch('/icon-tab-dynamic.svg');
+      if (response.ok) {
+        let svgText = await response.text();
+        // Replace the default accent color in the SVG to prevent flicker
+        const accentColor = this.getIconColor();
+        svgText = svgText.replace(/--accent-color: #[0-9a-f]{6};/i, `--accent-color: ${accentColor};`);
+        this.inlineSvg = this.sanitizer.bypassSecurityTrustHtml(svgText);
+      }
+    } catch (error) {
+      console.error('Failed to load SVG:', error);
+    }
+  }
 
   asHeaderConfig(config: any): HeaderConfig { return config as HeaderConfig; }
 

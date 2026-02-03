@@ -74,7 +74,6 @@ export interface DisplayConfig {
 }
 
 export interface AppIconConfig {
-  iconUrl?: string; // fallback to default app icon if not set
   size?: number;
 }
 
@@ -117,7 +116,6 @@ export interface WidgetConfig {
 export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
-  iconUrl?: string;
   iconSize?: number;
   titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 }
