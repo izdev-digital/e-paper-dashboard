@@ -8,16 +8,16 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
   imports: [CommonModule],
   styleUrls: ['./weather-forecast-widget.component.scss'],
   template: `
-    <div class="weather-forecast-widget">
+    <div class="weather-forecast-widget" [style.color]="getTextColor()">
       @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
-          <i class="fa fa-cloud-sun-rain"></i>
+          <i class="fa fa-cloud-sun-rain" [style.color]="getIconColor()"></i>
           <p>Not configured</p>
         </div>
       }
       @if (getEntityState(config.entityId)) {
         <div class="forecast-content">
-          <div class="forecast-header">{{ getEntityState(config.entityId)!.state }}</div>
+          <div class="forecast-header" [style.color]="getTitleColor()">{{ getEntityState(config.entityId)!.state }}</div>
           @if (getEntityState(config.entityId)!.attributes?.['forecast']) {
             <div class="forecast-items">
               @for (item of getForecastItems(config.entityId); track trackByItemId($index, item)) {
@@ -69,4 +69,25 @@ export class WeatherForecastWidgetComponent {
     return item.temperature || '';
   }
   trackByItemId(index: number, item: any) { return item.id || index; }
+
+  getTitleColor(): string {
+    if (this.widget.colorOverrides?.widgetTitleTextColor) {
+      return this.widget.colorOverrides.widgetTitleTextColor;
+    }
+    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getIconColor(): string {
+    if (this.widget.colorOverrides?.iconColor) {
+      return this.widget.colorOverrides.iconColor;
+    }
+    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+  }
 }

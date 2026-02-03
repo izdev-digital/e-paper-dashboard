@@ -8,21 +8,23 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
   imports: [CommonModule],
   styleUrls: ['./header-widget.component.scss'],
   template: `
-    <div class="header-widget" [class]="'align-' + (asHeaderConfig(widget.config).titleAlign || 'top-left')">
+    <div class="header-widget" [class]="'align-' + (asHeaderConfig(widget.config).titleAlign || 'top-left')" [style.color]="getTitleColor()">
       <div class="title-section" [class.order-last]="!isIconOnLeft()">
         @if (isIconOnLeft()) {
           <img class="header-icon"
             [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
             [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            [style.color]="getIconColor()"
             alt="App Icon"/>
         }
-        <div class="title" [style.fontSize.px]="getTitleFontSize()">{{ asHeaderConfig(widget.config).title }}</div>
+        <div class="title" [style.fontSize.px]="getTitleFontSize()" [style.color]="getTitleColor()">{{ asHeaderConfig(widget.config).title }}</div>
         @if (!isIconOnLeft()) {
           <img class="header-icon"
             [src]="asHeaderConfig(widget.config).iconUrl || '/icon.svg'"
             [style.width.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
+            [style.color]="getIconColor()"
             alt="App Icon"/>
         }
       </div>
@@ -31,9 +33,9 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
           @for (badge of visibleBadges(); track $index) {
             <span class="badge" 
                   [style.fontSize.px]="getTextFontSize()"
-                  [style.color]="colorScheme.text">
+                  [style.color]="getTextColor()">
               @if (badge.icon) {
-                <i class="fa {{ badge.icon }}"></i>
+                <i class="fa {{ badge.icon }}" [style.color]="getIconColor()"></i>
               }
               @if (badge.entityId) {
                 {{ getEntityState(badge.entityId)?.state || '' }}
@@ -62,6 +64,27 @@ export class HeaderWidgetComponent {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 14;
+  }
+
+  getTitleColor(): string {
+    if (this.widget.colorOverrides?.widgetTitleTextColor) {
+      return this.widget.colorOverrides.widgetTitleTextColor;
+    }
+    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getIconColor(): string {
+    if (this.widget.colorOverrides?.iconColor) {
+      return this.widget.colorOverrides.iconColor;
+    }
+    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
   }
 
   isIconOnLeft(): boolean {

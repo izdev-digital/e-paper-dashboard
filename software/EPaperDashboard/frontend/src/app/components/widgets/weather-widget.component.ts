@@ -8,10 +8,10 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
   imports: [CommonModule],
   styleUrls: ['./weather-widget.component.scss'],
   template: `
-    <div class="weather-widget">
+    <div class="weather-widget" [style.color]="getTextColor()">
       @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
-          <i class="fa fa-cloud-sun"></i>
+          <i class="fa fa-cloud-sun" [style.color]="getIconColor()"></i>
           <p>Not configured</p>
         </div>
       }
@@ -22,10 +22,10 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig } from '../..
             <div class="weather-temp">{{ getEntityState(config.entityId)!.attributes?.['temperature'] }}°</div>
           }
           @if (getEntityState(config.entityId)!.attributes?.['humidity']) {
-            <div class="weather-humidity"><i class="fa fa-droplet"></i> {{ getEntityState(config.entityId)!.attributes?.['humidity'] }}%</div>
+            <div class="weather-humidity"><i class="fa fa-droplet" [style.color]="getIconColor()"></i> {{ getEntityState(config.entityId)!.attributes?.['humidity'] }}%</div>
           }
           @if (getEntityState(config.entityId)!.attributes?.['wind_speed']) {
-            <div class="weather-wind"><i class="fa fa-wind"></i> {{ getEntityState(config.entityId)!.attributes?.['wind_speed'] }}</div>
+            <div class="weather-wind"><i class="fa fa-wind" [style.color]="getIconColor()"></i> {{ getEntityState(config.entityId)!.attributes?.['wind_speed'] }}</div>
           }
         </div>
       }
@@ -44,5 +44,19 @@ export class WeatherWidgetComponent {
   getEntityState(entityId?: string) {
     if (!entityId || !this.entityStates) return null;
     return this.entityStates[entityId] ?? null;
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getIconColor(): string {
+    if (this.widget.colorOverrides?.iconColor) {
+      return this.widget.colorOverrides.iconColor;
+    }
+    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
   }
 }

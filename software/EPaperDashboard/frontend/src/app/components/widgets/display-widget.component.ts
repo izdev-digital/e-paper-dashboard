@@ -30,6 +30,9 @@ export class DisplayWidgetComponent {
   }
 
   get color(): string {
-    return this.config.color || (this.colorScheme && this.colorScheme.foreground) || 'currentColor';
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.config.color || (this.colorScheme && this.colorScheme.widgetTextColor) || 'currentColor';
   }
 }

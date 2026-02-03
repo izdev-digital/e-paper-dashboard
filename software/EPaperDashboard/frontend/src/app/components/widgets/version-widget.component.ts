@@ -9,7 +9,7 @@ import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
   imports: [CommonModule],
   styleUrls: ['./version-widget.component.scss'],
   template: `
-    <div class="version-widget" [style.color]="colorScheme.text" [style.fontSize.px]="getTextFontSize()">
+    <div class="version-widget" [style.color]="getTextColor()" [style.fontSize.px]="getTextFontSize()">
       v{{ version || 'Loading...' }}
     </div>
   `
@@ -42,5 +42,12 @@ export class VersionWidgetComponent implements OnInit {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 14;
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
   }
 }

@@ -9,17 +9,17 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
   imports: [CommonModule],
   styleUrls: ['./todo-widget.component.scss'],
   template: `
-    <div class="todo-widget">
+    <div class="todo-widget" [style.color]="getTextColor()">
       @if (!config.entityId) {
         <div class="empty-state">
-          <i class="fa fa-list-check"></i>
+          <i class="fa fa-list-check" [style.color]="getIconColor()"></i>
           <p>Not configured</p>
           <small>Select a todo entity to display tasks</small>
         </div>
       }
       @if (config.entityId && !getEntityState(config.entityId)) {
         <div class="empty-state">
-          <i class="fa fa-list-check"></i>
+          <i class="fa fa-list-check" [style.color]="getIconColor()"></i>
           <p>Loading...</p>
         </div>
       }
@@ -27,28 +27,28 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
         <div class="todo-content">
           @if (widget.position.w === 1 && widget.position.h === 1) {
             <div class="todo-count" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
-              <i class="fa fa-list-check" style="font-size:1.2rem;"></i>
+              <i class="fa fa-list-check" style="font-size:1.2rem;" [style.color]="getIconColor()"></i>
               <span style="font-size:1.2rem;font-weight:bold;">{{ getPendingTodoCount(config.entityId) }}</span>
               <small>Pending</small>
             </div>
           } @else {
-            <h4 [style.font-size.px]="getHeaderFontSize()">{{ getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
+            <h4 [style.font-size.px]="getHeaderFontSize()" [style.color]="getTitleColor()">{{ getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
             @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
               <div class="todo-items" [style.font-size.px]="getItemFontSize()">
                 @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {
                   <div class="todo-item">
                     @if (item.complete) {
-                      <i class="fa fa-check-circle"></i>
+                      <i class="fa fa-check-circle" [style.color]="getIconColor()"></i>
                     } @else {
-                      <i class="fa fa-circle"></i>
+                      <i class="fa fa-circle" [style.color]="getIconColor()"></i>
                     }
-                    <span [class.completed]="item.complete">{{ item.summary }}</span>
+                    <span [class.completed]="item.complete" [style.color]="getTextColor()">{{ item.summary }}</span>
                   </div>
                 }
               </div>
             } @else {
               <div class="empty-state">
-                <i class="fa fa-list-check"></i>
+                <i class="fa fa-list-check" [style.color]="getIconColor()"></i>
                 <p>No tasks found</p>
               </div>
             }
@@ -122,4 +122,25 @@ export class TodoWidgetComponent {
   }
 
   trackByItemId(index: number, item: any) { return item.id || index; }
+
+  getTitleColor(): string {
+    if (this.widget.colorOverrides?.widgetTitleTextColor) {
+      return this.widget.colorOverrides.widgetTitleTextColor;
+    }
+    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getIconColor(): string {
+    if (this.widget.colorOverrides?.iconColor) {
+      return this.widget.colorOverrides.iconColor;
+    }
+    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+  }
 }

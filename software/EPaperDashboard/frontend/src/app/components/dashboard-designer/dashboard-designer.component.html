@@ -140,6 +140,49 @@
                   </select>
                 </div>
               </div>
+              <div class="card mb-3">
+                <div class="card-header">
+                  <h5>Color Overrides</h5>
+                  <small class="text-muted d-block">Customize colors for your dashboard</small>
+                </div>
+                <div class="card-body p-2">
+                  <div class="mb-2">
+                    <label class="form-label small">Canvas Background</label>
+                    <div class="input-group">
+                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.canvasBackgroundColor" (ngModelChange)="updateCanvasBackgroundColor($event)" />
+                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor" (ngModelChange)="updateCanvasBackgroundColor($event)" />
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Border Color</label>
+                    <div class="input-group">
+                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetBorderColor" (ngModelChange)="updateWidgetBorderColor($event)" />
+                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetBorderColor" (ngModelChange)="updateWidgetBorderColor($event)" />
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Title Text Color</label>
+                    <div class="input-group">
+                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetTitleTextColor" (ngModelChange)="updateWidgetTitleTextColor($event)" />
+                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor" (ngModelChange)="updateWidgetTitleTextColor($event)" />
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Widget Text Color</label>
+                    <div class="input-group">
+                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.widgetTextColor" (ngModelChange)="updateWidgetTextColor($event)" />
+                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.widgetTextColor" (ngModelChange)="updateWidgetTextColor($event)" />
+                    </div>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label small">Icon Color</label>
+                    <div class="input-group">
+                      <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="layout().colorScheme.iconColor" (ngModelChange)="updateIconColor($event)" />
+                      <input type="text" class="form-control form-control-sm" [ngModel]="layout().colorScheme.iconColor" (ngModelChange)="updateIconColor($event)" />
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div class="card">
                 <div class="card-header">
                   <h5>Layout</h5>
@@ -248,6 +291,46 @@
                         min="1"
                         [max]="layout().gridRows"
                       />
+                    </div>
+                  </div>
+                </div>
+                <div class="card mb-3">
+                  <div class="card-header">
+                    <h6 class="mb-0">Color Overrides</h6>
+                    <small class="text-muted">Leave empty to use dashboard color scheme</small>
+                  </div>
+                  <div class="card-body p-2">
+                    <div class="mb-2">
+                      <label class="form-label small">Widget Border Color</label>
+                      <div class="input-group">
+                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)" />
+                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)" placeholder="e.g., #000000" />
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBorderColor')" title="Clear override">Clear</button>
+                      </div>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label small">Widget Title Text Color</label>
+                      <div class="input-group">
+                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)" />
+                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)" placeholder="e.g., #000000" />
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor')" title="Clear override">Clear</button>
+                      </div>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label small">Widget Text Color</label>
+                      <div class="input-group">
+                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)" />
+                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)" placeholder="e.g., #333333" />
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTextColor')" title="Clear override">Clear</button>
+                      </div>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label small">Icon Color</label>
+                      <div class="input-group">
+                        <input type="color" class="form-control form-control-sm" style="max-width: 60px;" [ngModel]="selectedWidget()!.colorOverrides?.iconColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)" />
+                        <input type="text" class="form-control form-control-sm" [ngModel]="selectedWidget()!.colorOverrides?.iconColor" (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)" placeholder="e.g., #ff0000" />
+                        <button class="btn btn-sm btn-outline-secondary" (click)="clearWidgetColorOverride(selectedWidget()!, 'iconColor')" title="Clear override">Clear</button>
+                      </div>
                     </div>
                   </div>
                 </div>

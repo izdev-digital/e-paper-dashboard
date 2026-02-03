@@ -86,6 +86,13 @@ export interface VersionConfig {
   // No configuration needed - displays the app version
 }
 
+export interface WidgetColorOverrides {
+  widgetBorderColor?: string;
+  widgetTitleTextColor?: string;
+  widgetTextColor?: string;
+  iconColor?: string;
+}
+
 export interface WidgetConfig {
   id: string;
   type: WidgetType;
@@ -101,6 +108,7 @@ export interface WidgetConfig {
     | AppIconConfig
     | ImageConfig
     | VersionConfig;
+  colorOverrides?: WidgetColorOverrides;
 }
 
 export interface HeaderConfig {
@@ -157,7 +165,13 @@ export interface DashboardLayout {
 
 export interface ColorScheme {
   name: string;
+  variant?: 'light' | 'dark';
   background: string;
+  canvasBackgroundColor: string;
+  widgetBorderColor: string;
+  widgetTitleTextColor: string;
+  widgetTextColor: string;
+  iconColor: string;
   foreground: string;
   accent: string;
   text: string;
@@ -171,24 +185,81 @@ export interface HassEntityState {
 
 export const DEFAULT_COLOR_SCHEMES: ColorScheme[] = [
   {
-    name: 'E-Paper (Black/Red/White)',
+    name: 'E-Paper Light (Black/Red/White)',
+    variant: 'light',
     background: '#ffffff',
+    canvasBackgroundColor: '#ffffff',
+    widgetBorderColor: '#000000',
+    widgetTitleTextColor: '#000000',
+    widgetTextColor: '#333333',
+    iconColor: '#ff0000',
     foreground: '#000000',
     accent: '#ff0000',
     text: '#000000'
   },
   {
-    name: 'E-Paper (Black/White)',
+    name: 'E-Paper Dark (Black/Red/White)',
+    variant: 'dark',
+    background: '#1a1a1a',
+    canvasBackgroundColor: '#1a1a1a',
+    widgetBorderColor: '#ffffff',
+    widgetTitleTextColor: '#ffffff',
+    widgetTextColor: '#cccccc',
+    iconColor: '#ff6666',
+    foreground: '#ffffff',
+    accent: '#ff6666',
+    text: '#ffffff'
+  },
+  {
+    name: 'E-Paper Light (Black/White)',
+    variant: 'light',
     background: '#ffffff',
+    canvasBackgroundColor: '#ffffff',
+    widgetBorderColor: '#000000',
+    widgetTitleTextColor: '#000000',
+    widgetTextColor: '#333333',
+    iconColor: '#666666',
     foreground: '#000000',
     accent: '#666666',
     text: '#000000'
   },
   {
-    name: 'E-Paper (Yellow/Black/White)',
+    name: 'E-Paper Dark (Black/White)',
+    variant: 'dark',
+    background: '#1a1a1a',
+    canvasBackgroundColor: '#1a1a1a',
+    widgetBorderColor: '#ffffff',
+    widgetTitleTextColor: '#ffffff',
+    widgetTextColor: '#cccccc',
+    iconColor: '#999999',
+    foreground: '#ffffff',
+    accent: '#999999',
+    text: '#ffffff'
+  },
+  {
+    name: 'E-Paper Light (Yellow/Black/White)',
+    variant: 'light',
     background: '#ffffff',
+    canvasBackgroundColor: '#ffffff',
+    widgetBorderColor: '#000000',
+    widgetTitleTextColor: '#000000',
+    widgetTextColor: '#333333',
+    iconColor: '#ffcc00',
     foreground: '#000000',
     accent: '#ffcc00',
     text: '#000000'
+  },
+  {
+    name: 'E-Paper Dark (Yellow/Black/White)',
+    variant: 'dark',
+    background: '#1a1a1a',
+    canvasBackgroundColor: '#1a1a1a',
+    widgetBorderColor: '#ffffff',
+    widgetTitleTextColor: '#ffffff',
+    widgetTextColor: '#cccccc',
+    iconColor: '#ffdd33',
+    foreground: '#ffffff',
+    accent: '#ffdd33',
+    text: '#ffffff'
   }
 ];

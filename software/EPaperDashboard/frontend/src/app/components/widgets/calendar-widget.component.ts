@@ -8,7 +8,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
   imports: [CommonModule],
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
-    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'">
+    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'" [style.--iconColor]="getIconColor()" [style.--titleColor]="getTitleColor()" [style.--textColor]="getTextColor()" [style.color]="getTextColor()">
       @if (!getEntityState(config.entityId)) {
         <div class="empty-state">
           <i class="fa fa-calendar"></i>
@@ -221,5 +221,26 @@ export class CalendarWidgetComponent {
 
   trackByEvent(index: number, ev: any) { 
     return ev.uid || ev.id || ev.summary || index; 
+  }
+
+  getTitleColor(): string {
+    if (this.widget.colorOverrides?.widgetTitleTextColor) {
+      return this.widget.colorOverrides.widgetTitleTextColor;
+    }
+    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getTextColor(): string {
+    if (this.widget.colorOverrides?.widgetTextColor) {
+      return this.widget.colorOverrides.widgetTextColor;
+    }
+    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  }
+
+  getIconColor(): string {
+    if (this.widget.colorOverrides?.iconColor) {
+      return this.widget.colorOverrides.iconColor;
+    }
+    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
   }
 }

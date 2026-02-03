@@ -7,6 +7,17 @@
   align-content: start;
   --headerFontSize: 15px;
   --eventFontSize: 12px;
+  --iconColor: currentColor;
+  --titleColor: currentColor;
+  --textColor: currentColor;
+
+  h4 {
+    color: var(--titleColor);
+  }
+
+  i {
+    color: var(--iconColor);
+  }
 }
 
 .calendar-content {
@@ -22,6 +33,7 @@
     font-size: var(--headerFontSize);
     font-weight: 600;
     opacity: 0.9;
+    color: var(--titleColor);
   }
 }
 

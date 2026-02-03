@@ -18,6 +18,7 @@ import {
   Dashboard,
   DashboardLayout,
   WidgetConfig,
+  WidgetColorOverrides,
   WidgetType,
   ColorScheme,
   DEFAULT_COLOR_SCHEMES,
@@ -549,6 +550,76 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, textFontSize: fontSize }));
   }
 
+  // Color updates
+  updateCanvasBackgroundColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, canvasBackgroundColor: color }
+    }));
+  }
+
+  updateWidgetBorderColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, widgetBorderColor: color }
+    }));
+  }
+
+  updateWidgetTitleTextColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, widgetTitleTextColor: color }
+    }));
+  }
+
+  updateWidgetTextColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, widgetTextColor: color }
+    }));
+  }
+
+  updateIconColor(color: string): void {
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...layout.colorScheme, iconColor: color }
+    }));
+  }
+
+  updateWidgetColorOverride(widget: WidgetConfig, colorProperty: keyof WidgetColorOverrides, value: string): void {
+    const updatedWidget: WidgetConfig = {
+      ...widget,
+      colorOverrides: {
+        ...widget.colorOverrides,
+        [colorProperty]: value || undefined
+      }
+    };
+
+    this.layout.update(layout => ({
+      ...layout,
+      widgets: layout.widgets.map(w => w.id === widget.id ? updatedWidget : w)
+    }));
+
+    this.selectedWidget.set(updatedWidget);
+  }
+
+  clearWidgetColorOverride(widget: WidgetConfig, colorProperty: keyof WidgetColorOverrides): void {
+    const overrides = { ...widget.colorOverrides };
+    delete overrides[colorProperty];
+
+    const updatedWidget: WidgetConfig = {
+      ...widget,
+      colorOverrides: Object.keys(overrides).length > 0 ? overrides : undefined
+    };
+
+    this.layout.update(layout => ({
+      ...layout,
+      widgets: layout.widgets.map(w => w.id === widget.id ? updatedWidget : w)
+    }));
+
+    this.selectedWidget.set(updatedWidget);
+  }
+
   // Live preview data
   refreshLivePreview(): void {
     if (!this.dashboardId) {
@@ -686,7 +757,7 @@ export class DashboardDesignerComponent implements OnInit {
       height: `${layout.height}px`,
       minHeight: `${layout.height}px`,
       'min-height': `${layout.height}px`,
-      backgroundColor: layout.colorScheme.background,
+      backgroundColor: layout.colorScheme.canvasBackgroundColor || layout.colorScheme.background,
       color: layout.colorScheme.text,
       display: 'grid',
       gridTemplateColumns: `repeat(${layout.gridCols}, 1fr)`,
@@ -737,11 +808,12 @@ export class DashboardDesignerComponent implements OnInit {
 
   getWidgetStyle(widget: WidgetConfig): any {
     const layout = this.layout();
+    const borderColor = widget.colorOverrides?.widgetBorderColor || layout.colorScheme.widgetBorderColor || layout.colorScheme.foreground;
     return {
       gridColumn: `${widget.position.x + 1} / span ${widget.position.w}`,
       gridRow: `${widget.position.y + 1} / span ${widget.position.h}`,
-      backgroundColor: layout.colorScheme.background,
-      border: `${layout.widgetBorder ?? 2}px solid ${layout.colorScheme.foreground}`,
+      backgroundColor: layout.colorScheme.canvasBackgroundColor || layout.colorScheme.background,
+      border: `${layout.widgetBorder ?? 2}px solid ${borderColor}`,
       color: layout.colorScheme.text,
       padding: '8px',
       overflow: 'visible',
