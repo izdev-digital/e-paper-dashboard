@@ -359,6 +359,165 @@ public class HomeAssistantService(
     }
 
     /// <summary>
+    /// Fetches RSS feed entries from a Home Assistant feedreader event entity.
+    /// The feedreader component creates event entities (event.feed_name) that store
+    /// the latest feed entry data in the event attributes (title, link, description, content).
+    /// </summary>
+    /// <param name="dashboardId">The dashboard ID for authentication</param>
+    /// <param name="feedEntityId">The feedreader event entity ID (e.g., event.my_feed_latest_feed)</param>
+    /// <returns>List of RssFeedEntry objects, or error message</returns>
+    public async Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntries(string dashboardId, string feedEntityId)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        if (string.IsNullOrWhiteSpace(feedEntityId))
+        {
+            return "Feed entity ID is required";
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+
+            var messageId = _messageId++;
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "get_states"
+            });
+
+            var response = await ReceiveMessageAsync(ws);
+            _logger.LogDebug("HomeAssistant FetchRssFeedEntries raw response: {Response}", response);
+
+            var json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
+            var entries = new List<RssFeedEntry>();
+
+            // Find the specific event entity in the states response
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in result.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    
+                    if (entityId == feedEntityId)
+                    {
+                        // Found the event entity, extract the latest feed entry from attributes
+                        if (entity.TryGetProperty("attributes", out var attributes) &&
+                            attributes.ValueKind == JsonValueKind.Object)
+                        {
+                            // The event entity stores the latest entry data directly in attributes
+                            var entry = ParseRssFeedEntry(attributes);
+                            if (entry != null)
+                            {
+                                entries.Add(entry);
+                            }
+                            
+                            _logger.LogDebug("Parsed RSS feed entry from event entity {EntityId}", feedEntityId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Feed event entity {EntityId} found but has no attributes", feedEntityId);
+                        }
+                        break;
+                    }
+                }
+
+                if (entries.Count == 0 && !result.EnumerateArray().Any(e => e.TryGetProperty("entity_id", out var eid) && eid.GetString() == feedEntityId))
+                {
+                    _logger.LogWarning("Feed event entity {EntityId} not found in states. Available event entities: {EventEntities}", 
+                        feedEntityId,
+                        string.Join(", ", result.EnumerateArray()
+                            .Where(e => e.TryGetProperty("entity_id", out var eid) && eid.GetString()?.StartsWith("event.") == true)
+                            .Select(e => e.TryGetProperty("entity_id", out var eid) ? eid.GetString() : "unknown")
+                        ));
+                }
+            }
+            else
+            {
+                _logger.LogWarning("RSS feed entries fetch returned unsuccessful response or missing result property");
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return entries;
+        }
+        catch (WebSocketException)
+        {
+            _logger.LogError("Unable to connect to Home Assistant WebSocket for RSS feed entries");
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch RSS feed entries from entity {EntityId}", feedEntityId);
+            return $"Failed to fetch RSS feed entries: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Parses a single RSS feed entry from event entity attributes.
+    /// Home Assistant's feedreader stores the latest entry data with keys: title, link, description, content
+    /// </summary>
+    private RssFeedEntry? ParseRssFeedEntry(JsonElement attributesElement)
+    {
+        try
+        {
+            if (attributesElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            // Event entity attributes store feed data directly
+            var title = attributesElement.TryGetProperty("title", out var titleProp) 
+                ? titleProp.GetString() ?? string.Empty 
+                : string.Empty;
+
+            var link = attributesElement.TryGetProperty("link", out var linkProp) 
+                ? linkProp.GetString() ?? string.Empty 
+                : string.Empty;
+
+            // Try multiple property names for description
+            string? description = null;
+            if (attributesElement.TryGetProperty("description", out var descProp))
+            {
+                description = descProp.GetString();
+            }
+            else if (attributesElement.TryGetProperty("summary", out var summaryProp))
+            {
+                description = summaryProp.GetString();
+            }
+            else if (attributesElement.TryGetProperty("content", out var contentProp))
+            {
+                description = contentProp.GetString();
+            }
+
+            // Require at least a title or link
+            if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(link))
+            {
+                _logger.LogWarning("Skipping RSS entry with missing title and link");
+                return null;
+            }
+
+            return new RssFeedEntry
+            {
+                Title = title,
+                Link = link,
+                Published = null, // Event entity doesn't store publication date in attributes
+                Summary = description
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse RSS feed entry from event attributes");
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Parses a single calendar event from the JSON response.
     /// Handles various date/time formats and event properties.
     /// </summary>
@@ -869,4 +1028,27 @@ public record CalendarEvent
     /// Recurrence rule if the event repeats
     /// </summary>
     public string? RecurrenceRule { get; init; }
+}
+
+public record RssFeedEntry
+{
+    /// <summary>
+    /// Entry title
+    /// </summary>
+    public string Title { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Entry link/URL
+    /// </summary>
+    public string Link { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Entry publication date
+    /// </summary>
+    public string? Published { get; init; }
+
+    /// <summary>
+    /// Entry summary/description
+    /// </summary>
+    public string? Summary { get; init; }
 }

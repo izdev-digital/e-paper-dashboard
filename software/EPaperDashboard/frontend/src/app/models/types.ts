@@ -57,7 +57,8 @@ export type WidgetType =
   | 'display'
   | 'app-icon'
   | 'image'
-  | 'version';
+  | 'version'
+  | 'rss-feed';
 
 export interface WidgetPosition {
   x: number;
@@ -108,7 +109,8 @@ export interface WidgetConfig {
     | DisplayConfig
     | AppIconConfig
     | ImageConfig
-    | VersionConfig;
+    | VersionConfig
+    | RssFeedConfig;
   colorOverrides?: WidgetColorOverrides;
 }
 
@@ -148,6 +150,12 @@ export interface GraphConfig {
 export interface TodoConfig {
   entityId: string;
   showCompleted?: boolean;
+}
+
+export interface RssFeedConfig {
+  entityId: string;
+  maxEntries?: number;
+  title?: string;
 }
 
 export interface DashboardLayout {

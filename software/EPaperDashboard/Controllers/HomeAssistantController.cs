@@ -101,4 +101,24 @@ public class HomeAssistantController(
         _logger.LogInformation("Successfully fetched {Count} calendar events for entity {Entity}", result.Value.Count, calendarEntityId);
         return Ok(new { events = result.Value });
     }
+
+    /// <summary>
+    /// Fetches RSS feed entries from a Home Assistant feedreader entity.
+    /// The feedreader component stores RSS entries in the entity's attributes.
+    /// </summary>
+    /// <param name="dashboardId">Dashboard ID for authentication</param>
+    /// <param name="feedEntityId">Feed entity ID (e.g., feedreader.my_feed)</param>
+    [HttpGet("{dashboardId}/rss-feed-entries/{feedEntityId}")]
+    public async Task<IActionResult> GetRssFeedEntries(string dashboardId, string feedEntityId)
+    {
+        var result = await _homeAssistantService.FetchRssFeedEntries(dashboardId, feedEntityId);
+        if (result.IsFailure)
+        {
+            _logger.LogWarning("Failed to fetch RSS feed entries: {Error}", result.Error);
+            return BadRequest(new { error = result.Error });
+        }
+
+        _logger.LogInformation("Successfully fetched {Count} RSS feed entries for entity {Entity}", result.Value.Count, feedEntityId);
+        return Ok(new { entries = result.Value });
+    }
 }

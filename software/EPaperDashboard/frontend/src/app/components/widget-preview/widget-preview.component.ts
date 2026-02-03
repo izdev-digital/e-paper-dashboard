@@ -12,6 +12,7 @@ import { GraphWidgetComponent } from '../widgets/graph-widget.component';
 import { TodoWidgetComponent } from '../widgets/todo-widget.component';
 import { CalendarWidgetComponent } from '../widgets/calendar-widget.component';
 import { VersionWidgetComponent } from '../widgets/version-widget.component';
+import { RssFeedWidgetComponent } from '../widgets/rss-feed-widget.component';
 import {
   WidgetConfig,
   ColorScheme,
@@ -40,7 +41,8 @@ import {
     GraphWidgetComponent,
     TodoWidgetComponent,
     CalendarWidgetComponent,
-    VersionWidgetComponent
+    VersionWidgetComponent,
+    RssFeedWidgetComponent
   ],
   template: `
     <div class="widget-preview">
@@ -76,6 +78,9 @@ import {
       }
       @if (widget.type === 'version') {
         <app-widget-version [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-version>
+      }
+      @if (widget.type === 'rss-feed') {
+        <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-rss-feed>
       }
     </div>
   `,

@@ -10,7 +10,8 @@ import {
   WeatherConfig, 
   GraphConfig, 
   TodoConfig,
-  AppIconConfig
+  AppIconConfig,
+  RssFeedConfig
 } from '../../models/types';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 
@@ -75,6 +76,10 @@ export class WidgetConfigComponent implements OnChanges {
     return this.widget.config as AppIconConfig;
   }
 
+  get rssFeedConfig(): RssFeedConfig {
+    return this.widget.config as RssFeedConfig;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     // If availableEntities input is provided, use it instead of fetching
     if (changes['availableEntities']) {
@@ -109,6 +114,10 @@ export class WidgetConfigComponent implements OnChanges {
       case 'weather':
       case 'weather-forecast':
         return allEntities.filter(e => e.entity_id?.startsWith('weather.'));
+      case 'rss-feed':
+        // Feedreader creates event entities with names like event.feed_name_latest_feed
+        // Show all event entities and let user select the appropriate feedreader entity
+        return allEntities.filter(e => e.entity_id?.startsWith('event.'));
       case 'graph':
         // Graph can work with sensor, binary_sensor, etc.
         return allEntities.filter(e => 
