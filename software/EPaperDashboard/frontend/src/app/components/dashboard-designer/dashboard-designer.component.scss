@@ -332,11 +332,12 @@ html[data-bs-theme="dark"] .canvas-wrapper {
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 0;
+    padding: var(--bs-card-spacer-y, 1rem) var(--bs-card-spacer-x, 1rem);
     
     &.active {
       display: flex;
       flex-direction: column;
+      gap: 0.75rem;
     }
   }
 }
@@ -350,4 +351,35 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 }
 .col-md-3 .card > .card-body::-webkit-scrollbar-track {
   background: #f8f9fa;
+}
+
+// Widget item responsive layout for smaller screens
+.widget-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  
+  > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  button {
+    align-self: flex-start;
+    flex-shrink: 0;
+  }
+}
+
+@media (min-width: 992px) {
+  .widget-item-content {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+    
+    button {
+      align-self: flex-start;
+      margin-left: auto;
+    }
+  }
 }

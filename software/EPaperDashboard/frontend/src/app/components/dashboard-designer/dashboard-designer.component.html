@@ -271,21 +271,21 @@
               } @else {
                 @for (w of layout().widgets; track w.id) {
                   <div
-                    class="widget-item mb-2 p-2 border rounded"
+                    class="widget-item p-2 border rounded"
                     [class.active]="selectedWidget()?.id === w.id"
                     (click)="onWidgetSelect(w)"
                   >
-                    <div class="d-flex justify-content-between align-items-start">
+                    <div class="widget-item-content d-flex justify-content-between align-items-start">
                       <div>
                         <div class="fw-bold">{{ w.type | titlecase }}</div>
                         <small class="text-muted">ID: {{ w.id }}</small>
-                        <div class="small mt-1">
+                        <div class="small mt-1 d-flex gap-2">
                           <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
                           <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
                         </div>
                       </div>
                       <button
-                        class="btn btn-sm btn-danger"
+                        class="btn btn-sm btn-danger ms-2 flex-shrink-0"
                         (click)="deleteWidget(w); $event.stopPropagation()"
                         title="Delete widget"
                       >
