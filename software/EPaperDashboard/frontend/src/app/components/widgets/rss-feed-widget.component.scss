@@ -68,7 +68,7 @@
   font-weight: 600;
   color: var(--titleColor);
   line-height: 1.3;
-  
+
   /* Show max 2 lines with ellipsis */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -84,7 +84,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0; /* Important for flexbox centering */
+  min-height: 0;
+  /* Important for flexbox centering */
 }
 
 .qr-code {

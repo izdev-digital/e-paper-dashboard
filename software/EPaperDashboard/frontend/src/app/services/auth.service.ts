@@ -8,10 +8,10 @@ import { User, LoginRequest, RegisterRequest } from '../models/types';
 })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  
+
   private readonly currentUserSignal = signal<User | null>(null);
   private readonly authReadySignal = signal<boolean>(false);
-  
+
   readonly currentUser = this.currentUserSignal.asReadonly();
   readonly authReady = this.authReadySignal.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
@@ -55,7 +55,7 @@ export class AuthService {
 
   checkAuth(): void {
     this.getCurrentUser().subscribe({
-      next: () => {},
+      next: () => { },
       error: () => {
         this.currentUserSignal.set(null);
         this.authReadySignal.set(true);

@@ -11,7 +11,7 @@ export const authGuard: CanActivateFn = (route, state) => {
       let resolved = false;
       const maxAttempts = 500;
       let attempts = 0;
-      
+
       const checkInterval = setInterval(() => {
         attempts++;
         if (authService.isAuthReady()) {

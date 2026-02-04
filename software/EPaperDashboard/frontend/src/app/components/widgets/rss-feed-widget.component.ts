@@ -74,8 +74,8 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
 
   qrCodeDataUrl: string | null = null;
 
-  get config(): RssFeedConfig { 
-    return (this.widget?.config || {}) as RssFeedConfig; 
+  get config(): RssFeedConfig {
+    return (this.widget?.config || {}) as RssFeedConfig;
   }
 
   ngOnInit(): void {
@@ -97,27 +97,27 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   }
 
   getIconColor(): string {
-    return this.widget.colorOverrides?.iconColor || 
-           this.colorScheme.iconColor || 
-           this.colorScheme.accent;
+    return this.widget.colorOverrides?.iconColor ||
+      this.colorScheme.iconColor ||
+      this.colorScheme.accent;
   }
 
   getTitleColor(): string {
-    return this.widget.colorOverrides?.widgetTitleTextColor || 
-           this.colorScheme.widgetTitleTextColor || 
-           this.colorScheme.text;
+    return this.widget.colorOverrides?.widgetTitleTextColor ||
+      this.colorScheme.widgetTitleTextColor ||
+      this.colorScheme.text;
   }
 
   getTextColor(): string {
-    return this.widget.colorOverrides?.widgetTextColor || 
-           this.colorScheme.widgetTextColor || 
-           this.colorScheme.text;
+    return this.widget.colorOverrides?.widgetTextColor ||
+      this.colorScheme.widgetTextColor ||
+      this.colorScheme.text;
   }
 
   getQrCodeBackgroundColor(): string {
-    return this.widget.colorOverrides?.widgetBackgroundColor || 
-           this.colorScheme.widgetBackgroundColor || 
-           this.colorScheme.background;
+    return this.widget.colorOverrides?.widgetBackgroundColor ||
+      this.colorScheme.widgetBackgroundColor ||
+      this.colorScheme.background;
   }
 
   getEntityState(entityId?: string): HassEntityState | null {
@@ -127,18 +127,18 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
 
   getRssEntries(entityId?: string): RssEntry[] {
     if (!entityId) return [];
-    
+
     const state = this.getEntityState(entityId);
     if (!state) return [];
-    
+
     const attrs = state.attributes || {};
-    
+
     // Home Assistant feedreader event entities store the latest entry data directly in attributes
     // with keys: title, link, description, content
     // We return a single-item array since event entities only store the latest entry
     const title = attrs['title'];
     const link = attrs['link'];
-    
+
     if (!title && !link) {
       return [];
     }
@@ -154,14 +154,14 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   getCurrentEntry(): RssEntry | null {
     const entries = this.getRssEntries(this.config.entityId);
     if (entries.length === 0) return null;
-    
+
     // Return the first (most recent) entry
     return entries[0];
   }
 
   async generateQRCode(): Promise<void> {
     const entry = this.getCurrentEntry();
-    
+
     if (!entry || !entry.link) {
       this.qrCodeDataUrl = null;
       return;
@@ -176,7 +176,7 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
           light: this.getQrCodeBackgroundColor()
         }
       });
-      
+
       this.qrCodeDataUrl = qrDataUrl;
     } catch (error) {
       this.qrCodeDataUrl = null;

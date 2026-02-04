@@ -87,7 +87,7 @@ export class DashboardSelectorDialogComponent {
   readonly isLoading = signal(false);
   readonly error = signal('');
   readonly dashboards = signal<DashboardOption[]>([]);
-  
+
   private resolveCallback?: (value: string | null) => void;
 
   openWithLoading(): void {
@@ -102,7 +102,7 @@ export class DashboardSelectorDialogComponent {
     this.error.set('');
     this.isLoading.set(false);
     this.isOpen.set(true);
-    
+
     return new Promise<string | null>((resolve) => {
       this.resolveCallback = resolve;
     });

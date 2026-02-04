@@ -101,12 +101,12 @@ export class TodoWidgetComponent {
         complete: item.status === 'completed' || item.status === 'done' || item.complete === true || item.completed === true || false,
         summary: item.summary || item.title || ''
       }));
-      
+
       // Filter out completed items if showCompleted is false
       if (this.config.showCompleted === false) {
         mapped = mapped.filter(item => !item.complete);
       }
-      
+
       // Sort to show incomplete items first
       mapped.sort((a, b) => {
         const ac = a.complete ? 1 : 0;
@@ -119,10 +119,10 @@ export class TodoWidgetComponent {
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];
-    return items.map((item: any, idx: number) => ({ 
-      id: idx, 
-      complete: item.status === 'completed' || item.complete === true || false, 
-      summary: item.summary || '' 
+    return items.map((item: any, idx: number) => ({
+      id: idx,
+      complete: item.status === 'completed' || item.complete === true || false,
+      summary: item.summary || ''
     }));
   }
 

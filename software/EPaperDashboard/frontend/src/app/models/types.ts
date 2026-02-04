@@ -93,16 +93,16 @@ export interface WidgetConfig {
   type: WidgetType;
   position: WidgetPosition;
   config:
-    | HeaderConfig
-    | MarkdownConfig
-    | CalendarConfig
-    | WeatherConfig
-    | GraphConfig
-    | TodoConfig
-    | AppIconConfig
-    | ImageConfig
-    | VersionConfig
-    | RssFeedConfig;
+  | HeaderConfig
+  | MarkdownConfig
+  | CalendarConfig
+  | WeatherConfig
+  | GraphConfig
+  | TodoConfig
+  | AppIconConfig
+  | ImageConfig
+  | VersionConfig
+  | RssFeedConfig;
   colorOverrides?: WidgetColorOverrides;
 }
 

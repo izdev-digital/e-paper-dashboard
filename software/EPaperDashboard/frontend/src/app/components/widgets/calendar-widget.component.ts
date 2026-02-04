@@ -74,7 +74,7 @@ export class CalendarWidgetComponent {
    */
   getUpcomingEvents(entityId?: string) {
     if (!entityId) return [];
-    
+
     // First try to get events from the calendarEventsByEntityId input
     if (this.calendarEventsByEntityId && this.calendarEventsByEntityId[entityId]) {
       const events = this.calendarEventsByEntityId[entityId];
@@ -87,20 +87,20 @@ export class CalendarWidgetComponent {
     // Fallback to entity state attributes for backward compatibility
     const state = this.getEntityState(entityId);
     if (!state) return [];
-    
+
     const attrs = state.attributes || {};
-    
+
     // Try multiple attribute names for events (different integrations use different names)
-    const eventsList = 
-      attrs['events'] || 
-      attrs['entries'] || 
+    const eventsList =
+      attrs['events'] ||
+      attrs['entries'] ||
       attrs['calendar_events'] ||
       attrs['upcoming_events'] ||
-      attrs['data'] || 
+      attrs['data'] ||
       [];
 
     const max = Math.max(1, (this.config.maxEvents as number) || 7);
-    
+
     // Ensure we have an array and filter to upcoming events
     const events = (Array.isArray(eventsList) ? eventsList : [])
       .filter(ev => this.isUpcomingEvent(ev))
@@ -119,7 +119,7 @@ export class CalendarWidgetComponent {
     try {
       const startStr = event.start || event.start_time || event.begin || event.datetime || event.dtstart;
       const endStr = event.end || event.end_time || event.finish || event.end_datetime || event.dtend;
-      
+
       if (!startStr) return false;
 
       // Parse the dates
@@ -127,7 +127,7 @@ export class CalendarWidgetComponent {
       if (!startDate) return false;
 
       const now = new Date();
-      
+
       // Include events that are currently happening (started in the past, haven't ended yet)
       if (endStr) {
         const endDate = this.parseEventDate(endStr);
@@ -135,7 +135,7 @@ export class CalendarWidgetComponent {
           return true; // Event is ongoing or starts in the future
         }
       }
-      
+
       // Include events starting from now onwards
       return startDate >= now;
     } catch {
@@ -188,12 +188,12 @@ export class CalendarWidgetComponent {
       // If it's already an object with date properties
       if (typeof dateStr === 'object' && dateStr !== null) {
         if (dateStr instanceof Date) return dateStr;
-        
+
         // Try to create from ISO string if available
         if (dateStr.isoformat) {
           return new Date(dateStr.isoformat);
         }
-        
+
         // Try to create from components
         if (dateStr.year && dateStr.month && dateStr.day) {
           const month = String(dateStr.month).padStart(2, '0');
@@ -219,8 +219,8 @@ export class CalendarWidgetComponent {
     }
   }
 
-  trackByEvent(index: number, ev: any) { 
-    return ev.uid || ev.id || ev.summary || index; 
+  trackByEvent(index: number, ev: any) {
+    return ev.uid || ev.id || ev.summary || index;
   }
 
   getTitleColor(): string {

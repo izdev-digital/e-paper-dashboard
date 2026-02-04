@@ -2,7 +2,8 @@
   <header class="bg-transition-300">
     <nav class="navbar navbar-expand-sm navbar-toggleable-sm border-bottom box-shadow mb-3 bg-transition-300">
       <div class="container">
-        <a class="navbar-brand" routerLink="/home" style="display:flex;align-items:center;gap:0.6rem;font-weight:600;font-size:1.2rem;">
+        <a class="navbar-brand" routerLink="/home"
+          style="display:flex;align-items:center;gap:0.6rem;font-weight:600;font-size:1.2rem;">
           <img src="/icon.svg" alt="izBoard" style="width:32px;height:32px;">
           <span>izBoard</span>
         </a>
@@ -13,104 +14,105 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav flex-grow-1 d-none d-sm-flex">
             @if (authService.isAuthenticated()) {
-              <li class="nav-item">
-                <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
-              </li>
-              @if (authService.currentUser(); as user) {
-                @if (user.isSuperUser) {
-                  <li class="nav-item">
-                    <a class="nav-link" routerLink="/users/manage" routerLinkActive="active">Users</a>
-                  </li>
-                }
-              }
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
+            </li>
+            @if (authService.currentUser(); as user) {
+            @if (user.isSuperUser) {
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/users/manage" routerLinkActive="active">Users</a>
+            </li>
+            }
+            }
             }
           </ul>
           <ul class="navbar-nav ms-auto align-items-center">
             <li class="nav-item me-3 d-none d-sm-flex align-items-center">
               <div class="form-check form-switch m-0 theme-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch" 
-                  [checked]="isDark()" (change)="setTheme($event.target.checked)"
-                  [attr.aria-label]="'Toggle theme'" />
+                <input class="form-check-input" type="checkbox" role="switch" id="themeSwitch" [checked]="isDark()"
+                  (change)="setTheme($event.target.checked)" [attr.aria-label]="'Toggle theme'" />
               </div>
             </li>
             @if (authService.currentUser(); as user) {
-              <li class="nav-item dropdown d-none d-sm-block">
-                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown"
-                  role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="fa-regular fa-user me-1"></i> <span>{{ user.nickname || user.username }}</span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
-                  <li><a class="dropdown-item" routerLink="/users/profile">Profile</a></li>
-                  <li><hr class="dropdown-divider"></li>
-                  <li><button class="dropdown-item" type="button" (click)="logout()">Logout</button></li>
-                </ul>
-              </li>
+            <li class="nav-item dropdown d-none d-sm-block">
+              <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fa-regular fa-user me-1"></i> <span>{{ user.nickname || user.username }}</span>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                <li><a class="dropdown-item" routerLink="/users/profile">Profile</a></li>
+                <li>
+                  <hr class="dropdown-divider">
+                </li>
+                <li><button class="dropdown-item" type="button" (click)="logout()">Logout</button></li>
+              </ul>
+            </li>
             } @else {
-              <li class="nav-item dropdown d-none d-sm-block">
-                <a class="nav-link dropdown-toggle" href="#" id="loginDropdown" role="button"
-                  data-bs-toggle="dropdown" aria-expanded="false">
-                  <i class="fa-regular fa-user"></i>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="loginDropdown">
-                  <li><a class="dropdown-item" routerLink="/login">Login</a></li>
-                  <li><a class="dropdown-item" routerLink="/register">Register</a></li>
-                </ul>
-              </li>
+            <li class="nav-item dropdown d-none d-sm-block">
+              <a class="nav-link dropdown-toggle" href="#" id="loginDropdown" role="button" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                <i class="fa-regular fa-user"></i>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="loginDropdown">
+                <li><a class="dropdown-item" routerLink="/login">Login</a></li>
+                <li><a class="dropdown-item" routerLink="/register">Register</a></li>
+              </ul>
+            </li>
             }
           </ul>
-          
+
           <!-- Mobile Footer (inside collapsible menu) -->
           <div class="mobile-footer d-sm-none border-top mt-3 pt-3">
             <ul class="list-unstyled mb-0">
               <!-- Navigation Items -->
               @if (authService.isAuthenticated()) {
-                <li class="mobile-footer-item">
-                  <a routerLink="/dashboards" class="mobile-footer-link">
-                    <i class="fa-solid fa-gauge" aria-hidden="true"></i>
-                    <span>Dashboards</span>
-                  </a>
-                </li>
-                @if (authService.currentUser(); as user) {
-                  @if (user.isSuperUser) {
-                    <li class="mobile-footer-item">
-                      <a routerLink="/users/manage" class="mobile-footer-link">
-                        <i class="fa-solid fa-users" aria-hidden="true"></i>
-                        <span>Users</span>
-                      </a>
-                    </li>
-                  }
-                }
+              <li class="mobile-footer-item">
+                <a routerLink="/dashboards" class="mobile-footer-link">
+                  <i class="fa-solid fa-gauge" aria-hidden="true"></i>
+                  <span>Dashboards</span>
+                </a>
+              </li>
+              @if (authService.currentUser(); as user) {
+              @if (user.isSuperUser) {
+              <li class="mobile-footer-item">
+                <a routerLink="/users/manage" class="mobile-footer-link">
+                  <i class="fa-solid fa-users" aria-hidden="true"></i>
+                  <span>Users</span>
+                </a>
+              </li>
               }
-              
+              }
+              }
+
               <!-- Auth Menu Items -->
               @if (authService.currentUser(); as user) {
-                <li class="mobile-footer-item">
-                  <a routerLink="/users/profile" class="mobile-footer-link">
-                    <i class="fa-regular fa-user" aria-hidden="true"></i>
-                    <span>{{ user.nickname || user.username }}</span>
-                  </a>
-                </li>
-                <li class="mobile-footer-item">
-                  <button class="mobile-footer-link text-danger" type="button" (click)="logout()">
-                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
-                    <span>Logout</span>
-                  </button>
-                </li>
+              <li class="mobile-footer-item">
+                <a routerLink="/users/profile" class="mobile-footer-link">
+                  <i class="fa-regular fa-user" aria-hidden="true"></i>
+                  <span>{{ user.nickname || user.username }}</span>
+                </a>
+              </li>
+              <li class="mobile-footer-item">
+                <button class="mobile-footer-link text-danger" type="button" (click)="logout()">
+                  <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                  <span>Logout</span>
+                </button>
+              </li>
               } @else {
-                <li class="mobile-footer-item">
-                  <a routerLink="/login" class="mobile-footer-link">
-                    <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
-                    <span>Login</span>
-                  </a>
-                </li>
-                <li class="mobile-footer-item">
-                  <a routerLink="/register" class="mobile-footer-link">
-                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
-                    <span>Register</span>
-                  </a>
-                </li>
+              <li class="mobile-footer-item">
+                <a routerLink="/login" class="mobile-footer-link">
+                  <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+                  <span>Login</span>
+                </a>
+              </li>
+              <li class="mobile-footer-item">
+                <a routerLink="/register" class="mobile-footer-link">
+                  <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+                  <span>Register</span>
+                </a>
+              </li>
               }
-              
+
               <!-- Privacy Link -->
               <li class="mobile-footer-item">
                 <a routerLink="/privacy" class="mobile-footer-link">
@@ -118,7 +120,7 @@
                   <span>Privacy Policy</span>
                 </a>
               </li>
-              
+
               <!-- Theme Switch -->
               <li class="mobile-footer-item d-flex align-items-center justify-content-between">
                 <span class="d-flex align-items-center gap-2">
@@ -126,18 +128,18 @@
                   <span>Theme</span>
                 </span>
                 <div class="form-check form-switch m-0 theme-switch">
-                  <input class="form-check-input" type="checkbox" role="switch" id="themeSwitchMobile" 
+                  <input class="form-check-input" type="checkbox" role="switch" id="themeSwitchMobile"
                     [checked]="isDark()" (change)="setTheme($event.target.checked)"
                     [attr.aria-label]="'Toggle theme'" />
                 </div>
               </li>
-              
+
               <!-- Copyright -->
               <li class="mobile-footer-item border-top pt-2 mt-2">
                 <div class="d-flex align-items-center justify-content-between small text-muted px-3">
                   <span>&copy; 2025 izBoard</span>
-                  @if (versionService.version()) { 
-                    <span class="badge bg-secondary-subtle text-secondary-emphasis">v{{ versionService.version() }}</span>
+                  @if (versionService.version()) {
+                  <span class="badge bg-secondary-subtle text-secondary-emphasis">v{{ versionService.version() }}</span>
                   }
                 </div>
               </li>
@@ -156,7 +158,8 @@
     </main>
   </div>
 
-  <footer class="border-top footer text-muted mt-auto bg-transition-300 d-none d-sm-block" role="contentinfo" aria-label="Site footer">
+  <footer class="border-top footer text-muted mt-auto bg-transition-300 d-none d-sm-block" role="contentinfo"
+    aria-label="Site footer">
     <div class="container">
       <div class="footer-content d-flex flex-row align-items-center justify-content-between gap-2">
         <div class="footer-info d-flex align-items-center gap-2">
@@ -164,8 +167,9 @@
             <span class="d-none d-sm-inline">&copy; 2025 izdev.digital • </span>
             <span>izBoard</span>
           </span>
-          @if (versionService.version()) { 
-            <span class="footer-version badge rounded-pill d-none d-sm-inline" title="Application version">v{{ versionService.version() }}</span>
+          @if (versionService.version()) {
+          <span class="footer-version badge rounded-pill d-none d-sm-inline" title="Application version">v{{
+            versionService.version() }}</span>
           }
         </div>
         <nav class="footer-nav" aria-label="Footer navigation">

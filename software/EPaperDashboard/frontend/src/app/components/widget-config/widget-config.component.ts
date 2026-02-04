@@ -1,14 +1,14 @@
 import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { 
-  WidgetConfig, 
-  Dashboard, 
-  HeaderConfig, 
-  MarkdownConfig, 
-  CalendarConfig, 
-  WeatherConfig, 
-  GraphConfig, 
+import {
+  WidgetConfig,
+  Dashboard,
+  HeaderConfig,
+  MarkdownConfig,
+  CalendarConfig,
+  WeatherConfig,
+  GraphConfig,
   TodoConfig,
   AppIconConfig,
   RssFeedConfig
@@ -91,11 +91,11 @@ export class WidgetConfigComponent implements OnChanges {
       this.loadingEntities.set(false);
       this.entityFetchError = null;
     }
-    
+
     if (changes['entitiesLoading']) {
       this.loadingEntities.set(this.entitiesLoading);
     }
-    
+
     // Fallback: only fetch if no availableEntities provided
     if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && this.availableEntities.length === 0) {
       this.loadEntities();
@@ -104,7 +104,7 @@ export class WidgetConfigComponent implements OnChanges {
 
   getFilteredEntities(): any[] {
     const allEntities = this.entities();
-    
+
     // Filter entities based on widget type
     switch (this.widget.type) {
       case 'todo':
@@ -120,8 +120,8 @@ export class WidgetConfigComponent implements OnChanges {
         return allEntities.filter(e => e.entity_id?.startsWith('event.'));
       case 'graph':
         // Graph can work with sensor, binary_sensor, etc.
-        return allEntities.filter(e => 
-          e.entity_id?.startsWith('sensor.') || 
+        return allEntities.filter(e =>
+          e.entity_id?.startsWith('sensor.') ||
           e.entity_id?.startsWith('binary_sensor.') ||
           e.entity_id?.startsWith('input_number.')
         );

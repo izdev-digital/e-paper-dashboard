@@ -76,7 +76,7 @@ export class DashboardDesignerComponent implements OnInit {
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
-  
+
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
 
@@ -103,10 +103,10 @@ export class DashboardDesignerComponent implements OnInit {
         if (dashboard.layoutConfig) {
           try {
             const parsedLayout = JSON.parse(dashboard.layoutConfig);
-            const colorScheme = parsedLayout.colorScheme?.name 
+            const colorScheme = parsedLayout.colorScheme?.name
               ? this.colorSchemes.find(cs => cs.name === parsedLayout.colorScheme.name) || DEFAULT_COLOR_SCHEMES[0]
               : DEFAULT_COLOR_SCHEMES[0];
-            
+
             this.layout.set({
               width: parsedLayout.width || 800,
               height: parsedLayout.height || 480,
@@ -171,82 +171,82 @@ export class DashboardDesignerComponent implements OnInit {
   updateWidgetPosition(widget: WidgetConfig, position: Partial<WidgetPosition>): void {
     this.layout.update(layout => ({
       ...layout,
-      widgets: layout.widgets.map(w => 
+      widgets: layout.widgets.map(w =>
         w.id === widget.id ? { ...w, position: { ...w.position, ...position } } : w
       )
     }));
   }
 
   onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
-      event.preventDefault();
-      const layout = this.layout();
-      const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
-      if (!canvas) return;
+    event.preventDefault();
+    const layout = this.layout();
+    const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
+    if (!canvas) return;
 
-      // Create a small preview element that follows the cursor
-      const preview = document.createElement('div');
-      preview.className = 'toolbox-drag-preview';
-      preview.style.position = 'fixed';
-      preview.style.pointerEvents = 'none';
-      preview.style.zIndex = '9999';
-      preview.style.opacity = '0.85';
-      preview.innerHTML = `<i class='fa ${widget.icon}'></i> ${widget.label}`;
-      document.body.appendChild(preview);
+    // Create a small preview element that follows the cursor
+    const preview = document.createElement('div');
+    preview.className = 'toolbox-drag-preview';
+    preview.style.position = 'fixed';
+    preview.style.pointerEvents = 'none';
+    preview.style.zIndex = '9999';
+    preview.style.opacity = '0.85';
+    preview.innerHTML = `<i class='fa ${widget.icon}'></i> ${widget.label}`;
+    document.body.appendChild(preview);
 
-      const movePreview = (e: MouseEvent) => {
-        preview.style.left = e.clientX + 8 + 'px';
-        preview.style.top = e.clientY + 8 + 'px';
-      };
-      movePreview(event);
+    const movePreview = (e: MouseEvent) => {
+      preview.style.left = e.clientX + 8 + 'px';
+      preview.style.top = e.clientY + 8 + 'px';
+    };
+    movePreview(event);
 
-      const onMouseMove = (e: MouseEvent) => {
-        movePreview(e);
+    const onMouseMove = (e: MouseEvent) => {
+      movePreview(e);
 
-        const rect = canvas.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-          const padding = layout.canvasPadding ?? 0;
-          const gap = layout.widgetGap ?? 0;
-          const cols = Math.max(1, layout.gridCols);
-          const rows = Math.max(1, layout.gridRows);
-          const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
-          const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
-          const cellWidth = innerWidth / cols;
-          const cellHeight = innerHeight / rows;
-          const slotWidth = cellWidth + gap;
-          const slotHeight = cellHeight + gap;
-          const relX = e.clientX - rect.left - padding;
-          const relY = e.clientY - rect.top - padding;
-          const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relX / slotWidth)));
-          const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relY / slotHeight)));
-          const w = Math.min(4, layout.gridCols - x);
-          const h = Math.min(2, layout.gridRows - y);
-          this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
-        } else {
-          this.ghost.set(null);
-        }
-      };
-
-      const onMouseUp = (e: MouseEvent) => {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        preview.remove();
-
-        const g = this.ghost();
-        if (g) {
-          const newWidget: WidgetConfig = {
-            id: this.generateId(),
-            type: widget.type,
-            position: { ...g.position },
-            config: this.getDefaultConfig(widget.type)
-          };
-          this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
-        }
+      const rect = canvas.getBoundingClientRect();
+      if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        const padding = layout.canvasPadding ?? 0;
+        const gap = layout.widgetGap ?? 0;
+        const cols = Math.max(1, layout.gridCols);
+        const rows = Math.max(1, layout.gridRows);
+        const innerWidth = Math.max(0, rect.width - padding * 2 - gap * (cols - 1));
+        const innerHeight = Math.max(0, rect.height - padding * 2 - gap * (rows - 1));
+        const cellWidth = innerWidth / cols;
+        const cellHeight = innerHeight / rows;
+        const slotWidth = cellWidth + gap;
+        const slotHeight = cellHeight + gap;
+        const relX = e.clientX - rect.left - padding;
+        const relY = e.clientY - rect.top - padding;
+        const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relX / slotWidth)));
+        const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relY / slotHeight)));
+        const w = Math.min(4, layout.gridCols - x);
+        const h = Math.min(2, layout.gridRows - y);
+        this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
+      } else {
         this.ghost.set(null);
-      };
+      }
+    };
 
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    }
+    const onMouseUp = (e: MouseEvent) => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      preview.remove();
+
+      const g = this.ghost();
+      if (g) {
+        const newWidget: WidgetConfig = {
+          id: this.generateId(),
+          type: widget.type,
+          position: { ...g.position },
+          config: this.getDefaultConfig(widget.type)
+        };
+        this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
+      }
+      this.ghost.set(null);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
 
   // Tab navigation
   switchTab(direction: 'left' | 'right'): void {
@@ -597,7 +597,7 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     const ids = this.collectEntityIds();
-    
+
     if (ids.length === 0) {
       this.entityStates.set({});
       return;

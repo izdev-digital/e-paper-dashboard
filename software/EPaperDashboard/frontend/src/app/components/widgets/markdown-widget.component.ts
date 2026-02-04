@@ -26,7 +26,7 @@ export class MarkdownWidgetComponent {
     return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(private sanitizer: DomSanitizer) { }
 
   asMarkdownConfig(config: any) { return config as any; }
 

@@ -236,7 +236,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     path: new FormControl('', { nonNullable: true }),
     accessToken: new FormControl('', { nonNullable: true }),
   });
-  
+
   newUpdateTime: string = '';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
@@ -246,7 +246,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    
+
     if (id) {
       this.route.queryParams.subscribe(params => {
         if (params['access_token'] && params['auth_callback'] === 'true' && !this.oauthProcessed) {
@@ -254,7 +254,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.oauthToken = params['access_token'];
         }
       });
-      
+
       this.loadDashboard(id);
     }
   }
@@ -265,7 +265,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       next: (dashboard) => {
         this.dashboard.set(dashboard);
         this.originalDashboard = JSON.parse(JSON.stringify(dashboard));
-        
+
         this.dashboardForm.reset({
           name: dashboard.name || '',
           description: dashboard.description || '',
@@ -273,7 +273,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           path: dashboard.path || '',
           accessToken: '',
         });
-        
+
         // Convert update times to array for display (normalize string or array)
         if (dashboard.updateTimes) {
           let times: string[] = [];
@@ -286,18 +286,18 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
               .filter((t: string) => t.length > 0);
           }
           this.updateTimes.set(times);
-        this.originalUpdateTimes = [...times];
+          this.originalUpdateTimes = [...times];
         } else {
           this.updateTimes.set([]);
           this.originalUpdateTimes = [];
         }
         this.isLoading.set(false);
-        
+
         // Now process OAuth if we have a token
         if (this.oauthToken && !dashboard.hasAccessToken) {
           this.saveOAuthToken(id);
         }
-        
+
         // Force change detection to ensure UI updates
         this.cdr.detectChanges();
       },
@@ -315,17 +315,17 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     const updatePayload = {
       accessToken: this.oauthToken
     };
-    
+
     this.dashboardService.updateDashboard(dashboardId, updatePayload).subscribe({
       next: (updated) => {
         this.dashboard.set(updated);
         this.toastService.success('Home Assistant token saved successfully!');
-        
+
         // Clean the query params from URL without navigating away
         setTimeout(() => {
           window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
         }, 500);
-        
+
         this.oauthToken = null;
       },
       error: (error) => {
@@ -358,7 +358,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   private checkUpdateTimesChanged(currentTimes: string[]): void {
     const timesChanged = JSON.stringify(currentTimes.sort()) !== JSON.stringify(this.originalUpdateTimes.sort());
-    
+
     if (timesChanged) {
       this.dashboardForm.markAsDirty();
     }
@@ -405,7 +405,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
             title: item.title,
             id: item.id
           }));
-          
+
           this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
             if (selectedPath) {
               // Update the form with the selected path
@@ -599,7 +599,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.previewLoading.set(false);
         const dashboard = this.dashboard();
         let errorMessage = 'Failed to load preview';
-        
+
         // Try to extract error message from blob response
         if (error.error instanceof Blob) {
           try {
@@ -625,7 +625,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         } else if (error.status) {
           errorMessage = `HTTP Error ${error.status}`;
         }
-        
+
         this.previewError.set(errorMessage);
         this.toastService.error(errorMessage);
       }

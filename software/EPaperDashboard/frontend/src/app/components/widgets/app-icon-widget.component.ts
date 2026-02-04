@@ -26,7 +26,7 @@ export class AppIconWidgetComponent implements OnInit, OnChanges {
 
   inlineSvg: SafeHtml | null = null;
 
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
     this.loadSvg();

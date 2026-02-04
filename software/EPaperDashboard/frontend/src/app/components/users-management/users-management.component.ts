@@ -138,7 +138,7 @@ export class UsersManagementComponent implements OnInit {
 
   toggleAddForm(): void {
     this.showAddForm.update(v => !v);
-    
+
     if (!this.showAddForm()) {
       this.addUserForm.reset();
     }
@@ -147,7 +147,7 @@ export class UsersManagementComponent implements OnInit {
   private handleError(error: HttpErrorResponse, defaultMessage: string): void {
     let message = defaultMessage;
     let details = '';
-    
+
     if (error.error?.message) {
       message = error.error.message;
     } else if (error.status === 401) {
@@ -169,7 +169,7 @@ export class UsersManagementComponent implements OnInit {
       message = 'Server Error';
       details = 'An unexpected error occurred. Please try again later.';
     }
-    
+
     this.toastService.error(message);
   }
 }

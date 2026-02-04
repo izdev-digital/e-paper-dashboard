@@ -46,12 +46,12 @@ export class LoginComponent implements OnInit {
 
   constructor() {
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboards';
-    
+
     effect(() => {
-      if (!this.hasRedirected && 
-          this.router.url.startsWith('/login') &&
-          this.authService.isAuthReady() && 
-          this.authService.isAuthenticated()) {
+      if (!this.hasRedirected &&
+        this.router.url.startsWith('/login') &&
+        this.authService.isAuthReady() &&
+        this.authService.isAuthenticated()) {
         this.hasRedirected = true;
         this.router.navigate([this.returnUrl]);
       }

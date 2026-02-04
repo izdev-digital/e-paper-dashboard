@@ -57,7 +57,7 @@ export class HeaderWidgetComponent implements OnInit, OnChanges {
 
   inlineSvg: SafeHtml | null = null;
 
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(private sanitizer: DomSanitizer) { }
 
   ngOnInit(): void {
     this.loadSvg();
@@ -138,7 +138,7 @@ export class HeaderWidgetComponent implements OnInit, OnChanges {
     return cfg.badges.filter((b: any) => {
       if (!b) return false;
       if ((b.entityId && String(b.entityId).trim().length > 0) ||
-          (b.icon && String(b.icon).trim().length > 0)) return true;
+        (b.icon && String(b.icon).trim().length > 0)) return true;
       return false;
     });
   }

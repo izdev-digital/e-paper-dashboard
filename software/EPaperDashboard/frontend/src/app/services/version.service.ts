@@ -7,7 +7,7 @@ import { signal } from '@angular/core';
 })
 export class VersionService {
   private readonly http = inject(HttpClient);
-  
+
   readonly version = signal<string>('');
 
   constructor() {

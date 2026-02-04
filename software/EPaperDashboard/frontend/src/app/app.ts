@@ -16,9 +16,9 @@ export class App implements OnInit {
   protected readonly authService = inject(AuthService);
   protected readonly versionService = inject(VersionService);
   private readonly router = inject(Router);
-  
+
   private readonly theme = signal<string>(this.getInitialTheme());
-  readonly themeIcon = computed(() => 
+  readonly themeIcon = computed(() =>
     this.theme() === 'dark' ? 'fa-regular fa-sun' : 'fa-regular fa-moon'
   );
   readonly isDark = computed(() => this.theme() === 'dark');

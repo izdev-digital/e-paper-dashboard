@@ -53,8 +53,8 @@ export class ProfileComponent {
 
     this.http.post('/api/users/change-nickname', request).subscribe({
       next: () => {
-        const message = this.newNickname().trim() 
-          ? 'Nickname changed successfully.' 
+        const message = this.newNickname().trim()
+          ? 'Nickname changed successfully.'
           : 'Nickname cleared.';
         this.toastService.success(message);
         this.newNickname.set('');

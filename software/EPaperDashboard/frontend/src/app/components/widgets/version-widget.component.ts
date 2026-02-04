@@ -21,7 +21,7 @@ export class VersionWidgetComponent implements OnInit {
 
   version: string | null = null;
 
-  constructor(private httpClient: HttpClient) {}
+  constructor(private httpClient: HttpClient) { }
 
   ngOnInit(): void {
     this.loadVersion();
