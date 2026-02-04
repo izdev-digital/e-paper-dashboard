@@ -1,6 +1,6 @@
 <!-- Debug logs removed -->
 <!-- Universal Entity Selection Dropdown -->
-@if (entities().length > 0 && widget.config && 'entityId' in widget.config) {
+@if (entities().length > 0 && widget.config && 'entityId' in widget.config && widget.type !== 'graph') {
 <div class="mb-3">
   <label class="form-label">Data Source Entity</label>
   <select class="form-select" [(ngModel)]="widget.config.entityId">
@@ -114,15 +114,6 @@
 
 @case ('graph') {
 <div class="mb-3">
-  <label class="form-label">Sensor Entity</label>
-  <select class="form-select" [(ngModel)]="graphConfig.entityId">
-    <option value="">Select entity...</option>
-    @for (entity of entities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-    }
-  </select>
-</div>
-<div class="mb-3">
   <label class="form-label">Period</label>
   <select class="form-select" [(ngModel)]="graphConfig.period">
     <option value="1h">1 Hour</option>
@@ -133,8 +124,78 @@
   </select>
 </div>
 <div class="mb-3">
-  <label class="form-label">Label (optional)</label>
-  <input type="text" class="form-control" [(ngModel)]="graphConfig.label" />
+  <label class="form-label">Plot Type</label>
+  <select class="form-select" [(ngModel)]="graphConfig.plotType">
+    <option value="line">Line Chart</option>
+    <option value="bar">Bar Chart</option>
+  </select>
+</div>
+@if (graphConfig.plotType === 'line') {
+<div class="mb-3">
+  <label class="form-label">Line Width (px)</label>
+  <input type="number" class="form-control" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
+  <small class="form-text text-muted">Default: 2px</small>
+</div>
+}
+@if (graphConfig.plotType === 'bar') {
+<div class="mb-3">
+  <label class="form-label">Bar Width</label>
+  <input type="number" class="form-control" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
+  <small class="form-text text-muted">Leave empty for automatic width</small>
+</div>
+}
+<div class="mb-3">
+  <label class="form-label">Data Series</label>
+  <small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
+  @if (graphConfig.series && graphConfig.series.length > 0) {
+    <div class="series-list">
+      @for (series of graphConfig.series; track trackByGraphSeries($index, series); let idx = $index) {
+        <div class="series-card card border mb-3">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h6 class="card-subtitle text-muted mb-0">Series {{ idx + 1 }}</h6>
+              <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeGraphSeries(idx)" title="Remove series">
+                <i class="fa fa-times-circle"></i>
+              </button>
+            </div>
+            
+            <div class="row g-2">
+              <!-- Entity Selection -->
+              <div class="col-12">
+                <label class="form-label small mb-1">Entity</label>
+                <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
+                  <option value="">Select entity...</option>
+                  @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
+                    <option [value]="ent.entity_id">{{ ent.friendly_name || ent.entity_id }}</option>
+                  }
+                </select>
+              </div>
+              
+              <!-- Label and Color -->
+              <div class="col-8">
+                <label class="form-label small mb-1">Label</label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" [placeholder]="series.entityId || 'Optional label'" />
+                <small class="form-text text-muted d-block mt-1">Leave empty to use entity ID</small>
+              </div>
+              
+              <div class="col-4">
+                <label class="form-label small mb-1">Color</label>
+                <select class="form-select form-select-sm" [(ngModel)]="series.color">
+                  <option [value]="null">Auto</option>
+                  @for (color of colorScheme?.palette; track color) {
+                    <option [value]="color">{{ getColorName(color) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+  <button type="button" class="btn btn-primary btn-sm w-100" (click)="addGraphSeries()">
+    <i class="fa fa-plus"></i> Add Series
+  </button>
 </div>
 }
 

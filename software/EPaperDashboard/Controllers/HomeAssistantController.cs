@@ -62,6 +62,28 @@ public class HomeAssistantController(
     public record FetchDashboardsRequest(string DashboardId);
     public record FetchEntitiesRequest(string DashboardId);
     public record FetchEntityStatesRequest(string DashboardId, string[] EntityIds);
+    public record FetchEntityHistoryRequest(string DashboardId, string[] EntityIds, int? Hours = 24);
+
+    [HttpPost("fetch-entity-history")]
+    public async Task<IActionResult> FetchEntityHistory([FromBody] FetchEntityHistoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.DashboardId))
+        {
+            return BadRequest(new { error = "Dashboard ID is required" });
+        }
+
+        var hours = request.Hours ?? 24;
+        if (hours < 1)
+            hours = 1;
+        if (hours > 720) // Max 30 days
+            hours = 720;
+
+        var result = await _homeAssistantService.FetchEntityHistory(request.DashboardId, request.EntityIds ?? [], hours);
+
+        return result.IsSuccess
+            ? Ok(new { history = result.Value })
+            : BadRequest(new { error = result.Error });
+    }
 
     [HttpGet("{dashboardId}/todo-items/{todoEntityId}")]
     public async Task<IActionResult> GetTodoItems(string dashboardId, string todoEntityId)

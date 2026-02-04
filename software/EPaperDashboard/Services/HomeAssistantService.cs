@@ -713,6 +713,230 @@ public class HomeAssistantService(
         }
     }
 
+    /// <summary>
+    /// Fetches historical data for one or more entities using Home Assistant's REST API.
+    /// Returns data points with timestamps within the specified time period.
+    /// The API endpoint is: /api/history/period/{time_period}?filter_entity_ids={entity_ids}
+    /// </summary>
+    /// <param name="dashboardId">Dashboard ID for authentication</param>
+    /// <param name="entityIds">List of entity IDs to fetch history for</param>
+    /// <param name="hours">Number of hours back to fetch (1, 6, 24, 168, 720)</param>
+    /// <returns>Dictionary mapping entity ID to list of historical states</returns>
+    public async Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistory(string dashboardId, IEnumerable<string> entityIds, int hours = 24)
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        var requestedIds = new HashSet<string>(entityIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+        if (requestedIds.Count == 0)
+        {
+            return Result.Success<Dictionary<string, List<HistoryState>>, string>(new Dictionary<string, List<HistoryState>>());
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using (var httpClient = new HttpClient())
+            {
+                // Set authorization header
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dashboard.AccessToken}");
+
+                // Build query parameters - Home Assistant expects filter_entity_id (singular) repeated for each entity
+                var entityIdParams = string.Join("&", requestedIds.Select(id => $"filter_entity_id={Uri.EscapeDataString(id)}"));
+                var startTime = DateTime.UtcNow.AddHours(-hours).ToString("O");
+                var endTime = DateTime.UtcNow.ToString("O");
+
+                // Home Assistant history API endpoint
+                var url = $"{hostUrl}/api/history/period/{startTime}?{entityIdParams}&end_time={endTime}";
+
+                var response = await httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("History API call failed with status {Status}: {Error}", response.StatusCode, errorContent);
+                    return $"Failed to fetch history: {response.StatusCode}";
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("HomeAssistant FetchEntityHistory raw response: {Response}", content);
+
+                var historyData = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(content);
+                var result = new Dictionary<string, List<HistoryState>>();
+
+                // Parse the response which is an array of arrays (one per entity)
+                // Format: [[{entity_id, state, attributes, last_changed}, ...], ...]
+                if (historyData.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var entityHistory in historyData.EnumerateArray())
+                    {
+                        if (entityHistory.ValueKind != JsonValueKind.Array || entityHistory.GetArrayLength() == 0)
+                            continue;
+
+                        // Get the first item to extract entity_id
+                        var firstState = entityHistory[0];
+                        if (!firstState.TryGetProperty("entity_id", out var entityIdProp))
+                            continue;
+
+                        var entityId = entityIdProp.GetString();
+                        if (string.IsNullOrWhiteSpace(entityId))
+                            continue;
+
+                        var states = new List<HistoryState>();
+
+                        // Process each state change for this entity
+                        foreach (var stateItem in entityHistory.EnumerateArray())
+                        {
+                            var historyState = ParseHistoryState(stateItem);
+                            if (historyState != null)
+                            {
+                                states.Add(historyState);
+                            }
+                        }
+
+                        result[entityId] = states;
+                    }
+                }
+
+                return Result.Success<Dictionary<string, List<HistoryState>>, string>(result);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error while fetching entity history");
+            return $"Failed to fetch entity history: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch entity history");
+            return $"Failed to fetch entity history: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Parses a single history state entry from Home Assistant's history API response.
+    /// </summary>
+    private HistoryState? ParseHistoryState(JsonElement element)
+    {
+        try
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var state = element.TryGetProperty("state", out var stateProp) 
+                ? stateProp.GetString() ?? string.Empty 
+                : string.Empty;
+
+            var lastChangedStr = element.TryGetProperty("last_changed", out var lastChangedProp)
+                ? lastChangedProp.GetString()
+                : null;
+
+            if (!DateTime.TryParse(lastChangedStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var lastChanged))
+            {
+                lastChanged = DateTime.UtcNow;
+            }
+
+            var attributes = new Dictionary<string, JsonElement>();
+            if (element.TryGetProperty("attributes", out var attrsProp) && attrsProp.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var attr in attrsProp.EnumerateObject())
+                {
+                    attributes[attr.Name] = attr.Value;
+                }
+            }
+
+            // Try to parse state as numeric value
+            double numericValue = 0;
+            if (!double.TryParse(state, System.Globalization.CultureInfo.InvariantCulture, out numericValue))
+            {
+                // If state is not numeric, try to extract from common attribute fields
+                // This handles entities like climate (current_temperature), weather (temperature), 
+                // light (brightness), cover (current_position), etc.
+                if (element.TryGetProperty("entity_id", out var entityIdProp))
+                {
+                    var entityId = entityIdProp.GetString() ?? string.Empty;
+                    numericValue = ExtractNumericFromAttributes(entityId, attributes, state);
+                }
+            }
+
+            return new HistoryState
+            {
+                State = state,
+                NumericValue = numericValue,
+                LastChanged = lastChanged,
+                Attributes = attributes
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse history state element");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Extracts numeric value from entity attributes based on entity type.
+    /// </summary>
+    private double ExtractNumericFromAttributes(string entityId, Dictionary<string, JsonElement> attributes, string state)
+    {
+        // Try common numeric attributes based on entity domain
+        var domain = entityId.Split('.')[0];
+        
+        string[] candidateAttributes = domain switch
+        {
+            "climate" => new[] { "current_temperature", "temperature", "current_humidity", "humidity" },
+            "weather" => new[] { "temperature", "humidity", "pressure", "wind_speed" },
+            "light" => new[] { "brightness", "color_temp" },
+            "cover" => new[] { "current_position", "current_tilt_position" },
+            "fan" => new[] { "percentage", "speed" },
+            "humidifier" => new[] { "current_humidity", "humidity" },
+            "water_heater" => new[] { "current_temperature", "temperature" },
+            "sun" => new[] { "elevation", "azimuth" },
+            "device_tracker" or "person" => new[] { "latitude", "longitude", "gps_accuracy" },
+            "zone" => new[] { "latitude", "longitude", "radius" },
+            _ => Array.Empty<string>()
+        };
+
+        // Try each candidate attribute
+        foreach (var attrName in candidateAttributes)
+        {
+            if (attributes.TryGetValue(attrName, out var attrValue))
+            {
+                if (attrValue.ValueKind == JsonValueKind.Number && attrValue.TryGetDouble(out var doubleVal))
+                {
+                    return doubleVal;
+                }
+                else if (attrValue.ValueKind == JsonValueKind.String)
+                {
+                    var strVal = attrValue.GetString();
+                    if (double.TryParse(strVal, System.Globalization.CultureInfo.InvariantCulture, out var parsedVal))
+                    {
+                        return parsedVal;
+                    }
+                }
+            }
+        }
+
+        // Fallback: try to convert binary_sensor states to 0/1
+        if (domain == "binary_sensor")
+        {
+            return state.ToLowerInvariant() switch
+            {
+                "on" => 1.0,
+                "off" => 0.0,
+                "true" => 1.0,
+                "false" => 0.0,
+                _ => 0.0
+            };
+        }
+
+        return 0;
+    }
+
     private Result<Models.Dashboard, string> ValidateAndGetDashboard(string dashboardId)
     {
         if (string.IsNullOrWhiteSpace(dashboardId))
@@ -1051,4 +1275,30 @@ public record RssFeedEntry
     /// Entry summary/description
     /// </summary>
     public string? Summary { get; init; }
+}
+/// <summary>
+/// Represents a historical state entry for an entity from Home Assistant's history API.
+/// Includes timestamp and numeric value for graphing purposes.
+/// </summary>
+public record HistoryState
+{
+    /// <summary>
+    /// The state value as a string (may be numeric, "on"/"off", etc.)
+    /// </summary>
+    public string State { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The state value parsed as a numeric value for graphing (0 if not numeric)
+    /// </summary>
+    public double NumericValue { get; init; }
+
+    /// <summary>
+    /// Timestamp when this state change occurred
+    /// </summary>
+    public DateTime LastChanged { get; init; }
+
+    /// <summary>
+    /// Entity attributes at this point in time
+    /// </summary>
+    public Dictionary<string, JsonElement> Attributes { get; init; } = new();
 }

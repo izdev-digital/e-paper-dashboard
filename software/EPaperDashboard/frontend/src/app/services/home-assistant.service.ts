@@ -16,6 +16,13 @@ export interface TodoItem {
   uid: string;
 }
 
+export interface HistoryState {
+  state: string;
+  numericValue: number;
+  lastChanged: string;
+  attributes: Record<string, any>;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -52,6 +59,15 @@ export class HomeAssistantService {
     }).pipe(map(res => res.states || []));
   }
 
+  getEntityHistory(dashboardId: string, entityIds: string[], hours: number = 24): Observable<Record<string, HistoryState[]>> {
+    return this.http.post<{ history: Record<string, HistoryState[]> }>('/api/homeassistant/fetch-entity-history', {
+      dashboardId,
+      entityIds,
+      hours
+    }).pipe(
+      map(response => response.history || {})
+    );  }
+
   getTodoItems(dashboardId: string, todoEntityId: string): Observable<TodoItem[]> {
     return this.http.get<TodoItem[]>(`/api/homeassistant/${dashboardId}/todo-items/${todoEntityId}`);
   }
@@ -62,4 +78,3 @@ export class HomeAssistantService {
     );
   }
 }
-

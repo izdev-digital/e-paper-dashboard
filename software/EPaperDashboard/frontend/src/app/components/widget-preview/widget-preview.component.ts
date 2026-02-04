@@ -63,7 +63,7 @@ import {
         <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-weather-forecast>
       }
       @if (widget.type === 'graph') {
-        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-graph>
+        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings" [dashboardId]="dashboardId"></app-widget-graph>
       }
       @if (widget.type === 'todo') {
         <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId" [designerSettings]="designerSettings"></app-widget-todo>
@@ -88,6 +88,7 @@ export class WidgetPreviewComponent {
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() dashboardId?: string;
 
   asHeaderConfig(config: any): HeaderConfig {
     return config as HeaderConfig;

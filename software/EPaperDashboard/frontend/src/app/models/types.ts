@@ -132,10 +132,18 @@ export interface WeatherConfig {
   showForecast: boolean;
 }
 
-export interface GraphConfig {
+export interface GraphSeriesConfig {
   entityId: string;
-  period: '1h' | '6h' | '24h' | '7d' | '30d';
   label?: string;
+  color?: string;
+}
+
+export interface GraphConfig {
+  series: GraphSeriesConfig[];
+  period: '1h' | '6h' | '24h' | '7d' | '30d';
+  plotType?: 'line' | 'bar';
+  lineWidth?: number;
+  barWidth?: number;
 }
 
 export interface TodoConfig {

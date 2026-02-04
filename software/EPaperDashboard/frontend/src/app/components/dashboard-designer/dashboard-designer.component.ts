@@ -139,8 +139,10 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     this.entitiesLoading.set(true);
+    console.log('[Dashboard Designer] Loading entities for dashboard:', this.dashboardId);
     this.homeAssistantService.getEntities(this.dashboardId).subscribe({
       next: (entities) => {
+        console.log('[Dashboard Designer] Loaded entities:', entities.length, 'total');
         this.availableEntities.set(entities);
         this.entitiesLoading.set(false);
         this.isLoading.set(false);
@@ -827,7 +829,7 @@ export class DashboardDesignerComponent implements OnInit {
       case 'weather-forecast':
         return { entityId: '', showForecast: type === 'weather-forecast' };
       case 'graph':
-        return { entityId: '', period: '24h', label: '' };
+        return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };
       case 'todo':
         return { entityId: '' };
       case 'rss-feed':

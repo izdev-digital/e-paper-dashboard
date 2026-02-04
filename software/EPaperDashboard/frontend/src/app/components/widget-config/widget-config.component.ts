@@ -11,7 +11,8 @@ import {
   GraphConfig,
   TodoConfig,
   AppIconConfig,
-  RssFeedConfig
+  RssFeedConfig,
+  ColorScheme
 } from '../../models/types';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 
@@ -39,6 +40,7 @@ export class WidgetConfigComponent implements OnChanges {
   @Input() dashboard!: Dashboard | null;
   @Input() availableEntities: HassEntity[] = [];
   @Input() entitiesLoading: boolean = false;
+  @Input() colorScheme?: ColorScheme;
 
   entities = signal<any[]>([]);
   loadingEntities = signal(false);
@@ -104,6 +106,7 @@ export class WidgetConfigComponent implements OnChanges {
 
   getFilteredEntities(): any[] {
     const allEntities = this.entities();
+    console.log('[Widget Config] Total entities available:', allEntities.length, 'for widget type:', this.widget.type);
 
     // Filter entities based on widget type
     switch (this.widget.type) {
@@ -119,12 +122,31 @@ export class WidgetConfigComponent implements OnChanges {
         // Show all event entities and let user select the appropriate feedreader entity
         return allEntities.filter(e => e.entity_id?.startsWith('event.'));
       case 'graph':
-        // Graph can work with sensor, binary_sensor, etc.
-        return allEntities.filter(e =>
-          e.entity_id?.startsWith('sensor.') ||
-          e.entity_id?.startsWith('binary_sensor.') ||
-          e.entity_id?.startsWith('input_number.')
-        );
+        // Graph can work with any entity that has numeric state values
+        // Include sensors, counters, numbers, climate (temperature), light (brightness), etc.
+        const filtered = allEntities.filter(e => {
+          const id = e.entity_id?.toLowerCase() || '';
+          return (
+            id.startsWith('sensor.') ||
+            id.startsWith('binary_sensor.') ||
+            id.startsWith('input_number.') ||
+            id.startsWith('number.') ||
+            id.startsWith('counter.') ||
+            id.startsWith('climate.') ||
+            id.startsWith('light.') ||
+            id.startsWith('cover.') ||
+            id.startsWith('fan.') ||
+            id.startsWith('humidifier.') ||
+            id.startsWith('water_heater.') ||
+            id.startsWith('weather.') ||
+            id.startsWith('person.') ||
+            id.startsWith('device_tracker.') ||
+            id.startsWith('sun.') ||
+            id.startsWith('zone.')
+          );
+        });
+        console.log('[Widget Config] Filtered graph entities:', filtered.length);
+        return filtered;
       default:
         return allEntities;
     }
@@ -149,6 +171,55 @@ export class WidgetConfigComponent implements OnChanges {
         this.loadingEntities.set(false);
       }
     });
+  }
+
+  addGraphSeries(): void {
+    if (!this.graphConfig.series) {
+      this.graphConfig.series = [];
+    }
+    this.graphConfig.series.push({ entityId: '', label: '', color: this.getDefaultGraphColor(this.graphConfig.series.length) });
+  }
+
+  removeGraphSeries(index: number): void {
+    if (this.graphConfig.series) {
+      this.graphConfig.series.splice(index, 1);
+    }
+  }
+
+  trackByGraphSeries(index: number, series: any) {
+    return index;
+  }
+
+  private getDefaultGraphColor(index: number): string {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    return colors[index % colors.length];
+  }
+
+  getColorName(hex: string): string {
+    if (!hex) return 'Auto';
+    
+    const colorMap: Record<string, string> = {
+      '#000000': 'Black',
+      '#ffffff': 'White',
+      '#ff0000': 'Red',
+      '#00ff00': 'Green',
+      '#0000ff': 'Blue',
+      '#ffff00': 'Yellow',
+      '#ff00ff': 'Magenta',
+      '#00ffff': 'Cyan',
+      '#808080': 'Gray',
+      '#ffa500': 'Orange',
+      '#800080': 'Purple',
+      '#ffc0cb': 'Pink',
+      '#a52a2a': 'Brown',
+      '#808000': 'Olive',
+      '#800000': 'Maroon',
+      '#008000': 'Dark Green',
+      '#000080': 'Navy'
+    };
+
+    const lowerHex = hex.toLowerCase();
+    return colorMap[lowerHex] || hex;
   }
 
   addBadge(): void {

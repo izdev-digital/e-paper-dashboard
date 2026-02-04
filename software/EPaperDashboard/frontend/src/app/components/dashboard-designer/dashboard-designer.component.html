@@ -72,6 +72,7 @@
                   <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
+                    [dashboardId]="dashboardId"
                     [designerSettings]="layout()"></app-widget-preview>
                 </div>
                 <!-- Resize Handles -->
@@ -389,6 +390,7 @@
             </div>
             <app-widget-config [widget]="selectedWidget()!" [dashboard]="dashboard()"
               [availableEntities]="availableEntities()" [entitiesLoading]="entitiesLoading()"
+              [colorScheme]="layout().colorScheme"
               [attr.key]="selectedWidget()!.id"></app-widget-config>
             }
           </div>
