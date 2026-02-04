@@ -26,12 +26,6 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
                   <span>{{ formatEventDate(ev) }}</span>
                 </div>
                 <div class="event-title">{{ ev.summary || ev.title || ev.description || '-' }}</div>
-                @if (ev.location) {
-                  <div class="event-location">
-                    <i class="fa fa-map-marker-alt"></i>
-                    <span>{{ ev.location }}</span>
-                  </div>
-                }
               </div>
             }
           } @else {
