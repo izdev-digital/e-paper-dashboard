@@ -8,6 +8,7 @@ import {
   MarkdownConfig,
   CalendarConfig,
   WeatherConfig,
+  WeatherForecastConfig,
   GraphConfig,
   TodoConfig,
   AppIconConfig,
@@ -62,8 +63,8 @@ export class WidgetConfigComponent implements OnChanges {
     return this.widget.config as WeatherConfig;
   }
 
-  get weatherForecastConfig(): WeatherConfig {
-    return this.widget.config as WeatherConfig;
+  get weatherForecastConfig(): WeatherForecastConfig {
+    return this.widget.config as WeatherForecastConfig;
   }
 
   get graphConfig(): GraphConfig {

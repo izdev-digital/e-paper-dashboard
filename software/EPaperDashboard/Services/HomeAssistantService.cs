@@ -359,6 +359,144 @@ public class HomeAssistantService(
     }
 
     /// <summary>
+    /// Fetches weather forecast data for a weather entity.
+    /// Uses Home Assistant's weather.get_forecasts service to retrieve forecast data.
+    /// </summary>
+    /// <param name="dashboardId">The dashboard ID for authentication</param>
+    /// <param name="weatherEntityId">The weather entity ID (e.g., weather.openmeteo_home)</param>
+    /// <param name="forecastType">The type of forecast: 'hourly', 'daily', or 'twice_daily' (default: 'daily')</param>
+    /// <returns>Dictionary with forecast array, or error message</returns>
+    public async Task<Result<Dictionary<string, object?>, string>> FetchWeatherForecast(string dashboardId, string weatherEntityId, string forecastType = "daily")
+    {
+        var dashboardResult = ValidateAndGetDashboard(dashboardId);
+        if (dashboardResult.IsFailure)
+        {
+            return dashboardResult.Error;
+        }
+
+        if (string.IsNullOrWhiteSpace(weatherEntityId))
+        {
+            return "Weather entity ID is required";
+        }
+
+        var dashboard = dashboardResult.Value;
+        var hostUrl = dashboard.Host!.TrimEnd('/');
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+
+            var messageId = _messageId++;
+            
+            await SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "call_service",
+                domain = "weather",
+                service = "get_forecasts",
+                service_data = new
+                {
+                    type = forecastType
+                },
+                target = new
+                {
+                    entity_id = weatherEntityId
+                },
+                return_response = true
+            });
+
+            var response = await ReceiveMessageAsync(ws);
+            _logger.LogDebug("HomeAssistant FetchWeatherForecast raw response: {Response}", response);
+
+            var json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(response);
+            var forecastData = new Dictionary<string, object?>();
+
+            // The response structure from weather.get_forecasts is:
+            // { "success": true, "result": { "response": { "weather.entity_id": { "forecast": [...] } } } }
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
+            {
+                JsonElement forecastArray = default;
+                bool foundForecast = false;
+
+                // Try standard structure: result.response.<weather_entity>.forecast
+                if (result.TryGetProperty("response", out var responseObj) && responseObj.ValueKind == JsonValueKind.Object)
+                {
+                    if (responseObj.TryGetProperty(weatherEntityId, out var entityObj) && 
+                        entityObj.ValueKind == JsonValueKind.Object &&
+                        entityObj.TryGetProperty("forecast", out forecastArray) && 
+                        forecastArray.ValueKind == JsonValueKind.Array)
+                    {
+                        foundForecast = true;
+                        _logger.LogDebug("Found forecast at result.response.{EntityId}.forecast", weatherEntityId);
+                    }
+                }
+
+                // Fallback: result.<weather_entity>.forecast
+                if (!foundForecast && result.TryGetProperty(weatherEntityId, out var entityObj2) && 
+                    entityObj2.ValueKind == JsonValueKind.Object &&
+                    entityObj2.TryGetProperty("forecast", out forecastArray) && 
+                    forecastArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundForecast = true;
+                    _logger.LogDebug("Found forecast at result.{EntityId}.forecast", weatherEntityId);
+                }
+
+                // Fallback: result.forecast (direct array)
+                if (!foundForecast && result.TryGetProperty("forecast", out forecastArray) && 
+                    forecastArray.ValueKind == JsonValueKind.Array)
+                {
+                    foundForecast = true;
+                    _logger.LogDebug("Found forecast at result.forecast");
+                }
+
+                if (foundForecast)
+                {
+                    // Convert JsonElement forecast items to list of dictionaries
+                    var forecastList = new List<object?>();
+                    foreach (var item in forecastArray.EnumerateArray())
+                    {
+                        var forecastItem = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var prop in item.EnumerateObject())
+                        {
+                            forecastItem[prop.Name] = ExtractJsonValue(prop.Value);
+                        }
+                        forecastList.Add(forecastItem);
+                    }
+                    forecastData["forecast"] = forecastList;
+                    _logger.LogDebug("Parsed {Count} forecast items from entity {EntityId}", forecastList.Count, weatherEntityId);
+                    
+                    // Log first few items for debugging
+                    if (forecastList.Count > 0)
+                    {
+                        var firstItem = forecastList[0] as Dictionary<string, object?>;
+                        _logger.LogDebug("First forecast item datetime: {DateTime}", firstItem?["datetime"] ?? "NOT FOUND");
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Could not find forecast array in weather.get_forecasts response for entity {EntityId}. Response was: {Response}", weatherEntityId, response);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Weather forecast fetch returned unsuccessful response. Response was: {Response}", response);
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return forecastData;
+        }
+        catch (WebSocketException)
+        {
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to fetch weather forecast: {ex.Message}";
+        }
+    }
+
+    /// <summary>
     /// Fetches RSS feed entries from a Home Assistant feedreader event entity.
     /// The feedreader component creates event entities (event.feed_name) that store
     /// the latest feed entry data in the event attributes (title, link, description, content).

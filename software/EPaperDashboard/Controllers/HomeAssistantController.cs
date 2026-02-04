@@ -125,6 +125,27 @@ public class HomeAssistantController(
     }
 
     /// <summary>
+    /// Fetches weather forecast data for a weather entity.
+    /// Uses the weather.get_forecasts service to retrieve forecast data.
+    /// </summary>
+    /// <param name="dashboardId">Dashboard ID for authentication</param>
+    /// <param name="weatherEntityId">Weather entity ID (e.g., weather.openmeteo_home)</param>
+    /// <param name="forecastType">Type of forecast: 'daily', 'hourly', or 'twice_daily' (default: 'daily')</param>
+    [HttpGet("{dashboardId}/weather-forecast/{weatherEntityId}")]
+    public async Task<IActionResult> GetWeatherForecast(string dashboardId, string weatherEntityId, [FromQuery] string forecastType = "daily")
+    {
+        var result = await _homeAssistantService.FetchWeatherForecast(dashboardId, weatherEntityId, forecastType);
+        if (result.IsFailure)
+        {
+            _logger.LogWarning("Failed to fetch weather forecast: {Error}", result.Error);
+            return BadRequest(new { error = result.Error });
+        }
+
+        _logger.LogInformation("Successfully fetched weather forecast for entity {Entity}", weatherEntityId);
+        return Ok(result.Value);
+    }
+
+    /// <summary>
     /// Fetches RSS feed entries from a Home Assistant feedreader entity.
     /// The feedreader component stores RSS entries in the entity's attributes.
     /// </summary>

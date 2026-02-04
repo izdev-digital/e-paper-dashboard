@@ -1,8 +1,146 @@
 .weather-forecast-widget {
   display: grid;
   grid-auto-flow: row;
-  gap: 4px;
+  gap: 0;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  align-content: start;
+  padding: 0;
+  --titleFontSize: 15px;
+  --textFontSize: 12px;
+  --smallFontSize: 9px;
+  --iconColor: currentColor;
+  --titleColor: currentColor;
+  --textColor: currentColor;
+
+  i {
+    color: var(--iconColor);
+  }
+
+  &.compact {
+    gap: 0;
+    padding: 0;
+  }
+
+  &.tiny {
+    gap: 0;
+    padding: 0;
+  }
+
+  &.minimal {
+    display: none;
+  }
+
+  // Height-based breakpoints
+  &.height-1 {
+    // Single cell height (approx 60-90px)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      display: none;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      border: none;
+      gap: 1px;
+
+      .item-condition,
+      .item-precip,
+      .item-wind {
+        display: none;
+      }
+
+      .item-temps {
+        gap: 0;
+        line-height: 1;
+      }
+    }
+  }
+
+  &.height-2 {
+    // Two cell height (approx 120-180px)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      font-size: var(--titleFontSize);
+      padding: 0;
+      margin-bottom: 1px;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      gap: 1px;
+      border: none;
+
+      .item-condition {
+        display: none;
+      }
+    }
+  }
+
+  &.height-3plus {
+    // Three or more cell height (approx 180px+)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      font-size: var(--titleFontSize);
+      padding: 0;
+      margin-bottom: 2px;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      gap: 2px;
+      border: none;
+    }
+  }
+}
+
+.empty-state {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 8px;
+  align-items: center;
+  justify-items: center;
+  padding: 16px 8px;
+  text-align: center;
+  opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+
+  i {
+    font-size: 2rem;
+    color: var(--iconColor);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--textFontSize);
+    font-weight: 400;
+    letter-spacing: 0.3px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .forecast-content {
@@ -10,30 +148,207 @@
   grid-auto-flow: row;
   gap: 4px;
   overflow: hidden;
+  height: 100%;
+  min-height: 0;
 }
 
 .forecast-header {
   margin: 0;
-  font-size: 0.9rem;
+  padding: 1px 0;
+  font-size: var(--titleFontSize);
   font-weight: bold;
+  color: var(--titleColor);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .forecast-items {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: min-content;
-  gap: 4px;
+  grid-auto-columns: minmax(38px, 1fr);
+  gap: 2px;
   overflow-x: auto;
-  font-size: 0.75rem;
+  font-size: var(--smallFontSize);
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+
+  // Hourly mode: narrower items for more items across
+  &.hourly {
+    grid-auto-columns: minmax(35px, auto);
+  }
 }
 
 .forecast-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  min-width: 40px;
-  padding: 2px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+  gap: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  min-width: 0;
+  opacity: 0.95;
+  justify-content: center;
+
+  .weather-forecast-widget.tiny & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-1 & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-2 & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-3plus & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+}
+
+.forecast-time {
+  font-size: var(--smallFontSize);
+  font-weight: 600;
+  color: var(--titleColor);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+}
+
+.forecast-condition {
+  font-size: var(--smallFontSize);
+  color: var(--textColor);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.forecast-temp {
+  font-size: var(--textFontSize);
+  font-weight: 600;
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forecast-precip {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forecast-wind {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Item-level styles for new simplified template
+.item-time {
+  font-size: var(--textFontSize);
+  font-weight: normal;
+  color: var(--titleColor);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+}
+
+.item-condition {
+  font-size: var(--textFontSize);
+  color: var(--textColor);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.item-temp {
+  font-size: var(--textFontSize);
+  font-weight: normal;
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-temps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--textFontSize);
+  font-weight: normal;
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1.1;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.item-precip {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-wind {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

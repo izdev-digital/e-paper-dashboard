@@ -660,7 +660,7 @@ export class DashboardDesignerComponent implements OnInit {
 
     if (calendarEntityIds.length === 0) {
       this.calendarEventsByEntityId.set({});
-      this.livePreviewLoading.set(false);
+      this.fetchWeatherForecasts();
       return;
     }
 
@@ -673,7 +673,7 @@ export class DashboardDesignerComponent implements OnInit {
           completed++;
           if (completed === calendarEntityIds.length) {
             this.calendarEventsByEntityId.set(calendarMap);
-            this.livePreviewLoading.set(false);
+            this.fetchWeatherForecasts();
           }
         },
         error: () => {
@@ -681,11 +681,61 @@ export class DashboardDesignerComponent implements OnInit {
           completed++;
           if (completed === calendarEntityIds.length) {
             this.calendarEventsByEntityId.set(calendarMap);
+            this.fetchWeatherForecasts();
+          }
+        }
+      });
+    });
+  }
+
+  private fetchWeatherForecasts() {
+    const weatherEntityIds = this.layout().widgets
+      .filter(w => w.type === 'weather-forecast' && (w.config as any).entityId)
+      .map(w => (w.config as any).entityId)
+      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+
+    if (weatherEntityIds.length === 0) {
+      this.livePreviewLoading.set(false);
+      return;
+    }
+
+    let completed = 0;
+    const weatherMap: Record<string, any> = {};
+    weatherEntityIds.forEach(entityId => {
+      const forecastMode = this.layout().widgets
+        .find(w => w.type === 'weather-forecast' && (w.config as any).entityId === entityId)
+        ?.config as any;
+      const forecastType = this.mapForecastModeToServiceType(forecastMode?.forecastMode || 'daily');
+      
+      this.homeAssistantService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
+        next: (forecast: any) => {
+          // Merge forecast data into entity state attributes
+          const state = this.entityStates()[entityId];
+          if (state && state.attributes) {
+            state.attributes['forecast'] = forecast?.forecast || [];
+          }
+          completed++;
+          if (completed === weatherEntityIds.length) {
+            this.livePreviewLoading.set(false);
+          }
+        },
+        error: () => {
+          completed++;
+          if (completed === weatherEntityIds.length) {
             this.livePreviewLoading.set(false);
           }
         }
       });
     });
+  }
+
+  private mapForecastModeToServiceType(mode: string): string {
+    switch (mode) {
+      case 'hourly': return 'hourly';
+      case 'weekly': return 'daily';
+      case 'daily':
+      default: return 'daily';
+    }
   }
 
   private collectEntityIds(): string[] {
@@ -826,8 +876,15 @@ export class DashboardDesignerComponent implements OnInit {
       case 'calendar':
         return { entityId: '', maxEvents: 7, headerFontSize: 15, eventFontSize: 12 };
       case 'weather':
+        return { entityId: '', showForecast: false };
       case 'weather-forecast':
-        return { entityId: '', showForecast: type === 'weather-forecast' };
+        return { 
+          entityId: '', 
+          forecastMode: 'daily',
+          showPrecipitation: true,
+          showWind: false,
+          compactLabels: false
+        };
       case 'graph':
         return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };
       case 'todo':

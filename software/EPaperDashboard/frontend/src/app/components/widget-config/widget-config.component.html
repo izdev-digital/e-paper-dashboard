@@ -102,13 +102,29 @@
 
 @case ('weather-forecast') {
 <div class="mb-3">
-  <label class="form-label">Weather Entity</label>
-  <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId">
-    <option value="">Select entity...</option>
-    @for (entity of entities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-    }
+  <label class="form-label">Forecast Type</label>
+  <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode">
+    <option value="daily">Daily</option>
+    <option value="hourly">Hourly</option>
+    <option value="weekly">Weekly</option>
   </select>
+  <small class="form-text text-muted">
+    Daily: High/Low temperatures | Hourly: Temperature for each hour | Weekly: Summary for each day
+  </small>
+</div>
+<div class="mb-3">
+  <label class="form-label">Max Items to Display</label>
+  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto" />
+  <small class="form-text text-muted">Leave empty for automatic sizing based on widget size</small>
+</div>
+<div class="mb-3">
+  <div class="form-check">
+    <input type="checkbox" class="form-check-input" id="compactLabels" [(ngModel)]="weatherForecastConfig.compactLabels" />
+    <label class="form-check-label" for="compactLabels">
+      Use Compact Labels
+    </label>
+  </div>
+  <small class="form-text text-muted">Use abbreviated labels like "H/L" instead of "High/Low" for small widgets</small>
 </div>
 }
 

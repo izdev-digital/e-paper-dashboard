@@ -97,6 +97,7 @@ export interface WidgetConfig {
   | MarkdownConfig
   | CalendarConfig
   | WeatherConfig
+  | WeatherForecastConfig
   | GraphConfig
   | TodoConfig
   | AppIconConfig
@@ -125,6 +126,15 @@ export interface MarkdownConfig {
 export interface CalendarConfig {
   entityId: string;
   maxEvents: number;
+}
+
+export type ForecastMode = 'hourly' | 'daily' | 'weekly';
+
+export interface WeatherForecastConfig {
+  entityId: string;
+  forecastMode?: ForecastMode; // 'hourly', 'daily', 'weekly' - defaults to 'daily'
+  maxItems?: number; // Max forecast items to display (auto if not specified)
+  compactLabels?: boolean; // Use abbreviated labels (e.g., "H/L" vs "High/Low")
 }
 
 export interface WeatherConfig {

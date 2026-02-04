@@ -77,4 +77,8 @@ export class HomeAssistantService {
       map(response => response.events || [])
     );
   }
+
+  getWeatherForecast(dashboardId: string, weatherEntityId: string, forecastType: string = 'daily'): Observable<any> {
+    return this.http.get<any>(`/api/homeassistant/${dashboardId}/weather-forecast/${weatherEntityId}?forecastType=${forecastType}`);
+  }
 }
