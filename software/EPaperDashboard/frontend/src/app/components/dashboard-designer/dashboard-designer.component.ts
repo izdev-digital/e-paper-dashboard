@@ -294,6 +294,7 @@ export class DashboardDesignerComponent implements OnInit {
   onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
     event.stopPropagation();
     this.selectedWidget.set(widget);
+    this.activeTab.set('properties');
     const target = event.target as HTMLElement;
     if (target.classList.contains('resize-handle')) {
       const dir = target.dataset['direction'];
