@@ -17,7 +17,6 @@ export class App implements OnInit {
   protected readonly versionService = inject(VersionService);
   private readonly router = inject(Router);
   
-  // Signal-based theme state
   private readonly theme = signal<string>(this.getInitialTheme());
   readonly themeIcon = computed(() => 
     this.theme() === 'dark' ? 'fa-regular fa-sun' : 'fa-regular fa-moon'
@@ -25,7 +24,6 @@ export class App implements OnInit {
   readonly isDark = computed(() => this.theme() === 'dark');
 
   constructor() {
-    // Effect to sync theme changes to DOM
     effect(() => {
       const currentTheme = this.theme();
       document.documentElement.setAttribute('data-bs-theme', currentTheme);
@@ -34,7 +32,6 @@ export class App implements OnInit {
   }
 
   ngOnInit(): void {
-    // Check authentication status on app start
     this.authService.checkAuth();
   }
 

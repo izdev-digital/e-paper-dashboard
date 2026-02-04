@@ -145,7 +145,6 @@ export class UsersManagementComponent implements OnInit {
   }
 
   private handleError(error: HttpErrorResponse, defaultMessage: string): void {
-    console.error('API Error:', error);
     let message = defaultMessage;
     let details = '';
     
@@ -172,9 +171,6 @@ export class UsersManagementComponent implements OnInit {
     }
     
     this.toastService.error(message);
-    if (details) {
-      console.warn('Error details:', details);
-    }
   }
 }
 

@@ -168,8 +168,6 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
     }
 
     try {
-      // Generate QR code with color scheme colors
-      // Dark color uses global text color, light color uses widget background
       const qrDataUrl = await QRCode.toDataURL(entry.link, {
         width: 200,
         margin: 1,
@@ -181,7 +179,6 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
       
       this.qrCodeDataUrl = qrDataUrl;
     } catch (error) {
-      console.error('Failed to generate QR code:', error);
       this.qrCodeDataUrl = null;
     }
   }

@@ -1,8 +1,3 @@
-
-
-
-
-
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -126,13 +121,12 @@ export class DashboardDesignerComponent implements OnInit {
               textFontSize: typeof parsedLayout.textFontSize === 'number' ? parsedLayout.textFontSize : 14
             });
           } catch (e) {
-            console.error('Failed to parse layout config', e);
+            this.toastService.show('Failed to parse layout configuration', 'error');
           }
         }
         this.loadAvailableEntities();
       },
       error: (err) => {
-        console.error('Error loading dashboard:', err);
         this.toastService.show('Failed to load dashboard', 'error');
         this.isLoading.set(false);
       }
@@ -141,7 +135,6 @@ export class DashboardDesignerComponent implements OnInit {
 
   loadAvailableEntities(): void {
     if (!this.dashboardId) {
-      console.warn('Dashboard ID missing, cannot load entities');
       return;
     }
 
@@ -153,7 +146,6 @@ export class DashboardDesignerComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (err) => {
-        console.error('Failed to load available entities:', err);
         this.availableEntities.set([]);
         this.entitiesLoading.set(false);
         this.isLoading.set(false);
@@ -161,7 +153,6 @@ export class DashboardDesignerComponent implements OnInit {
     });
   }
 
-  // Widget management
   onWidgetSelect(widget: WidgetConfig): void {
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
@@ -186,7 +177,6 @@ export class DashboardDesignerComponent implements OnInit {
     }));
   }
 
-  // Drag and drop from toolbox
   onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
       event.preventDefault();
       const layout = this.layout();
@@ -212,7 +202,6 @@ export class DashboardDesignerComponent implements OnInit {
       const onMouseMove = (e: MouseEvent) => {
         movePreview(e);
 
-        // Update ghost if over canvas
         const rect = canvas.getBoundingClientRect();
         if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
           const padding = layout.canvasPadding ?? 0;
@@ -242,7 +231,6 @@ export class DashboardDesignerComponent implements OnInit {
         document.removeEventListener('mouseup', onMouseUp);
         preview.remove();
 
-        // If ghost present, commit widget
         const g = this.ghost();
         if (g) {
           const newWidget: WidgetConfig = {
@@ -287,7 +275,7 @@ export class DashboardDesignerComponent implements OnInit {
     }, 0);
   }
 
-  // Widget drag and drop on canvas
+
   onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
     event.stopPropagation();
     this.selectedWidget.set(widget);
@@ -454,8 +442,6 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
 
-
-  // Dashboard operations
   saveDashboard(): void {
     if (!this.dashboard()) return;
 
@@ -465,7 +451,6 @@ export class DashboardDesignerComponent implements OnInit {
         this.toastService.show('Dashboard layout saved successfully', 'success');
       },
       error: (err) => {
-        console.error('Error saving dashboard:', err);
         if (err.status === 401 || err.status === 403) {
           this.toastService.show('Authentication error. Please log in again.', 'error');
           this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
@@ -480,7 +465,6 @@ export class DashboardDesignerComponent implements OnInit {
     this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
   }
 
-  // Layout updates
   updateColorScheme(scheme: ColorScheme): void {
     this.layout.update(layout => ({ ...layout, colorScheme: scheme }));
   }
@@ -521,7 +505,6 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, textFontSize: fontSize }));
   }
 
-  // Color updates
   updateCanvasBackgroundColor(color: string): void {
     this.layout.update(layout => ({
       ...layout,
@@ -608,10 +591,8 @@ export class DashboardDesignerComponent implements OnInit {
     return colorMap[color.toLowerCase()] || color;
   }
 
-  // Live preview data
   refreshLivePreview(): void {
     if (!this.dashboardId) {
-      console.warn('Dashboard ID missing, cannot load live data');
       return;
     }
 
@@ -664,7 +645,6 @@ export class DashboardDesignerComponent implements OnInit {
         });
       },
       error: (err) => {
-        console.error('Failed to load live data from Home Assistant:', err);
         this.livePreviewLoading.set(false);
       }
     });
@@ -736,7 +716,6 @@ export class DashboardDesignerComponent implements OnInit {
     return Array.from(ids);
   }
 
-  // Style helpers
   getCanvasStyle(): any {
     const layout = this.layout();
     return {
@@ -832,7 +811,6 @@ export class DashboardDesignerComponent implements OnInit {
     };
   }
 
-  // Helper methods
   private generateId(): string {
     return `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }

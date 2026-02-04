@@ -144,7 +144,6 @@ export class WidgetConfigComponent implements OnChanges {
         this.loadingEntities.set(false);
       },
       error: (err) => {
-        console.error('Failed to fetch entities', err);
         this.entityFetchError = (err?.error?.message || err?.message || err?.toString() || 'Unknown error');
         this.entities.set([]);
         this.loadingEntities.set(false);

@@ -10,6 +10,12 @@ export interface HassEntity {
   friendlyName: string;
 }
 
+export interface TodoItem {
+  summary: string;
+  status: string;
+  uid: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -56,13 +62,4 @@ export class HomeAssistantService {
     );
   }
 }
-
-// Type for todo items returned from backend
-export interface TodoItem {
-  summary: string;
-  status: string;
-  uid: string;
-}
-
-
 

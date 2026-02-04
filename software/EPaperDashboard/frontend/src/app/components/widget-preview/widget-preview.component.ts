@@ -149,17 +149,13 @@ export class WidgetPreviewComponent {
         complete: item.status === 'completed' || item.status === 'done' || item.complete === true || item.completed === true || false,
         summary: item.summary || item.title || ''
       }));
-      // Sort to show incomplete items first
       mapped.sort((a, b) => {
         const ac = a.complete ? 1 : 0;
         const bc = b.complete ? 1 : 0;
         return ac - bc;
       });
-      console.debug('widget-preview: todo items for', entityId, mapped);
       return mapped;
     }
-    // Fallback to entity state (legacy, should not be used)
-    console.debug('widget-preview: fallback to entity state for', entityId);
     const state = this.getEntityState(entityId);
     if (!state?.attributes?.['todo_items']) return [];
     const items = state.attributes['todo_items'] as any[];

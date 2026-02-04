@@ -49,7 +49,7 @@ export class AppIconWidgetComponent implements OnInit, OnChanges {
         this.inlineSvg = this.sanitizer.bypassSecurityTrustHtml(svgText);
       }
     } catch (error) {
-      console.error('Failed to load SVG:', error);
+      // Silently fail
     }
   }
 

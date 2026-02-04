@@ -34,7 +34,6 @@ export class VersionWidgetComponent implements OnInit {
           this.version = response.version;
         },
         error: (error) => {
-          console.error('Failed to load version:', error);
           this.version = 'Unknown';
         }
       });

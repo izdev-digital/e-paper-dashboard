@@ -264,7 +264,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.dashboardService.getDashboard(id).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
-        this.originalDashboard = JSON.parse(JSON.stringify(dashboard)); // Deep copy for comparison
+        this.originalDashboard = JSON.parse(JSON.stringify(dashboard));
         
         this.dashboardForm.reset({
           name: dashboard.name || '',
@@ -286,7 +286,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
               .filter((t: string) => t.length > 0);
           }
           this.updateTimes.set(times);
-          this.originalUpdateTimes = [...times]; // Store original for comparison
+        this.originalUpdateTimes = [...times];
         } else {
           this.updateTimes.set([]);
           this.originalUpdateTimes = [];
@@ -357,10 +357,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   private checkUpdateTimesChanged(currentTimes: string[]): void {
-    // Compare current times with original
     const timesChanged = JSON.stringify(currentTimes.sort()) !== JSON.stringify(this.originalUpdateTimes.sort());
     
-    // If times changed, mark form as dirty
     if (timesChanged) {
       this.dashboardForm.markAsDirty();
     }
@@ -374,17 +372,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('✓ Starting Home Assistant OAuth flow...');
-    console.log('  - Host:', hostValue);
-    console.log('  - Dashboard ID:', currentDashboard.id);
-
     this.isAuthenticating.set(true);
 
-    // Call backend to start OAuth flow
     this.homeAssistantService.startAuth(hostValue, currentDashboard.id).subscribe({
       next: (response) => {
-        console.log('✓ OAuth URL received, redirecting to Home Assistant...');
-        // Redirect to Home Assistant OAuth URL
         window.location.href = response.authUrl;
       },
       error: (error) => {
@@ -404,17 +395,11 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('Opening dashboard selector for dashboard:', currentDashboard.id);
-
-    // Open dialog with loading state
     this.dashboardSelectorDialog.openWithLoading();
 
-    // Fetch available dashboards from Home Assistant
     this.homeAssistantService.getDashboards(hostValue, currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
-          
-          // Transform dashboards to have url_path property (use id as the path)
           const transformedDashboards = dashboards.map((item: any) => ({
             url_path: item.id,
             title: item.title,
@@ -477,7 +462,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           accessToken: '' // Clear the token field after successful save
         });
         this.dashboardForm.markAsPristine();
-        // Update original update times after save
         if (updated.updateTimes && Array.isArray(updated.updateTimes)) {
           this.originalUpdateTimes = [...updated.updateTimes];
         } else {
@@ -515,8 +499,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.router.navigate(['/dashboards', id, 'designer']);
     }
   }
-
-
 
   async copyApiKey(): Promise<void> {
     const currentDashboard = this.dashboard();
@@ -592,7 +574,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.previewError.set('');
     this.previewImageUrl.set('');
 
-    // Clean up previous preview URL
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
@@ -602,23 +583,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.previewObjectUrl = null;
     }
 
-    // Debug logging
-    console.log('Preview request:', {
-      dashboardId: currentDashboard.id,
-      host: currentDashboard.host,
-      path: currentDashboard.path,
-      hasAccessToken: currentDashboard.hasAccessToken,
-      apiKey: currentDashboard.apiKey
-    });
-
-    // Fetch preview image - match Razor implementation exactly
     const url = `/api/render/original?width=800&height=480&format=png`;
-
-    console.log('Making preview request:', {
-      url,
-      apiKey: currentDashboard.apiKey,
-      headers: { 'X-Api-Key': currentDashboard.apiKey }
-    });
 
     this.http.get(url, {
       headers: { 'X-Api-Key': currentDashboard.apiKey },
@@ -639,24 +604,16 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         if (error.error instanceof Blob) {
           try {
             const text = await error.error.text();
-            console.log('Error blob text:', text);
-            
-            // Try to parse as JSON first
             try {
               const json = JSON.parse(text);
-              console.log('Error JSON parsed:', json);
               errorMessage = json.title || json.error || json.message || text;
             } catch (jsonError) {
-              // Not JSON, use plain text
-              console.log('Error is plain text, not JSON');
               errorMessage = text || `HTTP Error ${error.status}`;
             }
           } catch (e) {
-            console.log('Failed to read error blob:', e);
             errorMessage = `HTTP Error ${error.status}`;
           }
         } else if (error.status === 404) {
-          // Debug: show what config was sent
           const configDebug = dashboard ? `Host: ${dashboard.host || 'MISSING'}, Path: ${dashboard.path || 'MISSING'}, Token: ${dashboard.hasAccessToken ? 'SET' : 'MISSING'}` : 'No dashboard';
           errorMessage = `404 Not Found. Config: [${configDebug}] - Make sure Home Assistant settings are complete and saved.`;
         } else if (error.error && typeof error.error === 'string') {

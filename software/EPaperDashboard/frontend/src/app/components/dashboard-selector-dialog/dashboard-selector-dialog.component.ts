@@ -109,12 +109,8 @@ export class DashboardSelectorDialogComponent {
   }
 
   selectDashboard(dashboard: DashboardOption): void {
-    console.log('Dashboard selected:', dashboard);
-    console.log('Dashboard url_path:', dashboard.url_path);
-    console.log('Dashboard title:', dashboard.title);
     this.isOpen.set(false);
     if (this.resolveCallback) {
-      console.log('Resolving with path:', dashboard.url_path);
       this.resolveCallback(dashboard.url_path);
       this.resolveCallback = undefined;
     }
