@@ -7,10 +7,26 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="image-widget" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-      <img [src]="asImageConfig(widget.config).imageUrl" alt="Image" [style.object-fit]="asImageConfig(widget.config).fit || 'contain'" style="max-width:100%;max-height:100%;" />
+    <div class="image-widget-container">
+      <img [src]="asImageConfig(widget.config).imageUrl" alt="Image" [style.object-fit]="asImageConfig(widget.config).fit || 'contain'" />
     </div>
-  `
+  `,
+  styles: [`
+    .image-widget-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-position: center;
+    }
+  `]
 })
 export class ImageWidgetComponent {
   @Input() widget!: WidgetConfig;

@@ -99,8 +99,6 @@ export class DashboardDesignerComponent implements OnInit {
       this.toastService.show('No dashboard ID provided', 'error');
       this.isLoading.set(false);
     }
-
-    window.addEventListener('keydown', this.onGlobalKeyDown);
   }
 
   // Dashboard loading
@@ -456,35 +454,7 @@ export class DashboardDesignerComponent implements OnInit {
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  moveWidget(widget: WidgetConfig, deltaX: number, deltaY: number): void {
-    const layout = this.layout();
-    const newX = Math.max(0, Math.min(layout.gridCols - widget.position.w, widget.position.x + deltaX));
-    const newY = Math.max(0, Math.min(layout.gridRows - widget.position.h, widget.position.y + deltaY));
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w => 
-        w.id === widget.id ? { ...w, position: { ...w.position, x: newX, y: newY } } : w
-      )
-    }));
-  }
 
-  private onGlobalKeyDown = (e: KeyboardEvent) => {
-    const sel = this.selectedWidget();
-    if (!sel) return;
-
-    let dx = 0;
-    let dy = 0;
-    const step = e.shiftKey ? 5 : 1;
-    switch (e.key) {
-      case 'ArrowLeft': dx = -step; break;
-      case 'ArrowRight': dx = step; break;
-      case 'ArrowUp': dy = -step; break;
-      case 'ArrowDown': dy = step; break;
-      default: return;
-    }
-    e.preventDefault();
-    this.moveWidget(sel, dx, dy);
-  }
 
   // Dashboard operations
   saveDashboard(): void {
