@@ -9,13 +9,13 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
     <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'" [style.--iconColor]="getIconColor()" [style.--titleColor]="getTitleColor()" [style.--textColor]="getTextColor()" [style.color]="getTextColor()">
-      @if (!getEntityState(config.entityId)) {
-        <div class="empty-state">
+      @if (!isDataFetched()) {
+        <div class="preview-state">
           <i class="fa fa-calendar"></i>
-          <p>Not configured</p>
+          <p>Calendar</p>
         </div>
       }
-      @if (getEntityState(config.entityId)) {
+      @if (isDataFetched()) {
         <div class="calendar-content">
           <h4>Events</h4>
           @if (getUpcomingEvents(config.entityId).length > 0) {
@@ -54,6 +54,32 @@ export class CalendarWidgetComponent {
 
   getEventFontSize(): number {
     return this.designerSettings?.textFontSize ?? 12;
+  }
+
+  /**
+   * Checks if calendar data has been fetched for the configured entity.
+   */
+  isDataFetched(): boolean {
+    const entityId = this.config.entityId;
+    if (!entityId) return false;
+
+    // Check if events have been fetched from the API
+    if (this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId) {
+      return true;
+    }
+
+    // Fallback: check if entity has attributes with events data
+    const state = this.getEntityState(entityId);
+    if (!state || !state.attributes) return false;
+
+    const attrs = state.attributes;
+    return !!(
+      attrs['events'] ||
+      attrs['entries'] ||
+      attrs['calendar_events'] ||
+      attrs['upcoming_events'] ||
+      attrs['data']
+    );
   }
 
   getEntityState(entityId?: string) {

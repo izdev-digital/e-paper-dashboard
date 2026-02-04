@@ -18,20 +18,13 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
       [style.--titleColor]="getTitleColor()"
       [style.--textColor]="getTextColor()"
       [style.color]="getTextColor()">
-      @if (!config.entityId) {
-        <div class="empty-state">
+      @if (!isDataFetched()) {
+        <div class="preview-state">
           <i class="fa fa-list-check"></i>
-          <p>Not configured</p>
-          <small>Select a todo entity to display tasks</small>
+          <p>Tasks</p>
         </div>
       }
-      @if (config.entityId && !getEntityState(config.entityId)) {
-        <div class="empty-state">
-          <i class="fa fa-list-check"></i>
-          <p>Loading...</p>
-        </div>
-      }
-      @if (config.entityId && getEntityState(config.entityId)) {
+      @if (isDataFetched()) {
         <div class="todo-content">
           @if (widget.position.w === 1 && widget.position.h === 1) {
             <div class="todo-count">
@@ -85,6 +78,25 @@ export class TodoWidgetComponent {
 
   getSmallFontSize(): number {
     return Math.round((this.designerSettings?.textFontSize ?? 12) * 0.75);
+  }
+
+  /**
+   * Checks if todo data has been fetched for the configured entity.
+   */
+  isDataFetched(): boolean {
+    const entityId = this.config.entityId;
+    if (!entityId) return false;
+
+    // Check if we have fetched todo items from the API
+    if (this.todoItemsByEntityId && entityId in this.todoItemsByEntityId) {
+      return true;
+    }
+
+    // Fallback: check if entity has todo items in attributes
+    const state = this.getEntityState(entityId);
+    if (!state || !state.attributes) return false;
+
+    return !!state.attributes['todo_items'];
   }
 
   getEntityState(entityId?: string) {

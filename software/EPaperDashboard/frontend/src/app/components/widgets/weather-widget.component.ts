@@ -19,13 +19,13 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig, DashboardLay
       [style.--textColor]="getTextColor()"
       [style.--iconColor]="getIconColor()"
       [style.color]="getTextColor()">
-      @if (!getEntityState(config.entityId)) {
-        <div class="empty-state">
+      @if (!isDataFetched()) {
+        <div class="preview-state">
           <i class="fa fa-cloud-sun"></i>
-          <p>Not configured</p>
+          <p>Weather</p>
         </div>
       }
-      @if (getEntityState(config.entityId)) {
+      @if (getEntityState(config.entityId) && isDataFetched()) {
         @if (isMinimalMode()) {
           <!-- Minimal mode for 1x1 widget - only show temperature -->
           <div class="weather-content minimal">
@@ -116,6 +116,21 @@ export class WeatherWidgetComponent {
 
   get config(): WeatherConfig {
     return (this.widget?.config || {}) as WeatherConfig;
+  }
+
+  /**
+   * Checks if weather data has been fetched for the configured entity.
+   */
+  isDataFetched(): boolean {
+    const entityId = this.config.entityId;
+    if (!entityId) return false;
+
+    const state = this.getEntityState(entityId);
+    if (!state || !state.attributes) return false;
+
+    // Check if we have actual weather data - temperature is the key indicator
+    const attrs = state.attributes;
+    return attrs['temperature'] !== undefined && attrs['temperature'] !== null;
   }
 
   getEntityState(entityId?: string) {

@@ -23,9 +23,9 @@ interface ForecastItem {
       class="weather-forecast-widget"
       [class.compact]="isCompactMode()"
       [class.tiny]="isTinyMode()"
-      [class.height-1]="(this.widget?.position?.h ?? 1) === 1"
-      [class.height-2]="(this.widget?.position?.h ?? 1) === 2"
-      [class.height-3plus]="(this.widget?.position?.h ?? 1) >= 3"
+      [class.height-1]="this.widget.position.h === 1"
+      [class.height-2]="this.widget.position.h === 2"
+      [class.height-3plus]="this.widget.position.h >= 3"
       [style.--titleFontSize]="getTitleFontSize() + 'px'"
       [style.--textFontSize]="getTextFontSize() + 'px'"
       [style.--smallFontSize]="getSmallFontSize() + 'px'"
@@ -34,14 +34,14 @@ interface ForecastItem {
       [style.--iconColor]="getIconColor()"
       [style.color]="getTextColor()">
       
-      @if (!getEntityState(config.entityId)) {
-        <div class="empty-state">
-          <i class="fa fa-cloud-sun-rain" [style.color]="getIconColor()"></i>
-          <p>Not configured</p>
+      @if (!isDataFetched()) {
+        <div class="preview-state">
+          <i class="fa fa-cloud-sun-rain"></i>
+          <p>Forecast</p>
         </div>
       }
       
-      @if (getEntityState(config.entityId)) {
+      @if (isDataFetched()) {
         @if (!isTinyMode()) {
           <div class="forecast-header">
             Forecast
@@ -95,6 +95,20 @@ export class WeatherForecastWidgetComponent {
   getEntityState(entityId?: string) {
     if (!entityId || !this.entityStates) return null;
     return this.entityStates[entityId] ?? null;
+  }
+
+  /**
+   * Checks if forecast data has been fetched for the configured entity.
+   */
+  isDataFetched(): boolean {
+    const entityId = this.config.entityId;
+    if (!entityId) return false;
+
+    const state = this.getEntityState(entityId);
+    if (!state || !state.attributes) return false;
+
+    // Check if we have forecast data in attributes
+    return !!state.attributes['forecast'];
   }
 
   getWindSpeedUnit(): string {

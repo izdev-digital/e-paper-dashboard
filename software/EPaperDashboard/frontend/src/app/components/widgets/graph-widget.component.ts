@@ -18,14 +18,14 @@ interface ChartDataPoint {
   imports: [CommonModule],
   styleUrls: ['./graph-widget.component.scss'],
   template: `
-    <div class="graph-widget" [style.color]="getTextColor()">
-      @if (!hasValidEntities()) {
-        <div class="empty-state">
-          <i class="fa fa-chart-line" [style.color]="getIconColor()"></i>
-          <p>Not configured</p>
+    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()">
+      @if (!isDataFetched()) {
+        <div class="preview-state">
+          <i class="fa fa-chart-line"></i>
+          <p>Graph</p>
         </div>
       }
-      @if (hasValidEntities()) {
+      @if (isDataFetched()) {
         <canvas 
           #chartCanvas 
           class="chart-canvas"
@@ -76,6 +76,21 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   hasValidEntities(): boolean {
     return this.config.series && this.config.series.length > 0 && 
            this.config.series.some(e => e.entityId && this.getEntityState(e.entityId));
+  }
+
+  /**
+   * Checks if graph data has been fetched and is available for display.
+   */
+  isDataFetched(): boolean {
+    // Only show preview when there are no series configured
+    if (!this.config.series || this.config.series.length === 0) return false;
+    
+    // Check if we have valid entity IDs in the series
+    const hasValidEntities = this.config.series.some(s => s.entityId);
+    if (!hasValidEntities) return false;
+    
+    // Data is fetched once we have chart data populated
+    return this.chartDataByEntity.size > 0;
   }
 
   private loadChartData(): void {
@@ -325,5 +340,9 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 12;
+  }
+
+  getHeaderFontSize(): number {
+    return this.designerSettings?.titleFontSize ?? 15;
   }
 }
