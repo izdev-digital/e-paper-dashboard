@@ -159,19 +159,6 @@
                 </div>
             }
 
-  @case ('display') {
-    @if (widget.config && 'text' in widget.config) {
-                  <div class="mb-3">
-                    <label class="form-label">Text</label>
-                    <input type="text" class="form-control" [(ngModel)]="widget.config.text" />
-                  </div>
-                  <div class="mb-3">
-                    <label class="form-label">Color</label>
-                    <input type="color" class="form-control form-control-color" [(ngModel)]="widget.config.color" />
-                  </div>
-    }
-  }
-
   @case ('app-icon') {
                   <div class="mb-3">
                     <label class="form-label">Size (px)</label>

@@ -66,7 +66,6 @@ export class DashboardDesignerComponent implements OnInit {
     { type: 'graph', label: 'Graph', icon: 'fa-chart-line' },
     { type: 'todo', label: 'Todo List', icon: 'fa-list-check' },
     { type: 'rss-feed', label: 'RSS Feed', icon: 'fa-rss' },
-    { type: 'display', label: 'Display', icon: 'fa-display' },
     { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
     { type: 'image', label: 'Image', icon: 'fa-image' },
     { type: 'version', label: 'Version', icon: 'fa-code-branch' }
@@ -855,8 +854,6 @@ export class DashboardDesignerComponent implements OnInit {
         return { entityId: '' };
       case 'rss-feed':
         return { entityId: '', maxEntries: 1, title: 'Topic of the day' };
-      case 'display':
-        return { text: 'Display Text', fontSize: 18, color: '' };
       case 'app-icon':
         return { iconUrl: '', size: 48 };
       case 'image':

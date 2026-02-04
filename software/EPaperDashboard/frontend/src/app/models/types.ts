@@ -54,7 +54,6 @@ export type WidgetType =
   | 'weather-forecast'
   | 'graph'
   | 'todo'
-  | 'display'
   | 'app-icon'
   | 'image'
   | 'version'
@@ -67,11 +66,6 @@ export interface WidgetPosition {
   h: number;
 }
 
-
-export interface DisplayConfig {
-  text: string;
-  color?: string;
-}
 
 export interface AppIconConfig {
   size?: number;
@@ -105,7 +99,6 @@ export interface WidgetConfig {
     | WeatherConfig
     | GraphConfig
     | TodoConfig
-    | DisplayConfig
     | AppIconConfig
     | ImageConfig
     | VersionConfig

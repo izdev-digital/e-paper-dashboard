@@ -1,7 +1,6 @@
 import { Component, Input } from '@angular/core';
 import type { TodoItem } from '../../services/home-assistant.service';
 import { CommonModule } from '@angular/common';
-import { DisplayWidgetComponent } from '../widgets/display-widget.component';
 import { AppIconWidgetComponent } from '../widgets/app-icon-widget.component';
 import { ImageWidgetComponent } from '../widgets/image-widget.component';
 import { HeaderWidgetComponent } from '../widgets/header-widget.component';
@@ -31,7 +30,6 @@ import {
   standalone: true,
   imports: [
     CommonModule,
-    DisplayWidgetComponent,
     AppIconWidgetComponent,
     ImageWidgetComponent,
     HeaderWidgetComponent,
@@ -46,9 +44,6 @@ import {
   ],
   template: `
     <div class="widget-preview">
-      @if (widget.type === 'display') {
-        <app-widget-display [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-display>
-      }
       @if (widget.type === 'app-icon') {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
