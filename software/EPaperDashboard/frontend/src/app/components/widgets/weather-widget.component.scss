@@ -9,6 +9,8 @@
   align-content: start;
   --titleFontSize: 15px;
   --textFontSize: 12px;
+  --titleFontWeight: 700;
+  --textFontWeight: 400;
   --iconColor: currentColor;
   --titleColor: currentColor;
   --textColor: currentColor;
@@ -51,7 +53,7 @@
   p {
     margin: 0;
     font-size: var(--textFontSize);
-    font-weight: 400;
+    font-weight: var(--textFontWeight);
     letter-spacing: 0.3px;
     min-width: 0;
     overflow: hidden;
@@ -82,7 +84,7 @@
     margin: 0;
     padding: 0 12px;
     font-size: var(--titleFontSize);
-    font-weight: 600;
+    font-weight: var(--titleFontWeight);
     color: var(--titleColor);
     text-align: center;
     line-height: 1.4;
@@ -134,7 +136,7 @@
   padding: 0;
   margin-bottom: 8px;
   font-size: var(--titleFontSize);
-  font-weight: 600;
+  font-weight: var(--titleFontWeight);
   color: var(--titleColor);
   opacity: 0.9;
   letter-spacing: 0.3px;
@@ -146,7 +148,7 @@
 
 .weather-condition {
   font-size: var(--textFontSize);
-  font-weight: 400;
+  font-weight: var(--textFontWeight);
   color: var(--titleColor);
   text-transform: capitalize;
   opacity: 0.9;
@@ -161,7 +163,7 @@
 
 .weather-temp {
   font-size: var(--textFontSize);
-  font-weight: 400;
+  font-weight: var(--textFontWeight);
   color: var(--textColor);
   line-height: 1.2;
   min-width: 0;
@@ -183,7 +185,7 @@
   align-items: center;
   gap: 6px;
   font-size: var(--textFontSize);
-  font-weight: 400;
+  font-weight: var(--textFontWeight);
   opacity: 0.8;
   letter-spacing: 0.2px;
   min-width: 0;
@@ -221,7 +223,7 @@
   align-items: center;
   gap: 3px;
   font-size: calc(var(--textFontSize) * 0.9);
-  font-weight: 400;
+  font-weight: var(--textFontWeight);
   opacity: 0.8;
   letter-spacing: 0.1px;
   padding: 1px 2px;
@@ -263,7 +265,7 @@
   align-items: center;
   gap: 4px;
   font-size: calc(var(--textFontSize) * 0.95);
-  font-weight: 400;
+  font-weight: var(--textFontWeight);
   opacity: 0.85;
   letter-spacing: 0.1px;
   white-space: nowrap;

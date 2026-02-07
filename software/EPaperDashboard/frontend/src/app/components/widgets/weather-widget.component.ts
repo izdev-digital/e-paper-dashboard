@@ -15,6 +15,8 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig, DashboardLay
       [class.vertical-compact]="isVerticalCompactMode()"
       [style.--titleFontSize]="getTitleFontSize() + 'px'"
       [style.--textFontSize]="getTextFontSize() + 'px'"
+      [style.--titleFontWeight]="getTitleFontWeight()"
+      [style.--textFontWeight]="getTextFontWeight()"
       [style.--titleColor]="getTitleColor()"
       [style.--textColor]="getTextColor()"
       [style.--iconColor]="getIconColor()"
@@ -144,6 +146,18 @@ export class WeatherWidgetComponent {
 
   getTitleFontSize(): number {
     return this.designerSettings?.titleFontSize ?? 15;
+  }
+
+  getTitleFontWeight(): number {
+    const weight = this.designerSettings?.titleFontWeight ?? 700;
+    console.log('[Weather Widget] getTitleFontWeight:', weight, 'designerSettings:', this.designerSettings);
+    return weight;
+  }
+
+  getTextFontWeight(): number {
+    const weight = this.designerSettings?.textFontWeight ?? 400;
+    console.log('[Weather Widget] getTextFontWeight:', weight);
+    return weight;
   }
 
   getTitleColor(): string {

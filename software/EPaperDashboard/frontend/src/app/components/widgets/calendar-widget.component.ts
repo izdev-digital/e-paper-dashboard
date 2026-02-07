@@ -8,7 +8,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
   imports: [CommonModule],
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
-    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'" [style.--iconColor]="getIconColor()" [style.--titleColor]="getTitleColor()" [style.--textColor]="getTextColor()" [style.color]="getTextColor()">
+    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--eventFontWeight]="getEventFontWeight()" [style.--iconColor]="getIconColor()" [style.--titleColor]="getTitleColor()" [style.--textColor]="getTextColor()" [style.color]="getTextColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
           <i class="fa fa-calendar"></i>
@@ -54,6 +54,14 @@ export class CalendarWidgetComponent {
 
   getEventFontSize(): number {
     return this.designerSettings?.textFontSize ?? 12;
+  }
+
+  getHeaderFontWeight(): number {
+    return this.designerSettings?.titleFontWeight ?? 700;
+  }
+
+  getEventFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 
   /**

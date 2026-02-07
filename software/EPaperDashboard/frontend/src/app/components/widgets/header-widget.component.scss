@@ -75,7 +75,6 @@
 .title {
   margin: 0;
   font-size: 1.125rem;
-  font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.01em;
   overflow: hidden;
@@ -89,13 +88,11 @@
   align-items: center;
   gap: 4px;
   white-space: nowrap;
-  font-weight: normal;
 }
 
 .badge-value {
   opacity: 0.7;
   font-size: 0.813rem;
-  font-weight: 400;
 }
 
 .badge-icon {

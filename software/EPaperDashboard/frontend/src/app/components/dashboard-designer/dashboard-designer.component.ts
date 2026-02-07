@@ -47,7 +47,11 @@ export class DashboardDesignerComponent implements OnInit {
     widgets: [],
     canvasPadding: 16,
     widgetGap: 4,
-    widgetBorder: 3
+    widgetBorder: 3,
+    titleFontSize: 16,
+    textFontSize: 14,
+    titleFontWeight: 700,
+    textFontWeight: 400
   });
 
   // UI State
@@ -105,6 +109,12 @@ export class DashboardDesignerComponent implements OnInit {
         if (dashboard.layoutConfig) {
           try {
             const parsedLayout = JSON.parse(dashboard.layoutConfig);
+            console.log('[Dashboard Designer] Loaded layout with font config:', {
+              titleFontSize: parsedLayout.titleFontSize,
+              textFontSize: parsedLayout.textFontSize,
+              titleFontWeight: parsedLayout.titleFontWeight,
+              textFontWeight: parsedLayout.textFontWeight
+            });
             this.layout.set(this.normalizeLayout(parsedLayout));
           } catch (e) {
             this.toastService.show('Failed to parse layout configuration', 'error');
@@ -434,6 +444,12 @@ export class DashboardDesignerComponent implements OnInit {
     if (!this.dashboard()) return;
 
     const layoutConfig = JSON.stringify(this.layout());
+    console.log('[Dashboard Designer] Saving layout with font config:', {
+      titleFontSize: this.layout().titleFontSize,
+      textFontSize: this.layout().textFontSize,
+      titleFontWeight: this.layout().titleFontWeight,
+      textFontWeight: this.layout().textFontWeight
+    });
     this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
       next: () => {
         this.toastService.show('Dashboard layout saved successfully', 'success');
@@ -485,12 +501,28 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, widgetBorder: border }));
   }
 
-  updateTitleFontSize(fontSize: number): void {
-    this.layout.update(layout => ({ ...layout, titleFontSize: fontSize }));
+  updateTitleFontSize(fontSize: number | string): void {
+    const size = typeof fontSize === 'string' ? parseInt(fontSize, 10) : fontSize;
+    this.layout.update(layout => ({ ...layout, titleFontSize: size }));
   }
 
-  updateTextFontSize(fontSize: number): void {
-    this.layout.update(layout => ({ ...layout, textFontSize: fontSize }));
+  updateTextFontSize(fontSize: number | string): void {
+    const size = typeof fontSize === 'string' ? parseInt(fontSize, 10) : fontSize;
+    this.layout.update(layout => ({ ...layout, textFontSize: size }));
+  }
+
+  updateTitleFontWeight(fontWeight: number | string): void {
+    const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
+    console.log('[Dashboard Designer] updateTitleFontWeight called:', { input: fontWeight, parsed: weight });
+    this.layout.update(layout => ({ ...layout, titleFontWeight: weight }));
+    console.log('[Dashboard Designer] Updated layout titleFontWeight:', this.layout().titleFontWeight);
+  }
+
+  updateTextFontWeight(fontWeight: number | string): void {
+    const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
+    console.log('[Dashboard Designer] updateTextFontWeight called:', { input: fontWeight, parsed: weight });
+    this.layout.update(layout => ({ ...layout, textFontWeight: weight }));
+    console.log('[Dashboard Designer] Updated layout textFontWeight:', this.layout().textFontWeight);
   }
 
   updateCanvasBackgroundColor(color: string): void {
@@ -899,7 +931,9 @@ export class DashboardDesignerComponent implements OnInit {
       widgetGap: 4,
       widgetBorder: 3,
       titleFontSize: 16,
-      textFontSize: 14
+      textFontSize: 14,
+      titleFontWeight: 700,
+      textFontWeight: 400
     };
 
     const baseScheme = parsedLayout?.colorScheme?.name
@@ -930,7 +964,9 @@ export class DashboardDesignerComponent implements OnInit {
       widgetGap: typeof parsedLayout?.widgetGap === 'number' ? parsedLayout.widgetGap : baseLayout.widgetGap,
       widgetBorder: typeof parsedLayout?.widgetBorder === 'number' ? parsedLayout.widgetBorder : baseLayout.widgetBorder,
       titleFontSize: typeof parsedLayout?.titleFontSize === 'number' ? parsedLayout.titleFontSize : baseLayout.titleFontSize,
-      textFontSize: typeof parsedLayout?.textFontSize === 'number' ? parsedLayout.textFontSize : baseLayout.textFontSize
+      textFontSize: typeof parsedLayout?.textFontSize === 'number' ? parsedLayout.textFontSize : baseLayout.textFontSize,
+      titleFontWeight: typeof parsedLayout?.titleFontWeight === 'number' ? parsedLayout.titleFontWeight : baseLayout.titleFontWeight,
+      textFontWeight: typeof parsedLayout?.textFontWeight === 'number' ? parsedLayout.textFontWeight : baseLayout.textFontWeight
     };
   }
 

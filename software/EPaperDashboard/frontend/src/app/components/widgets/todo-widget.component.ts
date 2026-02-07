@@ -14,6 +14,8 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
       [style.--headerFontSize]="getHeaderFontSize() + 'px'"
       [style.--itemFontSize]="getItemFontSize() + 'px'"
       [style.--smallFontSize]="getSmallFontSize() + 'px'"
+      [style.--headerFontWeight]="getHeaderFontWeight()"
+      [style.--itemFontWeight]="getItemFontWeight()"
       [style.--iconColor]="getIconColor()"
       [style.--titleColor]="getTitleColor()"
       [style.--textColor]="getTextColor()"
@@ -74,6 +76,14 @@ export class TodoWidgetComponent {
 
   getItemFontSize(): number {
     return this.designerSettings?.textFontSize ?? 12;
+  }
+
+  getHeaderFontWeight(): number {
+    return this.designerSettings?.titleFontWeight ?? 700;
+  }
+
+  getItemFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 
   getSmallFontSize(): number {

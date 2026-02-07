@@ -18,7 +18,7 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
             [style.height.px]="asHeaderConfig(widget.config).iconSize ?? 32"
             [style.--accent-color]="getIconColor()"></div>
         }
-        <div class="title" [style.fontSize.px]="getTitleFontSize()" [style.color]="getTitleColor()">{{ asHeaderConfig(widget.config).title }}</div>
+        <div class="title" [style.fontSize.px]="getTitleFontSize()" [style.fontWeight]="getTitleFontWeight()" [style.color]="getTitleColor()">{{ asHeaderConfig(widget.config).title }}</div>
         @if (!isIconOnLeft() && inlineSvg) {
           <div class="header-icon"
             [innerHTML]="inlineSvg"
@@ -32,6 +32,7 @@ import { WidgetConfig, HeaderConfig, ColorScheme, HassEntityState, DashboardLayo
           @for (badge of visibleBadges(); track $index) {
             <span class="badge" 
                   [style.fontSize.px]="getTextFontSize()"
+                  [style.fontWeight]="getTextFontWeight()"
                   [style.color]="getTextColor()">
               @if (badge.icon) {
                 <i class="fa {{ badge.icon }}" [style.color]="getIconColor()"></i>
@@ -92,6 +93,14 @@ export class HeaderWidgetComponent implements OnInit, OnChanges {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 14;
+  }
+
+  getTitleFontWeight(): number {
+    return this.designerSettings?.titleFontWeight ?? 700;
+  }
+
+  getTextFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 
   getTitleColor(): string {

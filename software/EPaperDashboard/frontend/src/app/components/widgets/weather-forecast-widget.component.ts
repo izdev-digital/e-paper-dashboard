@@ -28,6 +28,8 @@ interface ForecastItem {
       [class.height-3plus]="this.widget.position.h >= 3"
       [style.--titleFontSize]="getTitleFontSize() + 'px'"
       [style.--textFontSize]="getTextFontSize() + 'px'"
+      [style.--titleFontWeight]="getTitleFontWeight()"
+      [style.--textFontWeight]="getTextFontWeight()"
       [style.--smallFontSize]="getSmallFontSize() + 'px'"
       [style.--titleColor]="getTitleColor()"
       [style.--textColor]="getTextColor()"
@@ -338,6 +340,14 @@ export class WeatherForecastWidgetComponent {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 12;
+  }
+
+  getTitleFontWeight(): number {
+    return this.designerSettings?.titleFontWeight ?? 700;
+  }
+
+  getTextFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 
   getSmallFontSize(): number {

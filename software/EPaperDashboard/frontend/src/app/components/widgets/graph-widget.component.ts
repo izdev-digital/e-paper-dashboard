@@ -18,7 +18,7 @@ interface ChartDataPoint {
   imports: [CommonModule],
   styleUrls: ['./graph-widget.component.scss'],
   template: `
-    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()">
+    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
           <i class="fa fa-chart-line"></i>
@@ -347,5 +347,13 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
 
   getHeaderFontSize(): number {
     return this.designerSettings?.titleFontSize ?? 15;
+  }
+
+  getHeaderFontWeight(): number {
+    return this.designerSettings?.titleFontWeight ?? 700;
+  }
+
+  getTextFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 }

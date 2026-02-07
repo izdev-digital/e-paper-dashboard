@@ -9,7 +9,7 @@ import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
   imports: [CommonModule],
   styleUrls: ['./version-widget.component.scss'],
   template: `
-    <div class="version-widget" [style.color]="getTextColor()" [style.fontSize.px]="getTextFontSize()">
+    <div class="version-widget" [style.color]="getTextColor()" [style.fontSize.px]="getTextFontSize()" [style.fontWeight]="getTextFontWeight()">
       v{{ version || 'Loading...' }}
     </div>
   `
@@ -41,6 +41,10 @@ export class VersionWidgetComponent implements OnInit {
 
   getTextFontSize(): number {
     return this.designerSettings?.textFontSize ?? 14;
+  }
+
+  getTextFontWeight(): number {
+    return this.designerSettings?.textFontWeight ?? 400;
   }
 
   getTextColor(): string {

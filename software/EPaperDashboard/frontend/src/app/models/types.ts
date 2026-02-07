@@ -177,6 +177,8 @@ export interface DashboardLayout {
   widgetBorder?: number;
   titleFontSize?: number;
   textFontSize?: number;
+  titleFontWeight?: number;
+  textFontWeight?: number;
 }
 
 export interface ColorScheme {

@@ -7,6 +7,8 @@
   --headerFontSize: 15px;
   --itemFontSize: 12px;
   --smallFontSize: 9px;
+  --headerFontWeight: 700;
+  --itemFontWeight: 400;
   --iconColor: currentColor;
   --titleColor: currentColor;
   --textColor: currentColor;
@@ -35,7 +37,7 @@
   p {
     margin: 0;
     font-size: var(--itemFontSize);
-    font-weight: 500;
+    font-weight: var(--itemFontWeight);
     letter-spacing: 0.3px;
     color: var(--titleColor);
   }
@@ -70,7 +72,7 @@
     margin: 0;
     padding: 0 12px;
     font-size: var(--headerFontSize);
-    font-weight: 600;
+    font-weight: var(--headerFontWeight);
     color: var(--titleColor);
     text-align: center;
     line-height: 1.4;
@@ -89,7 +91,7 @@
     margin: 0;
     padding: 0;
     font-size: var(--headerFontSize);
-    font-weight: 600;
+    font-weight: var(--headerFontWeight);
     color: var(--titleColor);
     opacity: 0.9;
     letter-spacing: 0.3px;
@@ -116,7 +118,7 @@
 
   span {
     font-size: calc(var(--itemFontSize) * 1.5);
-    font-weight: 700;
+    font-weight: var(--headerFontWeight);
     color: var(--textColor);
     letter-spacing: 0.2px;
   }
@@ -167,7 +169,7 @@
     word-break: break-word;
     min-width: 0;
     color: var(--textColor);
-    font-weight: 400;
+    font-weight: var(--itemFontWeight);
     letter-spacing: 0.2px;
 
     &.completed {
