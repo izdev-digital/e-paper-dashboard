@@ -127,6 +127,7 @@
               </div>
               <div class="card-body p-2">
                 <select class="form-select" [ngModel]="layout().colorScheme"
+                  [compareWith]="compareColorSchemes"
                   (ngModelChange)="updateColorScheme($event)">
                   @for (scheme of colorSchemes; track scheme.name) {
                   <option [ngValue]="scheme">

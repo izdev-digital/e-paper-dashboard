@@ -8,6 +8,12 @@ import { HassEntityState } from '../models/types';
 export interface HassEntity {
   entityId: string;
   friendlyName: string;
+  domain: string;
+  deviceClass?: string | null;
+  unitOfMeasurement?: string | null;
+  icon?: string | null;
+  state?: string | null;
+  supportedFeatures?: number | null;
 }
 
 export interface TodoItem {
@@ -36,49 +42,48 @@ export class HomeAssistantService {
     });
   }
 
-  getDashboards(host: string, dashboardId: string): Observable<any[]> {
-    return this.http.post<{ dashboards: any[] }>('/api/homeassistant/fetch-dashboards', {
-      dashboardId: dashboardId
-    }).pipe(
-      map(response => response.dashboards || [])
+  getDashboards(dashboardId: string): Observable<any[]> {
+    return this.http.get<{ data: any[] }>(`/api/dashboards/${dashboardId}/homeassistant/dashboards`).pipe(
+      map(response => response.data || [])
     );
   }
 
   getEntities(dashboardId: string): Observable<HassEntity[]> {
-    return this.http.post<{ entities: HassEntity[] }>('/api/homeassistant/fetch-entities', {
-      dashboardId: dashboardId
-    }).pipe(
-      map(response => response.entities || [])
+    return this.http.get<{ data: HassEntity[] }>(`/api/dashboards/${dashboardId}/homeassistant/designer/entity-metadata`).pipe(
+      map(response => response.data || [])
     );
   }
 
   getEntityStates(dashboardId: string, entityIds: string[]): Observable<HassEntityState[]> {
-    return this.http.post<{ states: HassEntityState[] }>('/api/homeassistant/fetch-entity-states', {
-      dashboardId,
+    return this.http.post<{ data: HassEntityState[] }>(`/api/dashboards/${dashboardId}/homeassistant/entity-states`, {
       entityIds
-    }).pipe(map(res => res.states || []));
+    }).pipe(map(res => res.data || []));
   }
 
   getEntityHistory(dashboardId: string, entityIds: string[], hours: number = 24): Observable<Record<string, HistoryState[]>> {
-    return this.http.post<{ history: Record<string, HistoryState[]> }>('/api/homeassistant/fetch-entity-history', {
-      dashboardId,
+    return this.http.post<{ data: Record<string, HistoryState[]> }>(`/api/dashboards/${dashboardId}/homeassistant/entity-history`, {
       entityIds,
       hours
     }).pipe(
-      map(response => response.history || {})
-    );  }
+      map(response => response.data || {})
+    );
+  }
 
   getTodoItems(dashboardId: string, todoEntityId: string): Observable<TodoItem[]> {
-    return this.http.get<TodoItem[]>(`/api/homeassistant/${dashboardId}/todo-items/${todoEntityId}`);
+    return this.http.get<{ data: TodoItem[] }>(`/api/dashboards/${dashboardId}/homeassistant/todo-items/${todoEntityId}`).pipe(
+      map(response => response.data || [])
+    );
   }
 
   getCalendarEvents(dashboardId: string, calendarEntityId: string, hoursAhead: number = 168): Observable<any[]> {
-    return this.http.get<{ events: any[] }>(`/api/homeassistant/${dashboardId}/calendar-events/${calendarEntityId}?hoursAhead=${hoursAhead}`).pipe(
-      map(response => response.events || [])
+    return this.http.get<{ data: any[] }>(`/api/dashboards/${dashboardId}/homeassistant/calendar-events/${calendarEntityId}?hoursAhead=${hoursAhead}`).pipe(
+      map(response => response.data || [])
     );
   }
 
   getWeatherForecast(dashboardId: string, weatherEntityId: string, forecastType: string = 'daily'): Observable<any> {
-    return this.http.get<any>(`/api/homeassistant/${dashboardId}/weather-forecast/${weatherEntityId}?forecastType=${forecastType}`);
+    return this.http.get<{ data: any }>(`/api/dashboards/${dashboardId}/homeassistant/weather-forecast/${weatherEntityId}?forecastType=${forecastType}`).pipe(
+      map(response => response.data)
+    );
   }
 }

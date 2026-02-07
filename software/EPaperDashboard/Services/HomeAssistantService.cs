@@ -78,19 +78,61 @@ public class HomeAssistantService(
                 {
                     var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
                     var friendlyName = string.Empty;
+                    string? deviceClass = null;
+                    string? unitOfMeasurement = null;
+                    string? icon = null;
+                    string? state = null;
+                    int? supportedFeatures = null;
                     
-                    if (entity.TryGetProperty("attributes", out var attrs) &&
-                        attrs.TryGetProperty("friendly_name", out var fname))
+                    if (entity.TryGetProperty("state", out var stateProp))
                     {
-                        friendlyName = fname.GetString() ?? string.Empty;
+                        state = stateProp.GetString();
+                    }
+
+                    if (entity.TryGetProperty("attributes", out var attrs))
+                    {
+                        if (attrs.TryGetProperty("friendly_name", out var fname))
+                        {
+                            friendlyName = fname.GetString() ?? string.Empty;
+                        }
+
+                        if (attrs.TryGetProperty("device_class", out var deviceClassProp))
+                        {
+                            deviceClass = deviceClassProp.GetString();
+                        }
+
+                        if (attrs.TryGetProperty("unit_of_measurement", out var unitProp))
+                        {
+                            unitOfMeasurement = unitProp.GetString();
+                        }
+
+                        if (attrs.TryGetProperty("icon", out var iconProp))
+                        {
+                            icon = iconProp.GetString();
+                        }
+
+                        if (attrs.TryGetProperty("supported_features", out var supportedFeaturesProp))
+                        {
+                            if (supportedFeaturesProp.ValueKind == JsonValueKind.Number && supportedFeaturesProp.TryGetInt32(out var supported))
+                            {
+                                supportedFeatures = supported;
+                            }
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(entityId))
                     {
+                        var domain = entityId.Split('.', 2)[0];
                         entities.Add(new HassEntity
                         {
                             EntityId = entityId,
-                            FriendlyName = friendlyName
+                            FriendlyName = friendlyName,
+                            Domain = domain,
+                            DeviceClass = deviceClass,
+                            UnitOfMeasurement = unitOfMeasurement,
+                            Icon = icon,
+                            State = state,
+                            SupportedFeatures = supportedFeatures
                         });
                     }
                 }
@@ -1333,6 +1375,12 @@ public record HassEntity
 {
     public string EntityId { get; init; } = string.Empty;
     public string FriendlyName { get; init; } = string.Empty;
+    public string Domain { get; init; } = string.Empty;
+    public string? DeviceClass { get; init; }
+    public string? UnitOfMeasurement { get; init; }
+    public string? Icon { get; init; }
+    public string? State { get; init; }
+    public int? SupportedFeatures { get; init; }
 }
 
 public record HassEntityState

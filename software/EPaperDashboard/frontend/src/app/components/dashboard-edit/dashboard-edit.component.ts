@@ -397,7 +397,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
     this.dashboardSelectorDialog.openWithLoading();
 
-    this.homeAssistantService.getDashboards(hostValue, currentDashboard.id)
+    this.homeAssistantService.getDashboards(currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
           const transformedDashboards = dashboards.map((item: any) => ({

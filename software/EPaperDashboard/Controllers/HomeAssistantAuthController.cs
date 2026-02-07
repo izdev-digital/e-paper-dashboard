@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
+using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Controllers;
 
@@ -15,6 +16,7 @@ public class HomeAssistantAuthController(
 
     [HttpPost("start-auth")]
     [Authorize]
+    [DashboardOwnerFromBody]
     public IActionResult StartAuth([FromBody] AuthRequest request)
     {
         var result = _authService.StartAuth(request.Host, request.DashboardId);

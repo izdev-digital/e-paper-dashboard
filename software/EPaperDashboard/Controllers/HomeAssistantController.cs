@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
+using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Controllers;
 
@@ -15,13 +16,9 @@ public class HomeAssistantController(
     private readonly ILogger<HomeAssistantController> _logger = logger;
 
     [HttpPost("fetch-dashboards")]
+    [DashboardOwnerFromBody]
     public async Task<IActionResult> FetchDashboards([FromBody] FetchDashboardsRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.DashboardId))
-        {
-            return BadRequest(new { error = "Dashboard ID is required" });
-        }
-
         var result = await _homeAssistantService.FetchDashboards(request.DashboardId);
 
         return result.IsSuccess
@@ -30,13 +27,9 @@ public class HomeAssistantController(
     }
 
     [HttpPost("fetch-entities")]
+    [DashboardOwnerFromBody]
     public async Task<IActionResult> FetchEntities([FromBody] FetchEntitiesRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.DashboardId))
-        {
-            return BadRequest(new { error = "Dashboard ID is required" });
-        }
-
         var result = await _homeAssistantService.FetchEntities(request.DashboardId);
 
         return result.IsSuccess
@@ -45,13 +38,9 @@ public class HomeAssistantController(
     }
 
     [HttpPost("fetch-entity-states")]
+    [DashboardOwnerFromBody]
     public async Task<IActionResult> FetchEntityStates([FromBody] FetchEntityStatesRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.DashboardId))
-        {
-            return BadRequest(new { error = "Dashboard ID is required" });
-        }
-
         var result = await _homeAssistantService.FetchEntityStates(request.DashboardId, request.EntityIds ?? []);
 
         return result.IsSuccess
@@ -65,13 +54,9 @@ public class HomeAssistantController(
     public record FetchEntityHistoryRequest(string DashboardId, string[] EntityIds, int? Hours = 24);
 
     [HttpPost("fetch-entity-history")]
+    [DashboardOwnerFromBody]
     public async Task<IActionResult> FetchEntityHistory([FromBody] FetchEntityHistoryRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.DashboardId))
-        {
-            return BadRequest(new { error = "Dashboard ID is required" });
-        }
-
         var hours = request.Hours ?? 24;
         if (hours < 1)
             hours = 1;
@@ -86,6 +71,7 @@ public class HomeAssistantController(
     }
 
     [HttpGet("{dashboardId}/todo-items/{todoEntityId}")]
+    [DashboardOwner]
     public async Task<IActionResult> GetTodoItems(string dashboardId, string todoEntityId)
     {
         var result = await _homeAssistantService.FetchTodoItems(dashboardId, todoEntityId);
@@ -105,6 +91,7 @@ public class HomeAssistantController(
     /// <param name="calendarEntityId">Calendar entity ID (e.g., calendar.my_calendar)</param>
     /// <param name="hoursAhead">Number of hours into the future to fetch events (default: 168 = 7 days, max: 720)</param>
     [HttpGet("{dashboardId}/calendar-events/{calendarEntityId}")]
+    [DashboardOwner]
     public async Task<IActionResult> GetCalendarEvents(string dashboardId, string calendarEntityId, [FromQuery] int hoursAhead = 168)
     {
         // Validate hours ahead (max 30 days)
@@ -132,6 +119,7 @@ public class HomeAssistantController(
     /// <param name="weatherEntityId">Weather entity ID (e.g., weather.openmeteo_home)</param>
     /// <param name="forecastType">Type of forecast: 'daily', 'hourly', or 'twice_daily' (default: 'daily')</param>
     [HttpGet("{dashboardId}/weather-forecast/{weatherEntityId}")]
+    [DashboardOwner]
     public async Task<IActionResult> GetWeatherForecast(string dashboardId, string weatherEntityId, [FromQuery] string forecastType = "daily")
     {
         var result = await _homeAssistantService.FetchWeatherForecast(dashboardId, weatherEntityId, forecastType);
@@ -152,6 +140,7 @@ public class HomeAssistantController(
     /// <param name="dashboardId">Dashboard ID for authentication</param>
     /// <param name="feedEntityId">Feed entity ID (e.g., feedreader.my_feed)</param>
     [HttpGet("{dashboardId}/rss-feed-entries/{feedEntityId}")]
+    [DashboardOwner]
     public async Task<IActionResult> GetRssFeedEntries(string dashboardId, string feedEntityId)
     {
         var result = await _homeAssistantService.FetchRssFeedEntries(dashboardId, feedEntityId);

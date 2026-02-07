@@ -6,7 +6,7 @@
   <select class="form-select" [(ngModel)]="widget.config.entityId">
     <option value="">Select entity...</option>
     @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+    <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
     }
   </select>
 </div>
@@ -46,7 +46,7 @@
         <select class="form-select form-select-sm" [(ngModel)]="badge.entityId">
           <option [ngValue]="undefined">No Entity</option>
           @for (entity of entities(); track trackByEntityId($index, entity)) {
-          <option [ngValue]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
+          <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
           }
         </select>
         <button class="btn btn-sm btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
@@ -73,15 +73,6 @@
 
 @case ('calendar') {
 <div class="mb-3">
-  <label class="form-label">Calendar Entity</label>
-  <select class="form-select" [(ngModel)]="calendarConfig.entityId">
-    <option value="">Select entity...</option>
-    @for (entity of entities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-    }
-  </select>
-</div>
-<div class="mb-3">
   <label class="form-label">Max Events</label>
   <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
 </div>
@@ -89,15 +80,6 @@
 }
 
 @case ('weather') {
-<div class="mb-3">
-  <label class="form-label">Weather Entity</label>
-  <select class="form-select" [(ngModel)]="weatherConfig.entityId">
-    <option value="">Select entity...</option>
-    @for (entity of entities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ entity.friendly_name || entity.entity_id }}</option>
-    }
-  </select>
-</div>
 }
 
 @case ('weather-forecast') {
@@ -116,15 +98,6 @@
   <label class="form-label">Max Items to Display</label>
   <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto" />
   <small class="form-text text-muted">Leave empty for automatic sizing based on widget size</small>
-</div>
-<div class="mb-3">
-  <div class="form-check">
-    <input type="checkbox" class="form-check-input" id="compactLabels" [(ngModel)]="weatherForecastConfig.compactLabels" />
-    <label class="form-check-label" for="compactLabels">
-      Use Compact Labels
-    </label>
-  </div>
-  <small class="form-text text-muted">Use abbreviated labels like "H/L" instead of "High/Low" for small widgets</small>
 </div>
 }
 
@@ -182,7 +155,7 @@
                 <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
                   <option value="">Select entity...</option>
                   @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
-                    <option [value]="ent.entity_id">{{ ent.friendly_name || ent.entity_id }}</option>
+                    <option [value]="ent.entity_id">{{ formatEntityLabel(ent) }}</option>
                   }
                 </select>
               </div>

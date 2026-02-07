@@ -36,6 +36,25 @@ export class WidgetConfigComponent implements OnChanges {
   }
   private readonly homeAssistantService = inject(HomeAssistantService);
 
+  formatEntityLabel(entity: any): string {
+    const base = entity?.friendly_name || entity?.entity_id || 'Unknown';
+    const details: string[] = [];
+
+    const domain = entity?.domain;
+    const deviceClass = entity?.device_class;
+    const unit = entity?.unit_of_measurement;
+
+    if (domain) details.push(domain);
+    if (deviceClass) details.push(deviceClass);
+    if (unit) details.push(unit);
+
+    if (details.length === 0) {
+      return base;
+    }
+
+    return `${base} (${details.join(', ')})`;
+  }
+
 
   @Input() widget!: WidgetConfig;
   @Input() dashboard!: Dashboard | null;
@@ -88,7 +107,13 @@ export class WidgetConfigComponent implements OnChanges {
     if (changes['availableEntities']) {
       const mapped = this.availableEntities.map(e => ({
         entity_id: e.entityId,
-        friendly_name: e.friendlyName
+        friendly_name: e.friendlyName,
+        domain: e.domain,
+        device_class: e.deviceClass ?? undefined,
+        unit_of_measurement: e.unitOfMeasurement ?? undefined,
+        icon: e.icon ?? undefined,
+        state: e.state ?? undefined,
+        supported_features: e.supportedFeatures ?? undefined
       }));
       this.entities.set(mapped);
       this.loadingEntities.set(false);
@@ -109,41 +134,49 @@ export class WidgetConfigComponent implements OnChanges {
     const allEntities = this.entities();
     console.log('[Widget Config] Total entities available:', allEntities.length, 'for widget type:', this.widget.type);
 
+    const getDomain = (entity: any): string => {
+      if (entity?.domain) {
+        return String(entity.domain).toLowerCase();
+      }
+      const id = entity?.entity_id?.toLowerCase() || '';
+      return id.includes('.') ? id.split('.')[0] : id;
+    };
+
     // Filter entities based on widget type
     switch (this.widget.type) {
       case 'todo':
-        return allEntities.filter(e => e.entity_id?.startsWith('todo.'));
+        return allEntities.filter(e => getDomain(e) === 'todo');
       case 'calendar':
-        return allEntities.filter(e => e.entity_id?.startsWith('calendar.'));
+        return allEntities.filter(e => getDomain(e) === 'calendar');
       case 'weather':
       case 'weather-forecast':
-        return allEntities.filter(e => e.entity_id?.startsWith('weather.'));
+        return allEntities.filter(e => getDomain(e) === 'weather');
       case 'rss-feed':
         // Feedreader creates event entities with names like event.feed_name_latest_feed
         // Show all event entities and let user select the appropriate feedreader entity
-        return allEntities.filter(e => e.entity_id?.startsWith('event.'));
+        return allEntities.filter(e => getDomain(e) === 'event');
       case 'graph':
         // Graph can work with any entity that has numeric state values
         // Include sensors, counters, numbers, climate (temperature), light (brightness), etc.
         const filtered = allEntities.filter(e => {
-          const id = e.entity_id?.toLowerCase() || '';
+          const domain = getDomain(e);
           return (
-            id.startsWith('sensor.') ||
-            id.startsWith('binary_sensor.') ||
-            id.startsWith('input_number.') ||
-            id.startsWith('number.') ||
-            id.startsWith('counter.') ||
-            id.startsWith('climate.') ||
-            id.startsWith('light.') ||
-            id.startsWith('cover.') ||
-            id.startsWith('fan.') ||
-            id.startsWith('humidifier.') ||
-            id.startsWith('water_heater.') ||
-            id.startsWith('weather.') ||
-            id.startsWith('person.') ||
-            id.startsWith('device_tracker.') ||
-            id.startsWith('sun.') ||
-            id.startsWith('zone.')
+            domain === 'sensor' ||
+            domain === 'binary_sensor' ||
+            domain === 'input_number' ||
+            domain === 'number' ||
+            domain === 'counter' ||
+            domain === 'climate' ||
+            domain === 'light' ||
+            domain === 'cover' ||
+            domain === 'fan' ||
+            domain === 'humidifier' ||
+            domain === 'water_heater' ||
+            domain === 'weather' ||
+            domain === 'person' ||
+            domain === 'device_tracker' ||
+            domain === 'sun' ||
+            domain === 'zone'
           );
         });
         console.log('[Widget Config] Filtered graph entities:', filtered.length);
@@ -161,7 +194,13 @@ export class WidgetConfigComponent implements OnChanges {
       next: (entities) => {
         const mapped = entities.map(e => ({
           entity_id: e.entityId,
-          friendly_name: e.friendlyName
+          friendly_name: e.friendlyName,
+          domain: e.domain,
+          device_class: e.deviceClass ?? undefined,
+          unit_of_measurement: e.unitOfMeasurement ?? undefined,
+          icon: e.icon ?? undefined,
+          state: e.state ?? undefined,
+          supported_features: e.supportedFeatures ?? undefined
         }));
         this.entities.set(mapped);
         this.loadingEntities.set(false);

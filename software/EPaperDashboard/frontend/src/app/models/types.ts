@@ -134,12 +134,10 @@ export interface WeatherForecastConfig {
   entityId: string;
   forecastMode?: ForecastMode; // 'hourly', 'daily', 'weekly' - defaults to 'daily'
   maxItems?: number; // Max forecast items to display (auto if not specified)
-  compactLabels?: boolean; // Use abbreviated labels (e.g., "H/L" vs "High/Low")
 }
 
 export interface WeatherConfig {
   entityId: string;
-  showForecast: boolean;
 }
 
 export interface GraphSeriesConfig {
@@ -163,7 +161,6 @@ export interface TodoConfig {
 
 export interface RssFeedConfig {
   entityId: string;
-  maxEntries?: number;
   title?: string;
 }
 

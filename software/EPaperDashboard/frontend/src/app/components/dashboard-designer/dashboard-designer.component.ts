@@ -103,23 +103,7 @@ export class DashboardDesignerComponent implements OnInit {
         if (dashboard.layoutConfig) {
           try {
             const parsedLayout = JSON.parse(dashboard.layoutConfig);
-            const colorScheme = parsedLayout.colorScheme?.name
-              ? this.colorSchemes.find(cs => cs.name === parsedLayout.colorScheme.name) || DEFAULT_COLOR_SCHEMES[0]
-              : DEFAULT_COLOR_SCHEMES[0];
-
-            this.layout.set({
-              width: parsedLayout.width || 800,
-              height: parsedLayout.height || 480,
-              gridCols: parsedLayout.gridCols || 12,
-              gridRows: parsedLayout.gridRows || 8,
-              colorScheme: colorScheme,
-              widgets: parsedLayout.widgets || [],
-              canvasPadding: typeof parsedLayout.canvasPadding === 'number' ? parsedLayout.canvasPadding : 16,
-              widgetGap: typeof parsedLayout.widgetGap === 'number' ? parsedLayout.widgetGap : 4,
-              widgetBorder: typeof parsedLayout.widgetBorder === 'number' ? parsedLayout.widgetBorder : 3,
-              titleFontSize: typeof parsedLayout.titleFontSize === 'number' ? parsedLayout.titleFontSize : 16,
-              textFontSize: typeof parsedLayout.textFontSize === 'number' ? parsedLayout.textFontSize : 14
-            });
+            this.layout.set(this.normalizeLayout(parsedLayout));
           } catch (e) {
             this.toastService.show('Failed to parse layout configuration', 'error');
           }
@@ -867,6 +851,81 @@ export class DashboardDesignerComponent implements OnInit {
     return `widget-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  compareColorSchemes(a: ColorScheme, b: ColorScheme): boolean {
+    return a?.name === b?.name;
+  }
+
+  private normalizeLayout(parsedLayout: any): DashboardLayout {
+    const baseLayout: DashboardLayout = {
+      width: 800,
+      height: 480,
+      gridCols: 12,
+      gridRows: 8,
+      colorScheme: DEFAULT_COLOR_SCHEMES[0],
+      widgets: [],
+      canvasPadding: 16,
+      widgetGap: 4,
+      widgetBorder: 3,
+      titleFontSize: 16,
+      textFontSize: 14
+    };
+
+    const baseScheme = parsedLayout?.colorScheme?.name
+      ? this.colorSchemes.find(cs => cs.name === parsedLayout.colorScheme.name) || DEFAULT_COLOR_SCHEMES[0]
+      : DEFAULT_COLOR_SCHEMES[0];
+
+    const mergedScheme: ColorScheme = {
+      ...baseScheme,
+      ...(parsedLayout?.colorScheme ?? {}),
+      name: baseScheme.name,
+      palette: Array.isArray(parsedLayout?.colorScheme?.palette) && parsedLayout.colorScheme.palette.length > 0
+        ? parsedLayout.colorScheme.palette
+        : baseScheme.palette
+    };
+
+    const widgets = Array.isArray(parsedLayout?.widgets)
+      ? parsedLayout.widgets.map((widget: any) => this.normalizeWidget(widget))
+      : [];
+
+    return {
+      width: typeof parsedLayout?.width === 'number' ? parsedLayout.width : baseLayout.width,
+      height: typeof parsedLayout?.height === 'number' ? parsedLayout.height : baseLayout.height,
+      gridCols: typeof parsedLayout?.gridCols === 'number' ? parsedLayout.gridCols : baseLayout.gridCols,
+      gridRows: typeof parsedLayout?.gridRows === 'number' ? parsedLayout.gridRows : baseLayout.gridRows,
+      colorScheme: mergedScheme,
+      widgets: widgets,
+      canvasPadding: typeof parsedLayout?.canvasPadding === 'number' ? parsedLayout.canvasPadding : baseLayout.canvasPadding,
+      widgetGap: typeof parsedLayout?.widgetGap === 'number' ? parsedLayout.widgetGap : baseLayout.widgetGap,
+      widgetBorder: typeof parsedLayout?.widgetBorder === 'number' ? parsedLayout.widgetBorder : baseLayout.widgetBorder,
+      titleFontSize: typeof parsedLayout?.titleFontSize === 'number' ? parsedLayout.titleFontSize : baseLayout.titleFontSize,
+      textFontSize: typeof parsedLayout?.textFontSize === 'number' ? parsedLayout.textFontSize : baseLayout.textFontSize
+    };
+  }
+
+  private normalizeWidget(widget: any): WidgetConfig {
+    const type = widget?.type as WidgetType;
+    const defaultConfig = this.getDefaultConfig(type);
+    const config = {
+      ...defaultConfig,
+      ...(widget?.config ?? {})
+    };
+
+    const position = {
+      x: typeof widget?.position?.x === 'number' ? widget.position.x : 0,
+      y: typeof widget?.position?.y === 'number' ? widget.position.y : 0,
+      w: typeof widget?.position?.w === 'number' ? widget.position.w : 2,
+      h: typeof widget?.position?.h === 'number' ? widget.position.h : 2
+    };
+
+    return {
+      id: widget?.id || this.generateId(),
+      type: type,
+      position,
+      config,
+      colorOverrides: widget?.colorOverrides
+    } as WidgetConfig;
+  }
+
   private getDefaultConfig(type: WidgetType): any {
     switch (type) {
       case 'header':
@@ -874,25 +933,22 @@ export class DashboardDesignerComponent implements OnInit {
       case 'markdown':
         return { content: '# Markdown Content' };
       case 'calendar':
-        return { entityId: '', maxEvents: 7, headerFontSize: 15, eventFontSize: 12 };
+        return { entityId: '', maxEvents: 7 };
       case 'weather':
-        return { entityId: '', showForecast: false };
+        return { entityId: '' };
       case 'weather-forecast':
         return { 
           entityId: '', 
-          forecastMode: 'daily',
-          showPrecipitation: true,
-          showWind: false,
-          compactLabels: false
+          forecastMode: 'daily'
         };
       case 'graph':
         return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };
       case 'todo':
         return { entityId: '' };
       case 'rss-feed':
-        return { entityId: '', maxEntries: 1, title: 'Topic of the day' };
+        return { entityId: '', title: 'Topic of the day' };
       case 'app-icon':
-        return { iconUrl: '', size: 48 };
+        return { size: 48 };
       case 'image':
         return { imageUrl: '', fit: 'contain' };
       case 'version':
