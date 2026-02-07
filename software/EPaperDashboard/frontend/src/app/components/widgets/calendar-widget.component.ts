@@ -17,7 +17,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
       }
       @if (isDataFetched()) {
         <div class="calendar-content">
-          <h4>Events</h4>
+          <h4>{{ widget.titleOverride || 'Events' }}</h4>
           @if (getUpcomingEvents(config.entityId).length > 0) {
             @for (ev of getUpcomingEvents(config.entityId); track trackByEvent($index, ev)) {
               <div class="calendar-event">

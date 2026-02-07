@@ -44,7 +44,7 @@ interface ForecastItem {
       @if (isDataFetched()) {
         @if (!isTinyMode()) {
           <div class="forecast-header">
-            Forecast
+            {{ widget.titleOverride || 'Forecast' }}
           </div>
         }
         

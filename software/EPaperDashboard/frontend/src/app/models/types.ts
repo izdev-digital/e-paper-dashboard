@@ -105,6 +105,7 @@ export interface WidgetConfig {
   | VersionConfig
   | RssFeedConfig;
   colorOverrides?: WidgetColorOverrides;
+  titleOverride?: string;
 }
 
 export interface HeaderConfig {

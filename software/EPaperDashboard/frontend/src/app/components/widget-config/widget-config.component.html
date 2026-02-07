@@ -1,4 +1,14 @@
 <!-- Debug logs removed -->
+<!-- Universal Title Override -->
+@if (widget.type !== 'header' && widget.type !== 'markdown' && widget.type !== 'version') {
+<div class="mb-3">
+  <label class="form-label">Widget Title (Optional)</label>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride" 
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+}
 <!-- Universal Entity Selection Dropdown -->
 @if (entities().length > 0 && widget.config && 'entityId' in widget.config && widget.type !== 'graph') {
 <div class="mb-3">

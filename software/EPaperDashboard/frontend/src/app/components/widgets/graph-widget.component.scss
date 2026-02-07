@@ -1,13 +1,27 @@
 .graph-widget {
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   height: 100%;
   width: 100%;
 }
 
+.graph-title {
+  margin: 0;
+  padding: 8px 12px 4px 12px;
+  font-size: var(--headerFontSize);
+  font-weight: 600;
+  color: var(--titleColor);
+  text-align: center;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
 .chart-canvas {
   width: 100% !important;
   height: 100% !important;
+  flex: 1;
+  min-height: 0;
 }
 
 .empty-state {

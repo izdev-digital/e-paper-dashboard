@@ -569,6 +569,19 @@ export class DashboardDesignerComponent implements OnInit {
     this.selectedWidget.set(updatedWidget);
   }
 
+  onWidgetConfigChanged(widget: WidgetConfig): void {
+    // Update the layout signal with the new widget configuration
+    this.layout.update(layout => ({
+      ...layout,
+      widgets: layout.widgets.map(w => w.id === widget.id ? { ...widget } : w)
+    }));
+    
+    // Update selected widget if it's currently selected
+    if (this.selectedWidget()?.id === widget.id) {
+      this.selectedWidget.set({ ...widget });
+    }
+  }
+
   // Helper method to check if layout has any color overrides
   hasLayoutColorOverrides(): boolean {
     const scheme = this.layout().colorScheme;
@@ -941,7 +954,8 @@ export class DashboardDesignerComponent implements OnInit {
       type: type,
       position,
       config,
-      colorOverrides: widget?.colorOverrides
+      colorOverrides: widget?.colorOverrides,
+      titleOverride: widget?.titleOverride
     } as WidgetConfig;
   }
 

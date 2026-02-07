@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -61,6 +61,7 @@ export class WidgetConfigComponent implements OnChanges {
   @Input() availableEntities: HassEntity[] = [];
   @Input() entitiesLoading: boolean = false;
   @Input() colorScheme?: ColorScheme;
+  @Output() widgetChanged = new EventEmitter<WidgetConfig>();
 
   entities = signal<any[]>([]);
   loadingEntities = signal(false);
@@ -100,6 +101,10 @@ export class WidgetConfigComponent implements OnChanges {
 
   get rssFeedConfig(): RssFeedConfig {
     return this.widget.config as RssFeedConfig;
+  }
+
+  onPropertyChanged(): void {
+    this.widgetChanged.emit(this.widget);
   }
 
   ngOnChanges(changes: SimpleChanges): void {

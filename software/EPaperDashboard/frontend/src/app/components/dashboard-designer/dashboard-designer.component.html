@@ -410,6 +410,7 @@
             <app-widget-config [widget]="selectedWidget()!" [dashboard]="dashboard()"
               [availableEntities]="availableEntities()" [entitiesLoading]="entitiesLoading()"
               [colorScheme]="layout().colorScheme"
+              (widgetChanged)="onWidgetConfigChanged($event)"
               [attr.key]="selectedWidget()!.id"></app-widget-config>
             }
           </div>

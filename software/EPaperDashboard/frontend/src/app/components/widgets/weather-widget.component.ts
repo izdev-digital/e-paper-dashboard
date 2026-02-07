@@ -63,7 +63,7 @@ import { WidgetConfig, ColorScheme, HassEntityState, WeatherConfig, DashboardLay
           <!-- Vertical layout for normal or narrow widths -->
           <div class="weather-content">
             @if (!isVerticalCompactMode()) {
-              <h4 class="weather-title">Weather</h4>
+              <h4 class="weather-title">{{ widget.titleOverride || 'Weather' }}</h4>
             }
             <div class="weather-condition">{{ getEntityState(config.entityId)!.state }}</div>
             @if (getEntityState(config.entityId)!.attributes?.['temperature']) {

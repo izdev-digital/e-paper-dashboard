@@ -34,8 +34,8 @@ interface RssEntry {
       }
       @if (isDataFetched()) {
         <div class="rss-feed-content">
-          @if (config.title) {
-            <h3 class="feed-title">{{ config.title }}</h3>
+          @if (widget.titleOverride || config.title) {
+            <h3 class="feed-title">{{ widget.titleOverride || config.title }}</h3>
           }
           @if (getCurrentEntry()) {
             <div class="rss-entry">
