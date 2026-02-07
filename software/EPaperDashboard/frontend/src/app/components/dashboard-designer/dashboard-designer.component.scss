@@ -17,8 +17,7 @@
     .card-body {
       flex: 1;
       min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: hidden auto;
     }
   }
 }
@@ -95,7 +94,6 @@
   background: var(--bs-card-header-bg, #f8f9fa);
   border-bottom: 1px solid var(--bs-border-color, #dee2e6);
   overflow: hidden;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .card-header-tabs {
@@ -130,7 +128,6 @@
   font-size: 0.9rem;
   font-weight: 400;
   cursor: pointer;
-  transition: color 0.15s, opacity 0.15s;
   outline: none;
   white-space: nowrap;
   height: 36px;
@@ -166,7 +163,6 @@
   padding: 0.5rem 0.35rem;
   cursor: pointer;
   z-index: 2;
-  transition: color 0.15s, opacity 0.15s;
   align-self: center;
   display: flex;
   align-items: center;
@@ -191,7 +187,6 @@
   color: var(--bs-nav-link-color, #495057);
   border-radius: 0.25rem 0.25rem 0 0;
   margin-bottom: -1px;
-  transition: background 0.2s;
 }
 
 .card-header-tabs .nav-link.active {
@@ -215,7 +210,6 @@
   max-height: calc(100vh - 220px);
   padding: 20px 0;
   background: #f5f5f5;
-  transition: background-color 0.3s ease;
 }
 
 html[data-bs-theme="dark"] .canvas-wrapper {
@@ -227,13 +221,10 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin: 20px 0;
   display: grid;
-  /* width/height set by [ngStyle] (inline styles). Do not force 100% here. */
-  transition: border-color 0.3s ease;
 }
 
 .widget-container {
   position: relative;
-  transition: box-shadow 0.2s ease;
   display: grid;
   box-sizing: border-box;
   padding: 0;
@@ -278,7 +269,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 // Widget toolbar items
 .widget-item {
   cursor: pointer;
-  transition: all 0.15s ease;
   background-color: var(--bs-body-bg, #f8f9fa);
   color: var(--bs-body-color, #212529);
   border-radius: 0.5rem;
@@ -543,3 +533,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
     }
   }
 }
+
+.tab-pane .card{height:auto!important}
+.tab-pane .card.collapsed-card{display:block;border:0!important;box-shadow:none!important;background:0!important;margin:0!important;padding:0!important;.card-header{border:1px solid var(--bs-border-color);margin-bottom:.5rem}}

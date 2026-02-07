@@ -76,6 +76,8 @@ export class DashboardDesignerComponent implements OnInit {
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
+  colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
+  widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
 
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -566,6 +568,23 @@ export class DashboardDesignerComponent implements OnInit {
 
     this.selectedWidget.set(updatedWidget);
   }
+
+  // Helper method to check if layout has any color overrides
+  hasLayoutColorOverrides(): boolean {
+    const scheme = this.layout().colorScheme;
+    return scheme.canvasBackgroundColor !== DEFAULT_COLOR_SCHEMES[0].canvasBackgroundColor ||
+      scheme.widgetBackgroundColor !== DEFAULT_COLOR_SCHEMES[0].widgetBackgroundColor ||
+      scheme.widgetBorderColor !== DEFAULT_COLOR_SCHEMES[0].widgetBorderColor ||
+      scheme.widgetTitleTextColor !== DEFAULT_COLOR_SCHEMES[0].widgetTitleTextColor ||
+      scheme.widgetTextColor !== DEFAULT_COLOR_SCHEMES[0].widgetTextColor ||
+      scheme.iconColor !== DEFAULT_COLOR_SCHEMES[0].iconColor;
+  }
+
+  // Helper method to check if widget has any color overrides
+  hasWidgetColorOverrides(widget: WidgetConfig | null): boolean {
+    return widget?.colorOverrides !== undefined && Object.keys(widget.colorOverrides).length > 0;
+  }
+
 
   getColorName(color: string): string {
     const colorMap: Record<string, string> = {

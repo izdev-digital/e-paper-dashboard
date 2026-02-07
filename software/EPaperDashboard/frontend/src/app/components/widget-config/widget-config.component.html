@@ -202,10 +202,6 @@
 
 @case ('rss-feed') {
 <!-- RSS Feed widget uses the universal entity selector above -->
-<div class="alert alert-info small">
-  <i class="fa fa-info-circle"></i> Select a feedreader event entity (event.feed_name). The widget will display the
-  latest RSS entry with a QR code linking to the article.
-</div>
 <div class="mb-3">
   <label class="form-label">Widget Title</label>
   <input type="text" class="form-control" [ngModel]="rssFeedConfig.title" (ngModelChange)="rssFeedConfig.title = $event"

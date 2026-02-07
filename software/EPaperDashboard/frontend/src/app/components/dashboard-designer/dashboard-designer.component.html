@@ -137,11 +137,19 @@
                 </select>
               </div>
             </div>
-            <div class="card mb-3">
-              <div class="card-header">
-                <h5>Color Overrides</h5>
-                <small class="text-muted d-block">Customize colors (limited to scheme palette)</small>
+            <div class="card mb-3" [class.collapsed-card]="colorOverridesCollapsed()">
+              <div class="card-header" role="button" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())" style="cursor: pointer;width:100%">
+                <div class="d-flex justify-content-between align-items-center" style="width:100%">
+                  <div>
+                    <h5 class="mb-0" style="display: inline-block;">Color Overrides</h5>
+                    @if (hasLayoutColorOverrides()) {
+                    <span class="badge bg-warning text-dark ms-2" title="Some colors are overridden">Custom</span>
+                    }
+                  </div>
+                  <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+                </div>
               </div>
+              @if (!colorOverridesCollapsed()) {
               <div class="card-body p-2">
                 <div class="mb-2">
                   <label class="form-label small">Canvas Background</label>
@@ -200,6 +208,7 @@
                   </select>
                 </div>
               </div>
+              }
             </div>
             <div class="card">
               <div class="card-header">
@@ -301,11 +310,19 @@
                 </div>
               </div>
             </div>
-            <div class="card mb-3">
-              <div class="card-header">
-                <h6 class="mb-0">Color Overrides</h6>
-                <small class="text-muted">Limited to scheme palette</small>
+            <div class="card mb-3" [class.collapsed-card]="widgetColorOverridesCollapsed()">
+              <div class="card-header" role="button" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())" style="cursor: pointer;width:100%">
+                <div class="d-flex justify-content-between align-items-center" style="width:100%">
+                  <div>
+                    <h6 class="mb-0" style="display: inline-block;">Color Overrides</h6>
+                    @if (hasWidgetColorOverrides(selectedWidget())) {
+                    <span class="badge bg-warning text-dark ms-2" title="Some colors are overridden">Custom</span>
+                    }
+                  </div>
+                  <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+                </div>
               </div>
+              @if (!widgetColorOverridesCollapsed()) {
               <div class="card-body p-2">
                 <div class="mb-2">
                   <label class="form-label small">Widget Background Color</label>
@@ -388,6 +405,7 @@
                   </div>
                 </div>
               </div>
+              }
             </div>
             <app-widget-config [widget]="selectedWidget()!" [dashboard]="dashboard()"
               [availableEntities]="availableEntities()" [entitiesLoading]="entitiesLoading()"
