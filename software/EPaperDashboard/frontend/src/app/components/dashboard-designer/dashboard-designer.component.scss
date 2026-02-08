@@ -1,5 +1,24 @@
 // Dashboard Designer component styles
 
+// Title styling with ellipsis for long names
+.d-flex.align-items-center.gap-3 {
+  min-width: 0;
+  
+  h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// Prevent buttons from wrapping
+.d-flex.justify-content-between > div {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
 // Grid layout for the three main panels
 .designer-grid-container {
   display: grid;

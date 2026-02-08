@@ -16,6 +16,28 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
   selector: 'app-dashboard-edit',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
+  styles: [`
+    .btn-group[role="group"] {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .btn-group[role="group"] .btn {
+      flex: none !important;
+    }
+
+    .d-flex.align-items-center.gap-3 {
+      min-width: 0;
+    }
+
+    h2 {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  `],
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>

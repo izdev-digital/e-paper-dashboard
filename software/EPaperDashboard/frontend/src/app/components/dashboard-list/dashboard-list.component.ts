@@ -31,33 +31,24 @@ import { Dashboard } from '../../models/types';
     } @else if (dashboards().length > 0) {
       <div class="dashboard-list">
         @for (dashboard of dashboards(); track dashboard.id) {
-          <div class="dashboard-card">
-            <div class="dashboard-card-header">
-              <div class="dashboard-info">
-                <h5 class="dashboard-title">{{ dashboard.name }}</h5>
-              </div>
-              <div class="dashboard-actions">
-                <button type="button" class="btn btn-outline-primary btn-sm" (click)="editDashboard(dashboard.id)">
-                  <i class="fa-solid fa-pen-to-square me-1"></i> Edit
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" (click)="deleteDashboard(dashboard.id)">
-                  <i class="fa-solid fa-trash me-1"></i> Delete
-                </button>
-              </div>
+          <div class="dashboard-item">
+            <h5 class="dashboard-title">{{ dashboard.name }}</h5>
+            <div class="api-key-row">
+              <code class="api-key-value">{{ getApiKeyDisplay(dashboard.apiKey, dashboard.id) }}</code>
+              <button class="icon-btn" title="Reveal API Key" (click)="toggleReveal(dashboard.id)">
+                <i class="fa-regular" [ngClass]="revealedKeys()[dashboard.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+              <button class="icon-btn" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
+                <i class="fa-regular fa-clipboard"></i>
+              </button>
             </div>
-            <div class="dashboard-card-body">
-              <div class="api-key-section">
-                <span class="api-key-label">API Key</span>
-                <div class="api-key-container">
-                  <code class="api-key-value">{{ getApiKeyDisplay(dashboard.apiKey, dashboard.id) }}</code>
-                  <button class="btn btn-sm btn-outline-secondary" title="Reveal API Key" (click)="toggleReveal(dashboard.id)">
-                    <i class="fa-regular" [ngClass]="revealedKeys()[dashboard.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
-                  </button>
-                  <button class="btn btn-sm btn-outline-secondary" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
-                    <i class="fa-regular fa-clipboard"></i>
-                  </button>
-                </div>
-              </div>
+            <div class="dashboard-actions">
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="editDashboard(dashboard.id)">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteDashboard(dashboard.id)">
+                <i class="fa-solid fa-trash"></i>
+              </button>
             </div>
           </div>
         }
@@ -74,109 +65,149 @@ import { Dashboard } from '../../models/types';
     .dashboard-list {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.5rem;
       margin-bottom: 2rem;
     }
 
-    .dashboard-card {
+    .dashboard-item {
+      display: grid;
+      grid-template-columns: auto 1fr 320px 80px;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
       background: var(--bs-body-bg);
       border: 1px solid var(--bs-border-color);
-      border-radius: 0.5rem;
-      overflow: hidden;
-      transition: all 0.2s ease;
+      border-radius: 0.375rem;
+      transition: all 0.15s ease;
     }
 
-    .dashboard-card:hover {
-      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-      transform: translateY(-2px);
-    }
-
-    .dashboard-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.25rem 1.5rem;
+    .dashboard-item:hover {
       background: var(--bs-secondary-bg);
-      border-bottom: 1px solid var(--bs-border-color);
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .dashboard-info {
-      flex: 1;
-      min-width: 0;
+      border-color: var(--bs-primary);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
 
     .dashboard-title {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 600;
+      color: var(--bs-body-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      grid-column: 1;
+    }
+
+    .api-key-row {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.5rem;
+      background: var(--bs-secondary-bg);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.25rem;
+      font-size: 0.8rem;
+      grid-column: 3;
+      min-width: 0;
+    }
+
+    .api-key-value {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: var(--bs-body-color);
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: 0;
+      user-select: all;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: var(--bs-secondary-color);
+      cursor: pointer;
+      border-radius: 0.25rem;
+      transition: all 0.15s ease;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .icon-btn:hover {
+      background: var(--bs-tertiary-bg);
       color: var(--bs-body-color);
     }
 
-    .dashboard-description {
-      margin: 0.25rem 0 0 0;
-      color: var(--bs-secondary-color);
-      font-size: 0.9rem;
+    .icon-btn:active {
+      transform: scale(0.95);
     }
 
     .dashboard-actions {
       display: flex;
-      gap: 0.5rem;
-      flex-shrink: 0;
+      gap: 0.375rem;
+      grid-column: 4;
+      justify-self: end;
     }
 
-    .dashboard-card-body {
-      padding: 1.25rem 1.5rem;
-    }
-
-    .api-key-section {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .api-key-label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--bs-secondary-color);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .api-key-container {
+    .dashboard-actions .btn {
+      padding: 0.375rem 0.625rem;
+      font-size: 0.8rem;
+      min-width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
-      padding: 0.75rem;
-      background: var(--bs-secondary-bg);
-      border: 1px solid var(--bs-border-color);
-      border-radius: 0.375rem;
+      justify-content: center;
     }
 
-    .api-key-value {
-      flex: 1;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 0.875rem;
-      color: var(--bs-body-color);
-      word-break: break-all;
-      background: transparent;
-      border: none;
-      padding: 0;
+    @media (max-width: 1200px) {
+      .dashboard-item {
+        grid-template-columns: auto 1fr 280px 80px;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-item {
+        grid-template-columns: auto 1fr 260px 80px;
+      }
+
+      .dashboard-title {
+        font-size: 1rem;
+      }
     }
 
     @media (max-width: 768px) {
-      .dashboard-card-header {
-        flex-direction: column;
-        align-items: flex-start;
+      .dashboard-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+
+      .dashboard-title {
+        grid-column: 1;
+        white-space: normal;
+      }
+
+      .api-key-row {
+        grid-column: 1;
+        width: 100%;
       }
 
       .dashboard-actions {
+        grid-column: 1;
+        justify-self: stretch;
         width: 100%;
-        justify-content: stretch;
       }
 
-      .dashboard-actions button {
+      .dashboard-actions .btn {
         flex: 1;
       }
     }
