@@ -12,14 +12,6 @@
           <button class="btn btn-success me-2" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
             <i class="fa fa-external-link-alt"></i> Rendered Preview
           </button>
-          <button class="btn btn-info me-2" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()">
-            @if (livePreviewLoading()) {
-            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            } @else {
-            <i class="fa fa-sync"></i>
-            }
-            Refresh Preview Data
-          </button>
           <button class="btn btn-primary" (click)="saveDashboard()">
             <i class="fa fa-save"></i> Save Layout
           </button>
@@ -64,8 +56,15 @@
     <!-- Center - Canvas -->
     <div class="designer-panel-center">
       <div class="card">
-        <div class="card-header">
-          <h5>Canvas</h5>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Canvas</h5>
+          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()" title="Refresh preview data">
+            @if (livePreviewLoading()) {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            } @else {
+            <i class="fa fa-sync"></i>
+            }
+          </button>
         </div>
         <div class="card-body" style="overflow: auto;">
           <div class="canvas-wrapper">
