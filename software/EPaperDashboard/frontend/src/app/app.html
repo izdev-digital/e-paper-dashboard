@@ -18,7 +18,7 @@
               <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
             </li>
             @if (authService.currentUser(); as user) {
-            @if (user.isSuperUser) {
+            @if (user.isSuperUser && !authService.isHomeAssistantMode()) {
             <li class="nav-item">
               <a class="nav-link" routerLink="/users/manage" routerLinkActive="active">Users</a>
             </li>
@@ -73,7 +73,7 @@
                 </a>
               </li>
               @if (authService.currentUser(); as user) {
-              @if (user.isSuperUser) {
+              @if (user.isSuperUser && !authService.isHomeAssistantMode()) {
               <li class="mobile-footer-item">
                 <a routerLink="/users/manage" class="mobile-footer-link">
                   <i class="fa-solid fa-users" aria-hidden="true"></i>

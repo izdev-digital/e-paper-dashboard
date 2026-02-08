@@ -4,16 +4,28 @@ using System.Net.WebSockets;
 using System.Text;
 using LiteDB;
 using CSharpFunctionalExtensions;
+using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Services;
 
 public class HomeAssistantService(
     ILogger<HomeAssistantService> logger,
-    DashboardService dashboardService)
+    DashboardService dashboardService,
+    HomeAssistantEnvironmentService haEnvironment)
 {
     private readonly ILogger<HomeAssistantService> _logger = logger;
     private readonly DashboardService _dashboardService = dashboardService;
+    private readonly HomeAssistantEnvironmentService _haEnvironment = haEnvironment;
     private int _messageId = 2;
+
+    private (string host, string token) GetHostAndToken(Dashboard dashboard)
+    {
+        if (_haEnvironment.IsValidHomeAssistantEnvironment())
+        {
+            return ("http://supervisor/core", _haEnvironment.SupervisorToken!);
+        }
+        return (dashboard.Host!, dashboard.AccessToken!);
+    }
 
     public async Task<Result<List<HassUrlInfo>, string>> FetchDashboards(string dashboardId)
     {
@@ -24,11 +36,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
             var results = await FetchAllDashboardViews(ws, hostUrl);
 
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
@@ -54,11 +67,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
             
             await SendMessageAsync(ws, new
             {
@@ -161,11 +175,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
 
             var messageId = _messageId++;
             await SendMessageAsync(ws, new
@@ -284,11 +299,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
 
             var messageId = _messageId++;
             var now = DateTime.UtcNow;
@@ -422,11 +438,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
 
             var messageId = _messageId++;
             
@@ -560,11 +577,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
 
             var messageId = _messageId++;
             await SendMessageAsync(ws, new
@@ -831,11 +849,12 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
 
             await SendMessageAsync(ws, new
             {
@@ -917,7 +936,8 @@ public class HomeAssistantService(
         }
 
         var dashboard = dashboardResult.Value;
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
@@ -1274,11 +1294,12 @@ public class HomeAssistantService(
             return validationResult.Error;
         }
 
-        var hostUrl = dashboard.Host!.TrimEnd('/');
+        var (hostUrl, token) = GetHostAndToken(dashboard);
+        hostUrl = hostUrl.TrimEnd('/');
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, dashboard.AccessToken!);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
             
             var messageId = _messageId++;
             await SendMessageAsync(ws, new
