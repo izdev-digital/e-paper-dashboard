@@ -18,7 +18,12 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
-    <h2>Edit Dashboard</h2>
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <button type="button" class="btn btn-secondary" (click)="onCancel()">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <h2 class="mb-0">Edit Dashboard</h2>
+    </div>
 
     @if (isLoading()) {
       <div class="text-center my-5">
@@ -162,8 +167,8 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
           <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
             <i class="fa-solid fa-floppy-disk"></i> Save
           </button>
-          <button type="button" class="btn btn-secondary" (click)="onCancel()">
-            <i class="fa-solid fa-arrow-left"></i> Close
+          <button type="button" class="btn btn-success" (click)="openDesigner()">
+            <i class="fa-solid fa-paint-brush"></i> Layout Designer
           </button>
           <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
             <i class="fa-solid fa-eye"></i> Preview
@@ -233,7 +238,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     path: new FormControl('', { nonNullable: true }),
     accessToken: new FormControl('', { nonNullable: true }),
   });
-  
+
   newUpdateTime: string = '';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
@@ -243,7 +248,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    
+
     if (id) {
       this.route.queryParams.subscribe(params => {
         if (params['access_token'] && params['auth_callback'] === 'true' && !this.oauthProcessed) {
@@ -251,7 +256,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.oauthToken = params['access_token'];
         }
       });
-      
+
       this.loadDashboard(id);
     }
   }
@@ -261,8 +266,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.dashboardService.getDashboard(id).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
-        this.originalDashboard = JSON.parse(JSON.stringify(dashboard)); // Deep copy for comparison
-        
+        this.originalDashboard = JSON.parse(JSON.stringify(dashboard));
+
         this.dashboardForm.reset({
           name: dashboard.name || '',
           description: dashboard.description || '',
@@ -270,7 +275,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           path: dashboard.path || '',
           accessToken: '',
         });
-        
+
         // Convert update times to array for display (normalize string or array)
         if (dashboard.updateTimes) {
           let times: string[] = [];
@@ -283,18 +288,18 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
               .filter((t: string) => t.length > 0);
           }
           this.updateTimes.set(times);
-          this.originalUpdateTimes = [...times]; // Store original for comparison
+          this.originalUpdateTimes = [...times];
         } else {
           this.updateTimes.set([]);
           this.originalUpdateTimes = [];
         }
         this.isLoading.set(false);
-        
+
         // Now process OAuth if we have a token
         if (this.oauthToken && !dashboard.hasAccessToken) {
           this.saveOAuthToken(id);
         }
-        
+
         // Force change detection to ensure UI updates
         this.cdr.detectChanges();
       },
@@ -312,17 +317,17 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     const updatePayload = {
       accessToken: this.oauthToken
     };
-    
+
     this.dashboardService.updateDashboard(dashboardId, updatePayload).subscribe({
       next: (updated) => {
         this.dashboard.set(updated);
         this.toastService.success('Home Assistant token saved successfully!');
-        
+
         // Clean the query params from URL without navigating away
         setTimeout(() => {
           window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
         }, 500);
-        
+
         this.oauthToken = null;
       },
       error: (error) => {
@@ -354,10 +359,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   private checkUpdateTimesChanged(currentTimes: string[]): void {
-    // Compare current times with original
     const timesChanged = JSON.stringify(currentTimes.sort()) !== JSON.stringify(this.originalUpdateTimes.sort());
-    
-    // If times changed, mark form as dirty
+
     if (timesChanged) {
       this.dashboardForm.markAsDirty();
     }
@@ -371,17 +374,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('✓ Starting Home Assistant OAuth flow...');
-    console.log('  - Host:', hostValue);
-    console.log('  - Dashboard ID:', currentDashboard.id);
-
     this.isAuthenticating.set(true);
 
-    // Call backend to start OAuth flow
     this.homeAssistantService.startAuth(hostValue, currentDashboard.id).subscribe({
       next: (response) => {
-        console.log('✓ OAuth URL received, redirecting to Home Assistant...');
-        // Redirect to Home Assistant OAuth URL
         window.location.href = response.authUrl;
       },
       error: (error) => {
@@ -401,23 +397,17 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('Opening dashboard selector for dashboard:', currentDashboard.id);
-
-    // Open dialog with loading state
     this.dashboardSelectorDialog.openWithLoading();
 
-    // Fetch available dashboards from Home Assistant
-    this.homeAssistantService.getDashboards(hostValue, currentDashboard.id)
+    this.homeAssistantService.getDashboards(currentDashboard.id)
       .subscribe({
         next: (dashboards) => {
-          
-          // Transform dashboards to have url_path property (use id as the path)
           const transformedDashboards = dashboards.map((item: any) => ({
             url_path: item.id,
             title: item.title,
             id: item.id
           }));
-          
+
           this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
             if (selectedPath) {
               // Update the form with the selected path
@@ -474,7 +464,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           accessToken: '' // Clear the token field after successful save
         });
         this.dashboardForm.markAsPristine();
-        // Update original update times after save
         if (updated.updateTimes && Array.isArray(updated.updateTimes)) {
           this.originalUpdateTimes = [...updated.updateTimes];
         } else {
@@ -506,7 +495,12 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     }
   }
 
-
+  openDesigner(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.router.navigate(['/dashboards', id, 'designer']);
+    }
+  }
 
   async copyApiKey(): Promise<void> {
     const currentDashboard = this.dashboard();
@@ -582,7 +576,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.previewError.set('');
     this.previewImageUrl.set('');
 
-    // Clean up previous preview URL
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
@@ -592,23 +585,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.previewObjectUrl = null;
     }
 
-    // Debug logging
-    console.log('Preview request:', {
-      dashboardId: currentDashboard.id,
-      host: currentDashboard.host,
-      path: currentDashboard.path,
-      hasAccessToken: currentDashboard.hasAccessToken,
-      apiKey: currentDashboard.apiKey
-    });
-
-    // Fetch preview image - match Razor implementation exactly
     const url = `/api/render/original?width=800&height=480&format=png`;
-
-    console.log('Making preview request:', {
-      url,
-      apiKey: currentDashboard.apiKey,
-      headers: { 'X-Api-Key': currentDashboard.apiKey }
-    });
 
     this.http.get(url, {
       headers: { 'X-Api-Key': currentDashboard.apiKey },
@@ -624,29 +601,21 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.previewLoading.set(false);
         const dashboard = this.dashboard();
         let errorMessage = 'Failed to load preview';
-        
+
         // Try to extract error message from blob response
         if (error.error instanceof Blob) {
           try {
             const text = await error.error.text();
-            console.log('Error blob text:', text);
-            
-            // Try to parse as JSON first
             try {
               const json = JSON.parse(text);
-              console.log('Error JSON parsed:', json);
               errorMessage = json.title || json.error || json.message || text;
             } catch (jsonError) {
-              // Not JSON, use plain text
-              console.log('Error is plain text, not JSON');
               errorMessage = text || `HTTP Error ${error.status}`;
             }
           } catch (e) {
-            console.log('Failed to read error blob:', e);
             errorMessage = `HTTP Error ${error.status}`;
           }
         } else if (error.status === 404) {
-          // Debug: show what config was sent
           const configDebug = dashboard ? `Host: ${dashboard.host || 'MISSING'}, Path: ${dashboard.path || 'MISSING'}, Token: ${dashboard.hasAccessToken ? 'SET' : 'MISSING'}` : 'No dashboard';
           errorMessage = `404 Not Found. Config: [${configDebug}] - Make sure Home Assistant settings are complete and saved.`;
         } else if (error.error && typeof error.error === 'string') {
@@ -658,7 +627,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         } else if (error.status) {
           errorMessage = `HTTP Error ${error.status}`;
         }
-        
+
         this.previewError.set(errorMessage);
         this.toastService.error(errorMessage);
       }

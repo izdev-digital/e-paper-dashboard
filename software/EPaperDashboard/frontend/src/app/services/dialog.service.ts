@@ -46,19 +46,6 @@ export class DialogService {
   private onConfirm: (() => void | Promise<void>) | null = null;
   private onCancel: (() => void) | null = null;
 
-  /**
-   * Show a confirmation dialog
-   * @example
-   * this.dialogService.confirm({
-   *   title: 'Delete Item?',
-   *   message: 'This action cannot be undone.',
-   *   isDangerous: true,
-   *   onConfirm: async () => {
-   *     await this.deleteService.delete(id);
-   *     this.toastService.success('Deleted successfully');
-   *   }
-   * });
-   */
   async confirm(config: DialogConfig): Promise<void> {
     this.onConfirm = config.onConfirm || null;
     this.onCancel = config.onCancel || null;
@@ -74,9 +61,6 @@ export class DialogService {
     });
   }
 
-  /**
-   * Handle confirm action (called from dialog component)
-   */
   async handleConfirm(): Promise<void> {
     if (!this.onConfirm) {
       this.close();
@@ -92,17 +76,11 @@ export class DialogService {
     }
   }
 
-  /**
-   * Handle cancel action (called from dialog component)
-   */
   handleCancel(): void {
     this.onCancel?.();
     this.close();
   }
 
-  /**
-   * Update loading state
-   */
   private setLoading(loading: boolean): void {
     const current = this.dialogState();
     this.dialogState.set({
@@ -111,9 +89,6 @@ export class DialogService {
     });
   }
 
-  /**
-   * Close the dialog
-   */
   close(): void {
     this.dialogState.set({
       isOpen: false,

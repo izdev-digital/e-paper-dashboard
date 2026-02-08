@@ -1,0 +1,290 @@
+.weather-widget {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 0px;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  align-content: start;
+  --titleFontSize: 15px;
+  --textFontSize: 12px;
+  --titleFontWeight: 700;
+  --textFontWeight: 400;
+  --iconColor: currentColor;
+  --titleColor: currentColor;
+  --textColor: currentColor;
+
+  i {
+    color: var(--iconColor);
+  }
+
+  &.compact {
+    padding: 2px;
+  }
+
+  &.vertical-compact {
+    align-content: center;
+  }
+
+  &.horizontal {
+    align-content: center;
+    justify-content: start;
+  }
+}
+
+.empty-state {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 8px;
+  align-items: center;
+  justify-items: center;
+  padding: 16px 8px;
+  text-align: center;
+  opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+
+  i {
+    font-size: 2rem;
+    color: var(--iconColor);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--textFontSize);
+    font-weight: var(--textFontWeight);
+    letter-spacing: 0.3px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.preview-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  gap: 12px;
+  padding: 12px 0 0 0;
+  opacity: 0.7;
+  width: 100%;
+  box-sizing: border-box;
+
+  i {
+    font-size: calc(var(--titleFontSize) * 1.5);
+    line-height: 1;
+    color: var(--iconColor);
+  }
+
+  p {
+    margin: 0;
+    padding: 0 12px;
+    font-size: var(--titleFontSize);
+    font-weight: var(--titleFontWeight);
+    color: var(--titleColor);
+    text-align: center;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+}
+
+.weather-content {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+
+  &.minimal {
+    width: 100%;
+    height: 100%;
+    align-content: center;
+    justify-content: center;
+    place-items: center;
+  }
+
+  &.horizontal {
+    grid-auto-flow: column;
+    gap: 6px;
+    align-items: center;
+    justify-content: start;
+    width: 100%;
+    height: 100%;
+    grid-auto-columns: min-content;
+    flex-wrap: wrap;
+  }
+}
+
+.weather-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: start;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.weather-title {
+  margin: 0;
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: var(--titleFontSize);
+  font-weight: var(--titleFontWeight);
+  color: var(--titleColor);
+  opacity: 0.9;
+  letter-spacing: 0.3px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-condition {
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--titleColor);
+  text-transform: capitalize;
+  opacity: 0.9;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.weather-temp {
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--textColor);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.weather-attributes {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.weather-attribute {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  opacity: 0.8;
+  letter-spacing: 0.2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  i {
+    font-size: var(--textFontSize);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// Compact layout for small widgets (narrow width)
+.weather-attributes-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-top: 2px;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.weather-attribute-compact {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: calc(var(--textFontSize) * 0.9);
+  font-weight: var(--textFontWeight);
+  opacity: 0.8;
+  letter-spacing: 0.1px;
+  padding: 1px 2px;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  i {
+    font-size: calc(var(--textFontSize) * 0.9);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Horizontal layout for small height, large width
+.weather-attributes-horizontal {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: start;
+  padding-left: 0;
+  border-left: none;
+  opacity: 0.8;
+  min-width: 0;
+  overflow: visible;
+}
+
+.weather-attribute-horizontal {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: calc(var(--textFontSize) * 0.95);
+  font-weight: var(--textFontWeight);
+  opacity: 0.85;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  padding: 0 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+
+  i {
+    font-size: calc(var(--textFontSize) * 0.95);
+    flex-shrink: 0;
+    width: 1em;
+    text-align: center;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

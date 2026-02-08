@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { DashboardService } from '../../services/dashboard.service';
 import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
@@ -47,7 +48,10 @@ import { Dashboard } from '../../models/types';
               <div class="api-key-section">
                 <span class="api-key-label">API Key</span>
                 <div class="api-key-container">
-                  <code class="api-key-value">{{ dashboard.apiKey }}</code>
+                  <code class="api-key-value">{{ getApiKeyDisplay(dashboard.apiKey, dashboard.id) }}</code>
+                  <button class="btn btn-sm btn-outline-secondary" title="Reveal API Key" (click)="toggleReveal(dashboard.id)">
+                    <i class="fa-regular" [ngClass]="revealedKeys()[dashboard.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
+                  </button>
                   <button class="btn btn-sm btn-outline-secondary" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
                     <i class="fa-regular fa-clipboard"></i>
                   </button>
@@ -188,6 +192,7 @@ export class DashboardListComponent implements OnInit {
   readonly dashboards = signal<Dashboard[]>([]);
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
+  readonly revealedKeys = signal<Record<string, boolean>>({});
 
   ngOnInit(): void {
     // With signals, we can synchronously check auth state
@@ -217,6 +222,17 @@ export class DashboardListComponent implements OnInit {
         this.isLoading.set(false);
       }
     });
+  }
+
+  toggleReveal(id: string): void {
+    this.revealedKeys.update(m => ({ ...m, [id]: !m[id] }));
+  }
+
+  getApiKeyDisplay(apiKey: string, id: string): string {
+    const revealed = this.revealedKeys()[id];
+    if (revealed) return apiKey || '';
+    if (!apiKey) return '';
+    return apiKey.length > 8 ? `${apiKey.slice(0, 6)}••••` : apiKey.replace(/.(?=.{2})/g, '•');
   }
 
   async copyApiKey(apiKey: string): Promise<void> {
@@ -269,13 +285,42 @@ export class DashboardListComponent implements OnInit {
       confirmLabel: 'Delete',
       isDangerous: true,
       onConfirm: async () => {
-        try {
-          await this.dashboardService.deleteDashboard(id).toPromise();
-          this.toastService.success('Dashboard deleted successfully');
-          this.loadDashboards();
-        } catch (error: any) {
-          this.toastService.error(error.error?.message || 'Failed to delete dashboard');
-        }
+        // Optimistically remove from UI and allow undo
+        this.dashboards.update(list => list.filter(d => d.id !== id));
+
+        let didUndo = false;
+
+        const performDelete = async () => {
+          try {
+            await firstValueFrom(this.dashboardService.deleteDashboard(id));
+            if (!didUndo) {
+              this.toastService.success('Dashboard deleted successfully');
+            }
+          } catch (error: any) {
+            // On error, reload list and show error
+            this.toastService.error(error.error?.message || 'Failed to delete dashboard');
+            this.loadDashboards();
+          }
+        };
+
+        const timeoutMs = 5000;
+        const timeoutId = setTimeout(() => {
+          performDelete();
+        }, timeoutMs);
+
+        this.toastService.showWithAction(
+          `Dashboard "${dashboard.name}" deleted`,
+          'Undo',
+          () => {
+            didUndo = true;
+            clearTimeout(timeoutId);
+            // restore dashboard in UI
+            this.dashboards.update(list => [dashboard, ...list]);
+            this.toastService.info('Deletion undone');
+          },
+          'info',
+          timeoutMs
+        );
       }
     });
   }

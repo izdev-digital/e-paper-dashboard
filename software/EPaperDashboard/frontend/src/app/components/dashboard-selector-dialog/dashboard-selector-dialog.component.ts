@@ -87,7 +87,7 @@ export class DashboardSelectorDialogComponent {
   readonly isLoading = signal(false);
   readonly error = signal('');
   readonly dashboards = signal<DashboardOption[]>([]);
-  
+
   private resolveCallback?: (value: string | null) => void;
 
   openWithLoading(): void {
@@ -102,19 +102,15 @@ export class DashboardSelectorDialogComponent {
     this.error.set('');
     this.isLoading.set(false);
     this.isOpen.set(true);
-    
+
     return new Promise<string | null>((resolve) => {
       this.resolveCallback = resolve;
     });
   }
 
   selectDashboard(dashboard: DashboardOption): void {
-    console.log('Dashboard selected:', dashboard);
-    console.log('Dashboard url_path:', dashboard.url_path);
-    console.log('Dashboard title:', dashboard.title);
     this.isOpen.set(false);
     if (this.resolveCallback) {
-      console.log('Resolving with path:', dashboard.url_path);
       this.resolveCallback(dashboard.url_path);
       this.resolveCallback = undefined;
     }

@@ -8,4 +8,4 @@ import { CommonModule } from '@angular/common';
   templateUrl: './privacy.component.html',
   styleUrls: ['./privacy.component.scss']
 })
-export class PrivacyComponent {}
+export class PrivacyComponent { }

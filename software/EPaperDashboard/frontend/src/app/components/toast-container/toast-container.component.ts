@@ -28,6 +28,11 @@ import { ToastService, Toast } from '../../services/toast.service';
               <i class="fa-solid fa-info-circle text-info"></i>
             }
             <span>{{ toast.message }}</span>
+            @if (toast.actionLabel) {
+              <button type="button" class="btn btn-sm btn-link ms-2" (click)="(toast.action && toast.action()) || null; toastService.remove(toast.id)">
+                {{ toast.actionLabel }}
+              </button>
+            }
             <button 
               type="button" 
               class="btn-close ms-auto" 

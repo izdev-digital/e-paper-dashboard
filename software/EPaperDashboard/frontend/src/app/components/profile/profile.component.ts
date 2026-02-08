@@ -2,6 +2,7 @@ import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
@@ -52,8 +53,8 @@ export class ProfileComponent {
 
     this.http.post('/api/users/change-nickname', request).subscribe({
       next: () => {
-        const message = this.newNickname().trim() 
-          ? 'Nickname changed successfully.' 
+        const message = this.newNickname().trim()
+          ? 'Nickname changed successfully.'
           : 'Nickname cleared.';
         this.toastService.success(message);
         this.newNickname.set('');
@@ -117,9 +118,9 @@ export class ProfileComponent {
       onConfirm: async () => {
         this.isDeletingProfile.set(true);
         try {
-          await this.http.delete('/api/users/delete-profile').toPromise();
+          await firstValueFrom(this.http.delete('/api/users/delete-profile'));
           this.toastService.success('Profile deleted');
-          await this.authService.logout().toPromise();
+          await firstValueFrom(this.authService.logout());
           this.router.navigate(['/home']);
         } catch (err: any) {
           this.toastService.error(err.error?.message || 'Failed to delete profile');

@@ -1,0 +1,386 @@
+.weather-forecast-widget {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 0;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  align-content: start;
+  padding: 0;
+  --titleFontSize: 15px;
+  --textFontSize: 12px;
+  --smallFontSize: 9px;
+  --titleFontWeight: 700;
+  --textFontWeight: 400;
+  --iconColor: currentColor;
+  --titleColor: currentColor;
+  --textColor: currentColor;
+
+  i {
+    color: var(--iconColor);
+  }
+
+  &.compact {
+    gap: 0;
+    padding: 0;
+  }
+
+  &.tiny {
+    gap: 0;
+    padding: 0;
+  }
+
+  &.minimal {
+    display: none;
+  }
+
+  // Height-based breakpoints
+  &.height-1 {
+    // Single cell height (approx 60-90px)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      display: none;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      border: none;
+      gap: 1px;
+
+      .item-condition,
+      .item-precip,
+      .item-wind {
+        display: none;
+      }
+
+      .item-temps {
+        gap: 0;
+        line-height: 1;
+      }
+    }
+  }
+
+  &.height-2 {
+    // Two cell height (approx 120-180px)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      font-size: var(--titleFontSize);
+      padding: 0;
+      margin-bottom: 1px;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      gap: 1px;
+      border: none;
+
+      .item-condition {
+        display: none;
+      }
+    }
+  }
+
+  &.height-3plus {
+    // Three or more cell height (approx 180px+)
+    gap: 0;
+    padding: 0;
+
+    .forecast-header {
+      font-size: var(--titleFontSize);
+      padding: 0;
+      margin-bottom: 2px;
+    }
+
+    .forecast-items {
+      gap: 0;
+    }
+
+    .forecast-item {
+      padding: 0;
+      gap: 2px;
+      border: none;
+    }
+  }
+}
+
+.empty-state {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 8px;
+  align-items: center;
+  justify-items: center;
+  padding: 16px 8px;
+  text-align: center;
+  opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+
+  i {
+    font-size: 2rem;
+    color: var(--iconColor);
+  }
+
+  p {
+    margin: 0;
+    font-size: var(--textFontSize);
+    font-weight: var(--textFontWeight);
+    letter-spacing: 0.3px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.preview-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100%;
+  gap: 12px;
+  padding: 12px 0 0 0;
+  opacity: 0.7;
+  width: 100%;
+  box-sizing: border-box;
+
+  i {
+    font-size: calc(var(--titleFontSize) * 1.5);
+    line-height: 1;
+    color: var(--iconColor);
+  }
+
+  p {
+    margin: 0;
+    padding: 0 12px;
+    font-size: var(--titleFontSize);
+    font-weight: var(--titleFontWeight);
+    color: var(--titleColor);
+    text-align: center;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+}
+
+.forecast-content {
+  display: grid;
+  grid-auto-flow: row;
+  gap: 4px;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+}
+
+.forecast-header {
+  margin: 0;
+  padding: 1px 0;
+  font-size: var(--titleFontSize);
+  font-weight: var(--titleFontWeight);
+  color: var(--titleColor);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.forecast-items {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(38px, 1fr);
+  gap: 2px;
+  overflow-x: auto;
+  font-size: var(--smallFontSize);
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+
+  // Hourly mode: narrower items for more items across
+  &.hourly {
+    grid-auto-columns: minmax(35px, auto);
+  }
+}
+
+.forecast-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: none;
+  overflow: hidden;
+  min-width: 0;
+  opacity: 0.95;
+  justify-content: center;
+
+  .weather-forecast-widget.tiny & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-1 & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-2 & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+
+  .weather-forecast-widget.height-3plus & {
+    border: none;
+    padding: 0;
+    gap: 0;
+  }
+}
+
+.forecast-time {
+  font-size: var(--smallFontSize);
+  font-weight: var(--titleFontWeight);
+  color: var(--titleColor);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+}
+
+.forecast-condition {
+  font-size: var(--smallFontSize);
+  color: var(--textColor);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.forecast-temp {
+  font-size: var(--textFontSize);
+  font-weight: var(--titleFontWeight);
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forecast-precip {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forecast-wind {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Item-level styles for new simplified template
+.item-time {
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--titleColor);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+}
+
+.item-condition {
+  font-size: var(--textFontSize);
+  color: var(--textColor);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+}
+
+.item-temp {
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-temps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--textColor);
+  width: 100%;
+  text-align: center;
+  line-height: 1.1;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.item-precip {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-wind {
+  font-size: calc(var(--smallFontSize) - 1px);
+  color: var(--textColor);
+  opacity: 0.8;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

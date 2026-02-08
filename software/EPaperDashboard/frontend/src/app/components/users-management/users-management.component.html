@@ -5,87 +5,78 @@
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="card-title mb-0">Users</h5>
-        <button
-          (click)="toggleAddForm()"
-          class="btn btn-success btn-sm"
-          [class.btn-outline-success]="showAddForm()"
-          [disabled]="isAddingUser()"
-        >
+        <button (click)="toggleAddForm()" class="btn btn-success btn-sm" [class.btn-outline-success]="showAddForm()"
+          [disabled]="isAddingUser()">
           {{ showAddForm() ? 'Cancel' : 'Add New User' }}
         </button>
       </div>
 
-      <div *ngIf="showAddForm()" class="add-user-form mb-4 p-4 rounded">
+      @if (showAddForm()) {
+      <div class="add-user-form mb-4 p-4 rounded">
         <h6>Add New User</h6>
         <form [formGroup]="addUserForm" (ngSubmit)="addUser()">
           <div class="mb-3">
             <label for="username" class="form-label">
               <i class="fa-solid fa-user me-2"></i>Username
             </label>
-            <input
-              type="text"
-              id="username"
-              class="form-control"
-              formControlName="username"
-              placeholder="Enter username (min 3 characters)"
-              required
-            />
-            <small *ngIf="addUserForm.get('username')?.hasError('required')">
+            <input type="text" id="username" class="form-control" formControlName="username"
+              placeholder="Enter username (min 3 characters)" required />
+            @if (addUserForm.get('username')?.hasError('required')) {
+            <small>
               Username is required
             </small>
-            <small *ngIf="addUserForm.get('username')?.hasError('minlength')">
+            }
+            @if (addUserForm.get('username')?.hasError('minlength')) {
+            <small>
               Username must be at least 3 characters
             </small>
+            }
           </div>
 
           <div class="mb-3">
             <label for="password" class="form-label">
               <i class="fa-solid fa-lock me-2"></i>Password
             </label>
-            <input
-              type="password"
-              id="password"
-              class="form-control"
-              formControlName="password"
-              placeholder="Enter password (min 6 characters)"
-              required
-            />
-            <small *ngIf="addUserForm.get('password')?.hasError('required')">
+            <input type="password" id="password" class="form-control" formControlName="password"
+              placeholder="Enter password (min 6 characters)" required />
+            @if (addUserForm.get('password')?.hasError('required')) {
+            <small>
               Password is required
             </small>
-            <small *ngIf="addUserForm.get('password')?.hasError('minlength')">
+            }
+            @if (addUserForm.get('password')?.hasError('minlength')) {
+            <small>
               Password must be at least 6 characters
             </small>
+            }
           </div>
 
-          <button 
-            type="submit" 
-            class="btn btn-success btn-sm" 
-            [disabled]="addUserForm.invalid || isAddingUser()"
-          >
+          <button type="submit" class="btn btn-success btn-sm" [disabled]="addUserForm.invalid || isAddingUser()">
             <i class="fa-solid fa-plus me-2"></i>{{ isAddingUser() ? 'Adding...' : 'Add User' }}
           </button>
         </form>
       </div>
+      }
 
       <div class="mb-3">
-        <input
-          type="text"
-          class="form-control search-input"
-          placeholder="Search users by username..."
-          [ngModel]="searchQuery()"
-          (ngModelChange)="searchQuery.set($event)"
-        />
+        <input type="text" class="form-control search-input" placeholder="Search users by username..."
+          [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
       </div>
 
-      <div *ngIf="loading()" class="alert alert-info">Loading users...</div>
+      @if (loading()) {
+      <div class="alert alert-info">Loading users...</div>
+      }
 
-      <div *ngIf="!loading() && getFilteredUsers().length === 0" class="alert alert-warning">
+      @if (!loading() && getFilteredUsers().length === 0) {
+      <div class="alert alert-warning">
         No users found
       </div>
+      }
 
-      <div class="users-list" *ngIf="!loading() && getFilteredUsers().length > 0">
-        <div class="user-card" *ngFor="let user of getFilteredUsers()">
+      @if (!loading() && getFilteredUsers().length > 0) {
+      <div class="users-list">
+        @for (user of getFilteredUsers(); track user.id) {
+        <div class="user-card">
           <div class="user-card-header">
             <div class="user-info">
               <h5 class="user-title">{{ user.username }}</h5>
@@ -94,18 +85,18 @@
               </span>
             </div>
             <div class="user-actions">
-              <button
-                *ngIf="!user.isSuperUser"
-                (click)="deleteUser(user.id, user.username)"
-                class="btn btn-danger btn-sm"
-                [disabled]="isDeletingUser()[user.id]"
-              >
+              @if (!user.isSuperUser) {
+              <button (click)="deleteUser(user.id, user.username)" class="btn btn-danger btn-sm"
+                [disabled]="isDeletingUser()[user.id]">
                 <i class="fa-solid fa-trash me-2"></i>{{ isDeletingUser()[user.id] ? 'Deleting...' : 'Delete' }}
               </button>
+              }
             </div>
           </div>
         </div>
+        }
       </div>
+      }
     </div>
   </div>
 </div>

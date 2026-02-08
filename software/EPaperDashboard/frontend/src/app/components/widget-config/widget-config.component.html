@@ -1,0 +1,257 @@
+@if (widget.type !== 'header' && widget.type !== 'markdown' && widget.type !== 'version') {
+<div class="mb-3">
+  <label class="form-label">Widget Title (Optional)</label>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride" 
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+}
+@if (widget.type !== 'graph' && widget.config && ('entityId' in widget.config)) {
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-3">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+    </div>
+  }
+}
+@if (entities().length > 0 && widget.config && ('entityId' in widget.config) && widget.type !== 'graph') {
+<div class="mb-3">
+  <label class="form-label">Data Source Entity</label>
+  <select class="form-select" [(ngModel)]="widget.config.entityId" (ngModelChange)="onPropertyChanged()">
+    <option value="">Select entity...</option>
+    @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+    <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+    }
+  </select>
+</div>
+}
+@switch (widget.type) {
+
+@case ('header') {
+<div class="mb-3">
+  <label class="form-label">Title</label>
+  <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title" />
+</div>
+<div class="mb-3">
+  <label class="form-label">Title Position</label>
+  <select class="form-select" [(ngModel)]="headerConfig.titleAlign">
+    <option [ngValue]="'top-left'">Top Left (Default)</option>
+    <option [ngValue]="'top-right'">Top Right</option>
+    <option [ngValue]="'bottom-left'">Bottom Left</option>
+    <option [ngValue]="'bottom-right'">Bottom Right</option>
+  </select>
+  <small class="form-text text-muted">Badges will wrap around the title and fill remaining space.</small>
+</div>
+<div class="mb-3">
+  <label class="form-label">Icon Size (px)</label>
+  <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32" />
+</div>
+<div class="mb-3">
+  <label class="form-label">Badges</label>
+  <small class="form-text text-muted d-block mb-2">Badges automatically adjust to widget size. Only visible badges that
+    fit will be shown.</small>
+  @if (headerConfig.badges?.length) {
+  <div>
+    @for (badge of headerConfig.badges; track trackByBadgeLabel($index, badge); let i = $index) {
+    <div class="badge-item mb-2">
+      <div class="d-flex gap-2 align-items-center">
+        <input type="text" class="form-control form-control-sm" placeholder="Icon (e.g., fa-thermometer)"
+          [(ngModel)]="badge.icon" />
+        <select class="form-select form-select-sm" [(ngModel)]="badge.entityId">
+          <option [ngValue]="undefined">No Entity</option>
+          @for (entity of entities(); track trackByEntityId($index, entity)) {
+          <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+          }
+        </select>
+        <button class="btn btn-sm btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
+      </div>
+    </div>
+    }
+  </div>
+  } @else {
+  <div class="text-muted small mb-2">No badges configured.</div>
+  }
+  <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()"><i class="fa fa-plus"></i> Add
+    Badge</button>
+</div>
+}
+
+@case ('markdown') {
+<div class="mb-3">
+  <label class="form-label">Content</label>
+  <textarea class="form-control" rows="6" [(ngModel)]="markdownConfig.content"
+    placeholder="# Markdown content here"></textarea>
+</div>
+
+}
+
+@case ('calendar') {
+<div class="mb-3">
+  <label class="form-label">Max Events</label>
+  <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
+</div>
+
+}
+
+@case ('weather') {
+}
+
+@case ('weather-forecast') {
+<div class="mb-3">
+  <label class="form-label">Forecast Type</label>
+  <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode">
+    <option value="daily">Daily</option>
+    <option value="hourly">Hourly</option>
+    <option value="weekly">Weekly</option>
+  </select>
+  <small class="form-text text-muted">
+    Daily: High/Low temperatures | Hourly: Temperature for each hour | Weekly: Summary for each day
+  </small>
+</div>
+<div class="mb-3">
+  <label class="form-label">Max Items to Display</label>
+  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto" />
+  <small class="form-text text-muted">Leave empty for automatic sizing based on widget size</small>
+</div>
+}
+
+@case ('graph') {
+<div class="mb-3">
+  <label class="form-label">Period</label>
+  <select class="form-select" [(ngModel)]="graphConfig.period">
+    <option value="1h">1 Hour</option>
+    <option value="6h">6 Hours</option>
+    <option value="24h">24 Hours</option>
+    <option value="7d">7 Days</option>
+    <option value="30d">30 Days</option>
+  </select>
+</div>
+<div class="mb-3">
+  <label class="form-label">Plot Type</label>
+  <select class="form-select" [(ngModel)]="graphConfig.plotType">
+    <option value="line">Line Chart</option>
+    <option value="bar">Bar Chart</option>
+  </select>
+</div>
+@if (graphConfig.plotType === 'line') {
+<div class="mb-3">
+  <label class="form-label">Line Width (px)</label>
+  <input type="number" class="form-control" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
+  <small class="form-text text-muted">Default: 2px</small>
+</div>
+}
+@if (graphConfig.plotType === 'bar') {
+<div class="mb-3">
+  <label class="form-label">Bar Width</label>
+  <input type="number" class="form-control" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
+  <small class="form-text text-muted">Leave empty for automatic width</small>
+</div>
+}
+<div class="mb-3">
+  <label class="form-label">Data Series</label>
+  <small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
+  @if (graphConfig.series && graphConfig.series.length > 0) {
+    <div class="series-list">
+      @for (series of graphConfig.series; track trackByGraphSeries($index, series); let idx = $index) {
+        <div class="series-card card border mb-3">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h6 class="card-subtitle text-muted mb-0">Series {{ idx + 1 }}</h6>
+              <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeGraphSeries(idx)" title="Remove series">
+                <i class="fa fa-times-circle"></i>
+              </button>
+            </div>
+            
+            <div class="row g-2">
+              <!-- Entity Selection -->
+              <div class="col-12">
+                <label class="form-label small mb-1">Entity</label>
+                <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
+                  <option value="">Select entity...</option>
+                  @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
+                    <option [value]="ent.entity_id">{{ formatEntityLabel(ent) }}</option>
+                  }
+                </select>
+              </div>
+              
+              <!-- Label and Color -->
+              <div class="col-8">
+                <label class="form-label small mb-1">Label</label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" [placeholder]="series.entityId || 'Optional label'" />
+                <small class="form-text text-muted d-block mt-1">Leave empty to use entity ID</small>
+              </div>
+              
+              <div class="col-4">
+                <label class="form-label small mb-1">Color</label>
+                <select class="form-select form-select-sm" [(ngModel)]="series.color">
+                  <option [value]="null">Auto</option>
+                  @for (color of colorScheme?.palette; track color) {
+                    <option [value]="color">{{ getColorName(color) }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+  <button type="button" class="btn btn-primary btn-sm w-100" (click)="addGraphSeries()">
+    <i class="fa fa-plus"></i> Add Series
+  </button>
+</div>
+}
+
+@case ('todo') {
+<!-- Todo widget uses the universal entity selector above -->
+<div class="mb-3">
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted">
+    <label class="form-check-label" for="showCompleted">
+      Show completed items
+    </label>
+  </div>
+</div>
+}
+
+@case ('rss-feed') {
+<!-- RSS Feed widget uses the universal entity selector above -->
+<div class="mb-3">
+  <label class="form-label">Widget Title</label>
+  <input type="text" class="form-control" [ngModel]="rssFeedConfig.title" (ngModelChange)="rssFeedConfig.title = $event"
+    placeholder="e.g., Topic of the day" />
+  <small class="form-text text-muted">Optional: Enter a title to display above the RSS entry</small>
+</div>
+}
+
+@case ('app-icon') {
+<div class="mb-3">
+  <label class="form-label">Size (px)</label>
+  <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />
+</div>
+}
+
+@case ('image') {
+@if (widget.config && 'imageUrl' in widget.config) {
+<div class="mb-3">
+  <label class="form-label">Image URL</label>
+  <input type="text" class="form-control" [(ngModel)]="widget.config.imageUrl"
+    placeholder="https://... or /assets/..." />
+</div>
+<div class="mb-3">
+  <label class="form-label">Fit</label>
+  <select class="form-select" [(ngModel)]="widget.config.fit">
+    <option value="contain">Contain</option>
+    <option value="cover">Cover</option>
+    <option value="fill">Fill</option>
+  </select>
+</div>
+}
+}
+
+@case ('version') {
+<div class="text-muted small">
+  <i class="fa fa-info-circle"></i> This widget displays the software version. No configuration needed.
+</div>
+}
+}

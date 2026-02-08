@@ -42,19 +42,24 @@ export class LoginComponent implements OnInit {
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
   private returnUrl = '/dashboards';
+  private hasRedirected = false;
 
   constructor() {
-    // Effect to redirect when authenticated
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboards';
+
     effect(() => {
-      if (this.authService.isAuthReady() && this.authService.isAuthenticated()) {
+      if (!this.hasRedirected &&
+        this.router.url.startsWith('/login') &&
+        this.authService.isAuthReady() &&
+        this.authService.isAuthenticated()) {
+        this.hasRedirected = true;
         this.router.navigate([this.returnUrl]);
       }
     });
   }
 
   ngOnInit(): void {
-    // Get return URL from route parameters or default to '/dashboards'
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboards';
+    // Return URL is already set in constructor
   }
 
   onSubmit(): void {
