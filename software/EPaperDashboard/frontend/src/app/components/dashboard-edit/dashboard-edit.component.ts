@@ -113,25 +113,45 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Dashboard Path</label>
-                  <div class="input-group">
-                    <input 
-                      type="text" 
-                      class="form-control" 
-                      formControlName="path"
-                      id="pathField"
-                    />
-                    <button 
-                      type="button" 
-                      class="btn btn-outline-secondary" 
-                      (click)="openDashboardSelector()"
-                      [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
-                    >
-                      <i class="fa-solid fa-list"></i> Select
+                  <label class="form-label fw-semibold">Rendering Mode</label>
+                  <div class="btn-group d-flex" role="group">
+                    <input type="radio" class="btn-check" name="previewMode" id="ssrMode" value="ssr" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="ssrMode">Custom Layout</label>
+
+                    <input type="radio" class="btn-check" name="previewMode" id="haMode" value="homeassistant" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="haMode">Home Assistant Dashboard</label>
+                  </div>
+                </div>
+
+                @if (previewModeValue === 'ssr') {
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Layout</label>
+                    <button type="button" class="btn btn-success w-100" (click)="openDesigner()">
+                      <i class="fa-solid fa-paint-brush"></i> Open Layout Designer
                     </button>
                   </div>
-                  <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
-                </div>
+                } @else {
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Dashboard Path</label>
+                    <div class="input-group">
+                      <input 
+                        type="text" 
+                        class="form-control" 
+                        formControlName="path"
+                        id="pathField"
+                      />
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-secondary" 
+                        (click)="openDashboardSelector()"
+                        [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
+                      >
+                        <i class="fa-solid fa-list"></i> Select
+                      </button>
+                    </div>
+                    <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
+                  </div>
+                }
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Update Times</label>
@@ -167,13 +187,11 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
           <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
             <i class="fa-solid fa-floppy-disk"></i> Save
           </button>
-          <button type="button" class="btn btn-success" (click)="openDesigner()">
-            <i class="fa-solid fa-paint-brush"></i> Layout Designer
-          </button>
-          <button type="button" class="btn btn-secondary" (click)="openServerSidePreview()" [disabled]="!dashboard()?.layoutConfig" title="Open rendered preview">
-            <i class="fa-solid fa-external-link-alt"></i> Rendered Preview
-          </button>
-          <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
+
+          <!-- Preview Button -->
+          <button type="button" class="btn btn-info" (click)="openPreview()" 
+            [disabled]="disablePreviewButton()"
+            [title]="previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview'">
             <i class="fa-solid fa-eye"></i> Preview
           </button>
         </div>
@@ -233,6 +251,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewError = signal('');
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
+  readonly previewMode = signal<'ssr' | 'homeassistant'>('ssr');
 
   readonly dashboardForm = new FormGroup({
     name: new FormControl('', { validators: Validators.required, nonNullable: true }),
@@ -243,6 +262,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   });
 
   newUpdateTime: string = '';
+  previewModeValue: 'ssr' | 'homeassistant' = 'ssr';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
   private oauthToken: string | null = null;
@@ -505,22 +525,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  openServerSidePreview(): void {
-    const currentDashboard = this.dashboard();
-    if (!currentDashboard) {
-      this.toastService.error('No dashboard loaded');
-      return;
-    }
-
-    if (!currentDashboard.layoutConfig) {
-      this.toastService.error('Please configure the dashboard layout in the designer first');
-      return;
-    }
-
-    // Open SSR preview in new tab
-    window.open(`/api/dashboards/${currentDashboard.id}/render-html`, '_blank');
-  }
-
   async copyApiKey(): Promise<void> {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) return;
@@ -578,7 +582,86 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     });
   }
 
+  disablePreviewButton(): boolean {
+    const mode = this.previewMode();
+    if (mode === 'ssr') {
+      return !this.dashboard()?.layoutConfig;
+    } else {
+      const hostValue = this.dashboardForm.get('host')?.value;
+      const pathValue = this.dashboardForm.get('path')?.value;
+      const currentDashboard = this.dashboard();
+      const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+      return !hostValue || !pathValue || (!currentDashboard?.hasAccessToken && !accessTokenValue);
+    }
+  }
+
   openPreview(): void {
+    this.previewMode.set(this.previewModeValue);
+    
+    if (this.previewMode() === 'ssr') {
+      this.openSsrPreview();
+    } else {
+      this.openHomeAssistantPreview();
+    }
+  }
+
+  private openSsrPreview(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard?.layoutConfig) {
+      this.toastService.error('Please configure the dashboard layout in the designer first');
+      return;
+    }
+
+    this.showPreviewModal.set(true);
+    this.previewLoading.set(true);
+    this.previewError.set('');
+    this.previewImageUrl.set('');
+
+    if (this.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.previewObjectUrl);
+      } catch (e) {}
+      this.previewObjectUrl = null;
+    }
+
+    const url = `/api/dashboards/${currentDashboard.id}/render-image?format=png`;
+
+    this.http.get(url, {
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        const imageUrl = URL.createObjectURL(blob);
+        this.previewObjectUrl = imageUrl;
+        this.previewImageUrl.set(imageUrl);
+        this.previewLoading.set(false);
+      },
+      error: async (error) => {
+        this.previewLoading.set(false);
+        let errorMessage = 'Failed to load SSR preview';
+
+        if (error.error instanceof Blob) {
+          try {
+            const text = await error.error.text();
+            try {
+              const json = JSON.parse(text);
+              errorMessage = json.title || json.error || json.message || text;
+            } catch (jsonError) {
+              errorMessage = text || `HTTP Error ${error.status}`;
+            }
+          } catch (e) {
+            errorMessage = `HTTP Error ${error.status}`;
+          }
+        } else if (error.status) {
+          errorMessage = `HTTP Error ${error.status}`;
+        }
+
+        this.previewError.set(errorMessage);
+        this.toastService.error(errorMessage);
+      }
+    });
+  }
+
+  private openHomeAssistantPreview(): void {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) return;
 
@@ -598,9 +681,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      } catch (e) {}
       this.previewObjectUrl = null;
     }
 
@@ -619,9 +700,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       error: async (error) => {
         this.previewLoading.set(false);
         const dashboard = this.dashboard();
-        let errorMessage = 'Failed to load preview';
+        let errorMessage = 'Failed to load Home Assistant preview';
 
-        // Try to extract error message from blob response
         if (error.error instanceof Blob) {
           try {
             const text = await error.error.text();
