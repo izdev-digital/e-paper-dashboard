@@ -491,3 +491,14 @@
   </div>
   }
 </div>
+
+<!-- Rendered Preview Modal -->
+<app-rendered-preview-modal
+  title="Rendered Preview"
+  [isOpen]="showPreviewModal"
+  [isLoading]="previewLoading"
+  [error]="previewError"
+  [imageUrl]="previewImageUrl"
+  (close)="showPreviewModal.set(false)"
+  (reload)="openRenderedPreview()">
+</app-rendered-preview-modal>

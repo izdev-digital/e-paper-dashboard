@@ -2,11 +2,13 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
+import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 
 import type { TodoItem } from '../../services/home-assistant.service';
 import {
@@ -24,13 +26,14 @@ import {
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, WidgetPreviewComponent, WidgetConfigComponent],
+  imports: [CommonModule, FormsModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
 export class DashboardDesignerComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
   private readonly dashboardService = inject(DashboardService);
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
@@ -82,6 +85,10 @@ export class DashboardDesignerComponent implements OnInit {
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
   widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
+  showPreviewModal = signal(false);
+  previewLoading = signal(false);
+  previewError = signal('');
+  previewImageUrl = signal('');
 
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -89,6 +96,7 @@ export class DashboardDesignerComponent implements OnInit {
   // Drag state
   private dragStartPos = { x: 0, y: 0 };
   private dragStartWidget = { x: 0, y: 0, w: 0, h: 0 };
+  private previewObjectUrl: string | null = null;
 
   ngOnInit(): void {
     this.dashboardId = this.route.snapshot.paramMap.get('id') || '';
@@ -455,7 +463,7 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   previewServerSideRendered(): void {
-    // Save first, then open preview
+    // Save first, then show preview modal
     if (!this.dashboard()) {
       this.toastService.show('No dashboard loaded', 'error');
       return;
@@ -464,8 +472,7 @@ export class DashboardDesignerComponent implements OnInit {
     const layoutConfig = this.layout();
     this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
       next: () => {
-        // Open SSR preview in new tab
-        window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+        this.openRenderedPreview();
       },
       error: (err) => {
         if (err.status === 401 || err.status === 403) {
@@ -474,8 +481,58 @@ export class DashboardDesignerComponent implements OnInit {
         } else {
           this.toastService.show('Failed to save dashboard. Preview may be outdated.', 'warning');
           // Still open preview with last saved version
-          window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+          this.openRenderedPreview();
         }
+      }
+    });
+  }
+
+  openRenderedPreview(): void {
+    this.showPreviewModal.set(true);
+    this.previewLoading.set(true);
+    this.previewError.set('');
+    this.previewImageUrl.set('');
+
+    if (this.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.previewObjectUrl);
+      } catch (e) {}
+      this.previewObjectUrl = null;
+    }
+
+    const url = `/api/dashboards/${this.dashboardId}/render-image?format=png`;
+
+    this.http.get(url, {
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        const imageUrl = URL.createObjectURL(blob);
+        this.previewObjectUrl = imageUrl;
+        this.previewImageUrl.set(imageUrl);
+        this.previewLoading.set(false);
+      },
+      error: async (error) => {
+        this.previewLoading.set(false);
+        let errorMessage = 'Failed to load rendered preview';
+
+        if (error.error instanceof Blob) {
+          try {
+            const text = await error.error.text();
+            try {
+              const json = JSON.parse(text);
+              errorMessage = json.title || json.error || json.message || text;
+            } catch (jsonError) {
+              errorMessage = text || `HTTP Error ${error.status}`;
+            }
+          } catch (e) {
+            errorMessage = `HTTP Error ${error.status}`;
+          }
+        } else if (error.status) {
+          errorMessage = `HTTP Error ${error.status}`;
+        }
+
+        this.previewError.set(errorMessage);
+        this.toastService.show(errorMessage, 'error');
       }
     });
   }

@@ -10,11 +10,12 @@ import { DialogService } from '../../services/dialog.service';
 import { Dashboard } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
+import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
@@ -198,34 +199,15 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
       </form>
 
       <!-- Preview Modal -->
-      @if (showPreviewModal()) {
-        <div class="position-fixed top-0 start-0 w-100 h-100" style="background-color: rgba(0,0,0,0.5); z-index: 1050; overflow: hidden;">
-          <div class="position-absolute top-50 start-50 translate-middle rounded" style="width: 90vw; height: 90vh; max-width: 900px; max-height: 600px; display: flex; flex-direction: column; background-color: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color);">
-            <!-- Modal Header -->
-            <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom: 1px solid var(--bs-border-color);">
-              <h5 class="mb-0">Dashboard Preview</h5>
-              <div class="d-flex gap-2 align-items-center">
-                <button type="button" class="btn btn-sm" title="Reload Preview" (click)="openPreview()">
-                  <i class="fa-solid fa-arrows-rotate"></i>
-                </button>
-                <button type="button" class="btn-close" aria-label="Close" (click)="showPreviewModal.set(false)"></button>
-              </div>
-            </div>
-            <!-- Modal Body -->
-            <div class="flex-grow-1 overflow-auto p-3 d-flex justify-content-center align-items-flex-start" style="background-color: var(--bs-secondary-bg);">
-              @if (previewLoading()) {
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              } @else if (previewError()) {
-                <div class="alert alert-danger mb-0">{{ previewError() }}</div>
-              } @else if (previewImageUrl()) {
-                <img [src]="previewImageUrl()" style="max-width: 100%; height: auto; object-fit: contain;" alt="Dashboard preview" />
-              }
-            </div>
-          </div>
-        </div>
-      }
+      <app-rendered-preview-modal
+        title="Dashboard Preview"
+        [isOpen]="showPreviewModal"
+        [isLoading]="previewLoading"
+        [error]="previewError"
+        [imageUrl]="previewImageUrl"
+        (close)="showPreviewModal.set(false)"
+        (reload)="openPreview()">
+      </app-rendered-preview-modal>
     }
   `
 })
