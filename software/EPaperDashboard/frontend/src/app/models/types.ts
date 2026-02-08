@@ -25,7 +25,7 @@ export interface Dashboard {
   host?: string;
   path?: string;
   updateTimes?: string[];
-  layoutConfig?: string;
+  layoutConfig?: DashboardLayout;
 }
 
 export interface CreateDashboardRequest {
@@ -41,7 +41,7 @@ export interface UpdateDashboardRequest {
   host?: string;
   path?: string;
   updateTimes?: string[];
-  layoutConfig?: string;
+  layoutConfig?: DashboardLayout;
 }
 
 

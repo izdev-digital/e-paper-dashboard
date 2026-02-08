@@ -174,7 +174,7 @@ public record UpdateDashboardRequest(
     string? Host,
     string? Path,
     List<TimeOnly>? UpdateTimes,
-    string? LayoutConfig
+    LayoutConfig? LayoutConfig
 );
 
 // DTO that hides the actual access token from the frontend (only exposes whether one is set)
@@ -188,7 +188,7 @@ public record DashboardResponseDto(
     string? Host,
     string? Path,
     List<TimeOnly>? UpdateTimes,
-    string? LayoutConfig
+    LayoutConfig? LayoutConfig
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard) => new(

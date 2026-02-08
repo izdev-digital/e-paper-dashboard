@@ -107,18 +107,7 @@ export class DashboardDesignerComponent implements OnInit {
       next: (dashboard) => {
         this.dashboard.set(dashboard);
         if (dashboard.layoutConfig) {
-          try {
-            const parsedLayout = JSON.parse(dashboard.layoutConfig);
-            console.log('[Dashboard Designer] Loaded layout with font config:', {
-              titleFontSize: parsedLayout.titleFontSize,
-              textFontSize: parsedLayout.textFontSize,
-              titleFontWeight: parsedLayout.titleFontWeight,
-              textFontWeight: parsedLayout.textFontWeight
-            });
-            this.layout.set(this.normalizeLayout(parsedLayout));
-          } catch (e) {
-            this.toastService.show('Failed to parse layout configuration', 'error');
-          }
+          this.layout.set(this.normalizeLayout(dashboard.layoutConfig));
         }
         this.loadAvailableEntities();
       },
@@ -135,10 +124,8 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     this.entitiesLoading.set(true);
-    console.log('[Dashboard Designer] Loading entities for dashboard:', this.dashboardId);
     this.homeAssistantService.getEntities(this.dashboardId).subscribe({
       next: (entities) => {
-        console.log('[Dashboard Designer] Loaded entities:', entities.length, 'total');
         this.availableEntities.set(entities);
         this.entitiesLoading.set(false);
         this.isLoading.set(false);
@@ -443,13 +430,7 @@ export class DashboardDesignerComponent implements OnInit {
   saveDashboard(): void {
     if (!this.dashboard()) return;
 
-    const layoutConfig = JSON.stringify(this.layout());
-    console.log('[Dashboard Designer] Saving layout with font config:', {
-      titleFontSize: this.layout().titleFontSize,
-      textFontSize: this.layout().textFontSize,
-      titleFontWeight: this.layout().titleFontWeight,
-      textFontWeight: this.layout().textFontWeight
-    });
+    const layoutConfig = this.layout();
     this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
       next: () => {
         this.toastService.show('Dashboard layout saved successfully', 'success');
@@ -513,16 +494,12 @@ export class DashboardDesignerComponent implements OnInit {
 
   updateTitleFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    console.log('[Dashboard Designer] updateTitleFontWeight called:', { input: fontWeight, parsed: weight });
     this.layout.update(layout => ({ ...layout, titleFontWeight: weight }));
-    console.log('[Dashboard Designer] Updated layout titleFontWeight:', this.layout().titleFontWeight);
   }
 
   updateTextFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    console.log('[Dashboard Designer] updateTextFontWeight called:', { input: fontWeight, parsed: weight });
     this.layout.update(layout => ({ ...layout, textFontWeight: weight }));
-    console.log('[Dashboard Designer] Updated layout textFontWeight:', this.layout().textFontWeight);
   }
 
   updateCanvasBackgroundColor(color: string): void {
@@ -627,7 +604,7 @@ export class DashboardDesignerComponent implements OnInit {
 
   // Helper method to check if widget has any color overrides
   hasWidgetColorOverrides(widget: WidgetConfig | null): boolean {
-    return widget?.colorOverrides !== undefined && Object.keys(widget.colorOverrides).length > 0;
+    return !!widget?.colorOverrides && Object.keys(widget.colorOverrides).length > 0;
   }
 
 

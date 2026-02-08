@@ -25,15 +25,14 @@ import { HomeAssistantService, HassEntity } from '../../services/home-assistant.
   styleUrls: ['./widget-config.component.scss']
 })
 export class WidgetConfigComponent implements OnChanges {
-  // TrackBy function for badges in ngFor
-  // TrackBy function for badges in ngFor — use index to avoid re-rendering while editing
   trackByBadgeLabel(index: number, badge: any) {
     return index;
   }
-  // TrackBy function for entities in ngFor
+
   trackByEntityId(index: number, entity: any) {
     return entity.entity_id || index;
   }
+
   private readonly homeAssistantService = inject(HomeAssistantService);
 
   formatEntityLabel(entity: any): string {
@@ -108,7 +107,6 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // If availableEntities input is provided, use it instead of fetching
     if (changes['availableEntities']) {
       const mapped = this.availableEntities.map(e => ({
         entity_id: e.entityId,
@@ -129,7 +127,6 @@ export class WidgetConfigComponent implements OnChanges {
       this.loadingEntities.set(this.entitiesLoading);
     }
 
-    // Fallback: only fetch if no availableEntities provided
     if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && this.availableEntities.length === 0) {
       this.loadEntities();
     }
@@ -137,7 +134,6 @@ export class WidgetConfigComponent implements OnChanges {
 
   getFilteredEntities(): any[] {
     const allEntities = this.entities();
-    console.log('[Widget Config] Total entities available:', allEntities.length, 'for widget type:', this.widget.type);
 
     const getDomain = (entity: any): string => {
       if (entity?.domain) {
@@ -184,7 +180,6 @@ export class WidgetConfigComponent implements OnChanges {
             domain === 'zone'
           );
         });
-        console.log('[Widget Config] Filtered graph entities:', filtered.length);
         return filtered;
       default:
         return allEntities;

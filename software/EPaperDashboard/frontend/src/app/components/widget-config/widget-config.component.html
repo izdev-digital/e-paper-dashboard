@@ -1,5 +1,3 @@
-<!-- Debug logs removed -->
-<!-- Universal Title Override -->
 @if (widget.type !== 'header' && widget.type !== 'markdown' && widget.type !== 'version') {
 <div class="mb-3">
   <label class="form-label">Widget Title (Optional)</label>
@@ -9,11 +7,17 @@
   <small class="form-text text-muted">Leave empty to use default title</small>
 </div>
 }
-<!-- Universal Entity Selection Dropdown -->
-@if (entities().length > 0 && widget.config && 'entityId' in widget.config && widget.type !== 'graph') {
+@if (widget.type !== 'graph' && widget.config && ('entityId' in widget.config)) {
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-3">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+    </div>
+  }
+}
+@if (entities().length > 0 && widget.config && ('entityId' in widget.config) && widget.type !== 'graph') {
 <div class="mb-3">
   <label class="form-label">Data Source Entity</label>
-  <select class="form-select" [(ngModel)]="widget.config.entityId">
+  <select class="form-select" [(ngModel)]="widget.config.entityId" (ngModelChange)="onPropertyChanged()">
     <option value="">Select entity...</option>
     @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
     <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
