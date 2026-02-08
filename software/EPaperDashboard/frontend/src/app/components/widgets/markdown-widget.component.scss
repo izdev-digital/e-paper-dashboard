@@ -1,14 +1,68 @@
 .markdown-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
+  padding: 0.5rem;
+  box-sizing: border-box;
 }
 
 .markdown-content {
   font-size: 0.85rem;
   word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  
+  // Normalize paragraph spacing
+  & :deep(p) {
+    margin: 0.25rem 0;
+    line-height: 1.5;
+  }
+  
+  // Normalize heading spacing
+  & :deep(h1),
+  & :deep(h2),
+  & :deep(h3),
+  & :deep(h4),
+  & :deep(h5),
+  & :deep(h6) {
+    margin: 0.25rem 0;
+    line-height: 1.3;
+    font-size: inherit;
+  }
+  
+  // Normalize list spacing
+  & :deep(ul),
+  & :deep(ol) {
+    margin: 0.25rem 0;
+    padding-left: 1.5rem;
+    
+    & li {
+      margin: 0.1rem 0;
+      line-height: 1.5;
+    }
+  }
+  
+  // Ensure code doesn't overflow
+  & :deep(code) {
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  
+  & :deep(blockquote) {
+    margin: 0.25rem 0;
+    padding-left: 0.5rem;
+  }
+  
+  // Ensure tables fit
+  & :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+  }
 }
