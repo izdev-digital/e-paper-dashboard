@@ -18,7 +18,12 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
-    <h2>Edit Dashboard</h2>
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <button type="button" class="btn btn-secondary" (click)="onCancel()">
+        <i class="fa-solid fa-arrow-left"></i> Back
+      </button>
+      <h2 class="mb-0">Edit Dashboard</h2>
+    </div>
 
     @if (isLoading()) {
       <div class="text-center my-5">
@@ -161,9 +166,6 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
         <div class="d-flex flex-wrap gap-2">
           <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
             <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-          <button type="button" class="btn btn-secondary" (click)="onCancel()">
-            <i class="fa-solid fa-arrow-left"></i> Close
           </button>
           <button type="button" class="btn btn-success" (click)="openDesigner()">
             <i class="fa-solid fa-paint-brush"></i> Layout Designer

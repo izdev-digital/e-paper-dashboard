@@ -10,7 +10,12 @@ import { Dashboard } from '../../models/types';
   imports: [CommonModule],
   template: `
     <div class="container mt-5">
-      <h2 class="text-center">Delete Dashboard</h2>
+      <div class="d-flex align-items-center gap-3 mb-4">
+        <button type="button" class="btn btn-secondary" (click)="onCancel()">
+          <i class="fa fa-arrow-left"></i> Back
+        </button>
+        <h2 class="mb-0">Delete Dashboard</h2>
+      </div>
       
       @if (isLoading()) {
         <div class="text-center my-5">
