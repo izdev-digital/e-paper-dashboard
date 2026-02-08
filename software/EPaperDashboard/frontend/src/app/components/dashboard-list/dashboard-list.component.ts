@@ -15,11 +15,12 @@ import { Dashboard } from '../../models/types';
   imports: [CommonModule, RouterModule, ToastContainerComponent],
   template: `
     <app-toast-container></app-toast-container>
-    <h1>Dashboards</h1>
-
-    <p>
-      <a routerLink="/dashboards/create" class="btn btn-primary mb-3">Create New Dashboard</a>
-    </p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">Dashboards</h1>
+      <a routerLink="/dashboards/create" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Create New Dashboard
+      </a>
+    </div>
 
     @if (isLoading()) {
       <div class="text-center my-5">

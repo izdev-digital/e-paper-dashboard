@@ -19,12 +19,6 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
-    <div class="d-flex align-items-center gap-3 mb-4">
-      <button type="button" class="btn btn-secondary" (click)="onCancel()">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </button>
-      <h2 class="mb-0">Edit Dashboard</h2>
-    </div>
 
     @if (isLoading()) {
       <div class="text-center my-5">
@@ -34,6 +28,24 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
       </div>
     } @else if (dashboard()) {
       <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-secondary" (click)="onCancel()">
+              <i class="fa-solid fa-arrow-left"></i> Back
+            </button>
+            <h2 class="mb-0">Edit Dashboard</h2>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success" (click)="openPreview()" 
+              [disabled]="disablePreviewButton()"
+              [title]="previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview'">
+              <i class="fa-solid fa-eye"></i> Preview
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
+              <i class="fa-solid fa-floppy-disk"></i> Save
+            </button>
+          </div>
+        </div>
         <div class="card shadow-sm mb-3">
           <div class="card-body">
             <div class="row g-4">
@@ -184,18 +196,6 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
           </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
-          <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-
-          <!-- Preview Button -->
-          <button type="button" class="btn btn-info" (click)="openPreview()" 
-            [disabled]="disablePreviewButton()"
-            [title]="previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview'">
-            <i class="fa-solid fa-eye"></i> Preview
-          </button>
-        </div>
       </form>
 
       <!-- Preview Modal -->
