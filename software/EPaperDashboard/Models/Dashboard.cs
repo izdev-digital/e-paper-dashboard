@@ -2,6 +2,12 @@ using LiteDB;
 
 namespace EPaperDashboard.Models
 {
+    public enum RenderingMode
+    {
+        Custom = 0,
+        HomeAssistant = 1
+    }
+
     public class Dashboard
     {
         [BsonId]
@@ -16,5 +22,6 @@ namespace EPaperDashboard.Models
         public List<TimeOnly>? UpdateTimes { get; set; }
         public LayoutConfig? LayoutConfig { get; set; }
         public DateTimeOffset? LastUpdateTime { get; set; }
+        public RenderingMode RenderingMode { get; set; } = RenderingMode.Custom;
     }
 }

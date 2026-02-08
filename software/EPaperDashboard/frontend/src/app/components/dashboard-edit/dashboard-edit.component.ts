@@ -116,10 +116,10 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Rendering Mode</label>
                   <div class="btn-group d-flex" role="group">
-                    <input type="radio" class="btn-check" name="previewMode" id="ssrMode" value="ssr" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" />
+                    <input type="radio" class="btn-check" name="previewMode" id="ssrMode" value="ssr" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
                     <label class="btn btn-outline-secondary flex-grow-1" for="ssrMode">Custom Layout</label>
 
-                    <input type="radio" class="btn-check" name="previewMode" id="haMode" value="homeassistant" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" />
+                    <input type="radio" class="btn-check" name="previewMode" id="haMode" value="homeassistant" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
                     <label class="btn btn-outline-secondary flex-grow-1" for="haMode">Home Assistant Dashboard</label>
                   </div>
                 </div>
@@ -298,6 +298,15 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.updateTimes.set([]);
           this.originalUpdateTimes = [];
         }
+
+        // Load rendering mode preference
+        if (dashboard.renderingMode === 'HomeAssistant') {
+          this.previewModeValue = 'homeassistant';
+        } else {
+          this.previewModeValue = 'ssr';
+        }
+        this.previewMode.set(this.previewModeValue);
+
         this.isLoading.set(false);
 
         // Now process OAuth if we have a token
@@ -446,7 +455,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       description: formValue.description || undefined,
       host: formValue.host || undefined,
       path: formValue.path || undefined,
-      updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined
+      updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
+      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom'
     };
 
     if (formValue.accessToken?.trim().length > 0) {
@@ -562,6 +572,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.onSubmit();
       }
     });
+  }
+
+  onRenderingModeChange(): void {
+    this.dashboardForm.markAsDirty();
   }
 
   disablePreviewButton(): boolean {

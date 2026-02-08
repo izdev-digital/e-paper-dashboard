@@ -4,7 +4,7 @@
  * Compiled from the Angular component SCSS files by build-ssr-css.js.
  * Do NOT edit manually — changes will be overwritten on the next build.
  *
- * Generated: 2026-02-08T15:10:49.819Z
+ * Generated: 2026-02-08T16:06:09.389Z
  * Sources:   10 widget SCSS + widget-preview + ssr-base.css
  */
 /*
@@ -20,7 +20,6 @@
 
 body {
   margin: 0;
-  padding: 20px;
   background: #f0f0f0;
   display: flex;
   justify-content: center;

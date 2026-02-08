@@ -2,6 +2,7 @@
 using EPaperDashboard.Services.Rendering;
 using SixLabors.ImageSharp.Processing;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using EPaperDashboard.Utilities;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Models.Rendering;
@@ -21,7 +22,8 @@ namespace EPaperDashboard.Controllers;
 [Authorize(Policy = "ApiKeyPolicy")]
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
-	DashboardService dashboardService) : ControllerBase
+	DashboardService dashboardService,
+	DashboardHtmlRenderingService dashboardHtmlRenderingService) : ControllerBase
 {
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
@@ -70,7 +72,74 @@ public sealed class RenderToImageController(
 		}
 
 		var dashboard = dashboardResult.Value;
-		var dashboardInfo = dashboardResult.Bind(GetDashboardInfo);
+
+		// Check rendering mode and route to appropriate renderer
+		if (dashboard.RenderingMode == RenderingMode.Custom)
+		{
+			return await RenderCustomLayoutImage(dashboard, imageSize, format, transform);
+		}
+		else
+		{
+			return await RenderHomeAssistantImage(dashboard, imageSize, format, transform);
+		}
+	}
+
+	private async Task<IActionResult> RenderCustomLayoutImage(
+		Dashboard dashboard,
+		Size imageSize,
+		string format,
+		Func<IImage, IImage>? transform = null)
+	{
+		if (dashboard.LayoutConfig == null)
+		{
+			return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
+		}
+
+		var (contentType, encoder) = GetEncoder(format);
+
+		try
+		{
+			// Serialize LayoutConfig object to JSON with camelCase naming for JavaScript compatibility
+			var serializerOptions = new JsonSerializerOptions
+			{
+				PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+				WriteIndented = false
+			};
+			var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.LayoutConfig, serializerOptions);
+
+			var html = await dashboardHtmlRenderingService.RenderDashboardHtmlAsync(
+				dashboard.Id.ToString(),
+				layoutConfigJson);
+
+			var size = new Size(
+				dashboard.LayoutConfig.Width > 0 ? dashboard.LayoutConfig.Width : imageSize.Width,
+				dashboard.LayoutConfig.Height > 0 ? dashboard.LayoutConfig.Height : imageSize.Height);
+
+			var imageResult = await renderingService.RenderHtmlAsync(html, size);
+			if (imageResult.IsFailure)
+				return StatusCode(500, imageResult.Error);
+
+			var resultImage = transform?.Invoke(imageResult.Value) ?? imageResult.Value;
+
+			// Update last update time on successful render
+			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
+			dashboardService.UpdateDashboard(dashboard);
+
+			return await ConvertToResult(resultImage, encoder, contentType);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
+		}
+	}
+
+	private async Task<IActionResult> RenderHomeAssistantImage(
+		Dashboard dashboard,
+		Size imageSize,
+		string format,
+		Func<IImage, IImage>? transform = null)
+	{
+		var dashboardInfo = GetDashboardInfo(dashboard);
 		if (dashboardInfo.HasNoValue)
 		{
 			return NotFound("Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.");

@@ -26,6 +26,7 @@ export interface Dashboard {
   path?: string;
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
+  renderingMode?: 'Custom' | 'HomeAssistant';
 }
 
 export interface CreateDashboardRequest {
@@ -42,6 +43,7 @@ export interface UpdateDashboardRequest {
   path?: string;
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
+  renderingMode?: 'Custom' | 'HomeAssistant';
 }
 
 
