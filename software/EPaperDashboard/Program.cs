@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Security.Claims;
 using LiteDB;
 
 var configValidation = EnvironmentConfiguration.ValidateConfiguration();
@@ -70,17 +71,14 @@ builder.Services
 	.AddSingleton<DashboardService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
+	.AddSingleton<HomeAssistantEnvironmentService>()
 	.AddSingleton<DashboardHtmlRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
 
-builder.Services.AddAuthentication(options =>
-{
-	options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-	options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-})
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
 	options.LoginPath = "/Login";
@@ -150,20 +148,24 @@ builder.Services.AddSpaStaticFiles(configuration =>
 var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
+var haEnvironment = app.Services.GetRequiredService<HomeAssistantEnvironmentService>();
+
 logger.LogInformation("Configuration directory: {ConfigDir}", EnvironmentConfiguration.ConfigDir);
 logger.LogInformation("Client URL: {ClientUrl}", EnvironmentConfiguration.ClientUri);
+logger.LogInformation("Running in Home Assistant add-on mode: {IsHAMode}", haEnvironment.IsValidHomeAssistantEnvironment());
 
-// Seed superuser if not exists using registered LiteDbContext and UserService
 using (var scope = app.Services.CreateScope())
 {
-	var userService = scope.ServiceProvider.GetRequiredService<UserService>();
-	if (!userService.HasSuperUser())
+	if (!haEnvironment.IsValidHomeAssistantEnvironment())
 	{
-		userService.TryCreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
+		var userService = scope.ServiceProvider.GetRequiredService<UserService>();
+		if (!userService.HasSuperUser())
+		{
+			userService.TryCreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
+		}
 	}
 }
 
-// Configure forwarded headers for ingress/proxy scenarios
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
@@ -178,19 +180,46 @@ if (app.Environment.IsDevelopment())
 }
 #endif
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-	// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 	app.UseHsts();
 }
 
 app.UseRouting();
+
+app.Use(async (context, next) =>
+{
+	var haEnv = context.RequestServices.GetRequiredService<HomeAssistantEnvironmentService>();
+	if (haEnv.IsValidHomeAssistantEnvironment() && context.Request.Headers.ContainsKey("X-Ingress-Path"))
+	{
+		var claims = new List<Claim>
+		{
+			new Claim(ClaimTypes.NameIdentifier, "ha-admin"),
+			new Claim(ClaimTypes.Name, "Home Assistant Admin"),
+			new Claim("IsSuperUser", "true"),
+			new Claim("HomeAssistantIngress", "true")
+		};
+		var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+		context.User = new ClaimsPrincipal(identity);
+		
+		var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+		if (path.StartsWith("/api/auth/") || path.StartsWith("/api/users/"))
+		{
+			if (path != "/api/auth/current")
+			{
+				context.Response.StatusCode = 403;
+				await context.Response.WriteAsJsonAsync(new { message = "User management is disabled in Home Assistant add-on mode" });
+				return;
+			}
+		}
+	}
+	await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Serve Angular SPA
 app.UseSpaStaticFiles();
 app.UseSpa(spa =>
 {
@@ -203,7 +232,7 @@ app.UseSpa(spa =>
 });
 
 app.Run();
-// Custom JSON converter for LiteDB ObjectId to serialize as hex string
+
 public class ObjectIdJsonConverter : JsonConverter<ObjectId>
 {
 	public override ObjectId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -222,7 +251,6 @@ public class ObjectIdJsonConverter : JsonConverter<ObjectId>
 	}
 }
 
-// Custom JSON converter for TimeOnly to handle serialization/deserialization
 public class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
 {
 	private const string Format = "HH:mm";
@@ -238,7 +266,6 @@ public class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
 		{
 			return result;
 		}
-		// Try parsing without specific format as fallback
 		return TimeOnly.Parse(value);
 	}
 

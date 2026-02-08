@@ -89,7 +89,7 @@ COPY --from=publish /app/publish .
 COPY --from=playwright /ms-playwright/ /home/app/.cache/ms-playwright/
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
 RUN chmod +x /app/.playwright/node/*/node
-RUN mkdir -p /app/config && chown app:app /app/config && chmod 770 /app/config
+RUN mkdir -p /data && chown app:app /data && chmod 770 /data
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
