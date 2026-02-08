@@ -170,6 +170,9 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
           <button type="button" class="btn btn-success" (click)="openDesigner()">
             <i class="fa-solid fa-paint-brush"></i> Layout Designer
           </button>
+          <button type="button" class="btn btn-secondary" (click)="openServerSidePreview()" [disabled]="!dashboard()?.layoutConfig" title="Open rendered preview">
+            <i class="fa-solid fa-external-link-alt"></i> Rendered Preview
+          </button>
           <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
             <i class="fa-solid fa-eye"></i> Preview
           </button>
@@ -500,6 +503,22 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     if (id) {
       this.router.navigate(['/dashboards', id, 'designer']);
     }
+  }
+
+  openServerSidePreview(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard) {
+      this.toastService.error('No dashboard loaded');
+      return;
+    }
+
+    if (!currentDashboard.layoutConfig) {
+      this.toastService.error('Please configure the dashboard layout in the designer first');
+      return;
+    }
+
+    // Open SSR preview in new tab
+    window.open(`/api/dashboards/${currentDashboard.id}/render-html`, '_blank');
   }
 
   async copyApiKey(): Promise<void> {

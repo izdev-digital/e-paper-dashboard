@@ -450,6 +450,36 @@ export class DashboardDesignerComponent implements OnInit {
     this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
   }
 
+  openRenderedDashboard(): void {
+    window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+  }
+
+  previewServerSideRendered(): void {
+    // Save first, then open preview
+    if (!this.dashboard()) {
+      this.toastService.show('No dashboard loaded', 'error');
+      return;
+    }
+
+    const layoutConfig = this.layout();
+    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
+      next: () => {
+        // Open SSR preview in new tab
+        window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+      },
+      error: (err) => {
+        if (err.status === 401 || err.status === 403) {
+          this.toastService.show('Authentication error. Please log in again.', 'error');
+          this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+        } else {
+          this.toastService.show('Failed to save dashboard. Preview may be outdated.', 'warning');
+          // Still open preview with last saved version
+          window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+        }
+      }
+    });
+  }
+
   updateColorScheme(scheme: ColorScheme): void {
     this.layout.update(layout => ({ ...layout, colorScheme: scheme }));
   }

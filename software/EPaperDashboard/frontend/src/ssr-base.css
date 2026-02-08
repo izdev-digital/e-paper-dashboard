@@ -1,0 +1,69 @@
+/*
+ * SSR Base Styles
+ * ---------------
+ * Styles specific to server-side rendering that don't exist in any
+ * Angular component SCSS file.  This file is consumed by build-ssr-css.js
+ * and prepended to the compiled widget CSS.
+ */
+
+/* ===== RESET ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ===== WIDGET CONTAINER (grid cell) ===== */
+.widget-container {
+  overflow: visible;
+  padding: 8px;
+  position: relative;
+}
+
+/* ===== QR CODE INLINE SVG ===== */
+/* SSR renders QR codes as inline SVG; Angular uses <img> via qrcode npm package */
+.qr-code-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ===== IMAGE WIDGET ===== */
+/* Angular keeps these styles inline in image-widget.component.ts (no SCSS file) */
+.image-widget-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.image-widget-container img {
+  width: 100%;
+  height: 100%;
+  object-position: center;
+}
+
+/* ===== GRAPH WIDGET SVG ===== */
+/* SSR renders Chart.js-equivalent graphs as SVG; Angular uses <canvas> */
+.graph-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== MARKDOWN TYPOGRAPHY ===== */
+/* Additional heading/list styles for server-rendered markdown content */
+.markdown-content h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+.markdown-content h2 { font-size: 1.2rem; font-weight: 600; margin-bottom: 4px; }
+.markdown-content h3 { font-size: 1rem; font-weight: 600; margin-bottom: 2px; }
+.markdown-content p  { margin: 0 0 4px; }
+.markdown-content ul,
+.markdown-content ol { padding-left: 16px; margin: 0 0 4px; }

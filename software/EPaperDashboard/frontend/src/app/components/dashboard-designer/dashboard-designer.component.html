@@ -9,6 +9,9 @@
           <h2 class="mb-0">Dashboard Designer - {{ dashboard()?.name }}</h2>
         </div>
         <div>
+          <button class="btn btn-success me-2" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
+            <i class="fa fa-external-link-alt"></i> Rendered Preview
+          </button>
           <button class="btn btn-info me-2" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()">
             @if (livePreviewLoading()) {
             <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
