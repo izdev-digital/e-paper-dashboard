@@ -126,6 +126,15 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         if (request.Path != null) updatedDashboard.Path = request.Path;
         if (request.UpdateTimes != null) updatedDashboard.UpdateTimes = request.UpdateTimes;
         if (request.LayoutConfig != null) updatedDashboard.LayoutConfig = request.LayoutConfig;
+        
+        // Handle rendering mode
+        if (request.RenderingMode != null)
+        {
+            if (Enum.TryParse<RenderingMode>(request.RenderingMode, out var renderingMode))
+            {
+                updatedDashboard.RenderingMode = renderingMode;
+            }
+        }
 
         _dashboardService.UpdateDashboard(updatedDashboard);
 
@@ -174,7 +183,8 @@ public record UpdateDashboardRequest(
     string? Host,
     string? Path,
     List<TimeOnly>? UpdateTimes,
-    LayoutConfig? LayoutConfig
+    LayoutConfig? LayoutConfig,
+    string? RenderingMode
 );
 
 // DTO that hides the actual access token from the frontend (only exposes whether one is set)
@@ -188,7 +198,8 @@ public record DashboardResponseDto(
     string? Host,
     string? Path,
     List<TimeOnly>? UpdateTimes,
-    LayoutConfig? LayoutConfig
+    LayoutConfig? LayoutConfig,
+    string? RenderingMode
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard) => new(
@@ -201,6 +212,7 @@ public record DashboardResponseDto(
         Host: dashboard.Host,
         Path: dashboard.Path,
         UpdateTimes: dashboard.UpdateTimes,
-        LayoutConfig: dashboard.LayoutConfig
+        LayoutConfig: dashboard.LayoutConfig,
+        RenderingMode: dashboard.RenderingMode.ToString()
     );
 }

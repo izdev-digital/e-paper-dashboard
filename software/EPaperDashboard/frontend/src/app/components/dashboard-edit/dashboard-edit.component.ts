@@ -10,20 +10,37 @@ import { DialogService } from '../../services/dialog.service';
 import { Dashboard } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
+import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
+  styles: [`
+    .btn-group[role="group"] {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .btn-group[role="group"] .btn {
+      flex: none !important;
+    }
+
+    .d-flex.align-items-center.gap-3 {
+      min-width: 0;
+    }
+
+    h2 {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  `],
   template: `
     <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
-    <div class="d-flex align-items-center gap-3 mb-4">
-      <button type="button" class="btn btn-secondary" (click)="onCancel()">
-        <i class="fa-solid fa-arrow-left"></i> Back
-      </button>
-      <h2 class="mb-0">Edit Dashboard</h2>
-    </div>
 
     @if (isLoading()) {
       <div class="text-center my-5">
@@ -33,6 +50,24 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
       </div>
     } @else if (dashboard()) {
       <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-secondary" (click)="onCancel()">
+              <i class="fa-solid fa-arrow-left"></i> Back
+            </button>
+            <h2 class="mb-0">Edit Dashboard</h2>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success" (click)="openPreview()" 
+              [disabled]="disablePreviewButton()"
+              [title]="previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview'">
+              <i class="fa-solid fa-eye"></i> Preview
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
+              <i class="fa-solid fa-floppy-disk"></i> Save
+            </button>
+          </div>
+        </div>
         <div class="card shadow-sm mb-3">
           <div class="card-body">
             <div class="row g-4">
@@ -113,25 +148,45 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Dashboard Path</label>
-                  <div class="input-group">
-                    <input 
-                      type="text" 
-                      class="form-control" 
-                      formControlName="path"
-                      id="pathField"
-                    />
-                    <button 
-                      type="button" 
-                      class="btn btn-outline-secondary" 
-                      (click)="openDashboardSelector()"
-                      [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
-                    >
-                      <i class="fa-solid fa-list"></i> Select
+                  <label class="form-label fw-semibold">Rendering Mode</label>
+                  <div class="btn-group d-flex" role="group">
+                    <input type="radio" class="btn-check" name="previewMode" id="ssrMode" value="ssr" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="ssrMode">Custom Layout</label>
+
+                    <input type="radio" class="btn-check" name="previewMode" id="haMode" value="homeassistant" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="haMode">Home Assistant Dashboard</label>
+                  </div>
+                </div>
+
+                @if (previewModeValue === 'ssr') {
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Layout</label>
+                    <button type="button" class="btn btn-success w-100" (click)="openDesigner()">
+                      <i class="fa-solid fa-paint-brush"></i> Open Layout Designer
                     </button>
                   </div>
-                  <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
-                </div>
+                } @else {
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Dashboard Path</label>
+                    <div class="input-group">
+                      <input 
+                        type="text" 
+                        class="form-control" 
+                        formControlName="path"
+                        id="pathField"
+                      />
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-secondary" 
+                        (click)="openDashboardSelector()"
+                        [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
+                      >
+                        <i class="fa-solid fa-list"></i> Select
+                      </button>
+                    </div>
+                    <small class="form-text text-muted">Example: lovelace/0 or lovelace/energy</small>
+                  </div>
+                }
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Update Times</label>
@@ -163,48 +218,18 @@ import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/d
           </div>
         </div>
 
-        <div class="d-flex flex-wrap gap-2">
-          <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
-            <i class="fa-solid fa-floppy-disk"></i> Save
-          </button>
-          <button type="button" class="btn btn-success" (click)="openDesigner()">
-            <i class="fa-solid fa-paint-brush"></i> Layout Designer
-          </button>
-          <button type="button" class="btn btn-info" (click)="openPreview()" [disabled]="!dashboardForm.get('host')?.value || !dashboardForm.get('path')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)">
-            <i class="fa-solid fa-eye"></i> Preview
-          </button>
-        </div>
       </form>
 
       <!-- Preview Modal -->
-      @if (showPreviewModal()) {
-        <div class="position-fixed top-0 start-0 w-100 h-100" style="background-color: rgba(0,0,0,0.5); z-index: 1050; overflow: hidden;">
-          <div class="position-absolute top-50 start-50 translate-middle rounded" style="width: 90vw; height: 90vh; max-width: 900px; max-height: 600px; display: flex; flex-direction: column; background-color: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color);">
-            <!-- Modal Header -->
-            <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom: 1px solid var(--bs-border-color);">
-              <h5 class="mb-0">Dashboard Preview</h5>
-              <div class="d-flex gap-2 align-items-center">
-                <button type="button" class="btn btn-sm" title="Reload Preview" (click)="openPreview()">
-                  <i class="fa-solid fa-arrows-rotate"></i>
-                </button>
-                <button type="button" class="btn-close" aria-label="Close" (click)="showPreviewModal.set(false)"></button>
-              </div>
-            </div>
-            <!-- Modal Body -->
-            <div class="flex-grow-1 overflow-auto p-3 d-flex justify-content-center align-items-flex-start" style="background-color: var(--bs-secondary-bg);">
-              @if (previewLoading()) {
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              } @else if (previewError()) {
-                <div class="alert alert-danger mb-0">{{ previewError() }}</div>
-              } @else if (previewImageUrl()) {
-                <img [src]="previewImageUrl()" style="max-width: 100%; height: auto; object-fit: contain;" alt="Dashboard preview" />
-              }
-            </div>
-          </div>
-        </div>
-      }
+      <app-rendered-preview-modal
+        title="Dashboard Preview"
+        [isOpen]="showPreviewModal"
+        [isLoading]="previewLoading"
+        [error]="previewError"
+        [imageUrl]="previewImageUrl"
+        (close)="showPreviewModal.set(false)"
+        (reload)="openPreview()">
+      </app-rendered-preview-modal>
     }
   `
 })
@@ -230,6 +255,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewError = signal('');
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
+  readonly previewMode = signal<'ssr' | 'homeassistant'>('ssr');
 
   readonly dashboardForm = new FormGroup({
     name: new FormControl('', { validators: Validators.required, nonNullable: true }),
@@ -240,6 +266,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   });
 
   newUpdateTime: string = '';
+  previewModeValue: 'ssr' | 'homeassistant' = 'ssr';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
   private oauthToken: string | null = null;
@@ -293,6 +320,15 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.updateTimes.set([]);
           this.originalUpdateTimes = [];
         }
+
+        // Load rendering mode preference
+        if (dashboard.renderingMode === 'HomeAssistant') {
+          this.previewModeValue = 'homeassistant';
+        } else {
+          this.previewModeValue = 'ssr';
+        }
+        this.previewMode.set(this.previewModeValue);
+
         this.isLoading.set(false);
 
         // Now process OAuth if we have a token
@@ -441,7 +477,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       description: formValue.description || undefined,
       host: formValue.host || undefined,
       path: formValue.path || undefined,
-      updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined
+      updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
+      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom'
     };
 
     if (formValue.accessToken?.trim().length > 0) {
@@ -559,7 +596,90 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     });
   }
 
+  onRenderingModeChange(): void {
+    this.dashboardForm.markAsDirty();
+  }
+
+  disablePreviewButton(): boolean {
+    const mode = this.previewMode();
+    if (mode === 'ssr') {
+      return !this.dashboard()?.layoutConfig;
+    } else {
+      const hostValue = this.dashboardForm.get('host')?.value;
+      const pathValue = this.dashboardForm.get('path')?.value;
+      const currentDashboard = this.dashboard();
+      const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+      return !hostValue || !pathValue || (!currentDashboard?.hasAccessToken && !accessTokenValue);
+    }
+  }
+
   openPreview(): void {
+    this.previewMode.set(this.previewModeValue);
+    
+    if (this.previewMode() === 'ssr') {
+      this.openSsrPreview();
+    } else {
+      this.openHomeAssistantPreview();
+    }
+  }
+
+  private openSsrPreview(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard?.layoutConfig) {
+      this.toastService.error('Please configure the dashboard layout in the designer first');
+      return;
+    }
+
+    this.showPreviewModal.set(true);
+    this.previewLoading.set(true);
+    this.previewError.set('');
+    this.previewImageUrl.set('');
+
+    if (this.previewObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.previewObjectUrl);
+      } catch (e) {}
+      this.previewObjectUrl = null;
+    }
+
+    const url = `/api/dashboards/${currentDashboard.id}/render-image?format=png`;
+
+    this.http.get(url, {
+      responseType: 'blob'
+    }).subscribe({
+      next: (blob) => {
+        const imageUrl = URL.createObjectURL(blob);
+        this.previewObjectUrl = imageUrl;
+        this.previewImageUrl.set(imageUrl);
+        this.previewLoading.set(false);
+      },
+      error: async (error) => {
+        this.previewLoading.set(false);
+        let errorMessage = 'Failed to load SSR preview';
+
+        if (error.error instanceof Blob) {
+          try {
+            const text = await error.error.text();
+            try {
+              const json = JSON.parse(text);
+              errorMessage = json.title || json.error || json.message || text;
+            } catch (jsonError) {
+              errorMessage = text || `HTTP Error ${error.status}`;
+            }
+          } catch (e) {
+            errorMessage = `HTTP Error ${error.status}`;
+          }
+        } else if (error.status) {
+          errorMessage = `HTTP Error ${error.status}`;
+        }
+
+        this.previewError.set(errorMessage);
+        this.toastService.error(errorMessage);
+      }
+    });
+  }
+
+  private openHomeAssistantPreview(): void {
     const currentDashboard = this.dashboard();
     if (!currentDashboard) return;
 
@@ -579,9 +699,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      } catch (e) {}
       this.previewObjectUrl = null;
     }
 
@@ -600,9 +718,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       error: async (error) => {
         this.previewLoading.set(false);
         const dashboard = this.dashboard();
-        let errorMessage = 'Failed to load preview';
+        let errorMessage = 'Failed to load Home Assistant preview';
 
-        // Try to extract error message from blob response
         if (error.error instanceof Blob) {
           try {
             const text = await error.error.text();

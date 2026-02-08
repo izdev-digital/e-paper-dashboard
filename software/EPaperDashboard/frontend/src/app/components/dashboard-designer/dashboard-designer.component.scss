@@ -1,6 +1,20 @@
-// Dashboard Designer component styles
+.d-flex.align-items-center.gap-3 {
+  min-width: 0;
+  
+  h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 
-// Grid layout for the three main panels
+.d-flex.justify-content-between > div {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+}
+
 .designer-grid-container {
   display: grid;
   grid-template-columns: 2fr 7fr 3fr;
@@ -28,7 +42,6 @@
   min-width: 0;
 }
 
-// Make designer panels match canvas height
 .col-md-2 .card,
 .col-md-3 .card {
   display: flex;
@@ -49,7 +62,6 @@
   }
 }
 
-// Merge custom-tab-bar-scroll with card-header styling
 .designer-panel-right .card-header {
   display: flex;
   flex-direction: row;
@@ -86,7 +98,6 @@
   display: none;
 }
 
-// Tab scroll wrapper and buttons (legacy)
 .tab-scroll-wrapper {
   display: flex;
   align-items: center;
@@ -196,10 +207,6 @@
   font-weight: 500;
 }
 
-// Canvas area
-/* Ensure the canvas wrapper can scroll when the canvas is larger than the viewport.
-   Use a viewport-based max-height so internal scrollbars appear instead of relying
-   on the page body (which is overflow:hidden). */
 .canvas-wrapper {
   width: 100%;
   overflow: auto;
@@ -266,7 +273,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   overflow: auto;
 }
 
-// Widget toolbar items
 .widget-item {
   cursor: pointer;
   background-color: var(--bs-body-bg, #f8f9fa);
@@ -415,12 +421,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   font-size: 0.7rem;
 }
 
-.canvas-wrapper {
-  min-height: 600px;
-  padding: 20px;
-  background: #f5f5f5;
-}
-
 .grid-overlay {
   position: absolute;
   top: 0;
@@ -452,7 +452,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   font-size: 1rem;
 }
 
-// Right panel settings scrolling
 .designer-panel-right .card>.card-body {
   display: flex;
   flex-direction: column;
@@ -503,7 +502,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   background: #f8f9fa;
 }
 
-// Widget item responsive layout for smaller screens
 .widget-item-content {
   display: flex;
   flex-direction: column;

@@ -60,4 +60,30 @@ internal sealed class PageToImageRenderingService(
 		
 		return _imageFactory.Load(screenshot);
 	});
+
+	public Task<Result<IImage>> RenderHtmlAsync(string html, Size size) => Result.Try(async () =>
+	{
+		Guard.NotNull(html);
+
+		using var playwright = await Playwright.CreateAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync();
+
+		var context = await browser.NewContextAsync(new BrowserNewContextOptions
+		{
+			ViewportSize = new ViewportSize { Width = size.Width, Height = size.Height }
+		});
+
+		var page = await context.NewPageAsync();
+		await page.SetContentAsync(html, new PageSetContentOptions
+		{
+			WaitUntil = WaitUntilState.NetworkIdle,
+			Timeout = 10000
+		});
+
+		var screenshot = await page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Png });
+
+		_logger.LogInformation("Rendered SSR HTML ({Size} bytes)", screenshot.Length);
+
+		return _imageFactory.Load(screenshot);
+	});
 }
