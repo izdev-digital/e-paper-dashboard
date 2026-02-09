@@ -16,6 +16,7 @@ export class AuthService {
   readonly authReady = this.authReadySignal.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
   readonly isAuthReady = computed(() => this.authReadySignal());
+  readonly isHomeAssistantMode = computed(() => this.currentUserSignal()?.isHomeAssistantMode ?? false);
 
   login(credentials: LoginRequest): Observable<User> {
     return this.http.post<User>('/api/auth/login', credentials).pipe(

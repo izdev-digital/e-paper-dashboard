@@ -3,6 +3,7 @@ export interface User {
   username: string;
   nickname?: string;
   isSuperUser: boolean;
+  isHomeAssistantMode?: boolean;
 }
 
 export interface LoginRequest {

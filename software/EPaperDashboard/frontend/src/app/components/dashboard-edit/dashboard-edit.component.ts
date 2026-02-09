@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { HomeAssistantService } from '../../services/home-assistant.service';
+import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { Dashboard } from '../../models/types';
@@ -101,51 +102,58 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
               </div>
 
               <div class="col-12 col-lg-6">
-                <div class="mb-3">
-                  <label class="form-label fw-semibold">Dashboard Host</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    formControlName="host"
-                    placeholder="https://your-ha-instance.com" 
-                  />
-                </div>
-
-                <div class="mb-3">
-                  <label class="form-label fw-semibold">Access Token</label>
-                  <div class="input-group">
+                @if (!isHomeAssistantMode()) {
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Dashboard Host</label>
                     <input 
-                      type="password" 
+                      type="text" 
                       class="form-control" 
-                      formControlName="accessToken"
-                      placeholder="Paste token or click Fetch Token..." 
+                      formControlName="host"
+                      placeholder="https://your-ha-instance.com" 
                     />
-                    <button 
-                      type="button" 
-                      class="btn btn-outline-primary" 
-                      (click)="authenticateWithHomeAssistant()"
-                      [disabled]="isAuthenticating()"
-                      title="Authenticate via Home Assistant OAuth"
-                    >
-                      <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
-                    </button>
-                    @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label fw-semibold">Access Token</label>
+                    <div class="input-group">
+                      <input 
+                        type="password" 
+                        class="form-control" 
+                        formControlName="accessToken"
+                        placeholder="Paste token or click Fetch Token..." 
+                      />
                       <button 
                         type="button" 
-                        class="btn btn-outline-danger" 
-                        (click)="clearAccessToken()"
-                        title="Clear the access token"
+                        class="btn btn-outline-primary" 
+                        (click)="authenticateWithHomeAssistant()"
+                        [disabled]="isAuthenticating()"
+                        title="Authenticate via Home Assistant OAuth"
                       >
-                        <i class="fa-solid fa-trash"></i> Clear
+                        <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
                       </button>
-                    }
+                      @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
+                        <button 
+                          type="button" 
+                          class="btn btn-outline-danger" 
+                          (click)="clearAccessToken()"
+                          title="Clear the access token"
+                        >
+                          <i class="fa-solid fa-trash"></i> Clear
+                        </button>
+                      }
+                    </div>
+                    <small class="form-text text-muted d-block mt-2">
+                      @if (dashboard()?.hasAccessToken) {
+                        <span class="d-block mt-1 text-success">Token is configured</span>
+                      }
+                    </small>
                   </div>
-                  <small class="form-text text-muted d-block mt-2">
-                    @if (dashboard()?.hasAccessToken) {
-                      <span class="d-block mt-1 text-success">Token is configured</span>
-                    }
-                  </small>
-                </div>
+                }
+                @else {
+                  <div class="alert alert-info">
+                    <i class="fa-solid fa-info-circle"></i> Home Assistant add-on mode: Using supervisor credentials for authentication
+                  </div>
+                }
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Rendering Mode</label>
@@ -179,7 +187,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                         type="button" 
                         class="btn btn-outline-secondary" 
                         (click)="openDashboardSelector()"
-                        [disabled]="!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value)"
+                        [disabled]="isHomeAssistantMode() ? false : (!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value))"
                       >
                         <i class="fa-solid fa-list"></i> Select
                       </button>
@@ -236,12 +244,15 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
 export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly dashboardService = inject(DashboardService);
   private readonly homeAssistantService = inject(HomeAssistantService);
+  private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
+
+  readonly isHomeAssistantMode = this.authService.isHomeAssistantMode;
 
   @ViewChild(DashboardSelectorDialogComponent) dashboardSelectorDialog!: DashboardSelectorDialogComponent;
 
@@ -426,11 +437,19 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   openDashboardSelector(): void {
     const currentDashboard = this.dashboard();
-    const hostValue = this.dashboardForm.get('host')?.value;
-    const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
-    if (!currentDashboard || !hostValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
-      this.toastService.error('Please configure host and access token first.');
+    if (!currentDashboard) {
+      this.toastService.error('Dashboard not loaded.');
       return;
+    }
+
+    // In Home Assistant mode, skip host/token validation (using supervisor credentials)
+    if (!this.isHomeAssistantMode()) {
+      const hostValue = this.dashboardForm.get('host')?.value;
+      const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+      if (!hostValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
+        this.toastService.error('Please configure host and access token first.');
+        return;
+      }
     }
 
     this.dashboardSelectorDialog.openWithLoading();

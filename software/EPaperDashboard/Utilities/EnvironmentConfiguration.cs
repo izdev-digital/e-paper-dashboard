@@ -33,8 +33,7 @@ public static class EnvironmentConfiguration
 	private static readonly Lazy<TimeSpan> _dashboardMissedScheduleTolerance = new(() =>
 		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardMissedScheduleToleranceMinutesKey, 15))); // 15 minutes default
 
-	private static readonly Lazy<string> _configDir = new(() =>
-		Path.Combine(AppContext.BaseDirectory, "config"));
+	private static readonly Lazy<string> _configDir = new(() => "/data");
 
 	public static Uri ClientUri => Guard.NotNull(_clientUri.Value);
 
@@ -54,13 +53,13 @@ public static class EnvironmentConfiguration
 	{
 		try
 		{
-			var configFile = Path.Combine(ConfigDir, "environment.json");
-			if (!File.Exists(configFile))
+			var optionsFile = Path.Combine(ConfigDir, "options.json");
+			if (!File.Exists(optionsFile))
 			{
 				return null;
 			}
 
-			var json = File.ReadAllText(configFile);
+			var json = File.ReadAllText(optionsFile);
 			return JsonDocument.Parse(json);
 		}
 		catch
@@ -131,7 +130,7 @@ public static class EnvironmentConfiguration
 		{
 			var message = $"""
 				Missing required configuration: {string.Join(", ", missingConfigs)}.
-				Please set them as environment variables or in config/environment.json file.
+				Please set them as environment variables or in /data/options.json file.
 				""";
 			return UnitResult.Failure(message);
 		}

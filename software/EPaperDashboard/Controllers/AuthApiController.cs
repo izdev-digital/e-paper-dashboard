@@ -99,10 +99,28 @@ public class AuthApiController(UserService userService) : ControllerBase
     {
         if (!User.Identity?.IsAuthenticated ?? true)
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "Not authenticated." });
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var username = User.FindFirst(ClaimTypes.Name)?.Value;
+        var isSuperUser = User.FindFirst("IsSuperUser")?.Value == "true";
+        var isHAIngress = User.FindFirst("HomeAssistantIngress")?.Value == "true";
+
+        // In Home Assistant mode, return simplified user info
+        if (isHAIngress)
+        {
+            return Ok(new
+            {
+                id = userId,
+                username = username,
+                nickname = username,
+                isSuperUser = isSuperUser,
+                isHomeAssistantMode = true
+            });
+        }
+
+        // In standalone mode, get full user details from database
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
@@ -119,7 +137,8 @@ public class AuthApiController(UserService userService) : ControllerBase
             id = user.Value.Id.ToString(),
             username = user.Value.Username,
             nickname = user.Value.Nickname,
-            isSuperUser = user.Value.IsSuperUser
+            isSuperUser = user.Value.IsSuperUser,
+            isHomeAssistantMode = false
         });
     }
 }
