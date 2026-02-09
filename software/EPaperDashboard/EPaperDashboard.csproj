@@ -42,12 +42,6 @@
     <!-- Exclude frontend source files from publish -->
     <Content Remove="$(SpaRoot)**" />
     <None Remove="$(SpaRoot)**" />
-    
-    <!-- Include only the built Angular files -->
-    <Content Include="$(SpaRoot)dist/frontend/browser/**" Condition="Exists('$(SpaRoot)dist/frontend/browser')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
   </ItemGroup>
 
   <!-- Build Angular app during .NET publish -->
@@ -58,7 +52,7 @@
 
   <!-- Clean Angular build output -->
   <Target Name="CleanAngularApp" AfterTargets="Clean">
-    <RemoveDir Directories="$(SpaRoot)dist" />
+    <RemoveDir Directories="wwwroot" />
     <RemoveDir Directories="$(SpaRoot).angular" />
   </Target>
 

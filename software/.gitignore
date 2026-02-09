@@ -183,6 +183,13 @@ orleans.codegen.cs
 
 /node_modules
 
+# Angular build output
+dist/
+.angular/
+
+# Built frontend static files (wwwroot)
+wwwroot/
+
 # RIA/Silverlight projects
 Generated_Code/
 

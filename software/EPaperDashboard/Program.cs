@@ -27,10 +27,6 @@ builder.Services.AddControllers()
 		options.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
 		options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 	});
-builder.Services.AddSpaStaticFiles(configuration =>
-{
-	configuration.RootPath = "frontend/dist/frontend/browser";
-});
 
 #if DEBUG
 builder.Services.AddSwaggerGen(options =>
@@ -139,12 +135,6 @@ builder.Services.Configure<RazorPagesOptions>(options =>
 	options.Conventions.AllowAnonymousToPage("/Privacy");
 });
 
-// Configure SPA static files
-builder.Services.AddSpaStaticFiles(configuration =>
-{
-	configuration.RootPath = "frontend/dist/frontend/browser";
-});
-
 var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -218,7 +208,7 @@ app.Use(async (context, next) =>
 
 	if (context.Request.Path == "/" || context.Request.Path == "/index.html")
 	{
-		var indexPath = Path.Combine(app.Environment.ContentRootPath, "frontend", "dist", "frontend", "browser", "index.html");
+		var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
 		if (File.Exists(indexPath))
 		{
 			var html = await File.ReadAllTextAsync(indexPath);
@@ -268,11 +258,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-app.UseSpaStaticFiles();
+app.UseStaticFiles();
 app.UseSpa(spa =>
 {
-	spa.Options.SourcePath = "frontend";
-
 	if (app.Environment.IsDevelopment())
 	{
 		spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
