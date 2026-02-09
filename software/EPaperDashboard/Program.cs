@@ -185,6 +185,54 @@ if (!app.Environment.IsDevelopment())
 	app.UseHsts();
 }
 
+app.Use(async (context, next) =>
+{
+	if (app.Environment.IsDevelopment())
+	{
+		await next();
+		return;
+	}
+
+	var haEnv = context.RequestServices.GetRequiredService<HomeAssistantEnvironmentService>();
+	if (!haEnv.IsValidHomeAssistantEnvironment()
+		|| !context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPathValues))
+	{
+		await next();
+		return;
+	}
+
+	var ingressPath = ingressPathValues.ToString();
+	if (string.IsNullOrWhiteSpace(ingressPath))
+	{
+		await next();
+		return;
+	}
+
+	if (!ingressPath.StartsWith('/'))
+	{
+		ingressPath = "/" + ingressPath;
+	}
+
+	ingressPath = ingressPath.TrimEnd('/');
+	context.Request.PathBase = new PathString(ingressPath);
+
+	if (context.Request.Path == "/" || context.Request.Path == "/index.html")
+	{
+		var indexPath = Path.Combine(app.Environment.ContentRootPath, "frontend", "dist", "frontend", "browser", "index.html");
+		if (File.Exists(indexPath))
+		{
+			var html = await File.ReadAllTextAsync(indexPath);
+			var baseHref = ingressPath + "/";
+			html = html.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
+			context.Response.ContentType = "text/html; charset=utf-8";
+			await context.Response.WriteAsync(html);
+			return;
+		}
+	}
+
+	await next();
+});
+
 app.UseRouting();
 
 app.Use(async (context, next) =>
