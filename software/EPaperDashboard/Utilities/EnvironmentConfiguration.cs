@@ -49,6 +49,8 @@ public static class EnvironmentConfiguration
 
 	public static string ConfigDir => _configDir.Value;
 
+	public static string DataProtectionKeysDir => Path.Combine(ConfigDir, "DataProtection-Keys");
+
 	private static JsonDocument? LoadJsonConfig()
 	{
 		try

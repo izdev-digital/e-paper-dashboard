@@ -6,6 +6,7 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,6 +21,12 @@ if (configValidation.IsFailure)
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+var dataProtectionKeysDir = EnvironmentConfiguration.DataProtectionKeysDir;
+Directory.CreateDirectory(dataProtectionKeysDir);
+builder.Services.AddDataProtection()
+	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDir));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
