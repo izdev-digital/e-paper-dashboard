@@ -83,9 +83,10 @@ FROM base AS final
 WORKDIR /app
 EXPOSE 8128
 COPY --from=publish /app/publish .
-COPY --from=playwright /ms-playwright/ /home/app/.cache/ms-playwright/
-ENV PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
+COPY --from=playwright /ms-playwright/ /.cache/ms-playwright/
+ENV PLAYWRIGHT_BROWSERS_PATH=/.cache/ms-playwright
 RUN chmod +x /app/.playwright/node/*/node
+RUN chmod -R 755 /.cache/ms-playwright
 RUN mkdir -p /data/DataProtection-Keys && chown -R app:app /data && chmod -R 770 /data
 USER app
 
