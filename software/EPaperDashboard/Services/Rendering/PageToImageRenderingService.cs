@@ -40,7 +40,7 @@ internal sealed class PageToImageRenderingService(
 		Guard.NotNull(authrorizationStrategy);
 		
 		using var playwright = await Playwright.CreateAsync();
-		await using var browser = await playwright.Chromium.LaunchAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
 		
 		var context = await browser.NewContextAsync(new BrowserNewContextOptions
 		{
@@ -66,7 +66,7 @@ internal sealed class PageToImageRenderingService(
 		Guard.NotNull(html);
 
 		using var playwright = await Playwright.CreateAsync();
-		await using var browser = await playwright.Chromium.LaunchAsync();
+		await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
 
 		var context = await browser.NewContextAsync(new BrowserNewContextOptions
 		{
@@ -86,4 +86,22 @@ internal sealed class PageToImageRenderingService(
 
 		return _imageFactory.Load(screenshot);
 	});
+
+	/// <summary>
+	/// Gets browser launch options with appropriate security settings.
+	/// When running as root (e.g., in Home Assistant addon), disables sandbox.
+	/// </summary>
+	private static BrowserTypeLaunchOptions GetLaunchOptions()
+	{
+		var options = new BrowserTypeLaunchOptions();
+		
+		// Chromium doesn't allow running as root without --no-sandbox
+		// This is safe in containerized environments like HA addons
+		if (Environment.UserName == "root" || Environment.GetEnvironmentVariable("USER") == "root")
+		{
+			options.Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" };
+		}
+		
+		return options;
+	}
 }
