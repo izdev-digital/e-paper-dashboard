@@ -90,4 +90,5 @@ RUN chmod -R 755 /.cache/ms-playwright
 RUN mkdir -p /data/DataProtection-Keys && chown -R app:app /data && chmod -R 770 /data
 USER app
 
-ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]
+# Use CMD instead of ENTRYPOINT for better compatibility with HA addon wrappers
+CMD ["dotnet", "EPaperDashboard.dll"]
