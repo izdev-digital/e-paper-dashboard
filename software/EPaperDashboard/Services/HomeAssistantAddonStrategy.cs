@@ -126,7 +126,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
         // Rewrite index.html with correct base href
         if (context.Request.Path == "/" || context.Request.Path == "/index.html")
         {
-            var indexPath = Path.Combine(environment.WebRootPath, "index.html");
+            var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
             if (File.Exists(indexPath))
             {
                 var html = await File.ReadAllTextAsync(indexPath);
