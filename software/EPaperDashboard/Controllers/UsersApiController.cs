@@ -9,14 +9,12 @@ namespace EPaperDashboard.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize]
-public class UsersApiController(UserService userService) : ControllerBase
+public class UsersApiController(UserService userService) : BaseApiController
 {
-    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
-
     [HttpPost("change-nickname")]
     public IActionResult ChangeNickname([FromBody] ChangeNicknameRequest request)
     {
-        if (userService.TryChangeNickname(UserId, request.NewNickname))
+        if (userService.TryChangeNickname(CurrentUserId, request.NewNickname))
         {
             return Ok(new { message = string.IsNullOrWhiteSpace(request.NewNickname) ? "Nickname cleared." : "Nickname changed successfully." });
         }
@@ -39,7 +37,7 @@ public class UsersApiController(UserService userService) : ControllerBase
             return BadRequest(new { message = "New password and confirmation do not match." });
         }
 
-        if (userService.TryChangePassword(UserId, request.CurrentPassword, request.NewPassword))
+        if (userService.TryChangePassword(CurrentUserId, request.CurrentPassword, request.NewPassword))
         {
             return Ok(new { message = "Password changed successfully." });
         }
@@ -50,7 +48,7 @@ public class UsersApiController(UserService userService) : ControllerBase
     [HttpDelete("delete-profile")]
     public IActionResult DeleteProfile()
     {
-        if (userService.TryDeleteUser(UserId))
+        if (userService.TryDeleteUser(CurrentUserId))
         {
             return Ok(new { message = "Profile deleted successfully." });
         }

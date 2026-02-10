@@ -21,4 +21,13 @@ public static class Constants
 
     public const string HassHttpClientName = nameof(HassHttpClientName);
 
+    // Home Assistant Constants
+    public const string SupervisorCoreUrl = "http://supervisor/core";
+    public const string IngressPathHeader = "X-Ingress-Path";
+    
+    // Claim Types
+    public const string IsSuperUserClaim = "IsSuperUser";
+    public const string HomeAssistantIngressClaim = "HomeAssistantIngress";
+    public const string HomeAssistantAdminUserId = "ha-admin";
+    public const string HomeAssistantAdminUserName = "Home Assistant Admin";
 }

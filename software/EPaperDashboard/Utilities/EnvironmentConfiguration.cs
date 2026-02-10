@@ -1,6 +1,4 @@
 ﻿using System.Text.Json;
-using CSharpFunctionalExtensions;
-using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Utilities;
 
@@ -35,13 +33,19 @@ public static class EnvironmentConfiguration
 
 	private static readonly Lazy<string> _configDir = new(() => "/data");
 
-	public static Uri ClientUri => Guard.NotNull(_clientUri.Value);
+	private static readonly Lazy<bool> _isHomeAssistantAddon = new(() =>
+		!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN"))
+		&& Directory.Exists("/data"));
 
-	public static string SuperUserUsername => Guard.NeitherNullNorWhitespace(_superuserUsername.Value);
+	public static bool IsHomeAssistantAddon => _isHomeAssistantAddon.Value;
 
-	public static string SuperUserPassword => Guard.NeitherNullNorWhitespace(_superuserPassword.Value);
+	public static Uri? ClientUri => _clientUri.Value;
 
-	public static string StateSigningKey => Guard.NeitherNullNorWhitespace(_stateSigningKey.Value);
+	public static string? SuperUserUsername => _superuserUsername.Value;
+
+	public static string? SuperUserPassword => _superuserPassword.Value;
+
+	public static string? StateSigningKey => _stateSigningKey.Value;
 
 	public static TimeSpan DashboardScheduleCheckInterval => _dashboardScheduleCheckInterval.Value;
 
@@ -102,41 +106,5 @@ public static class EnvironmentConfiguration
 	{
 		var stringValue = GetStringFromEnvOrConfig(key);
 		return int.TryParse(stringValue, out var intValue) ? intValue : defaultValue;
-	}
-
-	public static UnitResult<string> ValidateConfiguration()
-	{
-		var missingConfigs = new List<string>();
-
-		if (_clientUri.Value is null)
-		{
-			missingConfigs.Add(ClientUrlKey);
-		}
-
-		if (string.IsNullOrWhiteSpace(_superuserUsername.Value))
-		{
-			missingConfigs.Add(SuperuserUsernameKey);
-		}
-
-		if (string.IsNullOrWhiteSpace(_superuserPassword.Value))
-		{
-			missingConfigs.Add(SuperuserPasswordKey);
-		}
-
-		if (string.IsNullOrWhiteSpace(_stateSigningKey.Value))
-		{
-			missingConfigs.Add(StateSigningKeyKey);
-		}
-
-		if (missingConfigs.Count > 0)
-		{
-			var message = $"""
-				Missing required configuration: {string.Join(", ", missingConfigs)}.
-				Please set them as environment variables or in /data/options.json file.
-				""";
-			return UnitResult.Failure(message);
-		}
-
-		return UnitResult.Success<string>();
 	}
 }

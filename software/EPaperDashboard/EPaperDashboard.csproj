@@ -44,11 +44,17 @@
     <None Remove="$(SpaRoot)**" />
   </ItemGroup>
 
-  <!-- Build Angular app during .NET publish -->
-  <Target Name="BuildAngularApp" BeforeTargets="Build" Condition="'$(SkipAngularBuild)' != 'true'">
-    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" />
+  <!-- Reusable Angular build target -->
+  <Target Name="BuildAngular" Condition="'$(SkipAngularBuild)' != 'true'">
+    <Exec Command="npm ci" WorkingDirectory="$(SpaRoot)" Condition="!Exists('$(SpaRoot)node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="$(SpaRoot)" />
   </Target>
+
+  <!-- Build Angular during .NET build -->
+  <Target Name="BuildAngularApp" BeforeTargets="BeforeBuild;BeforeRebuild" DependsOnTargets="BuildAngular" />
+  
+  <!-- Ensure Angular is built before publish -->
+  <Target Name="EnsureAngularBuilt" BeforeTargets="PrepareForPublish" DependsOnTargets="BuildAngular" />
 
   <!-- Clean Angular build output -->
   <Target Name="CleanAngularApp" AfterTargets="Clean">

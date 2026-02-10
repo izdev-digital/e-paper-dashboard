@@ -10,17 +10,15 @@ namespace EPaperDashboard.Controllers;
 [ApiController]
 [Route("api/dashboards")]
 [Authorize]
-public class DashboardApiController(DashboardService dashboardService, UserService userService) : ControllerBase
+public class DashboardApiController(DashboardService dashboardService, UserService userService) : BaseApiController
 {
     private readonly DashboardService _dashboardService = dashboardService;
     private readonly UserService _userService = userService;
 
-    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
-
     [HttpGet]
     public IActionResult GetDashboards()
     {
-        var user = _userService.GetUserById(UserId);
+        var user = _userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
         {
             return Unauthorized();
@@ -50,7 +48,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(UserId);
+        var user = _userService.GetUserById(CurrentUserId);
         if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
         {
             return Forbid();
@@ -62,7 +60,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPost]
     public IActionResult CreateDashboard([FromBody] CreateDashboardRequest request)
     {
-        var user = _userService.GetUserById(UserId);
+        var user = _userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
         {
             return Unauthorized();
@@ -102,7 +100,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(UserId);
+        var user = _userService.GetUserById(CurrentUserId);
         if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
         {
             return Forbid();
@@ -161,7 +159,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(UserId);
+        var user = _userService.GetUserById(CurrentUserId);
         if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
         {
             return Forbid();

@@ -4,12 +4,13 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using EPaperDashboard.Services;
+using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthApiController(UserService userService) : ControllerBase
+public class AuthApiController(UserService userService) : BaseApiController
 {
     private readonly UserService _userService = userService;
 
@@ -72,7 +73,7 @@ public class AuthApiController(UserService userService) : ControllerBase
         {
             new Claim(ClaimTypes.NameIdentifier, user.Value.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Value.Username),
-            new Claim("IsSuperUser", user.Value.IsSuperUser.ToString().ToLower())
+            new Claim(Constants.IsSuperUserClaim, user.Value.IsSuperUser.ToString().ToLower())
         };
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
@@ -103,9 +104,9 @@ public class AuthApiController(UserService userService) : ControllerBase
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var username = User.FindFirst(ClaimTypes.Name)?.Value;
-        var isSuperUser = User.FindFirst("IsSuperUser")?.Value == "true";
-        var isHAIngress = User.FindFirst("HomeAssistantIngress")?.Value == "true";
+        var username = CurrentUsername;
+        var isSuperUser = IsSuperUser;
+        var isHAIngress = IsHomeAssistantIngress;
 
         // In Home Assistant mode, return simplified user info
         if (isHAIngress)

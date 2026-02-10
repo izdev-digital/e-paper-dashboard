@@ -30,9 +30,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libcups2 \
   && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /home/app/.aspnet/DataProtection-Keys \
-  && chown -R app:app /home/app/.aspnet/DataProtection-Keys \
-  && chmod -R 700 /home/app/.aspnet/DataProtection-Keys
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=0
 
@@ -89,7 +86,7 @@ COPY --from=publish /app/publish .
 COPY --from=playwright /ms-playwright/ /home/app/.cache/ms-playwright/
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
 RUN chmod +x /app/.playwright/node/*/node
-RUN mkdir -p /data && chown app:app /data && chmod 770 /data
+RUN mkdir -p /data/DataProtection-Keys && chown -R app:app /data && chmod -R 770 /data
 USER app
 
 ENTRYPOINT ["dotnet", "EPaperDashboard.dll"]

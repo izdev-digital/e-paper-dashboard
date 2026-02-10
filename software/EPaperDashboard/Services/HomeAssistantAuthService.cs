@@ -14,7 +14,10 @@ public class HomeAssistantAuthService(
     private readonly ILogger<HomeAssistantAuthService> _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private static readonly Lazy<byte[]> _stateSigningKey = new(() => 
-        Encoding.UTF8.GetBytes(EnvironmentConfiguration.StateSigningKey));
+    {
+        var key = EnvironmentConfiguration.StateSigningKey;
+        return key != null ? Encoding.UTF8.GetBytes(key) : Array.Empty<byte>();
+    });
     private static byte[] StateSigningKey => _stateSigningKey.Value;
     
     private readonly ConcurrentDictionary<string, bool> _activeAuthFlows = new();
@@ -66,6 +69,13 @@ public class HomeAssistantAuthService(
 
         try
         {
+            if (EnvironmentConfiguration.ClientUri == null)
+            {
+                _activeAuthFlows.TryRemove(dashboardId, out _);
+                _authFlowTimestamps.TryRemove(dashboardId, out _);
+                return AuthStartResult.Failure("CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.");
+            }
+
             var hostUri = new Uri(host);
             var clientId = EnvironmentConfiguration.ClientUri.ToString().TrimEnd('/');
             var redirectUri = $"{clientId}/api/homeassistant/callback";
@@ -126,6 +136,11 @@ public class HomeAssistantAuthService(
 
         try
         {
+            if (EnvironmentConfiguration.ClientUri == null)
+            {
+                return AuthCallbackResult.Failure(stateData.DashboardId, "CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.");
+            }
+
             var clientId = EnvironmentConfiguration.ClientUri.ToString().TrimEnd('/');
             var tokenUrl = $"{stateData.Host}/auth/token";
 
