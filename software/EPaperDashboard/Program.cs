@@ -6,20 +6,43 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Security.Claims;
 using LiteDB;
 
-var configValidation = EnvironmentConfiguration.ValidateConfiguration();
-if (configValidation.IsFailure)
+var builder = WebApplication.CreateBuilder(args);
+
+// Register deployment strategy based on environment
+if (EnvironmentConfiguration.IsHomeAssistantAddon)
 {
-	Console.Error.WriteLine($"Configuration Error: {configValidation.Error}");
+	builder.Services.AddSingleton<IDeploymentStrategy, HomeAssistantAddonStrategy>();
+}
+else
+{
+	builder.Services.AddSingleton<IDeploymentStrategy, StandaloneStrategy>();
+}
+
+// Validate configuration using strategy
+IDeploymentStrategy validationStrategy = EnvironmentConfiguration.IsHomeAssistantAddon
+	? new HomeAssistantAddonStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HomeAssistantAddonStrategy>())
+	: new StandaloneStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<StandaloneStrategy>());
+
+var validationResult = validationStrategy.ValidateConfiguration();
+if (validationResult.IsFailure)
+{
+	Console.Error.WriteLine($"Configuration Error: {validationResult.Error}");
 	Environment.Exit(1);
 }
 
-var builder = WebApplication.CreateBuilder(args);
+var dataProtectionKeysDir = EnvironmentConfiguration.DataProtectionKeysDir;
+Directory.CreateDirectory(dataProtectionKeysDir);
+builder.Services.AddDataProtection()
+	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDir));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
@@ -67,7 +90,6 @@ builder.Services
 	.AddSingleton<DashboardService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
-	.AddSingleton<HomeAssistantEnvironmentService>()
 	.AddSingleton<DashboardHtmlRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
 
@@ -100,7 +122,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
 
 builder.Services.AddAuthorizationBuilder()
-	.AddPolicy("SuperUserOnly", policy => policy.RequireClaim("IsSuperUser", "true"))
+	.AddPolicy("SuperUserOnly", policy => policy.RequireClaim(Constants.IsSuperUserClaim, "true"))
 	.AddPolicy("ApiKeyPolicy", policy =>
 	{
 		policy.RequireAssertion(context =>
@@ -138,22 +160,12 @@ builder.Services.Configure<RazorPagesOptions>(options =>
 var app = builder.Build();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-var haEnvironment = app.Services.GetRequiredService<HomeAssistantEnvironmentService>();
+var strategy = app.Services.GetRequiredService<IDeploymentStrategy>();
 
-logger.LogInformation("Configuration directory: {ConfigDir}", EnvironmentConfiguration.ConfigDir);
-logger.LogInformation("Client URL: {ClientUrl}", EnvironmentConfiguration.ClientUri);
-logger.LogInformation("Running in Home Assistant add-on mode: {IsHAMode}", haEnvironment.IsValidHomeAssistantEnvironment());
-
+// Perform deployment-specific initial setup
 using (var scope = app.Services.CreateScope())
 {
-	if (!haEnvironment.IsValidHomeAssistantEnvironment())
-	{
-		var userService = scope.ServiceProvider.GetRequiredService<UserService>();
-		if (!userService.HasSuperUser())
-		{
-			userService.TryCreateUser(EnvironmentConfiguration.SuperUserUsername, EnvironmentConfiguration.SuperUserPassword, isSuperUser: true);
-		}
-	}
+	strategy.PerformInitialSetup(scope.ServiceProvider);
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -161,7 +173,10 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
 });
 
-app.UseCors(builder => builder.WithOrigins("*"));
+app.UseCors(builder => builder
+	.AllowAnyOrigin()
+	.AllowAnyMethod()
+	.AllowAnyHeader());
 
 #if DEBUG
 if (app.Environment.IsDevelopment())
@@ -183,41 +198,11 @@ app.Use(async (context, next) =>
 		return;
 	}
 
-	var haEnv = context.RequestServices.GetRequiredService<HomeAssistantEnvironmentService>();
-	if (!haEnv.IsValidHomeAssistantEnvironment()
-		|| !context.Request.Headers.TryGetValue("X-Ingress-Path", out var ingressPathValues))
+	var deploymentStrategy = context.RequestServices.GetRequiredService<IDeploymentStrategy>();
+	var processed = await deploymentStrategy.ProcessIngressPathAsync(context, app.Environment);
+	if (processed)
 	{
-		await next();
 		return;
-	}
-
-	var ingressPath = ingressPathValues.ToString();
-	if (string.IsNullOrWhiteSpace(ingressPath))
-	{
-		await next();
-		return;
-	}
-
-	if (!ingressPath.StartsWith('/'))
-	{
-		ingressPath = "/" + ingressPath;
-	}
-
-	ingressPath = ingressPath.TrimEnd('/');
-	context.Request.PathBase = new PathString(ingressPath);
-
-	if (context.Request.Path == "/" || context.Request.Path == "/index.html")
-	{
-		var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
-		if (File.Exists(indexPath))
-		{
-			var html = await File.ReadAllTextAsync(indexPath);
-			var baseHref = ingressPath + "/";
-			html = html.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
-			context.Response.ContentType = "text/html; charset=utf-8";
-			await context.Response.WriteAsync(html);
-			return;
-		}
 	}
 
 	await next();
@@ -227,30 +212,29 @@ app.UseRouting();
 
 app.Use(async (context, next) =>
 {
-	var haEnv = context.RequestServices.GetRequiredService<HomeAssistantEnvironmentService>();
-	if (haEnv.IsValidHomeAssistantEnvironment() && context.Request.Headers.ContainsKey("X-Ingress-Path"))
+	var deploymentStrategy = context.RequestServices.GetRequiredService<IDeploymentStrategy>();
+	var principal = deploymentStrategy.AuthenticateViaIngress(context);
+	
+	if (principal != null)
 	{
-		var claims = new List<Claim>
-		{
-			new Claim(ClaimTypes.NameIdentifier, "ha-admin"),
-			new Claim(ClaimTypes.Name, "Home Assistant Admin"),
-			new Claim("IsSuperUser", "true"),
-			new Claim("HomeAssistantIngress", "true")
-		};
-		var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-		context.User = new ClaimsPrincipal(identity);
+		context.User = principal;
 		
-		var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
-		if (path.StartsWith("/api/auth/") || path.StartsWith("/api/users/"))
+		// Block user management endpoints in HA add-on mode
+		if (!deploymentStrategy.IsUserManagementEnabled)
 		{
-			if (path != "/api/auth/current")
+			var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+			if (path.StartsWith("/api/auth/") || path.StartsWith("/api/users/"))
 			{
-				context.Response.StatusCode = 403;
-				await context.Response.WriteAsJsonAsync(new { message = "User management is disabled in Home Assistant add-on mode" });
-				return;
+				if (path != "/api/auth/current")
+				{
+					context.Response.StatusCode = 403;
+					await context.Response.WriteAsJsonAsync(new { message = "User management is disabled in Home Assistant add-on mode" });
+					return;
+				}
 			}
 		}
 	}
+	
 	await next();
 });
 
@@ -259,8 +243,23 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.UseStaticFiles();
+
+// Serve Angular files from the browser subdirectory (Angular 18+ outputs to wwwroot/browser)
+app.UseStaticFiles(new StaticFileOptions
+{
+	FileProvider = new PhysicalFileProvider(
+		Path.Combine(builder.Environment.WebRootPath, "browser")),
+	RequestPath = ""
+});
+
 app.UseSpa(spa =>
 {
+	spa.Options.DefaultPageStaticFileOptions = new StaticFileOptions
+	{
+		FileProvider = new PhysicalFileProvider(
+			Path.Combine(builder.Environment.WebRootPath, "browser"))
+	};
+	
 	if (app.Environment.IsDevelopment())
 	{
 		spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");

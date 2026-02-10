@@ -123,9 +123,6 @@ function main() {
     ' * ====================================',
     ' * Compiled from the Angular component SCSS files by build-ssr-css.js.',
     ' * Do NOT edit manually — changes will be overwritten on the next build.',
-    ' *',
-    ` * Generated: ${new Date().toISOString()}`,
-    ` * Sources:   ${widgetFiles.length} widget SCSS + widget-preview + ssr-base.css`,
     ' */',
     '',
   ].join('\n');

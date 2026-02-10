@@ -11,20 +11,16 @@ namespace EPaperDashboard.Services;
 public class HomeAssistantService(
     ILogger<HomeAssistantService> logger,
     DashboardService dashboardService,
-    HomeAssistantEnvironmentService haEnvironment)
+    IDeploymentStrategy deploymentStrategy)
 {
     private readonly ILogger<HomeAssistantService> _logger = logger;
     private readonly DashboardService _dashboardService = dashboardService;
-    private readonly HomeAssistantEnvironmentService _haEnvironment = haEnvironment;
+    private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
     private int _messageId = 2;
 
     private (string host, string token) GetHostAndToken(Dashboard dashboard)
     {
-        if (_haEnvironment.IsValidHomeAssistantEnvironment())
-        {
-            return ("http://supervisor/core", _haEnvironment.SupervisorToken!);
-        }
-        return (dashboard.Host!, dashboard.AccessToken!);
+        return _deploymentStrategy.GetHomeAssistantConnection(dashboard);
     }
 
     public async Task<Result<List<HassUrlInfo>, string>> FetchDashboards(string dashboardId)

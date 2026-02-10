@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
+using EPaperDashboard.Utilities;
+using LiteDB;
 
 namespace EPaperDashboard.Controllers;
 
@@ -9,16 +11,66 @@ namespace EPaperDashboard.Controllers;
 [Route("api/homeassistant")]
 public class HomeAssistantAuthController(
     HomeAssistantAuthService authService,
+    IDeploymentStrategy deploymentStrategy,
+    DashboardService dashboardService,
     ILogger<HomeAssistantAuthController> logger) : ControllerBase
 {
     private readonly HomeAssistantAuthService _authService = authService;
+    private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
+    private readonly DashboardService _dashboardService = dashboardService;
     private readonly ILogger<HomeAssistantAuthController> _logger = logger;
 
     [HttpPost("start-auth")]
     [Authorize]
     [DashboardOwnerFromBody]
-    public IActionResult StartAuth([FromBody] AuthRequest request)
+    public async Task<IActionResult> StartAuth([FromBody] AuthRequest request)
     {
+        // In HA add-on mode, if host is not specified or is the local instance, 
+        // create a long-lived token directly via supervisor
+        if (_deploymentStrategy.IsHomeAssistantAddon 
+            && (string.IsNullOrWhiteSpace(request.Host) || request.Host == Constants.SupervisorCoreUrl))
+        {
+            ObjectId dashboardId;
+            try
+            {
+                dashboardId = new ObjectId(request.DashboardId);
+            }
+            catch
+            {
+                return BadRequest(new { error = "Invalid dashboard ID" });
+            }
+
+            var dashboard = _dashboardService.GetDashboardById(dashboardId);
+            if (!dashboard.HasValue)
+            {
+                return NotFound(new { error = "Dashboard not found" });
+            }
+
+            var clientName = $"EPaperDashboard-{dashboard.Value.Name}-{Guid.NewGuid():N}";
+            var token = await _deploymentStrategy.CreateAccessTokenAsync(clientName);
+
+            if (token == null)
+            {
+                return BadRequest(new { error = "Failed to create long-lived access token" });
+            }
+
+            // Update the dashboard with the new token and set host to supervisor core
+            dashboard.Value.AccessToken = token;
+            dashboard.Value.Host = Constants.SupervisorCoreUrl;
+            _dashboardService.UpdateDashboard(dashboard.Value);
+
+            _logger.LogInformation("Created long-lived token via supervisor for dashboard {DashboardId}", request.DashboardId);
+
+            // Return success without authUrl (indicates direct token creation)
+            return Ok(new
+            {
+                success = true,
+                message = "Access token created successfully",
+                directAuth = true
+            });
+        }
+
+        // Otherwise use OAuth flow
         var result = _authService.StartAuth(request.Host, request.DashboardId);
 
         if (!result.IsSuccess)
@@ -29,7 +81,8 @@ public class HomeAssistantAuthController(
         return Ok(new
         {
             authUrl = result.AuthUrl,
-            state = result.State
+            state = result.State,
+            directAuth = false
         });
     }
 

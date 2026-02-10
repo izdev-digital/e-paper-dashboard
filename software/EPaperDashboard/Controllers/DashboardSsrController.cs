@@ -24,10 +24,8 @@ public class DashboardSsrController(
     DashboardService dashboardService,
     DashboardHtmlRenderingService htmlRenderingService,
     IPageToImageRenderingService pageToImageRenderingService,
-    UserService userService) : ControllerBase
+    UserService userService) : BaseApiController
 {
-    private ObjectId UserId => new(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty);
-
     /// <summary>
     /// Returns the dashboard rendered as a self-contained HTML page with live data from Home Assistant.
     /// </summary>
@@ -44,7 +42,7 @@ public class DashboardSsrController(
             return BadRequest("Invalid dashboard ID");
         }
 
-        var user = userService.GetUserById(UserId);
+        var user = userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
             return Unauthorized();
 
@@ -96,7 +94,7 @@ public class DashboardSsrController(
             return BadRequest("Invalid dashboard ID");
         }
 
-        var user = userService.GetUserById(UserId);
+        var user = userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
             return Unauthorized();
 
