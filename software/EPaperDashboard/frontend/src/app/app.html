@@ -18,7 +18,7 @@
               <a class="nav-link" routerLink="/dashboards" routerLinkActive="active">Dashboards</a>
             </li>
             @if (authService.currentUser(); as user) {
-            @if (user.isSuperUser && !authService.isHomeAssistantMode()) {
+            @if (user.isSuperUser && !authService.isUserManagementDisabled()) {
             <li class="nav-item">
               <a class="nav-link" routerLink="/users/manage" routerLinkActive="active">Users</a>
             </li>
@@ -34,6 +34,14 @@
               </div>
             </li>
             @if (authService.currentUser(); as user) {
+            @if (authService.isUserManagementDisabled()) {
+            <!-- When user management is disabled, just show username without dropdown -->
+            <li class="nav-item d-none d-sm-block">
+              <span class="nav-link d-flex align-items-center">
+                <i class="fa-regular fa-user me-1"></i> <span>{{ user.nickname || user.username }}</span>
+              </span>
+            </li>
+            } @else {
             <li class="nav-item dropdown d-none d-sm-block">
               <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="profileDropdown" role="button"
                 data-bs-toggle="dropdown" aria-expanded="false">
@@ -47,6 +55,7 @@
                 <li><button class="dropdown-item" type="button" (click)="logout()">Logout</button></li>
               </ul>
             </li>
+            }
             } @else {
             <li class="nav-item dropdown d-none d-sm-block">
               <a class="nav-link dropdown-toggle" href="#" id="loginDropdown" role="button" data-bs-toggle="dropdown"
@@ -73,7 +82,7 @@
                 </a>
               </li>
               @if (authService.currentUser(); as user) {
-              @if (user.isSuperUser && !authService.isHomeAssistantMode()) {
+              @if (user.isSuperUser && !authService.isUserManagementDisabled()) {
               <li class="mobile-footer-item">
                 <a routerLink="/users/manage" class="mobile-footer-link">
                   <i class="fa-solid fa-users" aria-hidden="true"></i>
@@ -86,6 +95,7 @@
 
               <!-- Auth Menu Items -->
               @if (authService.currentUser(); as user) {
+              @if (!authService.isUserManagementDisabled()) {
               <li class="mobile-footer-item">
                 <a routerLink="/users/profile" class="mobile-footer-link">
                   <i class="fa-regular fa-user" aria-hidden="true"></i>
@@ -98,6 +108,15 @@
                   <span>Logout</span>
                 </button>
               </li>
+              } @else {
+              <!-- When user management is disabled, just show username without actions -->
+              <li class="mobile-footer-item">
+                <span class="mobile-footer-link">
+                  <i class="fa-regular fa-user" aria-hidden="true"></i>
+                  <span>{{ user.nickname || user.username }}</span>
+                </span>
+              </li>
+              }
               } @else {
               <li class="mobile-footer-item">
                 <a routerLink="/login" class="mobile-footer-link">

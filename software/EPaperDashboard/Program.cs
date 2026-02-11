@@ -194,9 +194,8 @@ strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
 
-strategy.ApplyPostRoutingMiddleware(app, app.Environment);
-
 app.UseAuthentication();
+strategy.ApplyPostAuthenticationMiddleware(app, app.Environment);
 app.UseAuthorization();
 app.MapControllers();
 
