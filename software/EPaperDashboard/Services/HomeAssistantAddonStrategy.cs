@@ -121,10 +121,15 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
         }
 
         ingressPath = ingressPath.TrimEnd('/');
+        
+        var originalPath = context.Request.Path.Value;
         context.Request.PathBase = new PathString(ingressPath);
 
-        // Rewrite index.html with correct base href
-        if (context.Request.Path == "/" || context.Request.Path == "/index.html")
+        if (originalPath == ingressPath || 
+            originalPath == ingressPath + "/" || 
+            originalPath == ingressPath + "/index.html" ||
+            context.Request.Path == "/" || 
+            context.Request.Path == "/index.html")
         {
             var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
             if (File.Exists(indexPath))
