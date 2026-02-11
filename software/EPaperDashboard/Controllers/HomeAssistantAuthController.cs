@@ -100,14 +100,15 @@ public class HomeAssistantAuthController(
         if (!result.IsSuccess)
         {
             _logger.LogWarning("OAuth callback failed: {Error}", result.Error);
-            // Redirect to error page with message
+            // Redirect to error page with message - use Url.Content to respect PathBase
             var errorMessage = Uri.EscapeDataString(result.Error ?? "Unknown error");
-            return Redirect($"/dashboards?error={errorMessage}");
+            return Redirect(Url.Content($"~/dashboards?error={errorMessage}"));
         }
 
         // Redirect to the Angular SPA dashboard edit page with OAuth params
+        // Use Url.Content to respect PathBase for ingress support
         var accessToken = Uri.EscapeDataString(result.AccessToken ?? "");
-        var redirectUrl = $"/dashboards/{result.DashboardId}/edit?auth_callback=true&access_token={accessToken}";
+        var redirectUrl = Url.Content($"~/dashboards/{result.DashboardId}/edit?auth_callback=true&access_token={accessToken}");
         _logger.LogInformation("OAuth callback successful, redirecting to: {RedirectUrl}", redirectUrl);
         return Redirect(redirectUrl);
     }
