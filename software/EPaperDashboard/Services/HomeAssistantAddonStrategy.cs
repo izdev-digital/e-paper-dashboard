@@ -212,11 +212,11 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
                 return;
             }
 
-            var isIndexRequest = context.Request.Path == "/" || 
-                                 context.Request.Path == "/index.html" || 
-                                 !context.Request.Path.HasValue;
+            var path = context.Request.Path.Value ?? "";
             
-            if (!isIndexRequest)
+            // Skip API requests and static file requests (files with extensions)
+            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) ||
+                (path.Contains('.') && !path.EndsWith(".html", StringComparison.OrdinalIgnoreCase)))
             {
                 await next();
                 return;
@@ -258,6 +258,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
             context.Response.ContentType = "text/html; charset=utf-8";
             context.Response.ContentLength = Encoding.UTF8.GetByteCount(html);
             await context.Response.WriteAsync(html);
+            return; // Don't call next() after serving the response
         });
     }
 }

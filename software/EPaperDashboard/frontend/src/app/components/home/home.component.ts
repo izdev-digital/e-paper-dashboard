@@ -9,7 +9,7 @@ import { RouterModule } from '@angular/router';
       <div class="px-3" style="max-width:680px;width:100%;margin:0 auto;">
         <!-- Logo -->
         <div class="mb-4 text-center">
-          <img src="/icon.svg" alt="izBoard Logo" class="hero-logo">
+          <img src="icon.svg" alt="izBoard Logo" class="hero-logo">
         </div>
 
         <!-- Headline -->
