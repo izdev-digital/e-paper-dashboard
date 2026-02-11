@@ -208,9 +208,7 @@ app.UseStaticFiles(new StaticFileOptions
 {
 	FileProvider = new PhysicalFileProvider(
 		Path.Combine(builder.Environment.WebRootPath, "browser")),
-	RequestPath = "",
-	ServeUnknownFileTypes = false,
-	DefaultContentType = null
+	RequestPath = ""
 });
 
 app.UseSpa(spa =>
