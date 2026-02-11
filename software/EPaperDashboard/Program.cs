@@ -200,16 +200,18 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+strategy.ApplyPostStaticFilesMiddleware(app, app.Environment);
+
 app.UseStaticFiles();
 
 app.UseStaticFiles(new StaticFileOptions
 {
 	FileProvider = new PhysicalFileProvider(
 		Path.Combine(builder.Environment.WebRootPath, "browser")),
-	RequestPath = ""
+	RequestPath = "",
+	ServeUnknownFileTypes = false,
+	DefaultContentType = null
 });
-
-strategy.ApplyPostStaticFilesMiddleware(app, app.Environment);
 
 app.UseSpa(spa =>
 {
@@ -218,7 +220,7 @@ app.UseSpa(spa =>
 		FileProvider = new PhysicalFileProvider(
 			Path.Combine(builder.Environment.WebRootPath, "browser"))
 	};
-	
+
 	if (app.Environment.IsDevelopment())
 	{
 		spa.UseProxyToSpaDevelopmentServer("http://localhost:4200");
