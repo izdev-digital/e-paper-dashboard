@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-bs-theme="light">
+<html lang="en">
 
 <head>
   <meta charset="utf-8">
@@ -12,7 +12,7 @@
     content="izBoard: Configure once, leverage every day. Stunning E-Paper dashboards for Home Assistant with weeks of battery life, real-time updates, and zero maintenance.">
   <script>
     // Prevent flash: set theme immediately on page load
-    const stored = localStorage.getItem('izboard-theme');
+    const stored = localStorage.getItem('theme');
     if (stored === 'dark') {
       document.documentElement.setAttribute('data-bs-theme', 'dark');
     } else if (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -20,6 +20,19 @@
     } else {
       document.documentElement.setAttribute('data-bs-theme', 'light');
     }
+    
+    // Disable transitions during initial page load to prevent flickering
+    document.documentElement.classList.add('preload');
+    
+    // Re-enable transitions after page has rendered
+    window.addEventListener('DOMContentLoaded', () => {
+      // Use double RAF to ensure DOM is fully painted
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document.documentElement.classList.remove('preload');
+        });
+      });
+    });
   </script>
 </head>
 

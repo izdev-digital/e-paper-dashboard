@@ -1,5 +1,11 @@
 @use 'bootstrap/scss/bootstrap';
 
+/* Disable all transitions during initial page load to prevent flickering */
+html.preload,
+html.preload * {
+  transition: none !important;
+}
+
 /* Global theme transition - smooth color switch across entire app */
 html {
   transition: background-color 0.3s ease, color 0.3s ease, color-scheme 0.3s ease;
