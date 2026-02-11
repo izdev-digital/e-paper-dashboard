@@ -16,6 +16,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 {
     private readonly ILogger<HomeAssistantAddonStrategy> _logger;
     private readonly string _supervisorToken;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _cachedIndexHtml = new();
 
     public HomeAssistantAddonStrategy(
         ILogger<HomeAssistantAddonStrategy> logger)
@@ -219,20 +220,30 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
                 return;
             }
 
-            var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
-            if (!File.Exists(indexPath))
+            var ingressPath = context.Items["IngressPath"]?.ToString();
+            if (string.IsNullOrEmpty(ingressPath))
             {
                 await next();
                 return;
             }
 
-            var html = await File.ReadAllTextAsync(indexPath);
-            var ingressPath = context.Items["IngressPath"]?.ToString();
-            
-            if (!string.IsNullOrEmpty(ingressPath))
+            var html = _cachedIndexHtml.GetOrAdd(ingressPath, key =>
             {
-                var baseHref = ingressPath + "/";
-                html = html.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
+                var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
+                if (!File.Exists(indexPath))
+                {
+                    return string.Empty;
+                }
+
+                var content = File.ReadAllText(indexPath);
+                var baseHref = key + "/";
+                return content.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
+            });
+
+            if (string.IsNullOrEmpty(html))
+            {
+                await next();
+                return;
             }
             
             context.Response.ContentType = "text/html; charset=utf-8";
