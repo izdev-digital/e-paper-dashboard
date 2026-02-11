@@ -27,7 +27,7 @@ export class App implements OnInit {
     effect(() => {
       const currentTheme = this.theme();
       document.documentElement.setAttribute('data-bs-theme', currentTheme);
-      localStorage.setItem('epaper-theme', currentTheme);
+      localStorage.setItem('theme', currentTheme);
     });
   }
 
@@ -53,7 +53,7 @@ export class App implements OnInit {
   }
 
   private getInitialTheme(): string {
-    const stored = localStorage.getItem('epaper-theme');
+    const stored = localStorage.getItem('theme');
     return stored || (document.documentElement.getAttribute('data-bs-theme') || 'light');
   }
 }
