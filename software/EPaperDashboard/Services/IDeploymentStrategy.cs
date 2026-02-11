@@ -68,9 +68,10 @@ public interface IDeploymentStrategy
     void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
 
     /// <summary>
-    /// Applies deployment-specific middleware after routing.
+    /// Applies deployment-specific middleware after authentication.
+    /// Used for ingress-based authentication in HA add-on mode.
     /// </summary>
-    void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
+    void ApplyPostAuthenticationMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
 
     /// <summary>
     /// Applies deployment-specific middleware after static files.

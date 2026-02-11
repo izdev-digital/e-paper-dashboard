@@ -168,7 +168,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
         });
     }
 
-    public void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    public void ApplyPostAuthenticationMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
     {
         app.Use(async (context, next) =>
         {

@@ -2,9 +2,14 @@
   <div class="col-md-8 offset-md-2">
     <h2>My Profile</h2>
 
-
     <p><strong>Username:</strong> {{ currentUser?.username }}</p>
 
+    @if (isUserManagementDisabled()) {
+    <div class="alert alert-info">
+      <i class="fa-solid fa-info-circle me-2"></i>
+      User management is disabled in this deployment mode. Profile settings are not available.
+    </div>
+    } @else {
     <form (ngSubmit)="changeNickname()" class="mb-4">
       <p><strong>Nickname:</strong> {{ currentUser?.nickname || '(not set)' }}</p>
       <div class="mb-3">
@@ -53,5 +58,6 @@
         Delete My Profile
       </button>
     </form>
+    }
   </div>
 </div>

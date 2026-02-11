@@ -38,6 +38,7 @@ export class ProfileComponent {
   readonly isChangingNickname = signal(false);
   readonly isChangingPassword = signal(false);
   readonly isDeletingProfile = signal(false);
+  readonly isUserManagementDisabled = this.authService.isUserManagementDisabled;
 
   get currentUser() {
     return this.authService.currentUser();
@@ -128,10 +129,6 @@ export class ProfileComponent {
         }
       }
     });
-  }
-
-  private clearMessages(): void {
-    this.toastService.clear();
   }
 
   private clearPasswordFields(): void {

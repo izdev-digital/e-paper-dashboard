@@ -105,7 +105,7 @@ public class StandaloneStrategy : IDeploymentStrategy
     {
     }
 
-    public void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    public void ApplyPostAuthenticationMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
     {
     }
 

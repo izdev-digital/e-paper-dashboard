@@ -18,8 +18,8 @@ export const superUserGuard: CanActivateFn = (route, state) => {
     return false;
   }
 
-  // Block user management in Home Assistant mode
-  if (authService.isHomeAssistantMode()) {
+  // Block user management when disabled
+  if (authService.isUserManagementDisabled()) {
     router.navigate(['/home']);
     return false;
   }
