@@ -190,53 +190,11 @@ if (!app.Environment.IsDevelopment())
 	app.UseHsts();
 }
 
-app.Use(async (context, next) =>
-{
-	if (app.Environment.IsDevelopment())
-	{
-		await next();
-		return;
-	}
-
-	var deploymentStrategy = context.RequestServices.GetRequiredService<IDeploymentStrategy>();
-	var processed = await deploymentStrategy.ProcessIngressPathAsync(context, app.Environment);
-	if (processed)
-	{
-		return;
-	}
-
-	await next();
-});
+strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
 
-app.Use(async (context, next) =>
-{
-	var deploymentStrategy = context.RequestServices.GetRequiredService<IDeploymentStrategy>();
-	var principal = deploymentStrategy.AuthenticateViaIngress(context);
-	
-	if (principal != null)
-	{
-		context.User = principal;
-		
-		// Block user management endpoints in HA add-on mode
-		if (!deploymentStrategy.IsUserManagementEnabled)
-		{
-			var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
-			if (path.StartsWith("/api/auth/") || path.StartsWith("/api/users/"))
-			{
-				if (path != "/api/auth/current")
-				{
-					context.Response.StatusCode = 403;
-					await context.Response.WriteAsJsonAsync(new { message = "User management is disabled in Home Assistant add-on mode" });
-					return;
-				}
-			}
-		}
-	}
-	
-	await next();
-});
+strategy.ApplyPostRoutingMiddleware(app, app.Environment);
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -244,13 +202,14 @@ app.MapControllers();
 
 app.UseStaticFiles();
 
-// Serve Angular files from the browser subdirectory (Angular 18+ outputs to wwwroot/browser)
 app.UseStaticFiles(new StaticFileOptions
 {
 	FileProvider = new PhysicalFileProvider(
 		Path.Combine(builder.Environment.WebRootPath, "browser")),
 	RequestPath = ""
 });
+
+strategy.ApplyPostStaticFilesMiddleware(app, app.Environment);
 
 app.UseSpa(spa =>
 {

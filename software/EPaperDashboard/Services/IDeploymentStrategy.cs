@@ -61,4 +61,19 @@ public interface IDeploymentStrategy
     /// In HA add-on mode, no setup needed.
     /// </summary>
     void PerformInitialSetup(IServiceProvider serviceProvider);
+
+    /// <summary>
+    /// Applies deployment-specific middleware to the application pipeline.
+    /// </summary>
+    void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
+
+    /// <summary>
+    /// Applies deployment-specific middleware after routing.
+    /// </summary>
+    void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
+
+    /// <summary>
+    /// Applies deployment-specific middleware after static files.
+    /// </summary>
+    void ApplyPostStaticFilesMiddleware(IApplicationBuilder app, IWebHostEnvironment environment);
 }
