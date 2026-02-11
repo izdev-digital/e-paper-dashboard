@@ -1,6 +1,7 @@
 using EPaperDashboard.Models;
 using EPaperDashboard.Utilities;
 using CSharpFunctionalExtensions;
+using System.Text;
 using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -204,7 +205,8 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
     {
         app.Use(async (context, next) =>
         {
-            if (!context.Items.ContainsKey("IngressPath"))
+            // Check for ingress header directly
+            if (!context.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var headerValue))
             {
                 await next();
                 return;
@@ -220,18 +222,25 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
                 return;
             }
 
-            var ingressPath = context.Items["IngressPath"]?.ToString();
-            if (string.IsNullOrEmpty(ingressPath))
+            var ingressPath = headerValue.ToString();
+            if (string.IsNullOrWhiteSpace(ingressPath))
             {
                 await next();
                 return;
             }
+            
+            if (!ingressPath.StartsWith('/'))
+            {
+                ingressPath = "/" + ingressPath;
+            }
+            ingressPath = ingressPath.TrimEnd('/');
 
             var html = _cachedIndexHtml.GetOrAdd(ingressPath, key =>
             {
                 var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
                 if (!File.Exists(indexPath))
                 {
+                    _logger.LogError("Index.html not found at {IndexPath}", indexPath);
                     return string.Empty;
                 }
 
@@ -247,6 +256,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
             }
             
             context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.ContentLength = Encoding.UTF8.GetByteCount(html);
             await context.Response.WriteAsync(html);
         });
     }
