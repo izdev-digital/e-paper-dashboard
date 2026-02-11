@@ -4,6 +4,7 @@ using CSharpFunctionalExtensions;
 using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.FileProviders;
 
 namespace EPaperDashboard.Services;
 
@@ -42,27 +43,33 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
                 id = 1,
                 type = "auth/long_lived_access_token",
                 client_name = clientName,
-                lifespan = 3650 // 10 years
+                lifespan = 3650
             });
 
             var createResponse = await WebSocketHelpers.ReceiveMessageAsync(ws);
             var createResult = JsonDocument.Parse(createResponse);
 
-            if (createResult.RootElement.TryGetProperty("success", out var successProp) 
-                && successProp.GetBoolean()
-                && createResult.RootElement.TryGetProperty("result", out var resultProp)
-                && resultProp.ValueKind == JsonValueKind.String)
+            if (!createResult.RootElement.TryGetProperty("success", out var successProp) || !successProp.GetBoolean())
             {
-                var token = resultProp.GetString();
-                if (!string.IsNullOrWhiteSpace(token))
-                {
-                    _logger.LogInformation("Created long-lived access token for client: {ClientName}", clientName);
-                    return token;
-                }
+                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
+                return null;
             }
 
-            _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
-            return null;
+            if (!createResult.RootElement.TryGetProperty("result", out var resultProp) || resultProp.ValueKind != JsonValueKind.String)
+            {
+                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
+                return null;
+            }
+
+            var token = resultProp.GetString();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
+                return null;
+            }
+
+            _logger.LogInformation("Created long-lived access token for client: {ClientName}", clientName);
+            return token;
         }
         catch (Exception ex)
         {
@@ -102,17 +109,17 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
         return new ClaimsPrincipal(identity);
     }
 
-    public async Task<bool> ProcessIngressPathAsync(HttpContext context, IWebHostEnvironment environment)
+    public Task<bool> ProcessIngressPathAsync(HttpContext context, IWebHostEnvironment environment)
     {
         if (!context.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var ingressPathValues))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
         var ingressPath = ingressPathValues.ToString();
         if (string.IsNullOrWhiteSpace(ingressPath))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
         if (!ingressPath.StartsWith('/'))
@@ -122,33 +129,114 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
         ingressPath = ingressPath.TrimEnd('/');
         
-        var originalPath = context.Request.Path.Value;
+        var originalPath = context.Request.Path.Value ?? "/";
         context.Request.PathBase = new PathString(ingressPath);
-
-        if (originalPath == ingressPath || 
-            originalPath == ingressPath + "/" || 
-            originalPath == ingressPath + "/index.html" ||
-            context.Request.Path == "/" || 
-            context.Request.Path == "/index.html")
+        
+        if (originalPath.StartsWith(ingressPath, StringComparison.OrdinalIgnoreCase))
         {
-            var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
-            if (File.Exists(indexPath))
+            var newPath = originalPath.Substring(ingressPath.Length);
+            if (string.IsNullOrEmpty(newPath))
             {
-                var html = await File.ReadAllTextAsync(indexPath);
-                var baseHref = ingressPath + "/";
-                html = html.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
-                context.Response.ContentType = "text/html; charset=utf-8";
-                await context.Response.WriteAsync(html);
-                return true;
+                newPath = "/";
             }
+            context.Request.Path = new PathString(newPath);
         }
-
-        return false;
+        
+        context.Items["IngressPath"] = ingressPath;
+        
+        return Task.FromResult(false);
     }
 
     public void PerformInitialSetup(IServiceProvider serviceProvider)
     {
-        // No setup needed in HA add-on mode
-        // Ingress handles authentication
+    }
+
+    public void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
+        app.Use(async (context, next) =>
+        {
+            if (environment.IsDevelopment())
+            {
+                await next();
+                return;
+            }
+
+            await ProcessIngressPathAsync(context, environment);
+            await next();
+        });
+    }
+
+    public void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
+        app.Use(async (context, next) =>
+        {
+            var principal = AuthenticateViaIngress(context);
+            if (principal == null)
+            {
+                await next();
+                return;
+            }
+
+            context.User = principal;
+
+            if (IsUserManagementEnabled)
+            {
+                await next();
+                return;
+            }
+
+            var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
+            var isUserManagementEndpoint = path.StartsWith("/api/auth/") || path.StartsWith("/api/users/");
+            
+            if (isUserManagementEndpoint && path != "/api/auth/current")
+            {
+                context.Response.StatusCode = 403;
+                await context.Response.WriteAsJsonAsync(new { message = "User management is disabled in Home Assistant add-on mode" });
+                return;
+            }
+            
+            await next();
+        });
+    }
+
+    public void ApplyPostStaticFilesMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
+        app.Use(async (context, next) =>
+        {
+            if (!context.Items.ContainsKey("IngressPath"))
+            {
+                await next();
+                return;
+            }
+
+            var isIndexRequest = context.Request.Path == "/" || 
+                                 context.Request.Path == "/index.html" || 
+                                 !context.Request.Path.HasValue;
+            
+            if (!isIndexRequest)
+            {
+                await next();
+                return;
+            }
+
+            var indexPath = Path.Combine(environment.WebRootPath, "browser", "index.html");
+            if (!File.Exists(indexPath))
+            {
+                await next();
+                return;
+            }
+
+            var html = await File.ReadAllTextAsync(indexPath);
+            var ingressPath = context.Items["IngressPath"]?.ToString();
+            
+            if (!string.IsNullOrEmpty(ingressPath))
+            {
+                var baseHref = ingressPath + "/";
+                html = html.Replace("<base href=\"/\">", $"<base href=\"{baseHref}\">");
+            }
+            
+            context.Response.ContentType = "text/html; charset=utf-8";
+            await context.Response.WriteAsync(html);
+        });
     }
 }

@@ -87,7 +87,6 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public void PerformInitialSetup(IServiceProvider serviceProvider)
     {
-        // Ensure superuser exists in standalone mode
         var userService = serviceProvider.GetRequiredService<UserService>();
         if (!userService.HasSuperUser() 
             && EnvironmentConfiguration.SuperUserUsername != null 
@@ -100,5 +99,17 @@ public class StandaloneStrategy : IDeploymentStrategy
             
             _logger.LogInformation("Created superuser: {Username}", EnvironmentConfiguration.SuperUserUsername);
         }
+    }
+
+    public void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
+    }
+
+    public void ApplyPostRoutingMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
+    }
+
+    public void ApplyPostStaticFilesMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
+    {
     }
 }
