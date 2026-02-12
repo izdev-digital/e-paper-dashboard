@@ -23,6 +23,7 @@ public static class Constants
 
     // Home Assistant Constants
     public const string SupervisorCoreUrl = "http://supervisor/core";
+    public const string HomeAssistantCoreUrl = "http://homeassistant:8123";
     public const string IngressPathHeader = "X-Ingress-Path";
     
     // Claim Types
