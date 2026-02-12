@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using System.Security.Claims;
 using LiteDB;
 using EPaperDashboard.Services;
+using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Guards;
 
@@ -33,15 +34,27 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
             return;
         }
 
+        // Check if this is Home Assistant ingress mode
+        var isHomeAssistantIngress = context.HttpContext.User.FindFirst(Constants.HomeAssistantIngressClaim)?.Value == "true";
+
         ObjectId userId;
-        try
+        if (isHomeAssistantIngress && userIdValue == Constants.HomeAssistantAdminUserId)
         {
-            userId = new ObjectId(userIdValue);
+            // In Home Assistant mode, use virtual user ID
+            userId = Constants.HomeAssistantVirtualUserId;
         }
-        catch
+        else
         {
-            context.Result = new UnauthorizedResult();
-            return;
+            // In standalone mode, parse user ID from database
+            try
+            {
+                userId = new ObjectId(userIdValue);
+            }
+            catch
+            {
+                context.Result = new UnauthorizedResult();
+                return;
+            }
         }
 
         // Get services from DI
@@ -54,12 +67,15 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
             return;
         }
 
-        // Verify user exists
-        var user = userService.GetUserById(userId);
-        if (user.HasNoValue)
+        // Verify user exists (skip check in Home Assistant mode)
+        if (!isHomeAssistantIngress)
         {
-            context.Result = new UnauthorizedResult();
-            return;
+            var user = userService.GetUserById(userId);
+            if (user.HasNoValue)
+            {
+                context.Result = new UnauthorizedResult();
+                return;
+            }
         }
 
         // Parse and validate dashboard ID
@@ -83,7 +99,7 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
         }
 
         // Check ownership
-        if (dashboardMaybe.Value.UserId != user.Value.Id)
+        if (dashboardMaybe.Value.UserId != userId)
         {
             context.Result = new ForbidResult();
             return;

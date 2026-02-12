@@ -12,6 +12,7 @@ public abstract class BaseApiController : ControllerBase
 {
     /// <summary>
     /// Gets the current user's ID from claims.
+    /// In Home Assistant mode, returns a virtual user ID.
     /// Returns ObjectId.Empty if not authenticated or claim not found.
     /// </summary>
     protected ObjectId CurrentUserId
@@ -22,6 +23,12 @@ public abstract class BaseApiController : ControllerBase
             if (string.IsNullOrEmpty(userIdValue))
             {
                 return ObjectId.Empty;
+            }
+
+            // In Home Assistant ingress mode, use virtual user ID
+            if (IsHomeAssistantIngress && userIdValue == Constants.HomeAssistantAdminUserId)
+            {
+                return Constants.HomeAssistantVirtualUserId;
             }
 
             try
