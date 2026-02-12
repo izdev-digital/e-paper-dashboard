@@ -23,55 +23,15 @@ public class HomeAssistantAuthController(
     [HttpPost("start-auth")]
     [Authorize]
     [DashboardOwnerFromBody]
-    public async Task<IActionResult> StartAuth([FromBody] AuthRequest request)
+    public IActionResult StartAuth([FromBody] AuthRequest request)
     {
-        // In HA add-on mode, if host is not specified or is the local instance, 
-        // create a long-lived token directly via supervisor
-        if (_deploymentStrategy.IsHomeAssistantAddon 
-            && (string.IsNullOrWhiteSpace(request.Host) || request.Host == Constants.SupervisorCoreUrl))
+        var host = request.Host;
+        if (_deploymentStrategy.IsHomeAssistantAddon && string.IsNullOrWhiteSpace(host))
         {
-            ObjectId dashboardId;
-            try
-            {
-                dashboardId = new ObjectId(request.DashboardId);
-            }
-            catch
-            {
-                return BadRequest(new { error = "Invalid dashboard ID" });
-            }
-
-            var dashboard = _dashboardService.GetDashboardById(dashboardId);
-            if (!dashboard.HasValue)
-            {
-                return NotFound(new { error = "Dashboard not found" });
-            }
-
-            var clientName = $"EPaperDashboard-{dashboard.Value.Name}-{Guid.NewGuid():N}";
-            var token = await _deploymentStrategy.CreateAccessTokenAsync(clientName);
-
-            if (token == null)
-            {
-                return BadRequest(new { error = "Failed to create long-lived access token" });
-            }
-
-            // Update the dashboard with the new token and set host to supervisor core
-            dashboard.Value.AccessToken = token;
-            dashboard.Value.Host = Constants.SupervisorCoreUrl;
-            _dashboardService.UpdateDashboard(dashboard.Value);
-
-            _logger.LogInformation("Created long-lived token via supervisor for dashboard {DashboardId}", request.DashboardId);
-
-            // Return success without authUrl (indicates direct token creation)
-            return Ok(new
-            {
-                success = true,
-                message = "Access token created successfully",
-                directAuth = true
-            });
+            host = Constants.HomeAssistantCoreUrl;
         }
 
-        // Otherwise use OAuth flow
-        var result = _authService.StartAuth(request.Host, request.DashboardId);
+        var result = _authService.StartAuth(host, request.DashboardId, HttpContext);
 
         if (!result.IsSuccess)
         {
@@ -100,13 +60,10 @@ public class HomeAssistantAuthController(
         if (!result.IsSuccess)
         {
             _logger.LogWarning("OAuth callback failed: {Error}", result.Error);
-            // Redirect to error page with message - use Url.Content to respect PathBase
             var errorMessage = Uri.EscapeDataString(result.Error ?? "Unknown error");
             return Redirect(Url.Content($"~/dashboards?error={errorMessage}"));
         }
 
-        // Redirect to the Angular SPA dashboard edit page with OAuth params
-        // Use Url.Content to respect PathBase for ingress support
         var accessToken = Uri.EscapeDataString(result.AccessToken ?? "");
         var redirectUrl = Url.Content($"~/dashboards/{result.DashboardId}/edit?auth_callback=true&access_token={accessToken}");
         _logger.LogInformation("OAuth callback successful, redirecting to: {RedirectUrl}", redirectUrl);

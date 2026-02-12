@@ -175,7 +175,7 @@ public sealed class RenderToImageController(
 
 		var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
 		
-		// For long-lived tokens (especially from HA add-on mode), ClientId is not used for auth
+		// For OAuth-generated long-lived tokens, ClientId is not used for auth
 		// Use ClientUri if configured, otherwise use the HA host URL as a placeholder
 		var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
 		

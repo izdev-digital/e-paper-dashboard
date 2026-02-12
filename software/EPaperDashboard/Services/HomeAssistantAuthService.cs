@@ -9,10 +9,12 @@ namespace EPaperDashboard.Services;
 
 public class HomeAssistantAuthService(
     ILogger<HomeAssistantAuthService> logger,
-    IHttpClientFactory httpClientFactory)
+    IHttpClientFactory httpClientFactory,
+    IDeploymentStrategy deploymentStrategy)
 {
     private readonly ILogger<HomeAssistantAuthService> _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
+    private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
     private static readonly Lazy<byte[]> _stateSigningKey = new(() => 
     {
         var key = EnvironmentConfiguration.StateSigningKey;
@@ -24,7 +26,7 @@ public class HomeAssistantAuthService(
     private readonly ConcurrentDictionary<string, DateTime> _authFlowTimestamps = new();
     private const int AUTH_FLOW_TIMEOUT_SECONDS = 600; // 10 minutes
 
-    public AuthStartResult StartAuth(string host, string dashboardId)
+    public AuthStartResult StartAuth(string host, string dashboardId, HttpContext? httpContext = null)
     {
         if (string.IsNullOrWhiteSpace(host))
         {
@@ -69,15 +71,19 @@ public class HomeAssistantAuthService(
 
         try
         {
-            if (EnvironmentConfiguration.ClientUri == null)
+            var clientUri = _deploymentStrategy.GetOAuthClientUri(httpContext);
+            if (clientUri == null)
             {
                 _activeAuthFlows.TryRemove(dashboardId, out _);
                 _authFlowTimestamps.TryRemove(dashboardId, out _);
-                return AuthStartResult.Failure("CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.");
+                var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
+                    ? "Could not determine ingress URL from request. Ensure you're accessing the addon through Home Assistant ingress."
+                    : "CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.";
+                return AuthStartResult.Failure(errorMsg);
             }
 
             var hostUri = new Uri(host);
-            var clientId = EnvironmentConfiguration.ClientUri.ToString().TrimEnd('/');
+            var clientId = clientUri.ToString().TrimEnd('/');
             var redirectUri = $"{clientId}/api/homeassistant/callback";
             var hostUrl = hostUri.ToString().TrimEnd('/');
 
@@ -136,12 +142,16 @@ public class HomeAssistantAuthService(
 
         try
         {
-            if (EnvironmentConfiguration.ClientUri == null)
+            var clientUri = _deploymentStrategy.GetOAuthClientUri();
+            if (clientUri == null)
             {
-                return AuthCallbackResult.Failure(stateData.DashboardId, "CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.");
+                var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
+                    ? "Could not determine ingress URL for OAuth callback."
+                    : "CLIENT_URL is not configured.";
+                return AuthCallbackResult.Failure(stateData.DashboardId, errorMsg);
             }
 
-            var clientId = EnvironmentConfiguration.ClientUri.ToString().TrimEnd('/');
+            var clientId = clientUri.ToString().TrimEnd('/');
             var tokenUrl = $"{stateData.Host}/auth/token";
 
             var httpClient = _httpClientFactory.CreateClient();

@@ -24,6 +24,11 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
 
+    public Uri? GetOAuthClientUri(HttpContext? context = null)
+    {
+        return EnvironmentConfiguration.ClientUri;
+    }
+
     public Task<string?> CreateAccessTokenAsync(string clientName)
     {
         // Long-lived token creation via supervisor is not available in standalone mode
