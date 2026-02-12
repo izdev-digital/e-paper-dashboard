@@ -26,23 +26,18 @@ import { RouterModule } from '@angular/router';
         <div class="hero-features mb-4" style="margin-bottom:1.5rem !important;max-width:620px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;gap:8px;">
           <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
             <i class="fa-solid fa-house" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Supports Home Assistant dashboard views</div>
+            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">
+              Works with your existing Home Assistant dashboard views and cards
+              <i class="fa-solid fa-circle-info" style="font-size:0.875rem;color:var(--bs-secondary-color);margin-left:0.35rem;cursor:help;" title="Dashboards and cards should follow sizing and color guidelines for optimal E‑Paper display"></i>
+            </div>
           </div>
           <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-microchip" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">An ESP32-based device pulls rendered images on a schedule</div>
+            <i class="fa-solid fa-palette" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
+            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Drag-and-drop designer to create custom dashboard layouts</div>
           </div>
           <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-globe" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Web application to configure the device and schedule updates</div>
-          </div>
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-battery-three-quarters" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Long battery life – days to weeks depending on update schedule</div>
-          </div>
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-table-columns" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">7.5" Black/White/Red E‑Paper display</div>
+            <i class="fa-solid fa-clock" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
+            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Automatic updates on your schedule for long battery life</div>
           </div>
         </div>
 
