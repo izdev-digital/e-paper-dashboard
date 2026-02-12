@@ -82,8 +82,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        // Always use supervisor endpoint with supervisor token for internal communication
-        return (Constants.SupervisorCoreUrl, _supervisorToken);
+        return (Constants.HomeAssistantCoreUrl, dashboard.AccessToken!);
     }
 
     public UnitResult<string> ValidateConfiguration()

@@ -112,48 +112,43 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                       placeholder="https://your-ha-instance.com" 
                     />
                   </div>
+                }
 
-                  <div class="mb-3">
-                    <label class="form-label fw-semibold">Access Token</label>
-                    <div class="input-group">
-                      <input 
-                        type="password" 
-                        class="form-control" 
-                        formControlName="accessToken"
-                        placeholder="Paste token or click Fetch Token..." 
-                      />
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Access Token</label>
+                  <div class="input-group">
+                    <input 
+                      type="password" 
+                      class="form-control" 
+                      formControlName="accessToken"
+                      placeholder="Paste token or click Fetch Token..." 
+                    />
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-primary" 
+                      (click)="authenticateWithHomeAssistant()"
+                      [disabled]="isAuthenticating()"
+                      title="Authenticate via Home Assistant"
+                    >
+                      <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
+                    </button>
+                    @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
                       <button 
                         type="button" 
-                        class="btn btn-outline-primary" 
-                        (click)="authenticateWithHomeAssistant()"
-                        [disabled]="isAuthenticating()"
-                        title="Authenticate via Home Assistant OAuth"
+                        class="btn btn-outline-danger" 
+                        (click)="clearAccessToken()"
+                        title="Clear the access token"
                       >
-                        <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
+                        <i class="fa-solid fa-trash"></i> Clear
                       </button>
-                      @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
-                        <button 
-                          type="button" 
-                          class="btn btn-outline-danger" 
-                          (click)="clearAccessToken()"
-                          title="Clear the access token"
-                        >
-                          <i class="fa-solid fa-trash"></i> Clear
-                        </button>
-                      }
-                    </div>
-                    <small class="form-text text-muted d-block mt-2">
-                      @if (dashboard()?.hasAccessToken) {
-                        <span class="d-block mt-1 text-success">Token is configured</span>
-                      }
-                    </small>
+                    }
                   </div>
-                }
-                @else {
-                  <div class="alert alert-info">
-                    <i class="fa-solid fa-info-circle"></i> Home Assistant add-on mode: Using supervisor credentials for authentication
-                  </div>
-                }
+                  <small class="form-text text-muted d-block mt-2">
+                    @if (dashboard()?.hasAccessToken) {
+                      <span class="d-block mt-1 text-success">Token is configured</span>
+                    }
+                  </small>
+                </div>
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Rendering Mode</label>
@@ -415,17 +410,27 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   authenticateWithHomeAssistant(): void {
     const currentDashboard = this.dashboard();
+    if (!currentDashboard) {
+      return;
+    }
+
     const hostValue = this.dashboardForm.get('host')?.value;
-    if (!currentDashboard || !hostValue) {
+    if (!this.isHomeAssistantMode() && !hostValue) {
       this.toastService.error('Please enter Home Assistant host first.');
       return;
     }
 
     this.isAuthenticating.set(true);
 
-    this.homeAssistantService.startAuth(hostValue, currentDashboard.id).subscribe({
-      next: (response) => {
-        window.location.href = response.authUrl;
+    this.homeAssistantService.startAuth(hostValue || '', currentDashboard.id).subscribe({
+      next: (response: any) => {
+        if (response.directAuth) {
+          this.isAuthenticating.set(false);
+          this.loadDashboard(currentDashboard.id);
+          this.toastService.success('Access token fetched successfully!');
+        } else {
+          window.location.href = response.authUrl;
+        }
       },
       error: (error) => {
         this.isAuthenticating.set(false);
