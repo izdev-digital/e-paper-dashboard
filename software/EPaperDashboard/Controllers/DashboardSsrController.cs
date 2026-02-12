@@ -23,8 +23,7 @@ namespace EPaperDashboard.Controllers;
 public class DashboardSsrController(
     DashboardService dashboardService,
     DashboardHtmlRenderingService htmlRenderingService,
-    IPageToImageRenderingService pageToImageRenderingService,
-    UserService userService) : BaseApiController
+    IPageToImageRenderingService pageToImageRenderingService) : BaseApiController
 {
     /// <summary>
     /// Returns the dashboard rendered as a self-contained HTML page with live data from Home Assistant.
@@ -42,15 +41,11 @@ public class DashboardSsrController(
             return BadRequest("Invalid dashboard ID");
         }
 
-        var user = userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue)
-            return Unauthorized();
-
         var dashboard = dashboardService.GetDashboardById(objectId);
         if (dashboard.HasNoValue)
             return NotFound("Dashboard not found");
 
-        if (dashboard.Value.UserId != user.Value.Id)
+        if (dashboard.Value.UserId != CurrentUserId)
             return Forbid();
 
         if (dashboard.Value.LayoutConfig == null)
@@ -94,15 +89,11 @@ public class DashboardSsrController(
             return BadRequest("Invalid dashboard ID");
         }
 
-        var user = userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue)
-            return Unauthorized();
-
         var dashboard = dashboardService.GetDashboardById(objectId);
         if (dashboard.HasNoValue)
             return NotFound("Dashboard not found");
 
-        if (dashboard.Value.UserId != user.Value.Id)
+        if (dashboard.Value.UserId != CurrentUserId)
             return Forbid();
 
         if (dashboard.Value.LayoutConfig == null)

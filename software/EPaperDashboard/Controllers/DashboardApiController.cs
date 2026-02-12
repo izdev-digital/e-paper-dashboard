@@ -18,13 +18,24 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpGet]
     public IActionResult GetDashboards()
     {
-        var user = _userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue)
+        ObjectId userId;
+        
+        // In Home Assistant mode, skip user lookup and use virtual user ID directly
+        if (IsHomeAssistantIngress)
         {
-            return Unauthorized();
+            userId = CurrentUserId;
+        }
+        else
+        {
+            var user = _userService.GetUserById(CurrentUserId);
+            if (user.HasNoValue)
+            {
+                return Unauthorized();
+            }
+            userId = user.Value.Id;
         }
 
-        var dashboards = _dashboardService.GetDashboardsForUser(user.Value.Id);
+        var dashboards = _dashboardService.GetDashboardsForUser(userId);
         return Ok(dashboards);
     }
 
@@ -48,8 +59,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
+        if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
         }
@@ -60,15 +70,19 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPost]
     public IActionResult CreateDashboard([FromBody] CreateDashboardRequest request)
     {
-        var user = _userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue)
+        // Verify user exists in database (skip check in Home Assistant mode)
+        if (!IsHomeAssistantIngress)
         {
-            return Unauthorized();
+            var user = _userService.GetUserById(CurrentUserId);
+            if (user.HasNoValue)
+            {
+                return Unauthorized();
+            }
         }
 
         var dashboard = new Dashboard
         {
-            UserId = user.Value.Id,
+            UserId = CurrentUserId,
             Name = request.Name,
             Description = request.Description ?? string.Empty,
             ApiKey = Guid.NewGuid().ToString("N")
@@ -100,8 +114,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
+        if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
         }
@@ -159,8 +172,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         }
 
         // Verify user owns this dashboard
-        var user = _userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue || dashboard.Value.UserId != user.Value.Id)
+        if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
         }

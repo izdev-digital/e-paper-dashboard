@@ -30,4 +30,7 @@ public static class Constants
     public const string HomeAssistantIngressClaim = "HomeAssistantIngress";
     public const string HomeAssistantAdminUserId = "ha-admin";
     public const string HomeAssistantAdminUserName = "Home Assistant Admin";
+    
+    // Home Assistant virtual user ObjectId (deterministic value for HA mode dashboards)
+    public static readonly LiteDB.ObjectId HomeAssistantVirtualUserId = new LiteDB.ObjectId("000000000000000000000001");
 }
