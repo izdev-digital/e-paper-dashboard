@@ -24,7 +24,6 @@ public class HomeAssistantAuthService(
     
     private readonly ConcurrentDictionary<string, bool> _activeAuthFlows = new();
     private readonly ConcurrentDictionary<string, DateTime> _authFlowTimestamps = new();
-    private const int AUTH_FLOW_TIMEOUT_SECONDS = 600; // 10 minutes
 
     public AuthStartResult StartAuth(string host, string dashboardId, HttpContext? httpContext = null)
     {
@@ -38,35 +37,12 @@ public class HomeAssistantAuthService(
             return AuthStartResult.Failure("DashboardId is required");
         }
 
-        // Check if auth flow exists and if it's timed out, remove it
-        if (_activeAuthFlows.TryGetValue(dashboardId, out _))
+        if (_activeAuthFlows.ContainsKey(dashboardId))
         {
-            if (_authFlowTimestamps.TryGetValue(dashboardId, out var timestamp))
-            {
-                var age = (DateTime.UtcNow - timestamp).TotalSeconds;
-                if (age > AUTH_FLOW_TIMEOUT_SECONDS)
-                {
-                    // Clear the stale auth flow
-                    _activeAuthFlows.TryRemove(dashboardId, out _);
-                    _authFlowTimestamps.TryRemove(dashboardId, out _);
-                    _logger.LogInformation("Cleared stale auth flow for dashboard {DashboardId} (age: {Age}s)", dashboardId, age);
-                }
-                else
-                {
-                    return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
-                }
-            }
-            else
-            {
-                return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
-            }
+            _logger.LogInformation("Cancelling existing auth flow for dashboard {DashboardId} and starting new one", dashboardId);
         }
 
-        if (!_activeAuthFlows.TryAdd(dashboardId, true))
-        {
-            return AuthStartResult.Failure("Authentication is already in progress for this dashboard. Please wait or cancel the existing request.");
-        }
-
+        _activeAuthFlows[dashboardId] = true;
         _authFlowTimestamps[dashboardId] = DateTime.UtcNow;
 
         try

@@ -429,6 +429,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.loadDashboard(currentDashboard.id);
           this.toastService.success('Access token fetched successfully!');
         } else {
+          this.isAuthenticating.set(false);
           window.location.href = response.authUrl;
         }
       },
