@@ -57,20 +57,17 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public Uri? GetOAuthClientUri(HttpContext? context = null)
     {
-        // Extract ingress URL from current request context
         if (context?.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var ingressPathValues) == true)
         {
             var ingressPath = ingressPathValues.ToString();
             if (!string.IsNullOrWhiteSpace(ingressPath))
             {
-                // Construct full ingress URL: http://homeassistant/api/hassio_ingress/<session>
                 var ingressUrl = $"http://homeassistant{ingressPath.TrimEnd('/')}";
                 _logger.LogDebug("Using ingress URL from request context: {IngressUrl}", ingressUrl);
                 return new Uri(ingressUrl);
             }
         }
 
-        // OAuth not available without ingress context
         _logger.LogWarning("OAuth client URI not available - no ingress header in request context.");
         return null;
     }
@@ -187,7 +184,6 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
     {
         app.Use(async (context, next) =>
         {
-            // Check for ingress header directly
             if (!context.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var headerValue))
             {
                 await next();

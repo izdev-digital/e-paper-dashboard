@@ -73,7 +73,6 @@ public sealed class RenderToImageController(
 
 		var dashboard = dashboardResult.Value;
 
-		// Check rendering mode and route to appropriate renderer
 		if (dashboard.RenderingMode == RenderingMode.Custom)
 		{
 			return await RenderCustomLayoutImage(dashboard, imageSize, format, transform);
@@ -121,7 +120,6 @@ public sealed class RenderToImageController(
 
 			var resultImage = transform?.Invoke(imageResult.Value) ?? imageResult.Value;
 
-			// Update last update time on successful render
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
 			dashboardService.UpdateDashboard(dashboard);
 
@@ -152,7 +150,6 @@ public sealed class RenderToImageController(
 			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
 			.Map(image => transform?.Invoke(image) ?? image);
 
-		// Update last update time on successful render
 		if (result.IsSuccess)
 		{
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
