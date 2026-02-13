@@ -43,9 +43,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        // Always route through the supervisor proxy which validates the supervisor token.
-        // Using HomeAssistantCoreUrl directly would require a real HA auth token.
-        return (Constants.SupervisorCoreUrl, dashboard.AccessToken!);
+        return (Constants.HomeAssistantCoreUrl, dashboard.AccessToken!);
     }
 
     public UnitResult<string> ValidateConfiguration()
