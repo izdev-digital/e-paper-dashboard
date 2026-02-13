@@ -24,16 +24,19 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
 
+    public Uri? GetOAuthClientUri(HttpContext? context = null)
+    {
+        return EnvironmentConfiguration.ClientUri;
+    }
+
     public Task<string?> CreateAccessTokenAsync(string clientName)
     {
-        // Long-lived token creation via supervisor is not available in standalone mode
         _logger.LogWarning("Long-lived token creation is not supported in standalone mode");
         return Task.FromResult<string?>(null);
     }
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        // Use dashboard's configured OAuth credentials
         return (dashboard.Host!, dashboard.AccessToken!);
     }
 
@@ -75,13 +78,11 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public ClaimsPrincipal? AuthenticateViaIngress(HttpContext context)
     {
-        // Ingress authentication is only available in HA add-on mode
         return null;
     }
 
     public Task<bool> ProcessIngressPathAsync(HttpContext context, IWebHostEnvironment environment)
     {
-        // No ingress path processing in standalone mode
         return Task.FromResult(false);
     }
 

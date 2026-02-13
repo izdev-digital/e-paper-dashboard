@@ -50,6 +50,14 @@ public interface IDeploymentStrategy
     ClaimsPrincipal? AuthenticateViaIngress(HttpContext context);
 
     /// <summary>
+    /// Gets the OAuth client URI for this deployment mode.
+    /// In addon mode with ingress, pass the current HttpContext to extract ingress URL.
+    /// In standalone mode, returns the configured CLIENT_URL.
+    /// Returns null if OAuth is not available.
+    /// </summary>
+    Uri? GetOAuthClientUri(HttpContext? context = null);
+
+    /// <summary>
     /// Processes ingress path for request rewriting (HA add-on mode).
     /// Returns true if path was processed and response was written.
     /// </summary>

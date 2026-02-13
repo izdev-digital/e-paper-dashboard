@@ -309,7 +309,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           accessToken: '',
         });
 
-        // Convert update times to array for display (normalize string or array)
         if (dashboard.updateTimes) {
           let times: string[] = [];
           if (Array.isArray(dashboard.updateTimes)) {
@@ -327,7 +326,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.originalUpdateTimes = [];
         }
 
-        // Load rendering mode preference
         if (dashboard.renderingMode === 'HomeAssistant') {
           this.previewModeValue = 'homeassistant';
         } else {
@@ -337,12 +335,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
         this.isLoading.set(false);
 
-        // Now process OAuth if we have a token
         if (this.oauthToken && !dashboard.hasAccessToken) {
           this.saveOAuthToken(id);
         }
 
-        // Force change detection to ensure UI updates
         this.cdr.detectChanges();
       },
       error: () => {
@@ -365,7 +361,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.dashboard.set(updated);
         this.toastService.success('Home Assistant token saved successfully!');
 
-        // Clean the query params from URL without navigating away
         setTimeout(() => {
           window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
         }, 500);
@@ -429,6 +424,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.loadDashboard(currentDashboard.id);
           this.toastService.success('Access token fetched successfully!');
         } else {
+          this.isAuthenticating.set(false);
           window.location.href = response.authUrl;
         }
       },
@@ -447,7 +443,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // In Home Assistant mode, skip host/token validation (using supervisor credentials)
     if (!this.isHomeAssistantMode()) {
       const hostValue = this.dashboardForm.get('host')?.value;
       const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
@@ -470,7 +465,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
           this.dashboardSelectorDialog.open(transformedDashboards).then((selectedPath) => {
             if (selectedPath) {
-              // Update the form with the selected path
               this.dashboardForm.patchValue({ path: selectedPath });
               this.dashboardForm.markAsDirty();
             }
@@ -511,7 +505,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
     if (this.shouldClearAccessToken()) {
       updatePayload.clearAccessToken = true;
-      this.shouldClearAccessToken.set(false); // Reset flag after adding to payload
+      this.shouldClearAccessToken.set(false);
     }
 
     this.dashboardService.updateDashboard(currentDashboard.id, updatePayload).subscribe({
@@ -522,7 +516,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           description: updated.description || '',
           host: updated.host || '',
           path: updated.path || '',
-          accessToken: '' // Clear the token field after successful save
+          accessToken: ''
         });
         this.dashboardForm.markAsPristine();
         if (updated.updateTimes && Array.isArray(updated.updateTimes)) {
@@ -581,7 +575,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.toastService.success('API key copied to clipboard');
       return;
     } catch (err) {
-      // Clipboard API failed, attempt fallback
     }
 
     try {
@@ -776,12 +769,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Clean up preview URL on component destroy
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
       } catch (e) {
-        // Ignore cleanup errors
       }
     }
   }

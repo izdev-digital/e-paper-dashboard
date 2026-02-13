@@ -73,7 +73,6 @@ public sealed class RenderToImageController(
 
 		var dashboard = dashboardResult.Value;
 
-		// Check rendering mode and route to appropriate renderer
 		if (dashboard.RenderingMode == RenderingMode.Custom)
 		{
 			return await RenderCustomLayoutImage(dashboard, imageSize, format, transform);
@@ -121,7 +120,6 @@ public sealed class RenderToImageController(
 
 			var resultImage = transform?.Invoke(imageResult.Value) ?? imageResult.Value;
 
-			// Update last update time on successful render
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
 			dashboardService.UpdateDashboard(dashboard);
 
@@ -152,7 +150,6 @@ public sealed class RenderToImageController(
 			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
 			.Map(image => transform?.Invoke(image) ?? image);
 
-		// Update last update time on successful render
 		if (result.IsSuccess)
 		{
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
@@ -175,7 +172,7 @@ public sealed class RenderToImageController(
 
 		var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
 		
-		// For long-lived tokens (especially from HA add-on mode), ClientId is not used for auth
+		// For OAuth-generated long-lived tokens, ClientId is not used for auth
 		// Use ClientUri if configured, otherwise use the HA host URL as a placeholder
 		var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
 		

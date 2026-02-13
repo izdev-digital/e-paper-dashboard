@@ -2,7 +2,6 @@ using EPaperDashboard.Models;
 using EPaperDashboard.Utilities;
 using CSharpFunctionalExtensions;
 using System.Text;
-using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.FileProviders;
@@ -33,56 +32,20 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
 
-    public async Task<string?> CreateAccessTokenAsync(string clientName)
+    public Task<string?> CreateAccessTokenAsync(string clientName)
     {
-        try
-        {
-            var host = Constants.SupervisorCoreUrl;
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(host, _supervisorToken);
-
-            await WebSocketHelpers.SendMessageAsync(ws, new
-            {
-                id = 1,
-                type = "auth/long_lived_access_token",
-                client_name = clientName,
-                lifespan = 3650
-            });
-
-            var createResponse = await WebSocketHelpers.ReceiveMessageAsync(ws);
-            var createResult = JsonDocument.Parse(createResponse);
-
-            if (!createResult.RootElement.TryGetProperty("success", out var successProp) || !successProp.GetBoolean())
-            {
-                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
-                return null;
-            }
-
-            if (!createResult.RootElement.TryGetProperty("result", out var resultProp) || resultProp.ValueKind != JsonValueKind.String)
-            {
-                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
-                return null;
-            }
-
-            var token = resultProp.GetString();
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                _logger.LogWarning("Failed to create long-lived token: {Response}", createResponse);
-                return null;
-            }
-
-            _logger.LogInformation("Created long-lived access token for client: {ClientName}", clientName);
-            return token;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating long-lived access token");
-            return null;
-        }
+        // Long-lived token creation is not supported via supervisor token.
+        // The supervisor token is a system-level token only valid for supervisor proxy routes.
+        // Dashboards must use OAuth flow to get proper HA user tokens for frontend access.
+        _logger.LogWarning("Long-lived token creation via supervisor is not supported. Use OAuth flow.");
+        return Task.FromResult<string?>(null);
     }
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        return (Constants.HomeAssistantCoreUrl, dashboard.AccessToken!);
+        // Always route through the supervisor proxy which validates the supervisor token.
+        // Using HomeAssistantCoreUrl directly would require a real HA auth token.
+        return (Constants.SupervisorCoreUrl, dashboard.AccessToken!);
     }
 
     public UnitResult<string> ValidateConfiguration()
@@ -90,6 +53,23 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
         // In HA add-on mode, all configuration is optional
         // Authentication is handled via ingress, supervisor token is available
         return UnitResult.Success<string>();
+    }
+
+    public Uri? GetOAuthClientUri(HttpContext? context = null)
+    {
+        if (context?.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var ingressPathValues) == true)
+        {
+            var ingressPath = ingressPathValues.ToString();
+            if (!string.IsNullOrWhiteSpace(ingressPath))
+            {
+                var ingressUrl = $"http://homeassistant{ingressPath.TrimEnd('/')}";
+                _logger.LogDebug("Using ingress URL from request context: {IngressUrl}", ingressUrl);
+                return new Uri(ingressUrl);
+            }
+        }
+
+        _logger.LogWarning("OAuth client URI not available - no ingress header in request context.");
+        return null;
     }
 
     public ClaimsPrincipal? AuthenticateViaIngress(HttpContext context)
@@ -204,7 +184,6 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
     {
         app.Use(async (context, next) =>
         {
-            // Check for ingress header directly
             if (!context.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var headerValue))
             {
                 await next();
