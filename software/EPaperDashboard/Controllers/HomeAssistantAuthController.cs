@@ -55,7 +55,7 @@ public class HomeAssistantAuthController(
             state != null ? "present" : "null",
             error ?? "none");
 
-        var result = await _authService.HandleCallback(code, state, error);
+        var result = await _authService.HandleCallback(code, state, error, HttpContext);
 
         if (!result.IsSuccess)
         {
