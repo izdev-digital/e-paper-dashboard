@@ -25,7 +25,7 @@ public class HomeAssistantAuthService(
     private readonly ConcurrentDictionary<string, bool> _activeAuthFlows = new();
     private readonly ConcurrentDictionary<string, DateTime> _authFlowTimestamps = new();
 
-    public AuthStartResult StartAuth(string host, string dashboardId, HttpContext? httpContext = null)
+    public AuthStartResult StartAuth(string host, string dashboardId, HttpContext? httpContext = null, string? internalHost = null)
     {
         if (string.IsNullOrWhiteSpace(host))
         {
@@ -66,7 +66,8 @@ public class HomeAssistantAuthService(
             var stateData = new StateData
             {
                 DashboardId = dashboardId,
-                Host = hostUrl,
+                Host = internalHost?.TrimEnd('/') ?? hostUrl,
+                ClientId = clientId,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
             var state = EncodeState(stateData);
@@ -118,16 +119,24 @@ public class HomeAssistantAuthService(
 
         try
         {
-            var clientUri = _deploymentStrategy.GetOAuthClientUri(httpContext);
-            if (clientUri == null)
+            string clientId;
+            if (!string.IsNullOrWhiteSpace(stateData.ClientId))
             {
-                var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
-                    ? "Could not determine ingress URL for OAuth callback."
-                    : "CLIENT_URL is not configured.";
-                return AuthCallbackResult.Failure(stateData.DashboardId, errorMsg);
+                clientId = stateData.ClientId;
+            }
+            else
+            {
+                var clientUri = _deploymentStrategy.GetOAuthClientUri(httpContext);
+                if (clientUri == null)
+                {
+                    var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
+                        ? "Could not determine ingress URL for OAuth callback."
+                        : "CLIENT_URL is not configured.";
+                    return AuthCallbackResult.Failure(stateData.DashboardId, errorMsg);
+                }
+                clientId = clientUri.ToString().TrimEnd('/');
             }
 
-            var clientId = clientUri.ToString().TrimEnd('/');
             var tokenUrl = $"{stateData.Host}/auth/token";
 
             var httpClient = _httpClientFactory.CreateClient();
@@ -240,6 +249,7 @@ public class HomeAssistantAuthService(
     {
         public string DashboardId { get; set; } = string.Empty;
         public string Host { get; set; } = string.Empty;
+        public string? ClientId { get; set; }
         public long Timestamp { get; set; }
     }
 
