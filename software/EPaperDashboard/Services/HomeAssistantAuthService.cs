@@ -86,7 +86,7 @@ public class HomeAssistantAuthService(
         }
     }
 
-    public async Task<AuthCallbackResult> HandleCallback(string? code, string? state, string? error)
+    public async Task<AuthCallbackResult> HandleCallback(string? code, string? state, string? error, HttpContext? httpContext = null)
     {
         if (!string.IsNullOrWhiteSpace(error))
         {
@@ -118,7 +118,7 @@ public class HomeAssistantAuthService(
 
         try
         {
-            var clientUri = _deploymentStrategy.GetOAuthClientUri();
+            var clientUri = _deploymentStrategy.GetOAuthClientUri(httpContext);
             if (clientUri == null)
             {
                 var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
