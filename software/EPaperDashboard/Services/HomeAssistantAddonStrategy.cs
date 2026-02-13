@@ -60,7 +60,9 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
             var ingressPath = ingressPathValues.ToString();
             if (!string.IsNullOrWhiteSpace(ingressPath))
             {
-                var ingressUrl = $"http://homeassistant{ingressPath.TrimEnd('/')}";
+                var browserOrigin = context.Items["BrowserOrigin"]?.ToString()?.TrimEnd('/')
+                    ?? "http://homeassistant";
+                var ingressUrl = $"{browserOrigin}{ingressPath.TrimEnd('/')}";
                 _logger.LogDebug("Using ingress URL from request context: {IngressUrl}", ingressUrl);
                 return new Uri(ingressUrl);
             }

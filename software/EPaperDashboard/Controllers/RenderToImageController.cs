@@ -23,7 +23,8 @@ namespace EPaperDashboard.Controllers;
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
 	DashboardService dashboardService,
-	DashboardHtmlRenderingService dashboardHtmlRenderingService) : ControllerBase
+	DashboardHtmlRenderingService dashboardHtmlRenderingService,
+	IDeploymentStrategy deploymentStrategy) : ControllerBase
 {
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
@@ -54,7 +55,7 @@ public sealed class RenderToImageController(
 	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey) =>
 		await dashboardService
 			.GetDashboardByApiKey(apiKey)
-			.Bind(GetDashboardUri)
+			.Bind(d => GetDashboardUri(d, deploymentStrategy))
 			.Match(
 				Some: async (uri, _) => (IActionResult)Ok(await renderingService.GetHealth(uri)),
 				None: _ => Task.FromResult<IActionResult>(NotFound()));
@@ -137,7 +138,7 @@ public sealed class RenderToImageController(
 		string format,
 		Func<IImage, IImage>? transform = null)
 	{
-		var dashboardInfo = GetDashboardInfo(dashboard);
+		var dashboardInfo = GetDashboardInfo(dashboard, deploymentStrategy);
 		if (dashboardInfo.HasNoValue)
 		{
 			return NotFound("Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.");
@@ -161,10 +162,16 @@ public sealed class RenderToImageController(
 			error => Task.FromResult<IActionResult>(BadRequest(error)));
 	}
 
-	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard)
+	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
 	{
+		var host = dashboard.Host;
+		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.IsHomeAssistantAddon)
+		{
+			host = Constants.HomeAssistantCoreUrl;
+		}
+
 		if (string.IsNullOrWhiteSpace(dashboard.AccessToken)
-			|| !Uri.TryCreate(dashboard.Host, UriKind.Absolute, out var hostUri)
+			|| !Uri.TryCreate(host, UriKind.Absolute, out var hostUri)
 			|| !Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri))
 		{
 			return Maybe.None;
@@ -179,11 +186,19 @@ public sealed class RenderToImageController(
 		return (new Uri(hostUri, pathUri), new HassTokens(dashboard.AccessToken, "Bearer", hassUrl, clientId));
 	}
 
-	private static Maybe<Uri> GetDashboardUri(Dashboard dashboard) =>
-		Uri.TryCreate(dashboard.Host, UriKind.Absolute, out var hostUri) &&
-		Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri)
-		? new Uri(hostUri, pathUri)
-		: Maybe.None;
+	private static Maybe<Uri> GetDashboardUri(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
+	{
+		var host = dashboard.Host;
+		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.IsHomeAssistantAddon)
+		{
+			host = Constants.HomeAssistantCoreUrl;
+		}
+
+		return Uri.TryCreate(host, UriKind.Absolute, out var hostUri) &&
+			Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri)
+			? new Uri(hostUri, pathUri)
+			: Maybe.None;
+	}
 
 	private static IDither? GetDither(bool shouldDither) =>
 		shouldDither ? KnownDitherings.JarvisJudiceNinke : null;

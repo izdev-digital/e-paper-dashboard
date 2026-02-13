@@ -417,7 +417,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
     this.isAuthenticating.set(true);
 
-    this.homeAssistantService.startAuth(hostValue || '', currentDashboard.id).subscribe({
+    const host = this.isHomeAssistantMode() ? window.location.origin : (hostValue || '');
+    this.homeAssistantService.startAuth(host, currentDashboard.id).subscribe({
       next: (response: any) => {
         if (response.directAuth) {
           this.isAuthenticating.set(false);

@@ -26,12 +26,19 @@ public class HomeAssistantAuthController(
     public IActionResult StartAuth([FromBody] AuthRequest request)
     {
         var host = request.Host;
-        if (_deploymentStrategy.IsHomeAssistantAddon && string.IsNullOrWhiteSpace(host))
+        string? internalHost = null;
+
+        if (_deploymentStrategy.IsHomeAssistantAddon)
         {
-            host = Constants.HomeAssistantCoreUrl;
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                host = Constants.HomeAssistantCoreUrl;
+            }
+            internalHost = Constants.HomeAssistantCoreUrl;
+            HttpContext.Items["BrowserOrigin"] = host;
         }
 
-        var result = _authService.StartAuth(host, request.DashboardId, HttpContext);
+        var result = _authService.StartAuth(host, request.DashboardId, HttpContext, internalHost);
 
         if (!result.IsSuccess)
         {
