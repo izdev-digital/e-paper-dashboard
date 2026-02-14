@@ -11,7 +11,11 @@ public sealed class DashboardPage(IPage page, Uri dashboardUri)
 
 	public async Task EnsureNavigatedAsync()
 	{
-		await _page.GotoAsync(_dashboardUri.AbsoluteUri);
+		await _page.GotoAsync(_dashboardUri.AbsoluteUri, new PageGotoOptions
+		{
+			Timeout = 60000, // 60 seconds timeout for slow networks
+			WaitUntil = WaitUntilState.NetworkIdle
+		});
 		await WaitAsync();
 	}
 
@@ -19,6 +23,16 @@ public sealed class DashboardPage(IPage page, Uri dashboardUri)
 	{
 		var hassTokens = JsonConvert.SerializeObject(token);
 		await _page.EvaluateAsync("token => { localStorage.setItem('hassTokens', token); }", hassTokens);
+	}
+
+	public async Task ReloadAsync()
+	{
+		await _page.ReloadAsync(new PageReloadOptions
+		{
+			Timeout = 60000, // 60 seconds timeout for slow networks
+			WaitUntil = WaitUntilState.NetworkIdle
+		});
+		await WaitAsync();
 	}
 
 	public async Task<byte[]> TakeScreenshotAsync() => await _page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Jpeg });

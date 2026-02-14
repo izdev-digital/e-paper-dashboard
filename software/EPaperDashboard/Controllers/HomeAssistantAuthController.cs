@@ -30,9 +30,20 @@ public class HomeAssistantAuthController(
 
         if (_deploymentStrategy.IsHomeAssistantAddon)
         {
-            if (string.IsNullOrWhiteSpace(host))
+            if (string.IsNullOrWhiteSpace(host) || host == Constants.HomeAssistantCoreUrl)
             {
-                host = Constants.HomeAssistantCoreUrl;
+                var scheme = HttpContext.Request.Scheme;
+                var hostHeader = HttpContext.Request.Host.Value;
+                
+                if (HttpContext.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var ingressPath))
+                {
+                    host = $"{scheme}://{hostHeader}".Replace(ingressPath.ToString(), "");
+                    _logger.LogInformation("Detected Home Assistant URL from request: {Host}", host);
+                }
+                else
+                {
+                    host = $"{scheme}://{hostHeader}";
+                }
             }
             internalHost = Constants.HomeAssistantCoreUrl;
             HttpContext.Items["BrowserOrigin"] = host;
