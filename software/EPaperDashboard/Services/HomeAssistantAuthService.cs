@@ -74,7 +74,8 @@ public class HomeAssistantAuthService(
 
             var authUrl = $"{hostUrl}/auth/authorize?client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUri)}&state={Uri.EscapeDataString(state)}";
 
-            _logger.LogInformation("Starting auth flow for {Host} with dashboard {DashboardId}", hostUrl, dashboardId);
+            _logger.LogInformation("Starting OAuth flow - Host: {Host}, ClientId: {ClientId}, RedirectUri: {RedirectUri}, DashboardId: {DashboardId}", 
+                hostUrl, clientId, redirectUri, dashboardId);
 
             return AuthStartResult.Success(authUrl, state);
         }

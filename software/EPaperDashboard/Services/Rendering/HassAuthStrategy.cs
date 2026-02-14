@@ -12,5 +12,6 @@ public sealed class HassAuthStrategy(HassTokens hassTokens) : IAuthrorizationStr
 		Guard.NotNull(page);
 		await page.EnsureNavigatedAsync();
 		await page.SetToken(_hassTokens);
+		await page.ReloadAsync();
 	}
 }
