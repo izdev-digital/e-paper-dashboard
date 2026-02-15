@@ -1,9 +1,11 @@
+export type DeploymentMode = 'addon' | 'host' | 'standalone';
+
 export interface User {
   id: string;
   username: string;
   nickname?: string;
   isSuperUser: boolean;
-  isHomeAssistantMode?: boolean;
+  deploymentMode?: DeploymentMode;
 }
 
 export interface LoginRequest {

@@ -9,6 +9,17 @@ public sealed class DashboardPage(IPage page, Uri dashboardUri)
 	private readonly IPage _page = page;
 	private readonly Uri _dashboardUri = dashboardUri;
 
+	public async Task NavigateToRootAsync()
+	{
+		var root = new Uri(_dashboardUri.GetLeftPart(UriPartial.Authority));
+		await _page.GotoAsync(root.AbsoluteUri, new PageGotoOptions
+		{
+			Timeout = 60000,
+			WaitUntil = WaitUntilState.NetworkIdle
+		});
+		await WaitAsync();
+	}
+
 	public async Task EnsureNavigatedAsync()
 	{
 		await _page.GotoAsync(_dashboardUri.AbsoluteUri, new PageGotoOptions

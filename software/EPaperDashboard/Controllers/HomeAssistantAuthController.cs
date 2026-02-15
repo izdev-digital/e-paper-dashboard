@@ -4,6 +4,7 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
 using EPaperDashboard.Utilities;
 using LiteDB;
+using static EPaperDashboard.Utilities.DeploymentMode;
 
 namespace EPaperDashboard.Controllers;
 
@@ -28,7 +29,7 @@ public class HomeAssistantAuthController(
         var host = request.Host;
         string? internalHost = null;
 
-        if (_deploymentStrategy.IsHomeAssistantAddon)
+        if (_deploymentStrategy.Mode == DeploymentMode.Addon)
         {
             if (string.IsNullOrWhiteSpace(host) || host == Constants.HomeAssistantCoreUrl)
             {
@@ -38,7 +39,6 @@ public class HomeAssistantAuthController(
                 if (HttpContext.Request.Headers.TryGetValue(Constants.IngressPathHeader, out var ingressPath))
                 {
                     host = $"{scheme}://{hostHeader}".Replace(ingressPath.ToString(), "");
-                    _logger.LogInformation("Detected Home Assistant URL from request: {Host}", host);
                 }
                 else
                 {
@@ -47,6 +47,15 @@ public class HomeAssistantAuthController(
             }
             internalHost = Constants.HomeAssistantCoreUrl;
             HttpContext.Items["BrowserOrigin"] = host;
+        }
+        else if (_deploymentStrategy.Mode == DeploymentMode.Host)
+        {
+            var haHost = EnvironmentConfiguration.HomeAssistantHost ?? Constants.HomeAssistantCoreUrl;
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                host = haHost;
+            }
+            internalHost = haHost;
         }
 
         var result = _authService.StartAuth(host, request.DashboardId, HttpContext, internalHost);

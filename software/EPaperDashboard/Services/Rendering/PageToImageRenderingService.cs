@@ -39,8 +39,6 @@ internal sealed class PageToImageRenderingService(
 		Guard.NotNull(dashboardUri);
 		Guard.NotNull(authrorizationStrategy);
 		
-		_logger.LogInformation("Attempting to render dashboard at {DashboardUri}", dashboardUri);
-		
 		using var playwright = await Playwright.CreateAsync();
 		await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
 		
@@ -52,23 +50,14 @@ internal sealed class PageToImageRenderingService(
 		var page = await context.NewPageAsync();
 		var dashboardPage = new DashboardPage(page, dashboardUri);
 
-		try
-		{
-			await authrorizationStrategy.AuthorizeAsync(dashboardPage);
-			
-			var screenshot = await dashboardPage.TakeScreenshotAsync();
-			
-			_logger.LogInformation("Successfully rendered dashboard {DashboardUri} ({Size} bytes)", 
-				dashboardUri, screenshot.Length);
-			
-			return _imageFactory.Load(screenshot);
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Failed to render dashboard at {DashboardUri}. Error: {Message}", 
-				dashboardUri, ex.Message);
-			throw;
-		}
+		await authrorizationStrategy.AuthorizeAsync(dashboardPage);
+		
+		var screenshot = await dashboardPage.TakeScreenshotAsync();
+		
+		_logger.LogInformation("Rendered dashboard {DashboardUri} ({Size} bytes)", 
+			dashboardUri, screenshot.Length);
+		
+		return _imageFactory.Load(screenshot);
 	});
 
 	public Task<Result<IImage>> RenderHtmlAsync(string html, Size size) => Result.Try(async () =>

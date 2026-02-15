@@ -16,20 +16,27 @@ using LiteDB;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register deployment strategy based on environment
-if (EnvironmentConfiguration.IsHomeAssistantAddon)
+// Register deployment strategy based on APP_MODE
+switch (EnvironmentConfiguration.AppMode)
 {
-	builder.Services.AddSingleton<IDeploymentStrategy, HomeAssistantAddonStrategy>();
-}
-else
-{
-	builder.Services.AddSingleton<IDeploymentStrategy, StandaloneStrategy>();
+	case DeploymentMode.Addon:
+		builder.Services.AddSingleton<IDeploymentStrategy, HomeAssistantAddonStrategy>();
+		break;
+	case DeploymentMode.Host:
+		builder.Services.AddSingleton<IDeploymentStrategy, HostModeStrategy>();
+		break;
+	default:
+		builder.Services.AddSingleton<IDeploymentStrategy, StandaloneStrategy>();
+		break;
 }
 
 // Validate configuration using strategy
-IDeploymentStrategy validationStrategy = EnvironmentConfiguration.IsHomeAssistantAddon
-	? new HomeAssistantAddonStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HomeAssistantAddonStrategy>())
-	: new StandaloneStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<StandaloneStrategy>());
+IDeploymentStrategy validationStrategy = EnvironmentConfiguration.AppMode switch
+{
+	DeploymentMode.Addon => new HomeAssistantAddonStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HomeAssistantAddonStrategy>()),
+	DeploymentMode.Host => new HostModeStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HostModeStrategy>()),
+	_ => new StandaloneStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<StandaloneStrategy>())
+};
 
 var validationResult = validationStrategy.ValidateConfiguration();
 if (validationResult.IsFailure)

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
-import { User, LoginRequest, RegisterRequest } from '../models/types';
+import { User, LoginRequest, RegisterRequest, DeploymentMode } from '../models/types';
 
 @Injectable({
   providedIn: 'root'
@@ -16,8 +16,10 @@ export class AuthService {
   readonly authReady = this.authReadySignal.asReadonly();
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
   readonly isAuthReady = computed(() => this.authReadySignal());
-  readonly isHomeAssistantMode = computed(() => this.currentUserSignal()?.isHomeAssistantMode ?? false);
-  readonly isUserManagementDisabled = computed(() => this.currentUserSignal()?.isHomeAssistantMode ?? false);
+  readonly deploymentMode = computed<DeploymentMode>(() => this.currentUserSignal()?.deploymentMode ?? 'standalone');
+  readonly isAddonMode = computed(() => this.deploymentMode() === 'addon');
+  readonly isHostMode = computed(() => this.deploymentMode() === 'host');
+  readonly isUserManagementDisabled = computed(() => this.deploymentMode() === 'addon');
 
   login(credentials: LoginRequest): Observable<User> {
     return this.http.post<User>('/api/auth/login', credentials).pipe(
