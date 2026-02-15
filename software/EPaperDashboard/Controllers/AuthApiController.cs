@@ -10,9 +10,10 @@ namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthApiController(UserService userService) : BaseApiController
+public class AuthApiController(UserService userService, IDeploymentStrategy deploymentStrategy) : BaseApiController
 {
     private readonly UserService _userService = userService;
+    private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
 
     [HttpPost("login")]
     [AllowAnonymous]
@@ -108,7 +109,7 @@ public class AuthApiController(UserService userService) : BaseApiController
         var isSuperUser = IsSuperUser;
         var isHAIngress = IsHomeAssistantIngress;
 
-        // In Home Assistant mode, return simplified user info
+        // In Home Assistant ingress mode, return simplified user info
         if (isHAIngress)
         {
             return Ok(new
@@ -117,11 +118,11 @@ public class AuthApiController(UserService userService) : BaseApiController
                 username = username,
                 nickname = username,
                 isSuperUser = isSuperUser,
-                isHomeAssistantMode = true
+                deploymentMode = _deploymentStrategy.Mode.ToString().ToLowerInvariant()
             });
         }
 
-        // In standalone mode, get full user details from database
+        // In standalone/host mode, get full user details from database
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
@@ -139,7 +140,7 @@ public class AuthApiController(UserService userService) : BaseApiController
             username = user.Value.Username,
             nickname = user.Value.Nickname,
             isSuperUser = user.Value.IsSuperUser,
-            isHomeAssistantMode = false
+            deploymentMode = _deploymentStrategy.Mode.ToString().ToLowerInvariant()
         });
     }
 }

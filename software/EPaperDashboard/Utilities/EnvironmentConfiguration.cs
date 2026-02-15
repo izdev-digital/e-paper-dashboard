@@ -4,7 +4,9 @@ namespace EPaperDashboard.Utilities;
 
 public static class EnvironmentConfiguration
 {
+	private const string AppModeKey = "APP_MODE";
 	private const string ClientUrlKey = "CLIENT_URL";
+	private const string HomeAssistantHostKey = "HOME_ASSISTANT_HOST";
 	private const string SuperuserUsernameKey = "SUPERUSER_USERNAME";
 	private const string SuperuserPasswordKey = "SUPERUSER_PASSWORD";
 	private const string StateSigningKeyKey = "STATE_SIGNING_KEY";
@@ -13,8 +15,30 @@ public static class EnvironmentConfiguration
 
 	private static readonly Lazy<JsonDocument?> _jsonConfig = new(LoadJsonConfig);
 
+	private static readonly Lazy<DeploymentMode> _appMode = new(() =>
+	{
+		var modeStr = GetStringFromEnvOrConfig(AppModeKey);
+		if (!string.IsNullOrWhiteSpace(modeStr) &&
+			Enum.TryParse<DeploymentMode>(modeStr, ignoreCase: true, out var mode))
+		{
+			return mode;
+		}
+
+		// Fallback: auto-detect addon mode for backward compatibility
+		if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN"))
+			&& Directory.Exists("/data"))
+		{
+			return DeploymentMode.Addon;
+		}
+
+		return DeploymentMode.Standalone;
+	});
+
 	private static readonly Lazy<Uri?> _clientUri = new(() =>
 		GetUriFromEnvOrConfig(ClientUrlKey, UriKind.Absolute));
+
+	private static readonly Lazy<string?> _homeAssistantHost = new(() =>
+		GetStringFromEnvOrConfig(HomeAssistantHostKey));
 
 	private static readonly Lazy<string?> _superuserUsername = new(() =>
 		GetStringFromEnvOrConfig(SuperuserUsernameKey));
@@ -26,18 +50,18 @@ public static class EnvironmentConfiguration
 		GetStringFromEnvOrConfig(StateSigningKeyKey));
 
 	private static readonly Lazy<TimeSpan> _dashboardScheduleCheckInterval = new(() =>
-		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardScheduleCheckIntervalMinutesKey, 720))); // 12 hours default
+		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardScheduleCheckIntervalMinutesKey, 720)));
 
 	private static readonly Lazy<TimeSpan> _dashboardMissedScheduleTolerance = new(() =>
-		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardMissedScheduleToleranceMinutesKey, 15))); // 15 minutes default
+		TimeSpan.FromMinutes(GetIntFromEnvOrConfig(DashboardMissedScheduleToleranceMinutesKey, 15)));
 
 	private static readonly Lazy<string> _configDir = new(() => "/data");
 
-	private static readonly Lazy<bool> _isHomeAssistantAddon = new(() =>
-		!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN"))
-		&& Directory.Exists("/data"));
+	public static DeploymentMode AppMode => _appMode.Value;
 
-	public static bool IsHomeAssistantAddon => _isHomeAssistantAddon.Value;
+	public static bool IsAddonMode => AppMode == DeploymentMode.Addon;
+
+	public static string? HomeAssistantHost => _homeAssistantHost.Value;
 
 	public static Uri? ClientUri => _clientUri.Value;
 

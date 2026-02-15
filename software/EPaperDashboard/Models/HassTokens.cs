@@ -16,4 +16,13 @@ public sealed record HassTokens(string AccessToken, string TokenType, string Has
 
     [JsonProperty("clientId")]
     public string ClientId { get; } = Guard.NeitherNullNorWhitespace(ClientId);
+
+    [JsonProperty("refresh_token")]
+    public string RefreshToken { get; init; } = "";
+
+    [JsonProperty("expires_in")]
+    public long ExpiresIn { get; init; } = 315360000;
+
+    [JsonProperty("expires")]
+    public long Expires { get; init; } = DateTimeOffset.UtcNow.AddYears(10).ToUnixTimeMilliseconds();
 }

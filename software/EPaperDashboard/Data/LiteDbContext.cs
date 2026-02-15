@@ -19,7 +19,14 @@ public sealed class LiteDbContext
             deserialize: (bsonValue) => BsonValueToJsonElement(bsonValue)
         );
         
-        _db = new(Path.Combine(EnvironmentConfiguration.ConfigDir, "epaperdashboard.db"), mapper);
+        var connectionString = new ConnectionString
+        {
+            Filename = Path.Combine(EnvironmentConfiguration.ConfigDir, "epaperdashboard.db"),
+            Connection = ConnectionType.Direct
+        };
+
+        _db = new(connectionString, mapper);
+        _db.Checkpoint();
     }
 
     public ILiteCollection<User> Users => _db.GetCollection<User>("users");

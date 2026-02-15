@@ -5,16 +5,19 @@ using System.Security.Claims;
 
 namespace EPaperDashboard.Services;
 
-public class StandaloneStrategy : IDeploymentStrategy
+public class HostModeStrategy : IDeploymentStrategy
 {
-    private readonly ILogger<StandaloneStrategy> _logger;
+    private readonly ILogger<HostModeStrategy> _logger;
+    private readonly string _homeAssistantHost;
 
-    public StandaloneStrategy(ILogger<StandaloneStrategy> logger)
+    public HostModeStrategy(ILogger<HostModeStrategy> logger)
     {
         _logger = logger;
+        _homeAssistantHost = EnvironmentConfiguration.HomeAssistantHost
+            ?? Constants.HomeAssistantCoreUrl;
     }
 
-    public DeploymentMode Mode => DeploymentMode.Standalone;
+    public DeploymentMode Mode => DeploymentMode.Host;
 
     public bool IsUserManagementEnabled => true;
 
@@ -27,13 +30,12 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public Task<string?> CreateAccessTokenAsync(string clientName)
     {
-        _logger.LogWarning("Long-lived token creation is not supported in standalone mode");
         return Task.FromResult<string?>(null);
     }
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        return (dashboard.Host!, dashboard.AccessToken!);
+        return (_homeAssistantHost, dashboard.AccessToken!);
     }
 
     public UnitResult<string> ValidateConfiguration()
@@ -41,72 +43,49 @@ public class StandaloneStrategy : IDeploymentStrategy
         var missingConfigs = new List<string>();
 
         if (EnvironmentConfiguration.ClientUri is null)
-        {
             missingConfigs.Add("CLIENT_URL");
-        }
 
         if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserUsername))
-        {
             missingConfigs.Add("SUPERUSER_USERNAME");
-        }
 
         if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserPassword))
-        {
             missingConfigs.Add("SUPERUSER_PASSWORD");
-        }
 
         if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.StateSigningKey))
-        {
             missingConfigs.Add("STATE_SIGNING_KEY");
-        }
 
         if (missingConfigs.Count > 0)
         {
-            var message = $"""
-                Missing required configuration: {string.Join(", ", missingConfigs)}.
-                Please set them as environment variables or in /data/options.json file.
-                """;
-            return UnitResult.Failure(message);
+            return UnitResult.Failure(
+                $"Missing required configuration: {string.Join(", ", missingConfigs)}. " +
+                "Please set them as environment variables or in /data/options.json file.");
         }
 
         return UnitResult.Success<string>();
     }
 
-    public ClaimsPrincipal? AuthenticateViaIngress(HttpContext context)
-    {
-        return null;
-    }
+    public ClaimsPrincipal? AuthenticateViaIngress(HttpContext context) => null;
 
     public Task<bool> ProcessIngressPathAsync(HttpContext context, IWebHostEnvironment environment)
-    {
-        return Task.FromResult(false);
-    }
+        => Task.FromResult(false);
 
     public void PerformInitialSetup(IServiceProvider serviceProvider)
     {
         var userService = serviceProvider.GetRequiredService<UserService>();
-        if (!userService.HasSuperUser() 
-            && EnvironmentConfiguration.SuperUserUsername != null 
+        if (!userService.HasSuperUser()
+            && EnvironmentConfiguration.SuperUserUsername != null
             && EnvironmentConfiguration.SuperUserPassword != null)
         {
             userService.TryCreateUser(
-                EnvironmentConfiguration.SuperUserUsername, 
-                EnvironmentConfiguration.SuperUserPassword, 
+                EnvironmentConfiguration.SuperUserUsername,
+                EnvironmentConfiguration.SuperUserPassword,
                 isSuperUser: true);
-            
+
             _logger.LogInformation("Created superuser: {Username}", EnvironmentConfiguration.SuperUserUsername);
         }
     }
 
-    public void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
-    {
-    }
-
-    public void ApplyPostAuthenticationMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
-    {
-    }
-
-    public void ApplyPostStaticFilesMiddleware(IApplicationBuilder app, IWebHostEnvironment environment)
-    {
-    }
+    public void ApplyMiddleware(IApplicationBuilder app, IWebHostEnvironment environment) { }
+    public void ApplyPostAuthenticationMiddleware(IApplicationBuilder app, IWebHostEnvironment environment) { }
+    public void ApplyPostStaticFilesMiddleware(IApplicationBuilder app, IWebHostEnvironment environment) { }
 }

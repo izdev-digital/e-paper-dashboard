@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Net.WebSockets;
 using EPaperDashboard.Utilities;
+using static EPaperDashboard.Utilities.DeploymentMode;
 
 namespace EPaperDashboard.Services;
 
@@ -52,7 +53,7 @@ public class HomeAssistantAuthService(
             {
                 _activeAuthFlows.TryRemove(dashboardId, out _);
                 _authFlowTimestamps.TryRemove(dashboardId, out _);
-                var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
+                var errorMsg = _deploymentStrategy.Mode == DeploymentMode.Addon
                     ? "Could not determine ingress URL from request. Ensure you're accessing the addon through Home Assistant ingress."
                     : "CLIENT_URL is not configured. This is required for Home Assistant OAuth authentication.";
                 return AuthStartResult.Failure(errorMsg);
@@ -74,8 +75,7 @@ public class HomeAssistantAuthService(
 
             var authUrl = $"{hostUrl}/auth/authorize?client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUri)}&state={Uri.EscapeDataString(state)}";
 
-            _logger.LogInformation("Starting OAuth flow - Host: {Host}, ClientId: {ClientId}, RedirectUri: {RedirectUri}, DashboardId: {DashboardId}", 
-                hostUrl, clientId, redirectUri, dashboardId);
+            _logger.LogInformation("Starting auth flow for {Host} with dashboard {DashboardId}", hostUrl, dashboardId);
 
             return AuthStartResult.Success(authUrl, state);
         }
@@ -130,7 +130,7 @@ public class HomeAssistantAuthService(
                 var clientUri = _deploymentStrategy.GetOAuthClientUri(httpContext);
                 if (clientUri == null)
                 {
-                    var errorMsg = _deploymentStrategy.IsHomeAssistantAddon
+                    var errorMsg = _deploymentStrategy.Mode == DeploymentMode.Addon
                         ? "Could not determine ingress URL for OAuth callback."
                         : "CLIENT_URL is not configured.";
                     return AuthCallbackResult.Failure(stateData.DashboardId, errorMsg);
@@ -280,7 +280,7 @@ public class HomeAssistantAuthService(
             id = messageId++,
             type = "auth/long_lived_access_token",
             client_name = $"EPaperDashboard-{Guid.NewGuid():N}",
-            lifespan = 365
+            lifespan = 3650
         });
 
         var createResponse = await WebSocketHelpers.ReceiveMessageAsync(ws);

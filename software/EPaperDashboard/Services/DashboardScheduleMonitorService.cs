@@ -75,7 +75,7 @@ public class DashboardScheduleMonitorService : BackgroundService
             return;
         }
 
-        var hasHost = !string.IsNullOrWhiteSpace(dashboard.Host) || EnvironmentConfiguration.IsHomeAssistantAddon;
+        var hasHost = !string.IsNullOrWhiteSpace(dashboard.Host) || EnvironmentConfiguration.AppMode != DeploymentMode.Standalone;
         if (!hasHost || string.IsNullOrWhiteSpace(dashboard.AccessToken))
         {
             return;

@@ -8,10 +8,6 @@ using Microsoft.Extensions.FileProviders;
 
 namespace EPaperDashboard.Services;
 
-/// <summary>
-/// Deployment strategy for Home Assistant add-on mode.
-/// Uses supervisor token for authentication and internal networking.
-/// </summary>
 public class HomeAssistantAddonStrategy : IDeploymentStrategy
 {
     private readonly ILogger<HomeAssistantAddonStrategy> _logger;
@@ -26,7 +22,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
             ?? throw new InvalidOperationException("SUPERVISOR_TOKEN not found");
     }
 
-    public bool IsHomeAssistantAddon => true;
+    public DeploymentMode Mode => DeploymentMode.Addon;
 
     public bool IsUserManagementEnabled => false;
 

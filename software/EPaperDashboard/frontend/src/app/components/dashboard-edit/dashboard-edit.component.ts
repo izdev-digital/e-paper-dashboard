@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -102,7 +102,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
               </div>
 
               <div class="col-12 col-lg-6">
-                @if (!isHomeAssistantMode()) {
+                @if (!hideHostField()) {
                   <div class="mb-3">
                     <label class="form-label fw-semibold">Dashboard Host</label>
                     <input 
@@ -182,7 +182,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                         type="button" 
                         class="btn btn-outline-secondary" 
                         (click)="openDashboardSelector()"
-                        [disabled]="isHomeAssistantMode() ? false : (!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value))"
+                        [disabled]="hideHostField() ? false : (!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value))"
                       >
                         <i class="fa-solid fa-list"></i> Select
                       </button>
@@ -247,7 +247,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
 
-  readonly isHomeAssistantMode = this.authService.isHomeAssistantMode;
+  readonly isAddonMode = this.authService.isAddonMode;
+  readonly isHostMode = this.authService.isHostMode;
+  readonly hideHostField = computed(() => this.isAddonMode() || this.isHostMode());
 
   @ViewChild(DashboardSelectorDialogComponent) dashboardSelectorDialog!: DashboardSelectorDialogComponent;
 
@@ -335,7 +337,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
         this.isLoading.set(false);
 
-        if (this.oauthToken && !dashboard.hasAccessToken) {
+        if (this.oauthToken) {
           this.saveOAuthToken(id);
         }
 
@@ -352,9 +354,14 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const updatePayload = {
+    const updatePayload: any = {
       accessToken: this.oauthToken
     };
+
+    const hostValue = this.dashboardForm.get('host')?.value;
+    if (hostValue) {
+      updatePayload.host = hostValue;
+    }
 
     this.dashboardService.updateDashboard(dashboardId, updatePayload).subscribe({
       next: (updated) => {
@@ -410,14 +417,14 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     }
 
     const hostValue = this.dashboardForm.get('host')?.value;
-    if (!this.isHomeAssistantMode() && !hostValue) {
+    if (!this.hideHostField() && !hostValue) {
       this.toastService.error('Please enter Home Assistant host first.');
       return;
     }
 
     this.isAuthenticating.set(true);
 
-    const host = this.isHomeAssistantMode() ? window.location.origin : (hostValue || '');
+    const host = this.hideHostField() ? window.location.origin : (hostValue || '');
     this.homeAssistantService.startAuth(host, currentDashboard.id).subscribe({
       next: (response: any) => {
         if (response.directAuth) {
@@ -444,7 +451,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.isHomeAssistantMode()) {
+    if (!this.hideHostField()) {
       const hostValue = this.dashboardForm.get('host')?.value;
       const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
       if (!hostValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {

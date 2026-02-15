@@ -165,9 +165,10 @@ public sealed class RenderToImageController(
 	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
 	{
 		var host = dashboard.Host;
-		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.IsHomeAssistantAddon)
+		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.Mode != DeploymentMode.Standalone)
 		{
-			host = Constants.HomeAssistantCoreUrl;
+			var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
+			host = strategyHost;
 		}
 
 		if (string.IsNullOrWhiteSpace(dashboard.AccessToken)
@@ -189,9 +190,10 @@ public sealed class RenderToImageController(
 	private static Maybe<Uri> GetDashboardUri(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
 	{
 		var host = dashboard.Host;
-		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.IsHomeAssistantAddon)
+		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.Mode != DeploymentMode.Standalone)
 		{
-			host = Constants.HomeAssistantCoreUrl;
+			var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
+			host = strategyHost;
 		}
 
 		return Uri.TryCreate(host, UriKind.Absolute, out var hostUri) &&
