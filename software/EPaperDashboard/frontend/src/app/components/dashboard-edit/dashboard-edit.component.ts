@@ -8,6 +8,7 @@ import { HomeAssistantService } from '../../services/home-assistant.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
+import { DeviceService, Device } from '../../services/device.service';
 import { Dashboard } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
@@ -90,14 +91,75 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                     formControlName="description"
                   />
                 </div>
+                
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">API Key</label>
-                  <div class="input-group">
-                    <input type="text" class="form-control" [value]="dashboard()!.apiKey" readonly tabindex="-1" style="pointer-events: none;" />
-                    <button type="button" class="btn btn-outline-secondary" title="Copy API Key" (click)="copyApiKey()">
-                      <i class="fa-regular fa-clipboard"></i>
+                  <label class="form-label fw-semibold">Paired Devices</label>
+                  
+                  @if (isPairingActive()) {
+                    <div class="alert alert-info mb-3">
+                      <div class="d-flex flex-column gap-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <div class="mb-2">
+                              <strong>Pairing Code:</strong>
+                            </div>
+                            <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
+                          </div>
+                          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelPairing()">
+                            <i class="fa-solid fa-times"></i> Cancel
+                          </button>
+                        </div>
+                        <div class="text-muted small">
+                          <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
+                          <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device web interface</div>
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                  @if (isLoadingDevices()) {
+                    <div class="text-center py-3">
+                      <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Loading devices...</span>
+                      </div>
+                    </div>
+                  } @else if (devices().length > 0) {
+                    <div class="mb-2">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Device ID</th>
+                            <th class="text-end"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (device of devices(); track device.id) {
+                            <tr>
+                              <td>{{ device.name }}</td>
+                              <td><code class="small">{{ device.deviceIdentifier }}</code></td>
+                              <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeDevice(device)">
+                                  <i class="fa-solid fa-trash"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  } @else {
+                    <div class="text-muted small mb-2">
+                      <i class="fa-solid fa-info-circle"></i> No devices paired yet
+                    </div>
+                  }
+
+                  @if (!isPairingActive()) {
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100" (click)="startPairing()" [disabled]="isStartingPairing()">
+                      <i class="fa-solid fa-plus"></i> 
+                      {{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}
                     </button>
-                  </div>
+                  }
                 </div>
               </div>
 
@@ -240,6 +302,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly dashboardService = inject(DashboardService);
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
+  private readonly deviceService = inject(DeviceService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
@@ -264,6 +327,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
   readonly previewMode = signal<'ssr' | 'homeassistant'>('ssr');
+  
+  readonly devices = signal<Device[]>([]);
+  readonly isLoadingDevices = signal(false);
+  readonly isPairingActive = signal(false);
+  readonly pairingCode = signal('');
+  readonly pairingTimeRemaining = signal(0);
+  readonly isStartingPairing = signal(false);
 
   readonly dashboardForm = new FormGroup({
     name: new FormControl('', { validators: Validators.required, nonNullable: true }),
@@ -280,6 +350,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private oauthToken: string | null = null;
   private originalDashboard: Dashboard | null = null;
   private originalUpdateTimes: string[] = [];
+  private pairingTimer: any = null;
+  private pairingExpiresAt: Date | null = null;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -340,6 +412,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         if (this.oauthToken) {
           this.saveOAuthToken(id);
         }
+
+        this.loadDevices();
 
         this.cdr.detectChanges();
       },
@@ -565,48 +639,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     }
   }
 
-  async copyApiKey(): Promise<void> {
-    const currentDashboard = this.dashboard();
-    if (!currentDashboard) return;
-
-    const apiKey = currentDashboard.apiKey;
-
-    const tryClipboardApi = async () => {
-      if (!navigator.clipboard || !window.isSecureContext) {
-        throw new Error('Clipboard API not available');
-      }
-      await navigator.clipboard.writeText(apiKey);
-    };
-
-    try {
-      await tryClipboardApi();
-      this.toastService.success('API key copied to clipboard');
-      return;
-    } catch (err) {
-    }
-
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = apiKey;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const copied = document.execCommand('copy');
-      document.body.removeChild(textarea);
-
-      if (!copied) {
-        throw new Error('execCommand copy failed');
-      }
-
-      this.toastService.success('API key copied to clipboard');
-    } catch (fallbackErr) {
-      this.toastService.error('Unable to copy API key. Showing it instead.');
-      alert(`API Key: ${apiKey}`);
-    }
-  }
-
   async clearAccessToken(): Promise<void> {
     await this.dialogService.confirm({
       title: 'Clear Access Token',
@@ -776,7 +808,99 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadDevices(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard) return;
+
+    this.isLoadingDevices.set(true);
+    this.deviceService.getDevicesForDashboard(currentDashboard.id).subscribe({
+      next: (devices) => {
+        this.devices.set(devices);
+        this.isLoadingDevices.set(false);
+      },
+      error: () => {
+        this.isLoadingDevices.set(false);
+        this.toastService.error('Failed to load devices');
+      }
+    });
+  }
+
+  startPairing(): void {
+    const currentDashboard = this.dashboard();
+    if (!currentDashboard) return;
+
+    this.isStartingPairing.set(true);
+    this.deviceService.startPairing(currentDashboard.id).subscribe({
+      next: (response) => {
+        this.pairingCode.set(response.code);
+        this.pairingExpiresAt = new Date(response.expiresAt);
+        this.isPairingActive.set(true);
+        this.isStartingPairing.set(false);
+        this.startPairingTimer();
+      },
+      error: () => {
+        this.isStartingPairing.set(false);
+        this.toastService.error('Failed to start pairing');
+      }
+    });
+  }
+
+  cancelPairing(): void {
+    this.isPairingActive.set(false);
+    this.pairingCode.set('');
+    this.stopPairingTimer();
+  }
+
+  removeDevice(device: Device): void {
+    this.dialogService.confirm({
+      title: 'Remove Device',
+      message: `Are you sure you want to remove device "${device.name}"?`,
+      confirmLabel: 'Remove',
+      isDangerous: true,
+      onConfirm: () => {
+        this.deviceService.deleteDevice(device.id).subscribe({
+          next: () => {
+            this.toastService.success('Device removed successfully');
+            this.loadDevices();
+          },
+          error: () => {
+            this.toastService.error('Failed to remove device');
+          }
+        });
+      }
+    });
+  }
+
+  private startPairingTimer(): void {
+    this.updatePairingTimeRemaining();
+    this.pairingTimer = setInterval(() => {
+      this.updatePairingTimeRemaining();
+      if (this.pairingTimeRemaining() <= 0) {
+        this.cancelPairing();
+        this.toastService.error('Pairing code expired');
+      }
+    }, 1000);
+  }
+
+  private stopPairingTimer(): void {
+    if (this.pairingTimer) {
+      clearInterval(this.pairingTimer);
+      this.pairingTimer = null;
+    }
+  }
+
+  private updatePairingTimeRemaining(): void {
+    if (!this.pairingExpiresAt) {
+      this.pairingTimeRemaining.set(0);
+      return;
+    }
+    const now = new Date();
+    const remaining = Math.max(0, Math.floor((this.pairingExpiresAt.getTime() - now.getTime()) / 1000));
+    this.pairingTimeRemaining.set(remaining);
+  }
+
   ngOnDestroy(): void {
+    this.stopPairingTimer();
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);

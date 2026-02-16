@@ -95,6 +95,8 @@ builder.Services
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
+	.AddSingleton<DeviceService>()
+	.AddSingleton<PairingService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
 	.AddSingleton<DashboardHtmlRenderingService>()
@@ -200,6 +202,22 @@ if (!app.Environment.IsDevelopment())
 strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
+
+var pairingPort = builder.Configuration.GetValue<int>("PairingPort", 8129);
+app.Use(async (context, next) =>
+{
+	var isPairingPort = context.Connection.LocalPort == pairingPort;
+	var isDevicePairingEndpoint = context.Request.Path.StartsWithSegments("/api/pairing/poll") || 
+	                              context.Request.Path.StartsWithSegments("/api/pairing/complete");
+
+	if (isDevicePairingEndpoint && !isPairingPort)
+	{
+		context.Response.StatusCode = 404;
+		return;
+	}
+
+	await next();
+});
 
 app.UseAuthentication();
 strategy.ApplyPostAuthenticationMiddleware(app, app.Environment);

@@ -31,6 +31,8 @@ public sealed class LiteDbContext
 
     public ILiteCollection<User> Users => _db.GetCollection<User>("users");
     public ILiteCollection<Dashboard> Dashboards => _db.GetCollection<Dashboard>("dashboards");
+    public ILiteCollection<Device> Devices => _db.GetCollection<Device>("devices");
+    public ILiteCollection<PairingSession> PairingSessions => _db.GetCollection<PairingSession>("pairingSessions");
 
     private static BsonValue JsonElementToBsonValue(SystemTextJson.JsonElement element)
     {

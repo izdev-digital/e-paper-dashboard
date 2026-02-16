@@ -44,8 +44,10 @@ static const char *CONFIGURATION_SSID = "ssid";
 static const char *CONFIGURATION_PASSWORD = "pwd";
 static const char *CONFIGURATION_DASHBOARD_URL = "url";
 static const char *CONFIGURATION_DASHBOARD_PORT = "port";
+static const char *CONFIGURATION_PAIRING_PORT = "pairport";
 static const char *CONFIGURATION_DASHBOARD_RATE = "rate";
 static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
+static const char *CONFIGURATION_PAIRING_CODE = "paircode";
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
@@ -63,8 +65,10 @@ struct Configuration
   String password;
   String dashboardUrl;
   int dashboardPort;
+  int pairingPort;
   uint64_t dashboardRate;
   String dashboardApiKey;
+  String pairingCode;
 };
 
 void startDeepSleep(const Configuration &config);
@@ -75,6 +79,7 @@ void createConfiguration();
 void showWelcomePage(const IPAddress &ip, const String &mac);
 bool isResetRequested();
 void resetDevice();
+bool pairWithDashboard(const String &pairingCode, const String &dashboardUrl, int pairingPort, String &apiKey);
 
 bool connectToWiFi(const Configuration &config);
 bool hasSuccessfulStatusCode(WiFiClient &client);
@@ -114,15 +119,34 @@ void setup()
     return;
   }
 
-  if (connectToWiFi(configuration.value()))
+  Configuration config = configuration.value();
+
+  if (connectToWiFi(config))
   {
-    fetchBinaryData(configuration.value());
+    if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
+    {
+      Serial.println("API key not set, attempting pairing...");
+      String apiKey;
+      if (pairWithDashboard(config.pairingCode, config.dashboardUrl, config.pairingPort, apiKey))
+      {
+        config.dashboardApiKey = apiKey;
+        config.pairingCode = "";
+        storeConfiguration(config);
+        Serial.println("Pairing successful!");
+      }
+      else
+      {
+        Serial.println("Pairing failed, will retry on next boot");
+      }
+    }
+
+    fetchBinaryData(config);
   }
 
   display.refresh();
   display.powerOff();
 
-  startDeepSleep(configuration.value());
+  startDeepSleep(config);
 }
 
 void loop()
@@ -306,8 +330,10 @@ std::optional<Configuration> getConfiguration()
       preferences.getString(CONFIGURATION_PASSWORD, ""),
       preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
       preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80),
+      preferences.getInt(CONFIGURATION_PAIRING_PORT, 8129),
       preferences.getULong64(CONFIGURATION_DASHBOARD_RATE, 60),
-      preferences.getString(CONFIGURATION_DASHBOARD_API_KEY, "")};
+      preferences.getString(CONFIGURATION_DASHBOARD_API_KEY, ""),
+      preferences.getString(CONFIGURATION_PAIRING_CODE, "")};
   preferences.end();
 
   return configuration.ssid.length() == 0 || configuration.dashboardUrl.length() == 0
@@ -323,8 +349,10 @@ void storeConfiguration(const Configuration &config)
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
   preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
+  preferences.putInt(CONFIGURATION_PAIRING_PORT, config.pairingPort);
   preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate);
   preferences.putString(CONFIGURATION_DASHBOARD_API_KEY, config.dashboardApiKey);
+  preferences.putString(CONFIGURATION_PAIRING_CODE, config.pairingCode);
   preferences.end();
 }
 
@@ -503,9 +531,14 @@ void createConfiguration()
                                 placeholder="Enter port ...">
                         </div>
                         <div class="mb-3">
-                            <label for="dashboard_apikey" class="form-label">API Key</label>
-                            <input type="text" class="form-control" name="dashboard_apikey" id="dashboard_apikey"
-                                placeholder="Enter API key ...">
+                            <label for="pairing_port" class="form-label">Pairing Port</label>
+                            <input type="text" class="form-control" name="pairing_port" id="pairing_port"
+                                placeholder="Enter pairing port ..." value="8129">
+                        </div>
+                        <div class="mb-3">
+                            <label for="pairing_code" class="form-label">Pairing Code</label>
+                            <input type="text" class="form-control" name="pairing_code" id="pairing_code"
+                                placeholder="Enter pairing code from dashboard ...">
                         </div>
                         <div class="mb-3">
                             <label for="time-period" class="form-label">Select Refresh Rate:</label>
@@ -539,11 +572,14 @@ void createConfiguration()
     const String passParam{ "password" };
     const String urlParam{ "dashboard_url" };
     const String portParam{ "dashboard_port" };
+    const String pairingPortParam{ "pairing_port" };
+    const String pairingCodeParam{ "pairing_code" };
     const String rateParam{ "dashboard_rate" };
     const String rateUnitParam{ "dashboard_rate_unit" };
-    const String apiKeyParam{ "dashboard_apikey" };
-    if (
-      !server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || !server.hasArg(portParam) || !server.hasArg(rateParam) || !server.hasArg(rateUnitParam) || !server.hasArg(apiKeyParam)) {
+    
+    if (!server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || 
+        !server.hasArg(portParam) || !server.hasArg(pairingPortParam) || !server.hasArg(pairingCodeParam) || 
+        !server.hasArg(rateParam) || !server.hasArg(rateUnitParam)) {
       server.send(400, "text/html", htmlForm);
       return;
     }
@@ -552,9 +588,10 @@ void createConfiguration()
     const String pass{ server.arg(passParam) };
     const String url{ server.arg(urlParam) };
     const int port{ server.arg(portParam).toInt() };
+    const int pairingPort{ server.arg(pairingPortParam).toInt() };
+    const String pairingCode{ server.arg(pairingCodeParam) };
     const uint64_t rate{ static_cast<uint64_t>(server.arg(rateParam).toInt()) };
     const String unit{ server.arg(rateUnitParam) };
-    const String apiKey{ server.arg(apiKeyParam) };
 
     int32_t unitMultiplier{ 1 };
     if (unit.equals("m")) {
@@ -572,8 +609,10 @@ void createConfiguration()
       pass,
       url,
       port,
+      pairingPort,
       dashboardRefreshRate,
-      apiKey
+      "",
+      pairingCode
     };
     Serial.println("Received configuration...");
     storeConfiguration(config);
@@ -622,6 +661,128 @@ void createConfiguration()
     
     delay(2);
   }
+}
+
+bool pairWithDashboard(const String &pairingCode, const String &dashboardUrl, int pairingPort, String &apiKey)
+{
+  Serial.println("Starting pairing process...");
+  
+  WiFiClient client;
+  client.setTimeout(5000);
+  
+  if (!client.connect(dashboardUrl.c_str(), pairingPort))
+  {
+    Serial.println("Failed to connect to pairing server");
+    return false;
+  }
+  
+  Serial.println("Connected to pairing server, polling for API key...");
+  
+  String request = "GET /api/pairing/poll?code=" + pairingCode + " HTTP/1.1\r\n";
+  request += "Host: " + dashboardUrl + ":" + String(pairingPort) + "\r\n";
+  request += "Connection: close\r\n\r\n";
+  
+  client.print(request);
+  
+  bool statusOk = false;
+  while (client.connected() || client.available())
+  {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+    
+    if (!statusOk)
+    {
+      statusOk = line.startsWith("HTTP/1.1 200 OK");
+    }
+    
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+  
+  if (!statusOk)
+  {
+    Serial.println("Pairing request failed");
+    client.stop();
+    return false;
+  }
+  
+  String response = "";
+  while (client.available())
+  {
+    response += client.readString();
+  }
+  client.stop();
+  
+  Serial.println("Response: " + response);
+  
+  int apiKeyStart = response.indexOf("\"apiKey\":\"");
+  if (apiKeyStart == -1)
+  {
+    Serial.println("API key not found in response");
+    return false;
+  }
+  
+  apiKeyStart += 10;
+  int apiKeyEnd = response.indexOf("\"", apiKeyStart);
+  if (apiKeyEnd == -1)
+  {
+    Serial.println("API key end not found");
+    return false;
+  }
+  
+  apiKey = response.substring(apiKeyStart, apiKeyEnd);
+  Serial.println("Received API key: " + apiKey);
+  
+  String macAddress = WiFi.macAddress();
+  
+  Serial.println("Completing pairing with device identifier...");
+  
+  if (!client.connect(dashboardUrl.c_str(), pairingPort))
+  {
+    Serial.println("Failed to connect for pairing completion");
+    return false;
+  }
+  
+  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"izBoard-" + macAddress.substring(macAddress.length() - 8) + "\"}";
+  
+  String postRequest = "POST /api/pairing/complete HTTP/1.1\r\n";
+  postRequest += "Host: " + dashboardUrl + ":" + String(pairingPort) + "\r\n";
+  postRequest += "Content-Type: application/json\r\n";
+  postRequest += "Content-Length: " + String(jsonBody.length()) + "\r\n";
+  postRequest += "Connection: close\r\n\r\n";
+  postRequest += jsonBody;
+  
+  client.print(postRequest);
+  
+  statusOk = false;
+  while (client.connected() || client.available())
+  {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+    
+    if (!statusOk)
+    {
+      statusOk = line.startsWith("HTTP/1.1 200 OK");
+    }
+    
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+  
+  client.stop();
+  
+  if (!statusOk)
+  {
+    Serial.println("Pairing completion failed");
+    return false;
+  }
+  
+  Serial.println("Pairing completed successfully");
+  return true;
 }
 
 bool connectToWiFi(const Configuration &config)
