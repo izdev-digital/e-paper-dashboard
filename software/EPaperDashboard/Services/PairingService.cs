@@ -50,6 +50,12 @@ public sealed class PairingService(LiteDbContext dbContext)
         _dbContext.PairingSessions.DeleteMany(s => s.ExpiresAt < now);
     }
 
+    public bool HasActiveSessions()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return _dbContext.PairingSessions.Exists(s => !s.IsCompleted && s.ExpiresAt > now);
+    }
+
     private static string GenerateCode()
     {
         var chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
