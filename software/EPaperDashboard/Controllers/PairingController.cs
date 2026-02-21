@@ -18,7 +18,7 @@ public class PairingController(
     private readonly DeviceService _deviceService = deviceService;
 
     [HttpPost("start")]
-    [Authorize(AuthenticationSchemes = "Cookies")]
+    [Authorize]
     [DashboardOwnerFromBody]
     public IActionResult StartPairing([FromBody] StartPairingRequest request)
     {
