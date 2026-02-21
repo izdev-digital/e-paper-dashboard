@@ -45,7 +45,10 @@ public class HomeAssistantAuthController(
                     host = $"{scheme}://{hostHeader}";
                 }
             }
-            internalHost = Constants.HomeAssistantCoreUrl;
+            // Use the direct HA internal URL for server-to-server token exchange.
+            // The supervisor proxy doesn't expose /auth/token, and localhost:8123
+            // is unreachable from inside the addon container.
+            internalHost = Constants.HomeAssistantInternalUrl;
             HttpContext.Items["BrowserOrigin"] = host;
         }
         else if (_deploymentStrategy.Mode == DeploymentMode.Host)

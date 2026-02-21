@@ -18,6 +18,10 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public bool IsUserManagementEnabled => true;
 
+    public bool IsAutoConnected => false;
+
+    public string WebSocketPath => "/api/websocket";
+
     public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
 
     public Uri? GetOAuthClientUri(HttpContext? context = null)

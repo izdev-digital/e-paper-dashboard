@@ -23,6 +23,8 @@ public class HomeAssistantService(
         return _deploymentStrategy.GetHomeAssistantConnection(dashboard);
     }
 
+    private string WsPath => _deploymentStrategy.WebSocketPath;
+
     public async Task<Result<List<HassUrlInfo>, string>> FetchDashboards(string dashboardId)
     {
         var dashboardResult = ValidateAndGetDashboard(dashboardId);
@@ -37,7 +39,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
             var results = await FetchAllDashboardViews(ws, hostUrl);
 
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
@@ -68,7 +70,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
             
             await SendMessageAsync(ws, new
             {
@@ -176,7 +178,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
 
             var messageId = _messageId++;
             await SendMessageAsync(ws, new
@@ -300,7 +302,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
 
             var messageId = _messageId++;
             var now = DateTime.UtcNow;
@@ -439,7 +441,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
 
             var messageId = _messageId++;
             
@@ -578,7 +580,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
 
             var messageId = _messageId++;
             await SendMessageAsync(ws, new
@@ -850,7 +852,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
 
             await SendMessageAsync(ws, new
             {
@@ -939,8 +941,9 @@ public class HomeAssistantService(
         {
             using (var httpClient = new HttpClient())
             {
-                // Set authorization header
-                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {dashboard.AccessToken}");
+                // Set authorization header — use the token from the strategy,
+                // not dashboard.AccessToken, so addon mode uses the supervisor token.
+                httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
 
                 // Build query parameters - Home Assistant expects filter_entity_id (singular) repeated for each entity
                 var entityIdParams = string.Join("&", requestedIds.Select(id => $"filter_entity_id={Uri.EscapeDataString(id)}"));
@@ -1295,7 +1298,7 @@ public class HomeAssistantService(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WsPath);
             
             var messageId = _messageId++;
             await SendMessageAsync(ws, new

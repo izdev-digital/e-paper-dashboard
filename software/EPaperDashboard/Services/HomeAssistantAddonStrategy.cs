@@ -26,20 +26,32 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public bool IsUserManagementEnabled => false;
 
+    public bool IsAutoConnected => true;
+
+    public string WebSocketPath => "/websocket";
+
     public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
 
     public Task<string?> CreateAccessTokenAsync(string clientName)
     {
-        // Long-lived token creation is not supported via supervisor token.
-        // The supervisor token is a system-level token only valid for supervisor proxy routes.
-        // Dashboards must use OAuth flow to get proper HA user tokens for frontend access.
-        _logger.LogWarning("Long-lived token creation via supervisor is not supported. Use OAuth flow.");
+        // The supervisor token authenticates as a system-generated user in HA Core.
+        // HA Core blocks long-lived token creation for system users:
+        //   "System generated users can only have system type refresh tokens"
+        // Users must manually create a long-lived token in HA (Profile → Long-Lived Access Tokens)
+        // for the "Home Assistant Dashboard" rendering mode (Playwright-based screenshots).
+        // The "Custom Layout" rendering mode works without this — it uses the supervisor token
+        // for API/WebSocket access directly.
+        _logger.LogInformation("Long-lived token creation not available in addon mode. " +
+            "Users should create one manually in HA for Home Assistant dashboard rendering.");
         return Task.FromResult<string?>(null);
     }
 
     public (string host, string token) GetHomeAssistantConnection(Dashboard dashboard)
     {
-        return (Constants.HomeAssistantCoreUrl, dashboard.AccessToken!);
+        // In addon mode, always use the supervisor proxy and token.
+        // Individual dashboard tokens are not needed — the supervisor token
+        // provides full access to Home Assistant Core API.
+        return (Constants.SupervisorCoreUrl, _supervisorToken);
     }
 
     public UnitResult<string> ValidateConfiguration()

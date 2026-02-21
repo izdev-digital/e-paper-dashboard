@@ -141,7 +141,12 @@ public sealed class RenderToImageController(
 		var dashboardInfo = GetDashboardInfo(dashboard, deploymentStrategy);
 		if (dashboardInfo.HasNoValue)
 		{
-			return NotFound("Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.");
+			var hint = deploymentStrategy.IsAutoConnected
+				? "Dashboard configuration incomplete. The 'Home Assistant Dashboard' rendering mode requires " +
+				  "a Long-Lived Access Token. Create one in Home Assistant (Profile → Long-Lived Access Tokens) " +
+				  "and set it on the dashboard."
+				: "Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.";
+			return NotFound(hint);
 		}
 
 		var (contentType, encoder) = GetEncoder(format);
@@ -164,14 +169,25 @@ public sealed class RenderToImageController(
 
 	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
 	{
+		var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
+
 		var host = dashboard.Host;
 		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.Mode != DeploymentMode.Standalone)
 		{
-			var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
-			host = strategyHost;
+			// For browser-based rendering (Playwright), we need the actual HA web UI URL.
+			// The supervisor API proxy doesn't serve the HA frontend, so use the
+			// direct internal HA URL in addon mode.
+			host = deploymentStrategy.Mode == DeploymentMode.Addon
+				? Constants.HomeAssistantInternalUrl
+				: strategyHost;
 		}
 
-		if (string.IsNullOrWhiteSpace(dashboard.AccessToken)
+		// For Playwright rendering, always use the dashboard's stored access token.
+		// In addon mode, this is an auto-created long-lived HA Core token (not the supervisor token,
+		// which only works via the supervisor proxy and can't authenticate with HA frontend directly).
+		var accessToken = dashboard.AccessToken;
+
+		if (string.IsNullOrWhiteSpace(accessToken)
 			|| !Uri.TryCreate(host, UriKind.Absolute, out var hostUri)
 			|| !Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri))
 		{
@@ -184,7 +200,7 @@ public sealed class RenderToImageController(
 		// Use ClientUri if configured, otherwise use the HA host URL as a placeholder
 		var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
 		
-		return (new Uri(hostUri, pathUri), new HassTokens(dashboard.AccessToken, "Bearer", hassUrl, clientId));
+		return (new Uri(hostUri, pathUri), new HassTokens(accessToken, "Bearer", hassUrl, clientId));
 	}
 
 	private static Maybe<Uri> GetDashboardUri(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
@@ -192,8 +208,10 @@ public sealed class RenderToImageController(
 		var host = dashboard.Host;
 		if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.Mode != DeploymentMode.Standalone)
 		{
-			var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
-			host = strategyHost;
+			// For browser-based rendering, use HA direct URL in addon mode
+			host = deploymentStrategy.Mode == DeploymentMode.Addon
+				? Constants.HomeAssistantInternalUrl
+				: deploymentStrategy.GetHomeAssistantConnection(dashboard).host;
 		}
 
 		return Uri.TryCreate(host, UriKind.Absolute, out var hostUri) &&
