@@ -37,16 +37,14 @@ class DisplayManager {
 public:
   explicit DisplayManager(Logger& logger);
 
-  void init();
-  bool allocateBuffers();
-  void writeFrame(uint8_t* bwData, uint8_t* rwData, int16_t x, int16_t y, uint16_t w, uint16_t h);
+  bool init();
+  void clearBuffers();
+  void writePixelByte(size_t idx, uint8_t value);
+  void writeFrame(int16_t x, int16_t y, uint16_t w, uint16_t h);
   void beginPartialWindow();
   void refresh();
   void powerOff();
   void showWelcomePage(const IPAddress& ip, const String& mac);
-
-  uint8_t* bwBuffer() { return _bwBuffer; }
-  uint8_t* rwBuffer() { return _rwBuffer; }
 
 private:
   Logger& _logger;

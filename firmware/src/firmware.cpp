@@ -21,16 +21,15 @@ static Hardware hardware;
 void setup()
 {
   logger.begin(115200);
-  displayManager.init();
+
+  if (!displayManager.init())
+  {
+    logger.println("Failed to initialize display!");
+    ESP.restart();
+  }
 
   logger.print("izBoard Firmware v");
   logger.println(FIRMWARE_VERSION);
-
-  if (!displayManager.allocateBuffers())
-  {
-    logger.println("Failed to allocate frame buffers!");
-    ESP.restart();
-  }
 
   if (hardware.isResetRequested())
   {
@@ -49,57 +48,63 @@ void setup()
   DeviceConfig config = configuration.value();
   uint64_t waitSeconds = Timing::FallbackRefreshSeconds;
 
-  if (network.connectToWiFi(config.ssid, config.password))
+  if (!network.connectToWiFi(config.ssid, config.password))
   {
-    if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
-    {
-      logger.println("API key not set, attempting pairing...");
-      String apiKey;
-      if (deviceApi.pairWithDashboard(config.pairingCode, config.dashboardUrl, config.devicePort, apiKey))
-      {
-        config.dashboardApiKey = apiKey;
-        config.pairingCode = "";
-        configStore.save(config);
-        logger.println("Pairing successful!");
-      }
-      else
-      {
-        logger.println("Pairing failed, will retry on next boot");
-      }
-    }
-
-    auto status = deviceApi.fetchDeviceStatus(config);
-    if (status.waitSeconds > 0)
-    {
-      waitSeconds = status.waitSeconds;
-    }
-
-    if (status.latestFirmwareVersion.length() > 0 &&
-        otaUpdater.isNewerVersion(FIRMWARE_VERSION, status.latestFirmwareVersion))
-    {
-      int failCount = configStore.getOtaFailCount(status.latestFirmwareVersion);
-      if (failCount >= Ota::MaxRetries)
-      {
-        logger.printf("OTA: Skipping v%s — failed %d times already\n",
-                      status.latestFirmwareVersion.c_str(), failCount);
-      }
-      else
-      {
-        logger.print("New firmware v");
-        logger.print(status.latestFirmwareVersion);
-        logger.printf(" available (attempt %d/%d). Starting OTA update...\n", failCount + 1, Ota::MaxRetries);
-        if (otaUpdater.perform(config))
-        {
-          configStore.clearOtaFailCount();
-          return;
-        }
-        logger.println("OTA update failed, continuing with current firmware");
-        configStore.recordOtaFailure(status.latestFirmwareVersion);
-      }
-    }
-
-    deviceApi.fetchAndDisplayImage(config, displayManager);
+    logger.println("WiFi connection failed, retrying after sleep");
+    hardware.startDeepSleep(waitSeconds);
+    return;
   }
+
+  if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
+  {
+    logger.println("API key not set, attempting pairing...");
+    String apiKey;
+    if (deviceApi.pairWithDashboard(config.pairingCode, config.dashboardUrl, config.devicePort, apiKey))
+    {
+      config.dashboardApiKey = apiKey;
+      config.pairingCode = "";
+      configStore.save(config);
+      logger.println("Pairing successful!");
+    }
+    else
+    {
+      logger.println("Pairing failed, will retry on next boot");
+      hardware.startDeepSleep(waitSeconds);
+      return;
+    }
+  }
+
+  auto status = deviceApi.fetchDeviceStatus(config);
+  if (status.waitSeconds > 0)
+  {
+    waitSeconds = status.waitSeconds;
+  }
+
+  if (status.latestFirmwareVersion.length() > 0 &&
+      otaUpdater.isNewerVersion(FIRMWARE_VERSION, status.latestFirmwareVersion))
+  {
+    int failCount = configStore.getOtaFailCount(status.latestFirmwareVersion);
+    if (failCount >= Ota::MaxRetries)
+    {
+      logger.printf("OTA: Skipping v%s — failed %d times already\n",
+                    status.latestFirmwareVersion.c_str(), failCount);
+    }
+    else
+    {
+      logger.print("New firmware v");
+      logger.print(status.latestFirmwareVersion);
+      logger.printf(" available (attempt %d/%d). Starting OTA update...\n", failCount + 1, Ota::MaxRetries);
+      if (otaUpdater.perform(config))
+      {
+        configStore.clearOtaFailCount();
+        return;
+      }
+      logger.println("OTA update failed, continuing with current firmware");
+      configStore.recordOtaFailure(status.latestFirmwareVersion);
+    }
+  }
+
+  deviceApi.fetchAndDisplayImage(config, displayManager);
 
   displayManager.refresh();
   displayManager.powerOff();

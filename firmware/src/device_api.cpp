@@ -79,8 +79,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
     const size_t bytesNeeded = static_cast<size_t>(DisplayConst::FrameBytes) * 2;
     size_t idx = 0;
 
-    memset(display.bwBuffer(), 0, DisplayConst::FrameBytes);
-    memset(display.rwBuffer(), 0, DisplayConst::FrameBytes);
+    display.clearBuffers();
 
     while (idx < bytesNeeded && (_network.connected() || _network.available()))
     {
@@ -94,14 +93,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
 
         for (size_t i = 0; i < bytesRead; i++)
         {
-          if ((idx & 1) == 0)
-          {
-            display.bwBuffer()[idx / 2] = buffer[i];
-          }
-          else
-          {
-            display.rwBuffer()[idx / 2] = buffer[i];
-          }
+          display.writePixelByte(idx, buffer[i]);
           ++idx;
         }
       }
@@ -121,7 +113,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
       break;
     }
 
-    display.writeFrame(display.bwBuffer(), display.rwBuffer(), 0, y, DisplayConst::FrameWidth, DisplayConst::FrameHeight);
+    display.writeFrame(0, y, DisplayConst::FrameWidth, DisplayConst::FrameHeight);
     y += DisplayConst::FrameHeight;
   }
   _logger.println();

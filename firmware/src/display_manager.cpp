@@ -2,23 +2,38 @@
 
 DisplayManager::DisplayManager(Logger& logger) : _logger(logger) {}
 
-void DisplayManager::init()
+bool DisplayManager::init()
 {
   _hspi.begin(Pin::SpiSck, Pin::SpiMiso, Pin::SpiMosi, Pin::SpiSs);
   _display.epd2.selectSPI(_hspi, SPISettings(20000000, MSBFIRST, SPI_MODE0));
   _display.init(115200);
-}
 
-bool DisplayManager::allocateBuffers()
-{
   _bwBuffer = (uint8_t*)malloc(DisplayConst::FrameBytes);
   _rwBuffer = (uint8_t*)malloc(DisplayConst::FrameBytes);
   return _bwBuffer && _rwBuffer;
 }
 
-void DisplayManager::writeFrame(uint8_t* bwData, uint8_t* rwData, int16_t x, int16_t y, uint16_t w, uint16_t h)
+void DisplayManager::clearBuffers()
 {
-  _display.writeImage(bwData, rwData, x, y, w, h);
+  memset(_bwBuffer, 0, DisplayConst::FrameBytes);
+  memset(_rwBuffer, 0, DisplayConst::FrameBytes);
+}
+
+void DisplayManager::writePixelByte(size_t idx, uint8_t value)
+{
+  if ((idx & 1) == 0)
+  {
+    _bwBuffer[idx / 2] = value;
+  }
+  else
+  {
+    _rwBuffer[idx / 2] = value;
+  }
+}
+
+void DisplayManager::writeFrame(int16_t x, int16_t y, uint16_t w, uint16_t h)
+{
+  _display.writeImage(_bwBuffer, _rwBuffer, x, y, w, h);
 }
 
 void DisplayManager::beginPartialWindow()
