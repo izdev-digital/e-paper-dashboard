@@ -1218,8 +1218,14 @@ public class HomeAssistantService(
     private async Task<string> ReceiveMessageAsync(ClientWebSocket ws)
     {
         var buffer = new byte[1024 * 16];
-        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-        return Encoding.UTF8.GetString(buffer, 0, result.Count);
+        var sb = new StringBuilder();
+        System.Net.WebSockets.WebSocketReceiveResult result;
+        do
+        {
+            result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+        } while (!result.EndOfMessage);
+        return sb.ToString();
     }
 
     private async Task SendMessageAsync(ClientWebSocket ws, object message)
