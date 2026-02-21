@@ -47,6 +47,10 @@ static const char *CONFIGURATION_DASHBOARD_URL = "url";
 static const char *CONFIGURATION_DEVICE_PORT = "devport";
 static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
 static const char *CONFIGURATION_PAIRING_CODE = "paircode";
+static const char *CONFIGURATION_OTA_FAIL_VERSION = "otafailv";
+static const char *CONFIGURATION_OTA_FAIL_COUNT = "otafailc";
+
+static const int OTA_MAX_RETRIES = 3;
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
@@ -56,7 +60,7 @@ static const uint16_t frameBytes = frameWidth * frameHeight / 8;
 static uint8_t *epd_bitmap_BW = nullptr;
 static uint8_t *epd_bitmap_RW = nullptr;
 
-static const uint64_t FALLBACK_REFRESH_SECONDS = 4 * 3600; // 4 hours
+static const uint64_t FALLBACK_REFRESH_SECONDS = 4 * 3600;
 
 SPIClass hspi(HSPI);
 
@@ -100,6 +104,9 @@ DeviceConfigResult fetchDeviceConfig(const Configuration &config);
 bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config);
 bool isNewerVersion(const char *current, const String &available);
 bool performOtaUpdate(const Configuration &config);
+int getOtaFailCount(const String &version);
+void recordOtaFailure(const String &version);
+void clearOtaFailCount();
 
 void setup()
 {
@@ -156,26 +163,34 @@ void setup()
       }
     }
 
-    // Fetch device configuration (wait seconds + firmware version from headers)
     auto deviceConfig = fetchDeviceConfig(config);
     if (deviceConfig.waitSeconds > 0)
     {
       waitSeconds = deviceConfig.waitSeconds;
     }
 
-    // Check for firmware update BEFORE screen refresh
     if (deviceConfig.latestFirmwareVersion.length() > 0 &&
         isNewerVersion(FIRMWARE_VERSION, deviceConfig.latestFirmwareVersion))
     {
-      Serial.print("New firmware v");
-      Serial.print(deviceConfig.latestFirmwareVersion);
-      Serial.println(" available. Starting OTA update...");
-      if (performOtaUpdate(config))
+      int failCount = getOtaFailCount(deviceConfig.latestFirmwareVersion);
+      if (failCount >= OTA_MAX_RETRIES)
       {
-        // OTA succeeded - ESP will restart, won't reach here
-        return;
+        Serial.printf("OTA: Skipping v%s — failed %d times already\n",
+                      deviceConfig.latestFirmwareVersion.c_str(), failCount);
       }
-      Serial.println("OTA update failed, continuing with current firmware");
+      else
+      {
+        Serial.print("New firmware v");
+        Serial.print(deviceConfig.latestFirmwareVersion);
+        Serial.printf(" available (attempt %d/%d). Starting OTA update...\n", failCount + 1, OTA_MAX_RETRIES);
+        if (performOtaUpdate(config))
+        {
+          clearOtaFailCount();
+          return;
+        }
+        Serial.println("OTA update failed, continuing with current firmware");
+        recordOtaFailure(deviceConfig.latestFirmwareVersion);
+      }
     }
 
     fetchBinaryData(config);
@@ -189,7 +204,6 @@ void setup()
 
 void loop()
 {
-  // This function should not be reached. Restarting in case this happened.
   ESP.restart();
 }
 
@@ -298,7 +312,6 @@ DeviceConfigResult fetchDeviceConfig(const Configuration &config)
 
   result.latestFirmwareVersion = headers.firmwareVersion;
 
-  // Read body (wait seconds)
   String delayString{};
   if (client.connected() || client.available())
   {
@@ -406,6 +419,45 @@ bool isNewerVersion(const char *current, const String &available)
   return avPatch > curPatch;
 }
 
+int getOtaFailCount(const String &version)
+{
+  Preferences prefs;
+  prefs.begin(CONFIGURATION_NAMESPACE, true);
+  String failedVersion = prefs.getString(CONFIGURATION_OTA_FAIL_VERSION, "");
+  int count = 0;
+  if (failedVersion == version)
+  {
+    count = prefs.getInt(CONFIGURATION_OTA_FAIL_COUNT, 0);
+  }
+  prefs.end();
+  return count;
+}
+
+void recordOtaFailure(const String &version)
+{
+  Preferences prefs;
+  prefs.begin(CONFIGURATION_NAMESPACE, false);
+  String failedVersion = prefs.getString(CONFIGURATION_OTA_FAIL_VERSION, "");
+  int count = 0;
+  if (failedVersion == version)
+  {
+    count = prefs.getInt(CONFIGURATION_OTA_FAIL_COUNT, 0);
+  }
+  prefs.putString(CONFIGURATION_OTA_FAIL_VERSION, version);
+  prefs.putInt(CONFIGURATION_OTA_FAIL_COUNT, count + 1);
+  prefs.end();
+  Serial.printf("OTA: Recorded failure %d/%d for v%s\n", count + 1, OTA_MAX_RETRIES, version.c_str());
+}
+
+void clearOtaFailCount()
+{
+  Preferences prefs;
+  prefs.begin(CONFIGURATION_NAMESPACE, false);
+  prefs.remove(CONFIGURATION_OTA_FAIL_VERSION);
+  prefs.remove(CONFIGURATION_OTA_FAIL_COUNT);
+  prefs.end();
+}
+
 bool performOtaUpdate(const Configuration &config)
 {
   Serial.println("Starting OTA firmware update...");
@@ -455,7 +507,7 @@ bool performOtaUpdate(const Configuration &config)
       client.stop();
       delay(1000);
       ESP.restart();
-      return true; // Won't reach here
+      return true;
     }
   }
 
@@ -514,7 +566,6 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
   {
     display.fillScreen(GxEPD_WHITE);
     
-    // Title
     display.setFont(&FreeSansBold18pt7b);
     display.setTextColor(GxEPD_BLACK);
     int16_t tbx, tby; uint16_t tbw, tbh;
@@ -522,24 +573,20 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
     display.setCursor((displayWidth - tbw) / 2, 60);
     display.print("izBoard");
     
-    // Setup mode text
     display.setFont(&FreeSans12pt7b);
     display.getTextBounds("Setup Mode", 0, 0, &tbx, &tby, &tbw, &tbh);
     display.setCursor((displayWidth - tbw) / 2, 100);
     display.print("Setup Mode");
     
-    // IP Address
     display.setFont(&FreeSans12pt7b);
     String ipText = "IP: " + ip.toString();
     display.setCursor(50, 160);
     display.print(ipText);
     
-    // MAC Address
     String macText = "MAC: " + mac;
     display.setCursor(50, 200);
     display.print(macText);
     
-    // Instructions
     display.setCursor(50, 260);
     display.print("1. Connect to WiFi:");
     display.setCursor(70, 290);
@@ -550,13 +597,11 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
     display.setCursor(70, 360);
     display.print(ip.toString());
     
-    // Generate QR code for GitHub repo
     const char* githubUrl = "https://github.com/izdev-digital/e-paper-dashboard";
     QRCode qrcode;
     uint8_t qrcodeData[qrcode_getBufferSize(3)];
     qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, githubUrl);
     
-    // Draw QR code in bottom right corner
     int qrX = 550;
     int qrY = 150;
     int moduleSize = 6;
@@ -569,7 +614,6 @@ void showWelcomePage(const IPAddress &ip, const String &mac)
       }
     }
     
-    // QR code label
     display.setFont(&FreeSans12pt7b);
     display.setCursor(qrX + 10, qrY + qrcode.size * moduleSize + 30);
     display.print("GitHub");
@@ -597,10 +641,8 @@ void createConfiguration()
   Serial.print("MAC address: ");
   Serial.println(macAddress);
 
-  // Display welcome page on e-paper
   showWelcomePage(apIP, macAddress);
 
-  // DNS server setup: redirect all domains to ESP32 AP IP
   const byte DNS_PORT = 53;
   DNSServer dnsServer;
   dnsServer.start(DNS_PORT, "*", apIP);
@@ -734,11 +776,9 @@ void createConfiguration()
             {
     int n = WiFi.scanNetworks();
     String json = "[";
-    // Deduplicate SSIDs, keep strongest signal
     for (int i = 0; i < n; i++) {
       String ssid = WiFi.SSID(i);
       if (ssid.length() == 0) continue;
-      // Check for duplicate
       bool isDuplicate = false;
       for (int j = 0; j < i; j++) {
         if (WiFi.SSID(j) == ssid) { isDuplicate = true; break; }
@@ -746,7 +786,6 @@ void createConfiguration()
       if (isDuplicate) continue;
       if (json.length() > 1) json += ",";
       json += "{\"ssid\":\"";
-      // Escape quotes in SSID
       for (unsigned int c = 0; c < ssid.length(); c++) {
         if (ssid[c] == '"') json += "\\\"";
         else if (ssid[c] == '\\') json += "\\\\";
@@ -778,7 +817,6 @@ void createConfiguration()
     const int devicePort{ server.arg(devicePortParam).toInt() };
     const String pairingCode{ server.arg(pairingCodeParam) };
 
-    // Sanitize server address: strip schema and trailing port/path
     int schemaEnd = url.indexOf("://");
     if (schemaEnd > 0)
     {
