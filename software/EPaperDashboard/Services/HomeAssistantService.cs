@@ -1161,6 +1161,11 @@ public class HomeAssistantService(
 
         var dashboard = dashboardMaybe.Value;
 
+        if (_deploymentStrategy.IsAutoConnected)
+        {
+            return dashboard;
+        }
+
         return Result.Success<Models.Dashboard, string>(dashboard)
             .Ensure(d => !string.IsNullOrWhiteSpace(d.Host), "Dashboard host is not configured")
             .Ensure(d => !string.IsNullOrWhiteSpace(d.AccessToken), "Dashboard access token is not set. Please authenticate with Home Assistant first.");
