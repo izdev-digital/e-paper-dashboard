@@ -43,9 +43,9 @@ static const char *CONFIGURATION_NAMESPACE = "config";
 static const char *CONFIGURATION_SSID = "ssid";
 static const char *CONFIGURATION_PASSWORD = "pwd";
 static const char *CONFIGURATION_DASHBOARD_URL = "url";
-static const char *CONFIGURATION_DASHBOARD_PORT = "port";
-static const char *CONFIGURATION_DASHBOARD_RATE = "rate";
+static const char *CONFIGURATION_DEVICE_PORT = "devport";
 static const char *CONFIGURATION_DASHBOARD_API_KEY = "apikey";
+static const char *CONFIGURATION_PAIRING_CODE = "paircode";
 
 static const uint16_t displayWidth = 800;
 static const uint16_t displayHeight = 480;
@@ -55,6 +55,8 @@ static const uint16_t frameBytes = frameWidth * frameHeight / 8;
 static uint8_t *epd_bitmap_BW = nullptr;
 static uint8_t *epd_bitmap_RW = nullptr;
 
+static const uint64_t FALLBACK_REFRESH_SECONDS = 4 * 3600; // 4 hours
+
 SPIClass hspi(HSPI);
 
 struct Configuration
@@ -62,9 +64,9 @@ struct Configuration
   String ssid;
   String password;
   String dashboardUrl;
-  int dashboardPort;
-  uint64_t dashboardRate;
+  int devicePort;
   String dashboardApiKey;
+  String pairingCode;
 };
 
 void startDeepSleep(const Configuration &config);
@@ -75,6 +77,7 @@ void createConfiguration();
 void showWelcomePage(const IPAddress &ip, const String &mac);
 bool isResetRequested();
 void resetDevice();
+bool pairWithDashboard(const String &pairingCode, const String &dashboardUrl, int devicePort, String &apiKey);
 
 bool connectToWiFi(const Configuration &config);
 bool hasSuccessfulStatusCode(WiFiClient &client);
@@ -114,15 +117,34 @@ void setup()
     return;
   }
 
-  if (connectToWiFi(configuration.value()))
+  Configuration config = configuration.value();
+
+  if (connectToWiFi(config))
   {
-    fetchBinaryData(configuration.value());
+    if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
+    {
+      Serial.println("API key not set, attempting pairing...");
+      String apiKey;
+      if (pairWithDashboard(config.pairingCode, config.dashboardUrl, config.devicePort, apiKey))
+      {
+        config.dashboardApiKey = apiKey;
+        config.pairingCode = "";
+        storeConfiguration(config);
+        Serial.println("Pairing successful!");
+      }
+      else
+      {
+        Serial.println("Pairing failed, will retry on next boot");
+      }
+    }
+
+    fetchBinaryData(config);
   }
 
   display.refresh();
   display.powerOff();
 
-  startDeepSleep(configuration.value());
+  startDeepSleep(config);
 }
 
 void loop()
@@ -266,7 +288,7 @@ bool hasSuccessfulStatusCode(WiFiClient &client)
 
 bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config)
 {
-  if (!client.connect(config.dashboardUrl.c_str(), config.dashboardPort))
+  if (!client.connect(config.dashboardUrl.c_str(), config.devicePort))
   {
     Serial.println("Failed to connect to the remote server...");
     return false;
@@ -280,7 +302,7 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   client.print("Host: ");
   client.print(config.dashboardUrl);
   client.print(":");
-  client.println(config.dashboardPort);
+  client.println(config.devicePort);
   client.println("Connection: close");
   client.println();
   return true;
@@ -288,7 +310,7 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
 
 void startDeepSleep(const Configuration &config)
 {
-  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(config.dashboardRate);
+  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(FALLBACK_REFRESH_SECONDS);
   uint64_t waitMicroseconds = waitSeconds * SEC_TO_USEC_FACTOR;
   esp_sleep_enable_timer_wakeup(waitMicroseconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
@@ -305,9 +327,9 @@ std::optional<Configuration> getConfiguration()
       preferences.getString(CONFIGURATION_SSID, ""),
       preferences.getString(CONFIGURATION_PASSWORD, ""),
       preferences.getString(CONFIGURATION_DASHBOARD_URL, ""),
-      preferences.getInt(CONFIGURATION_DASHBOARD_PORT, 80),
-      preferences.getULong64(CONFIGURATION_DASHBOARD_RATE, 60),
-      preferences.getString(CONFIGURATION_DASHBOARD_API_KEY, "")};
+      preferences.getInt(CONFIGURATION_DEVICE_PORT, 8129),
+      preferences.getString(CONFIGURATION_DASHBOARD_API_KEY, ""),
+      preferences.getString(CONFIGURATION_PAIRING_CODE, "")};
   preferences.end();
 
   return configuration.ssid.length() == 0 || configuration.dashboardUrl.length() == 0
@@ -322,9 +344,9 @@ void storeConfiguration(const Configuration &config)
   preferences.putString(CONFIGURATION_SSID, config.ssid);
   preferences.putString(CONFIGURATION_PASSWORD, config.password);
   preferences.putString(CONFIGURATION_DASHBOARD_URL, config.dashboardUrl);
-  preferences.putInt(CONFIGURATION_DASHBOARD_PORT, config.dashboardPort);
-  preferences.putULong64(CONFIGURATION_DASHBOARD_RATE, config.dashboardRate);
+  preferences.putInt(CONFIGURATION_DEVICE_PORT, config.devicePort);
   preferences.putString(CONFIGURATION_DASHBOARD_API_KEY, config.dashboardApiKey);
+  preferences.putString(CONFIGURATION_PAIRING_CODE, config.pairingCode);
   preferences.end();
 }
 
@@ -448,7 +470,7 @@ void createConfiguration()
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>izBoard Setup</title>
         <style>
-            /* Minimal Bootstrap 5 styles for used classes */
+            *, *::before, *::after { box-sizing: border-box; }
             .container { max-width: 960px; margin-right: auto; margin-left: auto; padding-right: 12px; padding-left: 12px; }
             .mt-5 { margin-top: 3rem !important; }
             .text-center { text-align: center !important; }
@@ -460,17 +482,25 @@ void createConfiguration()
             .form-control { display: block; width: 100%; padding: .375rem .75rem; font-size: 1rem; line-height: 1.5; color: #212529; background-color: #fff; background-clip: padding-box; border: 1px solid #ced4da; border-radius: .25rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
             .form-control:focus { color: #212529; background-color: #fff; border-color: #86b7fe; outline: 0; box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); }
             .form-select { display: block; width: 100%; padding: .375rem 2.25rem .375rem .75rem; font-size: 1rem; line-height: 1.5; color: #212529; background-color: #fff; border: 1px solid #ced4da; border-radius: .25rem; transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
-            .input-group { position: relative; display: flex; flex-wrap: wrap; align-items: stretch; width: 100%; }
             .btn { display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #0d6efd; border: 1px solid #0d6efd; padding: .375rem .75rem; font-size: 1rem; border-radius: .25rem; transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out; }
             .btn-primary { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
             .btn-primary:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
+            .btn-secondary { color: #fff; background-color: #6c757d; border-color: #6c757d; }
+            .btn-secondary:hover { color: #fff; background-color: #5c636a; border-color: #565e64; }
             .w-100 { width: 100% !important; }
+            .d-flex { display: flex; }
+            .gap-2 { gap: .5rem; }
+            .flex-grow-1 { flex-grow: 1; }
+            .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #fff; border-right-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .5rem; }
+            .icon { display: block; margin: 0 auto 1rem; width: 64px; height: 64px; }
+            @keyframes spin { to { transform: rotate(360deg); } }
         </style>
     </head>
 
     <body>
 
         <div class="container mt-5">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.2" flood-color="#000000"/><feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.14" flood-color="#000000"/></filter><filter id="insetShadow"><feGaussianBlur in="SourceGraphic" stdDeviation="3"/><feOffset dx="0" dy="1.5" result="offsetblur"/><feComponentTransfer><feFuncA type="linear" slope="0.3"/></feComponentTransfer></filter><linearGradient id="grad1" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:white;stop-opacity:0.03"/><stop offset="100%" style="stop-color:black;stop-opacity:0.02"/></linearGradient><radialGradient id="highlight" cx="35%" cy="20%" r="65%"><stop offset="0%" style="stop-color:white;stop-opacity:0.02"/><stop offset="100%" style="stop-color:white;stop-opacity:0"/></radialGradient><pattern id="scanlines" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse"><rect x="0" y="0" width="2" height="1" fill="#000000" opacity="0.02"/></pattern></defs><rect x="51" y="64" width="410" height="384" rx="20" fill="#212529" filter="url(#dropShadow)"/><rect x="71" y="84" width="370" height="344" rx="8" fill="#f8f9fa" filter="url(#dropShadow)"/><rect x="91" y="104" width="90" height="96" rx="4" fill="#084298" filter="url(#dropShadow)"/><rect x="91" y="104" width="90" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="91" y="104" width="90" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/><rect x="91" y="212" width="90" height="196" rx="4" fill="#0b5ed7" filter="url(#dropShadow)"/><rect x="91" y="212" width="90" height="196" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="91" y="212" width="90" height="196" rx="4" fill="url(#highlight)" pointer-events="none"/><rect x="193" y="104" width="134" height="96" rx="4" fill="#0d6efd" filter="url(#dropShadow)"/><rect x="193" y="104" width="134" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="193" y="104" width="134" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/><rect x="339" y="104" width="82" height="96" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/><rect x="339" y="104" width="82" height="96" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="339" y="104" width="82" height="96" rx="4" fill="url(#highlight)" pointer-events="none"/><defs><clipPath id="middleClip"><rect x="193" y="212" width="228" height="96" rx="4"/></clipPath></defs><g clip-path="url(#middleClip)" filter="url(#dropShadow)"><polygon points="193,212 327,212 277,308 193,308" fill="#75c7ff"/></g><rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/><rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/><g clip-path="url(#middleClip)" filter="url(#dropShadow)"><polygon points="339,212 421,212 421,308 289,308" fill="#54b6ff"/></g><rect x="193" y="212" width="228" height="96" rx="4" fill="url(#grad1)" pointer-events="none" clip-path="url(#middleClip)"/><rect x="193" y="212" width="228" height="96" rx="4" fill="url(#highlight)" pointer-events="none" clip-path="url(#middleClip)"/><rect x="193" y="320" width="84" height="88" rx="4" fill="#31a8ff" filter="url(#dropShadow)"/><rect x="193" y="320" width="84" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="193" y="320" width="84" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/><rect x="289" y="320" width="132" height="88" rx="4" fill="#54b6ff" filter="url(#dropShadow)"/><rect x="289" y="320" width="132" height="88" rx="4" fill="url(#grad1)" pointer-events="none"/><rect x="289" y="320" width="132" height="88" rx="4" fill="url(#highlight)" pointer-events="none"/><rect x="71" y="84" width="370" height="344" rx="8" fill="url(#scanlines)" pointer-events="none"/></svg>
             <h2 class="text-center">izBoard Setup</h2>
 
             <form action="/submit" method="post">
@@ -478,8 +508,13 @@ void createConfiguration()
                     <div class="card-header">WLAN Setup</div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="ssid" class="form-label">SSID</label>
-                            <input type="text" class="form-control" name="ssid" id="ssid" placeholder="Enter SSID ...">
+                            <label for="ssid" class="form-label">Network</label>
+                            <div class="d-flex gap-2">
+                                <select class="form-select flex-grow-1" name="ssid" id="ssid">
+                                    <option value="">Scanning...</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary" id="scanBtn" onclick="scanNetworks()">Scan</button>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
@@ -493,32 +528,19 @@ void createConfiguration()
                     <div class="card-header">Dashboard Provider</div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="dashboard_url" class="form-label">Url</label>
+                            <label for="dashboard_url" class="form-label">Server Address</label>
                             <input type="text" class="form-control" name="dashboard_url" id="dashboard_url"
-                                placeholder="Enter url ...">
+                                placeholder="e.g. 192.168.1.100 or homeassistant.local">
                         </div>
                         <div class="mb-3">
-                            <label for="dashboard_port" class="form-label">Port</label>
-                            <input type="text" class="form-control" name="dashboard_port" id="dashboard_port"
-                                placeholder="Enter port ...">
+                            <label for="device_port" class="form-label">Device Port</label>
+                            <input type="text" class="form-control" name="device_port" id="device_port"
+                                placeholder="Enter device port ..." value="8129">
                         </div>
                         <div class="mb-3">
-                            <label for="dashboard_apikey" class="form-label">API Key</label>
-                            <input type="text" class="form-control" name="dashboard_apikey" id="dashboard_apikey"
-                                placeholder="Enter API key ...">
-                        </div>
-                        <div class="mb-3">
-                            <label for="time-period" class="form-label">Select Refresh Rate:</label>
-                            <div class="input-group" id="time-period">
-                                <input type="number" class="form-control" name="dashboard_rate" id="dashboard_rate" min="1" max="60"
-                                    placeholder="Enter number ...">
-                                <select class="form-select" name="dashboard_rate_unit" id="dashboard_rate_unit">
-                                    <option value="s">Seconds</option>
-                                    <option value="m">Minutes</option>
-                                    <option value="h">Hours</option>
-                                    <option value="d">Days</option>
-                                </select>
-                            </div>
+                            <label for="pairing_code" class="form-label">Pairing Code</label>
+                            <input type="text" class="form-control" name="pairing_code" id="pairing_code"
+                                placeholder="Enter pairing code from dashboard ...">
                         </div>
                     </div>
                 </div>
@@ -526,6 +548,36 @@ void createConfiguration()
                 <button type="submit" class="btn btn-primary w-100">Apply</button>
             </form>
         </div>
+
+        <script>
+            function scanNetworks() {
+                var btn = document.getElementById('scanBtn');
+                var sel = document.getElementById('ssid');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>';
+                sel.innerHTML = '<option value="">Scanning...</option>';
+                fetch('/scan').then(function(r) { return r.json(); }).then(function(networks) {
+                    sel.innerHTML = '';
+                    if (networks.length === 0) {
+                        sel.innerHTML = '<option value="">No networks found</option>';
+                    } else {
+                        for (var i = 0; i < networks.length; i++) {
+                            var opt = document.createElement('option');
+                            opt.value = networks[i].ssid;
+                            opt.textContent = networks[i].ssid + ' (' + networks[i].rssi + ' dBm)';
+                            sel.appendChild(opt);
+                        }
+                    }
+                    btn.disabled = false;
+                    btn.textContent = 'Scan';
+                }).catch(function() {
+                    sel.innerHTML = '<option value="">Scan failed</option>';
+                    btn.disabled = false;
+                    btn.textContent = 'Scan';
+                });
+            }
+            scanNetworks();
+        </script>
     </body>
 
     </html>
@@ -533,47 +585,78 @@ void createConfiguration()
   server.on("/", [&server, htmlForm]()
             { server.send(200, "text/html", htmlForm); });
 
+  server.on("/scan", HTTP_GET, [&server]()
+            {
+    int n = WiFi.scanNetworks();
+    String json = "[";
+    // Deduplicate SSIDs, keep strongest signal
+    for (int i = 0; i < n; i++) {
+      String ssid = WiFi.SSID(i);
+      if (ssid.length() == 0) continue;
+      // Check for duplicate
+      bool isDuplicate = false;
+      for (int j = 0; j < i; j++) {
+        if (WiFi.SSID(j) == ssid) { isDuplicate = true; break; }
+      }
+      if (isDuplicate) continue;
+      if (json.length() > 1) json += ",";
+      json += "{\"ssid\":\"";
+      // Escape quotes in SSID
+      for (unsigned int c = 0; c < ssid.length(); c++) {
+        if (ssid[c] == '"') json += "\\\"";
+        else if (ssid[c] == '\\') json += "\\\\";
+        else json += ssid[c];
+      }
+      json += "\",\"rssi\":" + String(WiFi.RSSI(i)) + "}";
+    }
+    json += "]";
+    WiFi.scanDelete();
+    server.send(200, "application/json", json); });
+
   server.on("/submit", HTTP_POST, [&server, htmlForm]()
             {
     const String ssidParam{ "ssid" };
     const String passParam{ "password" };
     const String urlParam{ "dashboard_url" };
-    const String portParam{ "dashboard_port" };
-    const String rateParam{ "dashboard_rate" };
-    const String rateUnitParam{ "dashboard_rate_unit" };
-    const String apiKeyParam{ "dashboard_apikey" };
-    if (
-      !server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || !server.hasArg(portParam) || !server.hasArg(rateParam) || !server.hasArg(rateUnitParam) || !server.hasArg(apiKeyParam)) {
+    const String devicePortParam{ "device_port" };
+    const String pairingCodeParam{ "pairing_code" };
+    
+    if (!server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) || 
+        !server.hasArg(devicePortParam) || !server.hasArg(pairingCodeParam)) {
       server.send(400, "text/html", htmlForm);
       return;
     }
 
     const String ssid{ server.arg(ssidParam) };
     const String pass{ server.arg(passParam) };
-    const String url{ server.arg(urlParam) };
-    const int port{ server.arg(portParam).toInt() };
-    const uint64_t rate{ static_cast<uint64_t>(server.arg(rateParam).toInt()) };
-    const String unit{ server.arg(rateUnitParam) };
-    const String apiKey{ server.arg(apiKeyParam) };
+    String url{ server.arg(urlParam) };
+    const int devicePort{ server.arg(devicePortParam).toInt() };
+    const String pairingCode{ server.arg(pairingCodeParam) };
 
-    int32_t unitMultiplier{ 1 };
-    if (unit.equals("m")) {
-      unitMultiplier *= 60;
-    } else if (unit.equals("h")) {
-      unitMultiplier *= 3600;
-    } else if (unit.equals("d")) {
-      unitMultiplier *= (3600 * 24);
+    // Sanitize server address: strip schema and trailing port/path
+    int schemaEnd = url.indexOf("://");
+    if (schemaEnd > 0)
+    {
+      url = url.substring(schemaEnd + 3);
     }
-
-    const uint64_t dashboardRefreshRate = (rate + 1) * unitMultiplier;
+    int slashIdx = url.indexOf('/');
+    if (slashIdx > 0)
+    {
+      url = url.substring(0, slashIdx);
+    }
+    int colonIdx = url.indexOf(':');
+    if (colonIdx > 0)
+    {
+      url = url.substring(0, colonIdx);
+    }
 
     Configuration config{
       ssid,
       pass,
       url,
-      port,
-      dashboardRefreshRate,
-      apiKey
+      devicePort,
+      "",
+      pairingCode
     };
     Serial.println("Received configuration...");
     storeConfiguration(config);
@@ -622,6 +705,128 @@ void createConfiguration()
     
     delay(2);
   }
+}
+
+bool pairWithDashboard(const String &pairingCode, const String &dashboardUrl, int devicePort, String &apiKey)
+{
+  Serial.println("Starting pairing process...");
+  
+  WiFiClient client;
+  client.setTimeout(5000);
+  
+  if (!client.connect(dashboardUrl.c_str(), devicePort))
+  {
+    Serial.println("Failed to connect to pairing server");
+    return false;
+  }
+  
+  Serial.println("Connected to pairing server, polling for API key...");
+  
+  String request = "GET /api/pairing/poll?code=" + pairingCode + " HTTP/1.1\r\n";
+  request += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
+  request += "Connection: close\r\n\r\n";
+  
+  client.print(request);
+  
+  bool statusOk = false;
+  while (client.connected() || client.available())
+  {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+    
+    if (!statusOk)
+    {
+      statusOk = line.startsWith("HTTP/1.1 200 OK");
+    }
+    
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+  
+  if (!statusOk)
+  {
+    Serial.println("Pairing request failed");
+    client.stop();
+    return false;
+  }
+  
+  String response = "";
+  while (client.available())
+  {
+    response += client.readString();
+  }
+  client.stop();
+  
+  Serial.println("Response: " + response);
+  
+  int apiKeyStart = response.indexOf("\"apiKey\":\"");
+  if (apiKeyStart == -1)
+  {
+    Serial.println("API key not found in response");
+    return false;
+  }
+  
+  apiKeyStart += 10;
+  int apiKeyEnd = response.indexOf("\"", apiKeyStart);
+  if (apiKeyEnd == -1)
+  {
+    Serial.println("API key end not found");
+    return false;
+  }
+  
+  apiKey = response.substring(apiKeyStart, apiKeyEnd);
+  Serial.println("Received API key: " + apiKey);
+  
+  String macAddress = WiFi.macAddress();
+  
+  Serial.println("Completing pairing with device identifier...");
+  
+  if (!client.connect(dashboardUrl.c_str(), devicePort))
+  {
+    Serial.println("Failed to connect for pairing completion");
+    return false;
+  }
+  
+  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"izBoard-" + macAddress.substring(macAddress.length() - 8) + "\"}";
+  
+  String postRequest = "POST /api/pairing/complete HTTP/1.1\r\n";
+  postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
+  postRequest += "Content-Type: application/json\r\n";
+  postRequest += "Content-Length: " + String(jsonBody.length()) + "\r\n";
+  postRequest += "Connection: close\r\n\r\n";
+  postRequest += jsonBody;
+  
+  client.print(postRequest);
+  
+  statusOk = false;
+  while (client.connected() || client.available())
+  {
+    String line = client.readStringUntil('\n');
+    Serial.println(line);
+    
+    if (!statusOk)
+    {
+      statusOk = line.startsWith("HTTP/1.1 200 OK");
+    }
+    
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+  
+  client.stop();
+  
+  if (!statusOk)
+  {
+    Serial.println("Pairing completion failed");
+    return false;
+  }
+  
+  Serial.println("Pairing completed successfully");
+  return true;
 }
 
 bool connectToWiFi(const Configuration &config)

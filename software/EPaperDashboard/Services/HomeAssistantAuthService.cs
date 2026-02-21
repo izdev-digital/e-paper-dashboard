@@ -60,9 +60,20 @@ public class HomeAssistantAuthService(
             }
 
             var hostUri = new Uri(host);
-            var clientId = clientUri.ToString().TrimEnd('/');
-            var redirectUri = $"{clientId}/api/homeassistant/callback";
             var hostUrl = hostUri.ToString().TrimEnd('/');
+
+            string clientId;
+            string redirectUri;
+            if (_deploymentStrategy.Mode == DeploymentMode.Addon)
+            {
+                clientId = hostUrl;
+                redirectUri = $"{clientUri.ToString().TrimEnd('/')}/api/homeassistant/callback";
+            }
+            else
+            {
+                clientId = clientUri.ToString().TrimEnd('/');
+                redirectUri = $"{clientId}/api/homeassistant/callback";
+            }
 
             var stateData = new StateData
             {

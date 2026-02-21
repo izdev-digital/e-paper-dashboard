@@ -4,12 +4,14 @@ using EPaperDashboard.Utilities;
 using EPaperDashboard.Services;
 using CSharpFunctionalExtensions;
 using System.Text;
+using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/configuration")]
 [Authorize(Policy = "ApiKeyPolicy")]
+[DeviceAccessible]
 public class ConfigurationApiController(DashboardService dashboardService) : ControllerBase
 {
     private readonly DashboardService _dashboardService = dashboardService;

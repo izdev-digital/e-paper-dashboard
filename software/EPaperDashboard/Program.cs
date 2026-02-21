@@ -95,6 +95,8 @@ builder.Services
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
+	.AddSingleton<DeviceService>()
+	.AddSingleton<PairingService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
 	.AddSingleton<DashboardHtmlRenderingService>()
@@ -200,6 +202,40 @@ if (!app.Environment.IsDevelopment())
 strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
+
+var devicePort = builder.Configuration.GetValue<int>("DevicePort", 8129);
+
+app.Use(async (context, next) =>
+{
+	var isDevicePort = context.Connection.LocalPort == devicePort;
+	
+	if (isDevicePort)
+	{
+		var endpoint = context.GetEndpoint();
+		var deviceAttr = endpoint?.Metadata.GetMetadata<EPaperDashboard.Guards.DeviceAccessibleAttribute>();
+
+		if (deviceAttr is null)
+		{
+			context.Response.StatusCode = 404;
+			return;
+		}
+
+		if (deviceAttr.RequireActivePairing)
+		{
+			var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+			pairingService.CleanupExpiredSessions();
+
+			if (!pairingService.HasActiveSessions())
+			{
+				context.Response.StatusCode = 503;
+				await context.Response.WriteAsync("Pairing service unavailable");
+				return;
+			}
+		}
+	}
+
+	await next();
+});
 
 app.UseAuthentication();
 strategy.ApplyPostAuthenticationMiddleware(app, app.Environment);
