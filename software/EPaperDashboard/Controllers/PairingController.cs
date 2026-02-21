@@ -39,6 +39,7 @@ public class PairingController(
 
     [HttpGet("poll")]
     [AllowAnonymous]
+    [DeviceAccessible(RequireActivePairing = true)]
     public IActionResult PollPairing([FromQuery] string code)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -70,6 +71,7 @@ public class PairingController(
 
     [HttpPost("complete")]
     [AllowAnonymous]
+    [DeviceAccessible(RequireActivePairing = true)]
     public IActionResult CompletePairing([FromBody] CompletePairingRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.DeviceIdentifier))

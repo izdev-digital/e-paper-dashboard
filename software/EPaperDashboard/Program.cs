@@ -203,31 +203,34 @@ strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
 
-var pairingPort = builder.Configuration.GetValue<int>("PairingPort", 8129);
+var devicePort = builder.Configuration.GetValue<int>("DevicePort", 8129);
 
 app.Use(async (context, next) =>
 {
-	var isPairingPort = context.Connection.LocalPort == pairingPort;
+	var isDevicePort = context.Connection.LocalPort == devicePort;
 	
-	if (isPairingPort)
+	if (isDevicePort)
 	{
-		var pairingService = context.RequestServices.GetRequiredService<PairingService>();
-		pairingService.CleanupExpiredSessions();
-		
-		if (!pairingService.HasActiveSessions())
-		{
-			context.Response.StatusCode = 503;
-			await context.Response.WriteAsync("Pairing service unavailable");
-			return;
-		}
-		
-		var isDevicePairingEndpoint = context.Request.Path.StartsWithSegments("/api/pairing/poll") || 
-		                              context.Request.Path.StartsWithSegments("/api/pairing/complete");
-		
-		if (!isDevicePairingEndpoint)
+		var endpoint = context.GetEndpoint();
+		var deviceAttr = endpoint?.Metadata.GetMetadata<EPaperDashboard.Guards.DeviceAccessibleAttribute>();
+
+		if (deviceAttr is null)
 		{
 			context.Response.StatusCode = 404;
 			return;
+		}
+
+		if (deviceAttr.RequireActivePairing)
+		{
+			var pairingService = context.RequestServices.GetRequiredService<PairingService>();
+			pairingService.CleanupExpiredSessions();
+
+			if (!pairingService.HasActiveSessions())
+			{
+				context.Response.StatusCode = 503;
+				await context.Response.WriteAsync("Pairing service unavailable");
+				return;
+			}
 		}
 	}
 

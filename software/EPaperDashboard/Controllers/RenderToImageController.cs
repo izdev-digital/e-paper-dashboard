@@ -14,12 +14,14 @@ using SixLabors.ImageSharp.Processing.Processors.Dithering;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services;
+using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/render")]
 [Authorize(Policy = "ApiKeyPolicy")]
+[DeviceAccessible]
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
 	DashboardService dashboardService,
