@@ -21,6 +21,8 @@ public static class Constants
 
     public const string HassHttpClientName = nameof(HassHttpClientName);
 
+    public const string FirmwareHttpClientName = nameof(FirmwareHttpClientName);
+
     public const string SupervisorCoreUrl = "http://supervisor/core";
 
     /// <summary>

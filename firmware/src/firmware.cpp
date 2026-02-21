@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
+#include <Update.h>
 #include <driver/rtc_io.h>
 #include "version.h"
 
@@ -69,7 +70,20 @@ struct Configuration
   String pairingCode;
 };
 
-void startDeepSleep(const Configuration &config);
+struct ResponseHeaders
+{
+  bool isSuccess = false;
+  String firmwareVersion;
+  long contentLength = -1;
+};
+
+struct DeviceConfigResult
+{
+  uint64_t waitSeconds = 0;
+  String latestFirmwareVersion;
+};
+
+void startDeepSleep(uint64_t waitSeconds);
 std::optional<Configuration> getConfiguration();
 void storeConfiguration(const Configuration &config);
 void clearConfiguration();
@@ -80,10 +94,12 @@ void resetDevice();
 bool pairWithDashboard(const String &pairingCode, const String &dashboardUrl, int devicePort, String &apiKey);
 
 bool connectToWiFi(const Configuration &config);
-bool hasSuccessfulStatusCode(WiFiClient &client);
+ResponseHeaders readResponseHeaders(WiFiClient &client);
 void fetchBinaryData(const Configuration &config);
-std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config);
+DeviceConfigResult fetchDeviceConfig(const Configuration &config);
 bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config);
+bool isNewerVersion(const char *current, const String &available);
+bool performOtaUpdate(const Configuration &config);
 
 void setup()
 {
@@ -119,6 +135,8 @@ void setup()
 
   Configuration config = configuration.value();
 
+  uint64_t waitSeconds = FALLBACK_REFRESH_SECONDS;
+
   if (connectToWiFi(config))
   {
     if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
@@ -138,13 +156,35 @@ void setup()
       }
     }
 
+    // Fetch device configuration (wait seconds + firmware version from headers)
+    auto deviceConfig = fetchDeviceConfig(config);
+    if (deviceConfig.waitSeconds > 0)
+    {
+      waitSeconds = deviceConfig.waitSeconds;
+    }
+
+    // Check for firmware update BEFORE screen refresh
+    if (deviceConfig.latestFirmwareVersion.length() > 0 &&
+        isNewerVersion(FIRMWARE_VERSION, deviceConfig.latestFirmwareVersion))
+    {
+      Serial.print("New firmware v");
+      Serial.print(deviceConfig.latestFirmwareVersion);
+      Serial.println(" available. Starting OTA update...");
+      if (performOtaUpdate(config))
+      {
+        // OTA succeeded - ESP will restart, won't reach here
+        return;
+      }
+      Serial.println("OTA update failed, continuing with current firmware");
+    }
+
     fetchBinaryData(config);
   }
 
   display.refresh();
   display.powerOff();
 
-  startDeepSleep(config);
+  startDeepSleep(waitSeconds);
 }
 
 void loop()
@@ -165,9 +205,11 @@ void fetchBinaryData(const Configuration &config)
     return;
   }
 
-  if (!hasSuccessfulStatusCode(client))
+  auto headers = readResponseHeaders(client);
+  if (!headers.isSuccess)
   {
     Serial.println("The request was not successful...");
+    client.stop();
     return;
   }
 
@@ -233,48 +275,77 @@ void fetchBinaryData(const Configuration &config)
   client.stop();
 }
 
-std::optional<uint64_t> fetchNextWaitSeconds(const Configuration &config)
+DeviceConfigResult fetchDeviceConfig(const Configuration &config)
 {
-  Serial.println("Connecting to the remote server...");
+  Serial.println("Fetching device configuration...");
+
+  DeviceConfigResult result;
 
   WiFiClient client;
   if (!trySendGetRequest(client, "/api/configuration/next-update-wait-seconds", config))
   {
-    return std::nullopt;
+    Serial.println("Failed to connect to fetch device config");
+    return result;
   }
 
-  if (!hasSuccessfulStatusCode(client))
+  auto headers = readResponseHeaders(client);
+  if (!headers.isSuccess)
   {
-    Serial.println("The request was not successful...");
-    return std::nullopt;
+    Serial.println("Device config request was not successful");
+    client.stop();
+    return result;
   }
 
-  Serial.println("Reading content...");
+  result.latestFirmwareVersion = headers.firmwareVersion;
+
+  // Read body (wait seconds)
   String delayString{};
   if (client.connected() || client.available())
   {
     delayString = client.readStringUntil('\n');
+    Serial.print("Next update wait: ");
     Serial.println(delayString);
   }
 
   client.stop();
-  return delayString.length() > 0
-             ? std::make_optional(strtoull(delayString.c_str(), nullptr, 10))
-             : std::nullopt;
+
+  if (delayString.length() > 0)
+  {
+    result.waitSeconds = strtoull(delayString.c_str(), nullptr, 10);
+  }
+
+  if (result.latestFirmwareVersion.length() > 0)
+  {
+    Serial.print("Latest firmware version from server: ");
+    Serial.println(result.latestFirmwareVersion);
+  }
+
+  return result;
 }
 
-bool hasSuccessfulStatusCode(WiFiClient &client)
+ResponseHeaders readResponseHeaders(WiFiClient &client)
 {
   Serial.println("Reading headers...");
-  bool isStatusOk = false;
+  ResponseHeaders headers;
   while (client.connected() || client.available())
   {
     String line = client.readStringUntil('\n');
     Serial.println(line);
 
-    if (!isStatusOk)
+    if (!headers.isSuccess)
     {
-      isStatusOk = line.startsWith("HTTP/1.1 200 OK");
+      headers.isSuccess = line.startsWith("HTTP/1.1 200");
+    }
+
+    if (line.startsWith("X-Firmware-Version:"))
+    {
+      headers.firmwareVersion = line.substring(strlen("X-Firmware-Version:"));
+      headers.firmwareVersion.trim();
+    }
+
+    if (line.startsWith("Content-Length:"))
+    {
+      headers.contentLength = line.substring(strlen("Content-Length:")).toInt();
     }
 
     if (line == "\r")
@@ -283,7 +354,7 @@ bool hasSuccessfulStatusCode(WiFiClient &client)
     }
   }
 
-  return isStatusOk;
+  return headers;
 }
 
 bool trySendGetRequest(WiFiClient &client, const String &url, const Configuration &config)
@@ -303,20 +374,94 @@ bool trySendGetRequest(WiFiClient &client, const String &url, const Configuratio
   client.print(config.dashboardUrl);
   client.print(":");
   client.println(config.devicePort);
+  client.print("X-Device-Firmware-Version: ");
+  client.println(FIRMWARE_VERSION);
+  client.print("X-Device-Id: ");
+  client.println(WiFi.macAddress());
   client.println("Connection: close");
   client.println();
   return true;
 }
 
-void startDeepSleep(const Configuration &config)
+void startDeepSleep(uint64_t waitSeconds)
 {
-  uint64_t waitSeconds = fetchNextWaitSeconds(config).value_or(FALLBACK_REFRESH_SECONDS);
   uint64_t waitMicroseconds = waitSeconds * SEC_TO_USEC_FACTOR;
   esp_sleep_enable_timer_wakeup(waitMicroseconds);
   esp_sleep_enable_ext0_wakeup(RESET_WAKEUP_PIN, 1);
   rtc_gpio_pullup_dis(RESET_WAKEUP_PIN);
   rtc_gpio_pulldown_en(RESET_WAKEUP_PIN);
   esp_deep_sleep_start();
+}
+
+bool isNewerVersion(const char *current, const String &available)
+{
+  int curMajor = 0, curMinor = 0, curPatch = 0;
+  int avMajor = 0, avMinor = 0, avPatch = 0;
+
+  sscanf(current, "%d.%d.%d", &curMajor, &curMinor, &curPatch);
+  sscanf(available.c_str(), "%d.%d.%d", &avMajor, &avMinor, &avPatch);
+
+  if (avMajor != curMajor) return avMajor > curMajor;
+  if (avMinor != curMinor) return avMinor > curMinor;
+  return avPatch > curPatch;
+}
+
+bool performOtaUpdate(const Configuration &config)
+{
+  Serial.println("Starting OTA firmware update...");
+
+  WiFiClient client;
+  client.setTimeout(10000);
+
+  if (!trySendGetRequest(client, "/api/firmware/download", config))
+  {
+    Serial.println("Failed to connect for OTA update");
+    return false;
+  }
+
+  auto headers = readResponseHeaders(client);
+  if (!headers.isSuccess)
+  {
+    Serial.println("OTA: Server returned an error");
+    client.stop();
+    return false;
+  }
+
+  if (headers.contentLength <= 0)
+  {
+    Serial.println("OTA: Invalid or missing Content-Length header");
+    client.stop();
+    return false;
+  }
+
+  Serial.printf("OTA: Firmware size: %ld bytes\n", headers.contentLength);
+
+  if (!Update.begin(headers.contentLength))
+  {
+    Serial.println("OTA: Not enough space for update");
+    client.stop();
+    return false;
+  }
+
+  Serial.println("OTA: Writing firmware...");
+  size_t written = Update.writeStream(client);
+  Serial.printf("OTA: Written %u bytes\n", written);
+
+  if (Update.end())
+  {
+    if (Update.isFinished())
+    {
+      Serial.println("OTA: Update successful! Rebooting...");
+      client.stop();
+      delay(1000);
+      ESP.restart();
+      return true; // Won't reach here
+    }
+  }
+
+  Serial.printf("OTA: Update failed: %s\n", Update.errorString());
+  client.stop();
+  return false;
 }
 
 std::optional<Configuration> getConfiguration()

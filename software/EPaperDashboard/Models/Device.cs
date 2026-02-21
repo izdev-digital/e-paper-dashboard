@@ -11,4 +11,5 @@ public class Device
     public string Name { get; set; } = string.Empty;
     public DateTimeOffset PairedAt { get; set; }
     public DateTimeOffset? LastSeenAt { get; set; }
+    public string? FirmwareVersion { get; set; }
 }

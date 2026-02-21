@@ -12,6 +12,11 @@ public static class EnvironmentConfiguration
 	private const string StateSigningKeyKey = "STATE_SIGNING_KEY";
 	private const string DashboardScheduleCheckIntervalMinutesKey = "DASHBOARD_SCHEDULE_CHECK_INTERVAL_MINUTES";
 	private const string DashboardMissedScheduleToleranceMinutesKey = "DASHBOARD_MISSED_SCHEDULE_TOLERANCE_MINUTES";
+	private const string FirmwareUpdateEnabledKey = "FIRMWARE_UPDATE_ENABLED";
+	private const string FirmwareReleaseProviderKey = "FIRMWARE_RELEASE_PROVIDER";
+	private const string FirmwareGitHubRepoKey = "FIRMWARE_GITHUB_REPO";
+	private const string FirmwareAssetPatternKey = "FIRMWARE_ASSET_PATTERN";
+	private const string FirmwareCheckIntervalHoursKey = "FIRMWARE_CHECK_INTERVAL_HOURS";
 
 	private static readonly Lazy<JsonDocument?> _jsonConfig = new(LoadJsonConfig);
 
@@ -57,6 +62,24 @@ public static class EnvironmentConfiguration
 
 	private static readonly Lazy<string> _configDir = new(() => "/data");
 
+	private static readonly Lazy<bool> _firmwareUpdateEnabled = new(() =>
+	{
+		var value = GetStringFromEnvOrConfig(FirmwareUpdateEnabledKey);
+		return string.IsNullOrWhiteSpace(value) || !bool.TryParse(value, out var enabled) || enabled;
+	});
+
+	private static readonly Lazy<string> _firmwareReleaseProvider = new(() =>
+		GetStringFromEnvOrConfig(FirmwareReleaseProviderKey) ?? "github");
+
+	private static readonly Lazy<string> _firmwareGitHubRepo = new(() =>
+		GetStringFromEnvOrConfig(FirmwareGitHubRepoKey) ?? "izdev-digital/e-paper-dashboard");
+
+	private static readonly Lazy<string> _firmwareAssetPattern = new(() =>
+		GetStringFromEnvOrConfig(FirmwareAssetPatternKey) ?? "*.bin");
+
+	private static readonly Lazy<TimeSpan> _firmwareCheckInterval = new(() =>
+		TimeSpan.FromHours(GetIntFromEnvOrConfig(FirmwareCheckIntervalHoursKey, 6)));
+
 	public static DeploymentMode AppMode => _appMode.Value;
 
 	public static bool IsAddonMode => AppMode == DeploymentMode.Addon;
@@ -78,6 +101,16 @@ public static class EnvironmentConfiguration
 	public static string ConfigDir => _configDir.Value;
 
 	public static string DataProtectionKeysDir => Path.Combine(ConfigDir, "DataProtection-Keys");
+
+	public static bool FirmwareUpdateEnabled => _firmwareUpdateEnabled.Value;
+
+	public static string FirmwareReleaseProvider => _firmwareReleaseProvider.Value;
+
+	public static string FirmwareGitHubRepo => _firmwareGitHubRepo.Value;
+
+	public static string FirmwareAssetPattern => _firmwareAssetPattern.Value;
+
+	public static TimeSpan FirmwareCheckInterval => _firmwareCheckInterval.Value;
 
 	private static JsonDocument? LoadJsonConfig()
 	{
