@@ -8,7 +8,7 @@ namespace EPaperDashboard.Controllers;
 
 [ApiController]
 [Route("api/devices")]
-[Authorize(AuthenticationSchemes = "Cookies")]
+[Authorize]
 public class DevicesController(DeviceService deviceService, DashboardService dashboardService) : BaseApiController
 {
     private readonly DeviceService _deviceService = deviceService;
