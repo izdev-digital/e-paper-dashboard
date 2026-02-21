@@ -6,18 +6,23 @@ namespace EPaperDashboard.Services;
 
 public static class WebSocketHelpers
 {
-    public static async Task<ClientWebSocket> ConnectWebSocket(string hostUrl, string wsPath = "/api/websocket")
+    public static async Task<ClientWebSocket> ConnectWebSocket(string hostUrl, string? accessToken = null, string wsPath = "/api/websocket")
     {
         var wsUrl = hostUrl.Replace("http://", "ws://").Replace("https://", "wss://");
         var ws = new ClientWebSocket();
+
+        if (!string.IsNullOrEmpty(accessToken))
+        {
+            ws.Options.SetRequestHeader("Authorization", $"Bearer {accessToken}");
+        }
+
         await ws.ConnectAsync(new Uri(wsUrl + wsPath), CancellationToken.None);
         return ws;
     }
 
     public static async Task<ClientWebSocket> ConnectAndAuthenticateAsync(string hostUrl, string accessToken, string wsPath = "/api/websocket")
     {
-        var ws = await ConnectWebSocket(hostUrl, wsPath);
-        // initial greeting
+        var ws = await ConnectWebSocket(hostUrl, accessToken, wsPath);
         await ReceiveMessageAsync(ws);
 
         await SendMessageAsync(ws, new { type = "auth", access_token = accessToken });
@@ -44,7 +49,13 @@ public static class WebSocketHelpers
     public static async Task<string> ReceiveMessageAsync(ClientWebSocket ws)
     {
         var buffer = new byte[1024 * 16];
-        var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-        return Encoding.UTF8.GetString(buffer, 0, result.Count);
+        var sb = new StringBuilder();
+        WebSocketReceiveResult result;
+        do
+        {
+            result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+        } while (!result.EndOfMessage);
+        return sb.ToString();
     }
 }
