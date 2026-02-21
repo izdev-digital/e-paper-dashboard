@@ -16,6 +16,7 @@ import {
   ColorScheme
 } from '../../models/types';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-widget-config',
@@ -34,6 +35,7 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   private readonly homeAssistantService = inject(HomeAssistantService);
+  private readonly authService = inject(AuthService);
 
   formatEntityLabel(entity: any): string {
     const base = entity?.friendly_name || entity?.entity_id || 'Unknown';
@@ -127,8 +129,14 @@ export class WidgetConfigComponent implements OnChanges {
       this.loadingEntities.set(this.entitiesLoading);
     }
 
-    if (changes['dashboard'] && this.dashboard?.hasAccessToken && this.dashboard?.host && this.availableEntities.length === 0) {
-      this.loadEntities();
+    if (changes['dashboard'] && this.availableEntities.length === 0) {
+      // In addon mode, HA connection is auto-managed (no host/token needed per dashboard)
+      const canLoad = this.authService.isAddonMode()
+        ? !!this.dashboard
+        : (this.dashboard?.hasAccessToken && this.dashboard?.host);
+      if (canLoad) {
+        this.loadEntities();
+      }
     }
   }
 
