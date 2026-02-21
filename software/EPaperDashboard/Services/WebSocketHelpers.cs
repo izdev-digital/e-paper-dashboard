@@ -6,17 +6,17 @@ namespace EPaperDashboard.Services;
 
 public static class WebSocketHelpers
 {
-    public static async Task<ClientWebSocket> ConnectWebSocket(string hostUrl)
+    public static async Task<ClientWebSocket> ConnectWebSocket(string hostUrl, string wsPath = "/api/websocket")
     {
         var wsUrl = hostUrl.Replace("http://", "ws://").Replace("https://", "wss://");
         var ws = new ClientWebSocket();
-        await ws.ConnectAsync(new Uri(wsUrl + "/api/websocket"), CancellationToken.None);
+        await ws.ConnectAsync(new Uri(wsUrl + wsPath), CancellationToken.None);
         return ws;
     }
 
-    public static async Task<ClientWebSocket> ConnectAndAuthenticateAsync(string hostUrl, string accessToken)
+    public static async Task<ClientWebSocket> ConnectAndAuthenticateAsync(string hostUrl, string accessToken, string wsPath = "/api/websocket")
     {
-        var ws = await ConnectWebSocket(hostUrl);
+        var ws = await ConnectWebSocket(hostUrl, wsPath);
         // initial greeting
         await ReceiveMessageAsync(ws);
 

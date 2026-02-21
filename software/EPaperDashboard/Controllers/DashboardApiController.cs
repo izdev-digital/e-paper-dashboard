@@ -10,10 +10,11 @@ namespace EPaperDashboard.Controllers;
 [ApiController]
 [Route("api/dashboards")]
 [Authorize]
-public class DashboardApiController(DashboardService dashboardService, UserService userService) : BaseApiController
+public class DashboardApiController(DashboardService dashboardService, UserService userService, IDeploymentStrategy deploymentStrategy) : BaseApiController
 {
     private readonly DashboardService _dashboardService = dashboardService;
     private readonly UserService _userService = userService;
+    private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
 
     [HttpGet]
     public IActionResult GetDashboards()
@@ -64,7 +65,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return Forbid();
         }
 
-        return Ok(DashboardResponseDto.FromDashboard(dashboard.Value));
+        return Ok(DashboardResponseDto.FromDashboard(dashboard.Value, _deploymentStrategy.IsAutoConnected));
     }
 
     [HttpPost]
@@ -90,7 +91,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         _dashboardService.AddDashboard(dashboard);
 
-        return Ok(DashboardResponseDto.FromDashboard(dashboard));
+        return Ok(DashboardResponseDto.FromDashboard(dashboard, _deploymentStrategy.IsAutoConnected));
     }
 
     [HttpPut("{id}")]
@@ -149,7 +150,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         _dashboardService.UpdateDashboard(updatedDashboard);
 
-        return Ok(DashboardResponseDto.FromDashboard(updatedDashboard));
+        return Ok(DashboardResponseDto.FromDashboard(updatedDashboard, _deploymentStrategy.IsAutoConnected));
     }
 
     [HttpDelete("{id}")]
@@ -212,13 +213,13 @@ public record DashboardResponseDto(
     string? RenderingMode
 )
 {
-    public static DashboardResponseDto FromDashboard(Dashboard dashboard) => new(
+    public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
         Id: dashboard.Id.ToString(),
         Name: dashboard.Name,
         Description: dashboard.Description,
         ApiKey: dashboard.ApiKey,
         UserId: dashboard.UserId.ToString(),
-        HasAccessToken: !string.IsNullOrWhiteSpace(dashboard.AccessToken),
+        HasAccessToken: isAutoConnected || !string.IsNullOrWhiteSpace(dashboard.AccessToken),
         Host: dashboard.Host,
         Path: dashboard.Path,
         UpdateTimes: dashboard.UpdateTimes,

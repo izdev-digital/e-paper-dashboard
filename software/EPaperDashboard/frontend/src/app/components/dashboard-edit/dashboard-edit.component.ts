@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectorRef, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -176,8 +176,15 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                   </div>
                 }
 
+                @if (!isAddonMode() || previewModeValue === 'homeassistant') {
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Access Token</label>
+                  @if (isAddonMode()) {
+                    <small class="form-text text-muted d-block mb-2">
+                      <i class="fa-solid fa-info-circle"></i> The "Home Assistant Dashboard" mode requires an Access Token.
+                      Click <strong>Fetch</strong> to authenticate, or paste a Long-Lived Access Token manually.
+                    </small>
+                  }
                   <div class="input-group">
                     <input 
                       type="password" 
@@ -211,6 +218,11 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                     }
                   </small>
                 </div>
+                } @else {
+                  <div class="mb-3">
+                    <span class="d-block text-success"><i class="fa-solid fa-check-circle"></i> Connected to Home Assistant via add-on</span>
+                  </div>
+                }
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold">Rendering Mode</label>
@@ -244,7 +256,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                         type="button" 
                         class="btn btn-outline-secondary" 
                         (click)="openDashboardSelector()"
-                        [disabled]="hideHostField() ? false : (!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value))"
+                      [disabled]="hideHostField() ? false : (!dashboardForm.get('host')?.value || (!dashboard()!.hasAccessToken && !dashboardForm.get('accessToken')?.value))"
                       >
                         <i class="fa-solid fa-list"></i> Select
                       </button>
@@ -309,6 +321,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
+  private readonly location = inject(Location);
 
   readonly isAddonMode = this.authService.isAddonMode;
   readonly isHostMode = this.authService.isHostMode;
@@ -443,7 +456,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.toastService.success('Home Assistant token saved successfully!');
 
         setTimeout(() => {
-          window.history.replaceState({}, '', `/dashboards/${dashboardId}/edit`);
+          this.location.replaceState(`/dashboards/${dashboardId}/edit`);
         }, 500);
 
         this.oauthToken = null;
@@ -662,10 +675,14 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     if (mode === 'ssr') {
       return !this.dashboard()?.layoutConfig;
     } else {
-      const hostValue = this.dashboardForm.get('host')?.value;
       const pathValue = this.dashboardForm.get('path')?.value;
       const currentDashboard = this.dashboard();
       const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
+      // In addon mode, host is auto-managed but HA rendering still needs a long-lived token
+      if (this.isAddonMode()) {
+        return !pathValue || (!currentDashboard?.hasAccessToken && !accessTokenValue);
+      }
+      const hostValue = this.dashboardForm.get('host')?.value;
       return !hostValue || !pathValue || (!currentDashboard?.hasAccessToken && !accessTokenValue);
     }
   }
@@ -743,7 +760,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     const hostValue = this.dashboardForm.get('host')?.value;
     const pathValue = this.dashboardForm.get('path')?.value;
     const accessTokenValue = this.dashboardForm.get('accessToken')?.value;
-    if (!hostValue || !pathValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
+
+    if (this.isAddonMode()) {
+      if (!pathValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
+        this.toastService.error('Preview requires a Dashboard Path and an Access Token. Click "Fetch" to authenticate with Home Assistant.');
+        return;
+      }
+    } else if (!hostValue || !pathValue || (!currentDashboard.hasAccessToken && !accessTokenValue)) {
       this.toastService.error('Preview requires Home Assistant configuration and access token. Please configure Host, Dashboard Path, and add an access token first.');
       return;
     }
