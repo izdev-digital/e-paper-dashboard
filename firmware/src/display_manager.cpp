@@ -54,30 +54,59 @@ void DisplayManager::powerOff()
 void DisplayManager::drawIcon(int16_t ox, int16_t oy, int16_t size)
 {
   const float s = size / 370.0f;
+  auto rnd = [](float v) -> int16_t { return (int16_t)roundf(v); };
 
-  auto sr = [&](float x, float y, float w, float h, uint16_t color) {
-    _display.fillRect(ox + (int16_t)(x * s), oy + (int16_t)(y * s),
-                      (int16_t)(w * s), (int16_t)(h * s), color);
-  };
+  // Single pixel gap used everywhere (largest integer that fits the 12-unit SVG gap)
+  int16_t gap = max((int16_t)1, (int16_t)(12.0f * s));
 
-  auto st = [&](float x0, float y0, float x1, float y1, float x2, float y2, uint16_t color) {
-    _display.fillTriangle(ox + (int16_t)(x0 * s), oy + (int16_t)(y0 * s),
-                          ox + (int16_t)(x1 * s), oy + (int16_t)(y1 * s),
-                          ox + (int16_t)(x2 * s), oy + (int16_t)(y2 * s), color);
-  };
+  // Item sizes rounded from SVG proportions
+  int16_t margin = rnd(20 * s);
+  int16_t lcw    = rnd(90 * s);
+  int16_t r1h    = rnd(96 * s);
+  int16_t r2h    = rnd(96 * s);
+  int16_t r3h    = rnd(88 * s);
 
-  sr(20, 20, 90, 96, GxEPD_RED);
-  sr(20, 128, 90, 196, GxEPD_RED);
-  sr(122, 20, 134, 96, GxEPD_RED);
-  sr(268, 20, 56, 96, GxEPD_RED);
+  // Horizontal grid
+  int16_t x0 = margin;
+  int16_t x2 = x0 + lcw + gap;
+  int16_t xR = rnd(350 * s);
+  int16_t rcAvail = xR - x2 - gap;
 
-  st(122, 128, 256, 128, 122, 224, GxEPD_RED);
-  st(256, 128, 206, 224, 122, 224, GxEPD_RED);
-  st(268, 128, 324, 128, 324, 224, GxEPD_RED);
-  st(268, 128, 324, 224, 218, 224, GxEPD_RED);
+  int16_t topLw = rnd(134.0f / 216.0f * rcAvail);
+  int16_t x3 = x2 + topLw;
+  int16_t x4 = x3 + gap;
 
-  sr(122, 236, 134, 88, GxEPD_RED);
-  sr(218, 236, 106, 88, GxEPD_RED);
+  int16_t botLw = rnd(84.0f / 216.0f * rcAvail);
+  int16_t x5 = x2 + botLw;
+  int16_t x6 = x5 + gap;
+
+  // Vertical grid
+  int16_t y0 = margin;
+  int16_t y2 = y0 + r1h + gap;
+  int16_t y3 = y2 + r2h;
+  int16_t y4 = y3 + gap;
+
+  // Left column: top tile + tall tile spanning rows 2-3
+  _display.fillRect(ox + x0, oy + y0, lcw, r1h, GxEPD_RED);
+  _display.fillRect(ox + x0, oy + y2, lcw, r2h + gap + r3h, GxEPD_RED);
+
+  // Top row, right column
+  _display.fillRect(ox + x2, oy + y0, topLw, r1h, GxEPD_RED);
+  _display.fillRect(ox + x4, oy + y0, xR - x4, r1h, GxEPD_RED);
+
+  // Middle row: diagonal-split trapezoids
+  int16_t mx2 = ox + x2,     mx3 = ox + x3 - 1, mx4 = ox + x4;
+  int16_t mx5 = ox + x5 - 1, mx6 = ox + x6,     mxR = ox + xR - 1;
+  int16_t my2 = oy + y2,     my3 = oy + y3 - 1;
+
+  _display.fillTriangle(mx2, my2, mx3, my2, mx2, my3, GxEPD_RED);
+  _display.fillTriangle(mx3, my2, mx5, my3, mx2, my3, GxEPD_RED);
+  _display.fillTriangle(mx4, my2, mxR, my2, mxR, my3, GxEPD_RED);
+  _display.fillTriangle(mx4, my2, mxR, my3, mx6, my3, GxEPD_RED);
+
+  // Bottom row, right column
+  _display.fillRect(ox + x2, oy + y4, botLw, r3h, GxEPD_RED);
+  _display.fillRect(ox + x6, oy + y4, xR - x6, r3h, GxEPD_RED);
 }
 
 void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, const String& apName)
