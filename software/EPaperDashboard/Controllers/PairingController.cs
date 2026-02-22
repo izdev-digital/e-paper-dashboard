@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
+using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Controllers;
 
@@ -120,7 +121,7 @@ public class PairingController(
     }
 }
 
-public record StartPairingRequest(Guid DashboardId);
+public record StartPairingRequest(DashboardId DashboardId);
 public record StartPairingResponse
 {
     public string Code { get; init; } = string.Empty;

@@ -10,7 +10,7 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
 
-    public PairingSession CreatePairingSession(Guid dashboardId, string apiKey)
+    public PairingSession CreatePairingSession(DashboardId dashboardId, string apiKey)
     {
         var session = new PairingSession
         {
@@ -29,7 +29,7 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     public Maybe<PairingSession> GetPairingSessionByCode(string code) =>
         pairingSessionRepository.FindByCode(code);
 
-    public void CompletePairingSession(Guid sessionId, string deviceIdentifier)
+    public void CompletePairingSession(PairingSessionId sessionId, string deviceIdentifier)
     {
         var session = pairingSessionRepository.FindById(sessionId);
         session.Execute(s =>

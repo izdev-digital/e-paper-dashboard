@@ -5,7 +5,7 @@ namespace EPaperDashboard.Data.Repositories;
 
 public interface IPairingSessionRepository
 {
-    Maybe<PairingSession> FindById(Guid id);
+    Maybe<PairingSession> FindById(PairingSessionId id);
     Maybe<PairingSession> FindByCode(string code);
     void Insert(PairingSession session);
     void Update(PairingSession session);

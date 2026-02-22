@@ -6,7 +6,7 @@ namespace EPaperDashboard.Services;
 
 public sealed class DashboardService(IDashboardRepository dashboardRepository)
 {
-    public List<Dashboard> GetDashboardsForUser(Guid userId) =>
+    public List<Dashboard> GetDashboardsForUser(UserId userId) =>
         dashboardRepository.FindByUserId(userId);
 
     public void AddDashboard(Dashboard dashboard) =>
@@ -15,13 +15,13 @@ public sealed class DashboardService(IDashboardRepository dashboardRepository)
     public void UpdateDashboard(Dashboard dashboard) =>
         dashboardRepository.Update(dashboard);
 
-    public void DeleteDashboard(Guid dashboardId) =>
+    public void DeleteDashboard(DashboardId dashboardId) =>
         dashboardRepository.Delete(dashboardId);
 
     public Maybe<Dashboard> GetDashboardByApiKey(string apiKey) =>
         dashboardRepository.FindByApiKey(apiKey);
 
-    public Maybe<Dashboard> GetDashboardById(Guid dashboardId) =>
+    public Maybe<Dashboard> GetDashboardById(DashboardId dashboardId) =>
         dashboardRepository.FindById(dashboardId);
 
     public IEnumerable<Dashboard> GetAllDashboards() =>

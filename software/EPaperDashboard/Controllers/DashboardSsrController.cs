@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Rendering;
+using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Bmp;
@@ -30,12 +31,12 @@ public class DashboardSsrController(
     [HttpGet("{id}/render-html")]
     public async Task<IActionResult> RenderDashboardHtml(string id)
     {
-        if (!Guid.TryParse(id, out var objectId))
+        if (!DashboardId.TryParse(id, out var dashboardId))
         {
             return BadRequest("Invalid dashboard ID");
         }
 
-        var dashboard = dashboardService.GetDashboardById(objectId);
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
         if (dashboard.HasNoValue)
             return NotFound("Dashboard not found");
 
@@ -73,12 +74,12 @@ public class DashboardSsrController(
     [HttpGet("{id}/render-image")]
     public async Task<IActionResult> RenderDashboardImage(string id, [FromQuery] string format = "jpeg")
     {
-        if (!Guid.TryParse(id, out var objectId))
+        if (!DashboardId.TryParse(id, out var dashboardId))
         {
             return BadRequest("Invalid dashboard ID");
         }
 
-        var dashboard = dashboardService.GetDashboardById(objectId);
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
         if (dashboard.HasNoValue)
             return NotFound("Dashboard not found");
 

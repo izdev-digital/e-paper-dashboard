@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
+using EPaperDashboard.Models;
 using System.Security.Claims;
 
 namespace EPaperDashboard.Controllers;
@@ -84,7 +85,7 @@ public class UsersApiController(UserService userService) : BaseApiController
     [Authorize(Policy = "SuperUserOnly")]
     public IActionResult DeleteUser(string id)
     {
-        if (!Guid.TryParse(id, out var userId))
+        if (!UserId.TryParse(id, out var userId))
         {
             return BadRequest(new { message = "Invalid user id." });
         }

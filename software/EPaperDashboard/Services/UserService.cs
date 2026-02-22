@@ -11,7 +11,7 @@ public sealed class UserService(IUserRepository userRepository, IDashboardReposi
     public Maybe<User> GetUserByUsername(string username) =>
         userRepository.FindByUsername(username);
 
-    public Maybe<User> GetUserById(Guid id) =>
+    public Maybe<User> GetUserById(UserId id) =>
         userRepository.FindById(id);
 
     public bool HasSuperUser() =>
@@ -20,7 +20,7 @@ public sealed class UserService(IUserRepository userRepository, IDashboardReposi
     public List<User> GetAllUsers() =>
         userRepository.GetAll();
 
-    public bool TryDeleteUser(Guid id) =>
+    public bool TryDeleteUser(UserId id) =>
         userRepository.FindById(id)
             .Where(u => !u.IsSuperUser)
             .Match(
@@ -56,7 +56,7 @@ public sealed class UserService(IUserRepository userRepository, IDashboardReposi
         return true;
     }
 
-    public bool TryChangeNickname(Guid userId, string? newNickname) =>
+    public bool TryChangeNickname(UserId userId, string? newNickname) =>
         GetUserById(userId)
         .Match(
             user =>
@@ -67,7 +67,7 @@ public sealed class UserService(IUserRepository userRepository, IDashboardReposi
             },
             () => false);
 
-    public bool TryChangePassword(Guid userId, string oldPassword, string newPassword) =>
+    public bool TryChangePassword(UserId userId, string oldPassword, string newPassword) =>
         userRepository.FindById(userId)
             .Where(user => string.Equals(user.PasswordHash, ComputeSha256Hash(oldPassword), StringComparison.Ordinal))
             .Match(

@@ -1,13 +1,14 @@
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
+using LiteDB;
 
 namespace EPaperDashboard.Data.LiteDb;
 
 internal sealed class LiteDbPairingSessionRepository(LiteDbContext context) : IPairingSessionRepository
 {
-    public Maybe<PairingSession> FindById(Guid id) =>
-        context.PairingSessions.FindById(id);
+    public Maybe<PairingSession> FindById(PairingSessionId id) =>
+        context.PairingSessions.FindById(new ObjectId(id.Value));
 
     public Maybe<PairingSession> FindByCode(string code) =>
         context.PairingSessions.FindOne(s => s.Code == code);

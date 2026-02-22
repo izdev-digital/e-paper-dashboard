@@ -1,18 +1,19 @@
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
+using LiteDB;
 
 namespace EPaperDashboard.Data.LiteDb;
 
 internal sealed class LiteDbDashboardRepository(LiteDbContext context) : IDashboardRepository
 {
-    public Maybe<Dashboard> FindById(Guid id) =>
-        context.Dashboards.FindById(id);
+    public Maybe<Dashboard> FindById(DashboardId id) =>
+        context.Dashboards.FindById(new ObjectId(id.Value));
 
     public Maybe<Dashboard> FindByApiKey(string apiKey) =>
         context.Dashboards.FindOne(d => d.ApiKey == apiKey);
 
-    public List<Dashboard> FindByUserId(Guid userId) =>
+    public List<Dashboard> FindByUserId(UserId userId) =>
         context.Dashboards.Find(d => d.UserId == userId).ToList();
 
     public IEnumerable<Dashboard> GetAll() =>
@@ -24,9 +25,9 @@ internal sealed class LiteDbDashboardRepository(LiteDbContext context) : IDashbo
     public void Update(Dashboard dashboard) =>
         context.Dashboards.Update(dashboard);
 
-    public void Delete(Guid id) =>
-        context.Dashboards.Delete(id);
+    public void Delete(DashboardId id) =>
+        context.Dashboards.Delete(new ObjectId(id.Value));
 
-    public void DeleteByUserId(Guid userId) =>
+    public void DeleteByUserId(UserId userId) =>
         context.Dashboards.DeleteMany(d => d.UserId == userId);
 }

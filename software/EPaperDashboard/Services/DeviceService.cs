@@ -6,7 +6,7 @@ namespace EPaperDashboard.Services;
 
 public sealed class DeviceService(IDeviceRepository deviceRepository)
 {
-    public List<Device> GetDevicesForDashboard(Guid dashboardId) =>
+    public List<Device> GetDevicesForDashboard(DashboardId dashboardId) =>
         deviceRepository.FindByDashboardId(dashboardId);
 
     public void AddDevice(Device device) =>
@@ -15,10 +15,10 @@ public sealed class DeviceService(IDeviceRepository deviceRepository)
     public void UpdateDevice(Device device) =>
         deviceRepository.Update(device);
 
-    public void DeleteDevice(Guid deviceId) =>
+    public void DeleteDevice(DeviceId deviceId) =>
         deviceRepository.Delete(deviceId);
 
-    public Maybe<Device> GetDeviceById(Guid deviceId) =>
+    public Maybe<Device> GetDeviceById(DeviceId deviceId) =>
         deviceRepository.FindById(deviceId);
 
     public Maybe<Device> GetDeviceByIdentifier(string deviceIdentifier) =>

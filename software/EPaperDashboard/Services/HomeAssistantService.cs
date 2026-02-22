@@ -1142,12 +1142,12 @@ public class HomeAssistantService(
             return "Dashboard ID is required";
         }
 
-        if (!Guid.TryParse(dashboardId, out var dashboardGuid))
+        if (!DashboardId.TryParse(dashboardId, out var dashboardIdTyped))
         {
             return "Invalid dashboard ID format";
         }
 
-        var dashboardMaybe = _dashboardService.GetDashboardById(dashboardGuid);
+        var dashboardMaybe = _dashboardService.GetDashboardById(dashboardIdTyped);
         if (dashboardMaybe.HasNoValue)
         {
             return "Dashboard not found";

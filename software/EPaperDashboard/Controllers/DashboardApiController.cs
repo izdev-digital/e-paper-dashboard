@@ -18,7 +18,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpGet]
     public IActionResult GetDashboards()
     {
-        Guid userId;
+        UserId userId;
         
         // In Home Assistant mode, skip user lookup and use virtual user ID directly
         if (IsHomeAssistantIngress)
@@ -42,12 +42,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpGet("{id}")]
     public IActionResult GetDashboard(string id)
     {
-        if (!Guid.TryParse(id, out var objectId))
+        if (!DashboardId.TryParse(id, out var dashboardId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(objectId);
+        var dashboard = _dashboardService.GetDashboardById(dashboardId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -91,12 +91,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPut("{id}")]
     public IActionResult UpdateDashboard(string id, [FromBody] UpdateDashboardRequest request)
     {
-        if (!Guid.TryParse(id, out var objectId))
+        if (!DashboardId.TryParse(id, out var dashboardId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(objectId);
+        var dashboard = _dashboardService.GetDashboardById(dashboardId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -144,12 +144,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpDelete("{id}")]
     public IActionResult DeleteDashboard(string id)
     {
-        if (!Guid.TryParse(id, out var objectId))
+        if (!DashboardId.TryParse(id, out var dashboardId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(objectId);
+        var dashboard = _dashboardService.GetDashboardById(dashboardId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -161,7 +161,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return Forbid();
         }
 
-        _dashboardService.DeleteDashboard(objectId);
+        _dashboardService.DeleteDashboard(dashboardId);
 
         return Ok(new { message = "Dashboard deleted successfully." });
     }

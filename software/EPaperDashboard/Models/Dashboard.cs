@@ -8,11 +8,11 @@ namespace EPaperDashboard.Models
 
     public class Dashboard
     {
-        public Guid Id { get; set; } = Guid.Empty;
+        public DashboardId Id { get; set; } = DashboardId.Empty;
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string ApiKey { get; set; } = string.Empty;
-        public Guid UserId { get; set; } = Guid.Empty;
+        public UserId UserId { get; set; } = UserId.Empty;
         public string? AccessToken { get; set; }
         public string? Host { get; set; }
         public string? Path { get; set; }

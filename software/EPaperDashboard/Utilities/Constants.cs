@@ -1,4 +1,6 @@
 ﻿
+using EPaperDashboard.Models;
+
 namespace EPaperDashboard.Utilities;
 
 public static class Constants
@@ -41,5 +43,5 @@ public static class Constants
     public const string HomeAssistantAdminUserId = "ha-admin";
     public const string HomeAssistantAdminUserName = "Home Assistant Admin";
     
-    public static readonly Guid HomeAssistantVirtualUserId = new Guid("00000000-0000-0000-0000-000000000001");
+    public static readonly UserId HomeAssistantVirtualUserId = new UserId("000000000000000000000001");
 }

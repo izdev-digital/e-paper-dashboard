@@ -1,13 +1,14 @@
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
+using LiteDB;
 
 namespace EPaperDashboard.Data.LiteDb;
 
 internal sealed class LiteDbUserRepository(LiteDbContext context) : IUserRepository
 {
-    public Maybe<User> FindById(Guid id) =>
-        context.Users.FindById(id);
+    public Maybe<User> FindById(UserId id) =>
+        context.Users.FindById(new ObjectId(id.Value));
 
     public Maybe<User> FindByUsername(string username) =>
         context.Users.FindOne(u => u.Username == username);
@@ -27,6 +28,6 @@ internal sealed class LiteDbUserRepository(LiteDbContext context) : IUserReposit
     public void Update(User user) =>
         context.Users.Update(user);
 
-    public void Delete(Guid id) =>
-        context.Users.Delete(id);
+    public void Delete(UserId id) =>
+        context.Users.Delete(new ObjectId(id.Value));
 }

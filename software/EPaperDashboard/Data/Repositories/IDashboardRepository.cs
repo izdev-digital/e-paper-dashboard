@@ -5,12 +5,12 @@ namespace EPaperDashboard.Data.Repositories;
 
 public interface IDashboardRepository
 {
-    Maybe<Dashboard> FindById(Guid id);
+    Maybe<Dashboard> FindById(DashboardId id);
     Maybe<Dashboard> FindByApiKey(string apiKey);
-    List<Dashboard> FindByUserId(Guid userId);
+    List<Dashboard> FindByUserId(UserId userId);
     IEnumerable<Dashboard> GetAll();
     void Insert(Dashboard dashboard);
     void Update(Dashboard dashboard);
-    void Delete(Guid id);
-    void DeleteByUserId(Guid userId);
+    void Delete(DashboardId id);
+    void DeleteByUserId(UserId userId);
 }
