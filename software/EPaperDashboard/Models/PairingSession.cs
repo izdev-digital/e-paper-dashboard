@@ -1,12 +1,9 @@
-using LiteDB;
-
 namespace EPaperDashboard.Models;
 
 public class PairingSession
 {
-    [BsonId]
-    public ObjectId Id { get; set; } = ObjectId.Empty;
-    public ObjectId DashboardId { get; set; } = ObjectId.Empty;
+    public Guid Id { get; set; } = Guid.Empty;
+    public Guid DashboardId { get; set; } = Guid.Empty;
     public string Code { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }

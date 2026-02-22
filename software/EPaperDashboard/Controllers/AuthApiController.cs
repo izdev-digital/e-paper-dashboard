@@ -128,7 +128,7 @@ public class AuthApiController(UserService userService, IDeploymentStrategy depl
             return Unauthorized();
         }
 
-        var user = _userService.GetUserById(new LiteDB.ObjectId(userId));
+        var user = _userService.GetUserById(Guid.Parse(userId));
         if (user.HasNoValue)
         {
             return Unauthorized();

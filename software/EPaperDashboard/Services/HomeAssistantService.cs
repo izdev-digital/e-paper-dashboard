@@ -2,7 +2,6 @@
 using System.Text.Json;
 using System.Net.WebSockets;
 using System.Text;
-using LiteDB;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Models;
 
@@ -1143,17 +1142,12 @@ public class HomeAssistantService(
             return "Dashboard ID is required";
         }
 
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(dashboardId);
-        }
-        catch
+        if (!Guid.TryParse(dashboardId, out var dashboardGuid))
         {
             return "Invalid dashboard ID format";
         }
 
-        var dashboardMaybe = _dashboardService.GetDashboardById(objectId);
+        var dashboardMaybe = _dashboardService.GetDashboardById(dashboardGuid);
         if (dashboardMaybe.HasNoValue)
         {
             return "Dashboard not found";

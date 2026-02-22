@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
-using LiteDB;
 
 namespace EPaperDashboard.Controllers;
 
@@ -18,12 +17,7 @@ public class DevicesController(DeviceService deviceService, DashboardService das
     [DashboardOwner]
     public IActionResult GetDevicesForDashboard(string dashboardId)
     {
-        ObjectId id;
-        try
-        {
-            id = new ObjectId(dashboardId);
-        }
-        catch
+        if (!Guid.TryParse(dashboardId, out var id))
         {
             return BadRequest("Invalid dashboard ID");
         }
@@ -35,12 +29,7 @@ public class DevicesController(DeviceService deviceService, DashboardService das
     [HttpDelete("{deviceId}")]
     public IActionResult DeleteDevice(string deviceId)
     {
-        ObjectId id;
-        try
-        {
-            id = new ObjectId(deviceId);
-        }
-        catch
+        if (!Guid.TryParse(deviceId, out var id))
         {
             return BadRequest("Invalid device ID");
         }

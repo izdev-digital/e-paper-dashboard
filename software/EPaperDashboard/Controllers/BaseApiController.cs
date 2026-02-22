@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using LiteDB;
 using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Controllers;
@@ -13,16 +12,16 @@ public abstract class BaseApiController : ControllerBase
     /// <summary>
     /// Gets the current user's ID from claims.
     /// In Home Assistant mode, returns a virtual user ID.
-    /// Returns ObjectId.Empty if not authenticated or claim not found.
+    /// Returns Guid.Empty if not authenticated or claim not found.
     /// </summary>
-    protected ObjectId CurrentUserId
+    protected Guid CurrentUserId
     {
         get
         {
             var userIdValue = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdValue))
             {
-                return ObjectId.Empty;
+                return Guid.Empty;
             }
 
             // In Home Assistant ingress mode, use virtual user ID
@@ -31,14 +30,12 @@ public abstract class BaseApiController : ControllerBase
                 return Constants.HomeAssistantVirtualUserId;
             }
 
-            try
+            if (Guid.TryParse(userIdValue, out var guid))
             {
-                return new ObjectId(userIdValue);
+                return guid;
             }
-            catch
-            {
-                return ObjectId.Empty;
-            }
+
+            return Guid.Empty;
         }
     }
 
@@ -60,3 +57,4 @@ public abstract class BaseApiController : ControllerBase
     protected string? CurrentUsername => 
         User.FindFirst(ClaimTypes.Name)?.Value;
 }
+

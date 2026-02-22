@@ -1,40 +1,33 @@
 using CSharpFunctionalExtensions;
-using EPaperDashboard.Data;
+using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
-using LiteDB;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace EPaperDashboard.Services;
 
-public sealed class UserService(LiteDbContext dbContext)
+public sealed class UserService(IUserRepository userRepository, IDashboardRepository dashboardRepository)
 {
-    private readonly LiteDbContext _dbContext = dbContext;
-
     public Maybe<User> GetUserByUsername(string username) =>
-        _dbContext.Users.FindOne(u => u.Username == username);
+        userRepository.FindByUsername(username);
 
-    public Maybe<User> GetUserById(ObjectId id) =>
-        _dbContext.Users.FindById(id);
+    public Maybe<User> GetUserById(Guid id) =>
+        userRepository.FindById(id);
 
     public bool HasSuperUser() =>
-        _dbContext.Users.Exists(u => u.IsSuperUser);
+        userRepository.ExistsSuperUser();
 
     public List<User> GetAllUsers() =>
-        [.. _dbContext.Users.FindAll()];
+        userRepository.GetAll();
 
-    private void DeleteDashboardsForUser(User user) =>
-        _dbContext.Dashboards.DeleteMany(d => d.UserId == user.Id);
-
-    public bool TryDeleteUser(ObjectId id) =>
-        _dbContext.Users
-            .FindById(id).AsMaybe()
+    public bool TryDeleteUser(Guid id) =>
+        userRepository.FindById(id)
             .Where(u => !u.IsSuperUser)
             .Match(
                 u =>
                 {
-                    DeleteDashboardsForUser(u);
-                    _dbContext.Users.Delete(u.Id);
+                    dashboardRepository.DeleteByUserId(u.Id);
+                    userRepository.Delete(u.Id);
                     return true;
                 },
                 () => false
@@ -47,7 +40,7 @@ public sealed class UserService(LiteDbContext dbContext)
 
     public bool TryCreateUser(string username, string password, bool isSuperUser = false)
     {
-        if (_dbContext.Users.Exists(u => u.Username == username))
+        if (userRepository.ExistsByUsername(username))
         {
             return false;
         }
@@ -59,24 +52,23 @@ public sealed class UserService(LiteDbContext dbContext)
             IsSuperUser = isSuperUser
         };
 
-        _dbContext.Users.Insert(user);
+        userRepository.Insert(user);
         return true;
     }
 
-    public bool TryChangeNickname(ObjectId userId, string? newNickname) =>
+    public bool TryChangeNickname(Guid userId, string? newNickname) =>
         GetUserById(userId)
         .Match(
             user =>
             {
                 user.Nickname = string.IsNullOrWhiteSpace(newNickname) ? null : newNickname;
-                _dbContext.Users.Update(user);
+                userRepository.Update(user);
                 return true;
             },
             () => false);
 
-    public bool TryChangePassword(ObjectId userId, string oldPassword, string newPassword) =>
-        _dbContext.Users
-            .FindById(userId).AsMaybe()
+    public bool TryChangePassword(Guid userId, string oldPassword, string newPassword) =>
+        userRepository.FindById(userId)
             .Where(user => string.Equals(user.PasswordHash, ComputeSha256Hash(oldPassword), StringComparison.Ordinal))
             .Match(
                 user =>
@@ -88,7 +80,7 @@ public sealed class UserService(LiteDbContext dbContext)
                     }
 
                     user.PasswordHash = newHash;
-                    _dbContext.Users.Update(user);
+                    userRepository.Update(user);
                     return true;
                 },
                 () => false

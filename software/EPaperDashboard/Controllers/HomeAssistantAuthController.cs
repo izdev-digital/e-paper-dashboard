@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
 using EPaperDashboard.Utilities;
-using LiteDB;
 using static EPaperDashboard.Utilities.DeploymentMode;
 
 namespace EPaperDashboard.Controllers;

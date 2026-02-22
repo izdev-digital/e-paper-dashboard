@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Text.Json;
-using LiteDB;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Models.Rendering;
@@ -31,12 +30,7 @@ public class DashboardSsrController(
     [HttpGet("{id}/render-html")]
     public async Task<IActionResult> RenderDashboardHtml(string id)
     {
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(id);
-        }
-        catch
+        if (!Guid.TryParse(id, out var objectId))
         {
             return BadRequest("Invalid dashboard ID");
         }
@@ -79,12 +73,7 @@ public class DashboardSsrController(
     [HttpGet("{id}/render-image")]
     public async Task<IActionResult> RenderDashboardImage(string id, [FromQuery] string format = "jpeg")
     {
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(id);
-        }
-        catch
+        if (!Guid.TryParse(id, out var objectId))
         {
             return BadRequest("Invalid dashboard ID");
         }

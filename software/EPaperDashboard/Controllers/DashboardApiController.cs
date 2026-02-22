@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
-using LiteDB;
 using EPaperDashboard.Services;
 using EPaperDashboard.Models;
 
@@ -19,7 +18,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpGet]
     public IActionResult GetDashboards()
     {
-        ObjectId userId;
+        Guid userId;
         
         // In Home Assistant mode, skip user lookup and use virtual user ID directly
         if (IsHomeAssistantIngress)
@@ -43,17 +42,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpGet("{id}")]
     public IActionResult GetDashboard(string id)
     {
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(id);
-        }
-        catch
+        if (!Guid.TryParse(id, out var objectId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(new ObjectId(id));
+        var dashboard = _dashboardService.GetDashboardById(objectId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -97,18 +91,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPut("{id}")]
     public IActionResult UpdateDashboard(string id, [FromBody] UpdateDashboardRequest request)
     {
-
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(id);
-        }
-        catch
+        if (!Guid.TryParse(id, out var objectId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(new ObjectId(id));
+        var dashboard = _dashboardService.GetDashboardById(objectId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -156,17 +144,12 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpDelete("{id}")]
     public IActionResult DeleteDashboard(string id)
     {
-        ObjectId objectId;
-        try
-        {
-            objectId = new ObjectId(id);
-        }
-        catch
+        if (!Guid.TryParse(id, out var objectId))
         {
             return BadRequest(new { message = "Invalid dashboard ID." });
         }
 
-        var dashboard = _dashboardService.GetDashboardById(new ObjectId(id));
+        var dashboard = _dashboardService.GetDashboardById(objectId);
         if (dashboard.HasNoValue)
         {
             return NotFound(new { message = "Dashboard not found." });
@@ -178,7 +161,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return Forbid();
         }
 
-        _dashboardService.DeleteDashboard(new ObjectId(id));
+        _dashboardService.DeleteDashboard(objectId);
 
         return Ok(new { message = "Dashboard deleted successfully." });
     }

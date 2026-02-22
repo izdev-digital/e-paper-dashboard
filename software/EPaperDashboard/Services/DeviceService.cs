@@ -1,29 +1,26 @@
 using CSharpFunctionalExtensions;
-using EPaperDashboard.Data;
+using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
-using LiteDB;
 
 namespace EPaperDashboard.Services;
 
-public sealed class DeviceService(LiteDbContext dbContext)
+public sealed class DeviceService(IDeviceRepository deviceRepository)
 {
-    private readonly LiteDbContext _dbContext = dbContext;
+    public List<Device> GetDevicesForDashboard(Guid dashboardId) =>
+        deviceRepository.FindByDashboardId(dashboardId);
 
-    public List<Device> GetDevicesForDashboard(ObjectId dashboardId) => _dbContext
-        .Devices.Find(d => d.DashboardId == dashboardId).ToList();
+    public void AddDevice(Device device) =>
+        deviceRepository.Insert(device);
 
-    public void AddDevice(Device device) => _dbContext
-        .Devices.Insert(device);
+    public void UpdateDevice(Device device) =>
+        deviceRepository.Update(device);
 
-    public void UpdateDevice(Device device) => _dbContext
-        .Devices.Update(device);
+    public void DeleteDevice(Guid deviceId) =>
+        deviceRepository.Delete(deviceId);
 
-    public void DeleteDevice(ObjectId deviceId) => _dbContext
-        .Devices.Delete(deviceId);
+    public Maybe<Device> GetDeviceById(Guid deviceId) =>
+        deviceRepository.FindById(deviceId);
 
-    public Maybe<Device> GetDeviceById(ObjectId deviceId) => _dbContext
-        .Devices.FindById(deviceId);
-
-    public Maybe<Device> GetDeviceByIdentifier(string deviceIdentifier) => _dbContext
-        .Devices.FindOne(d => d.DeviceIdentifier == deviceIdentifier);
+    public Maybe<Device> GetDeviceByIdentifier(string deviceIdentifier) =>
+        deviceRepository.FindByIdentifier(deviceIdentifier);
 }
