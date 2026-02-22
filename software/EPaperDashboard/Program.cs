@@ -1,6 +1,7 @@
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Utilities;
-using EPaperDashboard.Data;
+using EPaperDashboard.Data.LiteDb;
+using EPaperDashboard.Data.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Firmware;
@@ -13,7 +14,6 @@ using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Security.Claims;
-using LiteDB;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,7 +55,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers()
 	.AddJsonOptions(options =>
 	{
-		options.JsonSerializerOptions.Converters.Add(new ObjectIdJsonConverter());
 		options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 	});
 
@@ -94,6 +93,10 @@ builder.Services
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
+	.AddSingleton<IUserRepository, LiteDbUserRepository>()
+	.AddSingleton<IDashboardRepository, LiteDbDashboardRepository>()
+	.AddSingleton<IDeviceRepository, LiteDbDeviceRepository>()
+	.AddSingleton<IPairingSessionRepository, LiteDbPairingSessionRepository>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
 	.AddSingleton<DeviceService>()
@@ -320,25 +323,6 @@ app.UseSpa(spa =>
 });
 
 app.Run();
-
-public class ObjectIdJsonConverter : JsonConverter<ObjectId>
-{
-	public override ObjectId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-	{
-		var value = reader.GetString();
-		if (string.IsNullOrEmpty(value))
-		{
-			return ObjectId.Empty;
-		}
-		return new ObjectId(value);
-	}
-
-	public override void Write(Utf8JsonWriter writer, ObjectId value, JsonSerializerOptions options)
-	{
-		writer.WriteStringValue(value.ToString());
-	}
-}
-
 public class TimeOnlyJsonConverter : JsonConverter<TimeOnly>
 {
 	private const string Format = "HH:mm";

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using EPaperDashboard.Services;
+using EPaperDashboard.Models;
 using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Controllers;
@@ -128,7 +129,12 @@ public class AuthApiController(UserService userService, IDeploymentStrategy depl
             return Unauthorized();
         }
 
-        var user = _userService.GetUserById(new LiteDB.ObjectId(userId));
+        if (!UserId.TryParse(userId, out var typedUserId))
+        {
+            return Unauthorized();
+        }
+
+        var user = _userService.GetUserById(typedUserId);
         if (user.HasNoValue)
         {
             return Unauthorized();

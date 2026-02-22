@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Security.Claims;
-using LiteDB;
+using EPaperDashboard.Models;
 using EPaperDashboard.Services;
 using EPaperDashboard.Utilities;
 
@@ -37,7 +37,7 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
         // Check if this is Home Assistant ingress mode
         var isHomeAssistantIngress = context.HttpContext.User.FindFirst(Constants.HomeAssistantIngressClaim)?.Value == "true";
 
-        ObjectId userId;
+        UserId userId;
         if (isHomeAssistantIngress && userIdValue == Constants.HomeAssistantAdminUserId)
         {
             // In Home Assistant mode, use virtual user ID
@@ -46,11 +46,7 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
         else
         {
             // In standalone mode, parse user ID from database
-            try
-            {
-                userId = new ObjectId(userIdValue);
-            }
-            catch
+            if (!UserId.TryParse(userIdValue, out userId))
             {
                 context.Result = new UnauthorizedResult();
                 return;
@@ -79,19 +75,14 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
         }
 
         // Parse and validate dashboard ID
-        ObjectId dashboardObjectId;
-        try
-        {
-            dashboardObjectId = new ObjectId(dashboardId);
-        }
-        catch
+        if (!DashboardId.TryParse(dashboardId, out var dashboardIdTyped))
         {
             context.Result = new BadRequestObjectResult(new { error = "Invalid dashboard ID." });
             return;
         }
 
         // Get dashboard
-        var dashboardMaybe = dashboardService.GetDashboardById(dashboardObjectId);
+        var dashboardMaybe = dashboardService.GetDashboardById(dashboardIdTyped);
         if (dashboardMaybe.HasNoValue)
         {
             context.Result = new NotFoundObjectResult(new { error = "Dashboard not found." });
@@ -108,3 +99,4 @@ public abstract class DashboardOwnerBaseAttribute : Attribute
         // Authorization successful - context.Result remains null, continue to action
     }
 }
+

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
-using LiteDB;
+using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Controllers;
 
@@ -121,7 +121,7 @@ public class PairingController(
     }
 }
 
-public record StartPairingRequest(ObjectId DashboardId);
+public record StartPairingRequest(DashboardId DashboardId);
 public record StartPairingResponse
 {
     public string Code { get; init; } = string.Empty;

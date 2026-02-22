@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
-using LiteDB;
+using EPaperDashboard.Models;
 using System.Security.Claims;
 
 namespace EPaperDashboard.Controllers;
@@ -85,20 +85,17 @@ public class UsersApiController(UserService userService) : BaseApiController
     [Authorize(Policy = "SuperUserOnly")]
     public IActionResult DeleteUser(string id)
     {
-        try
-        {
-            var objectId = new ObjectId(id);
-            if (userService.TryDeleteUser(objectId))
-            {
-                return Ok(new { message = "User deleted successfully." });
-            }
-
-            return BadRequest(new { message = "Cannot delete user." });
-        }
-        catch
+        if (!UserId.TryParse(id, out var userId))
         {
             return BadRequest(new { message = "Invalid user id." });
         }
+
+        if (userService.TryDeleteUser(userId))
+        {
+            return Ok(new { message = "User deleted successfully." });
+        }
+
+        return BadRequest(new { message = "Cannot delete user." });
     }
 }
 

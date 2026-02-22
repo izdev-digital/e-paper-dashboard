@@ -1,0 +1,16 @@
+using CSharpFunctionalExtensions;
+using EPaperDashboard.Models;
+
+namespace EPaperDashboard.Data.Repositories;
+
+public interface IDashboardRepository
+{
+    Maybe<Dashboard> FindById(DashboardId id);
+    Maybe<Dashboard> FindByApiKey(string apiKey);
+    List<Dashboard> FindByUserId(UserId userId);
+    IEnumerable<Dashboard> GetAll();
+    void Insert(Dashboard dashboard);
+    void Update(Dashboard dashboard);
+    void Delete(DashboardId id);
+    void DeleteByUserId(UserId userId);
+}
