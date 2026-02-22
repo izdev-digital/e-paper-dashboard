@@ -149,7 +149,7 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
 
     if (!statusOk)
     {
-      statusOk = line.startsWith("HTTP/1.1 200 OK");
+      statusOk = line.startsWith("HTTP/1.1 200");
     }
 
     if (line == "\r")
@@ -165,10 +165,18 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
     return false;
   }
 
+  // Read body line-by-line to handle chunked transfer encoding
+  // and avoid timeout hang from readString()
   String response = "";
-  while (_network.available())
+  while (_network.connected() || _network.available())
   {
-    response += _network.readString();
+    String line = _network.readStringUntil('\n');
+    line.trim();
+    if (line.startsWith("{"))
+    {
+      response = line;
+      break;
+    }
   }
   _network.close();
 
@@ -221,7 +229,7 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
 
     if (!statusOk)
     {
-      statusOk = line.startsWith("HTTP/1.1 200 OK");
+      statusOk = line.startsWith("HTTP/1.1 200");
     }
 
     if (line == "\r")
