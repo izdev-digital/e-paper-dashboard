@@ -16,6 +16,8 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
 {
     private readonly DashboardService _dashboardService = dashboardService;
 
+    private const int GracefulPeriodSeconds = 120;
+
     [HttpGet("next-update-wait-seconds")]
     public IActionResult GetNextUpdateWait([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
     {
@@ -38,10 +40,12 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
             var today = now.Date;
             var tomorrow = today.AddDays(1);
             var times = updateTimes.OrderBy(t => t).ToList();
+
+            var gracefulCutoff = now.AddSeconds(GracefulPeriodSeconds);
             return times
                 .Select(t => today.Add(t.ToTimeSpan()))
                 .Append(tomorrow.Add(times.First().ToTimeSpan()))
-                .Where(dt => dt > now)
+                .Where(dt => dt > gracefulCutoff)
                 .TryFirst();
         }
     }
