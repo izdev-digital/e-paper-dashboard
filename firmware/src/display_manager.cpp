@@ -51,7 +51,36 @@ void DisplayManager::powerOff()
   _display.powerOff();
 }
 
-void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac)
+void DisplayManager::drawIcon(int16_t ox, int16_t oy, int16_t size)
+{
+  const float s = size / 370.0f;
+
+  auto sr = [&](float x, float y, float w, float h, uint16_t color) {
+    _display.fillRect(ox + (int16_t)(x * s), oy + (int16_t)(y * s),
+                      (int16_t)(w * s), (int16_t)(h * s), color);
+  };
+
+  auto st = [&](float x0, float y0, float x1, float y1, float x2, float y2, uint16_t color) {
+    _display.fillTriangle(ox + (int16_t)(x0 * s), oy + (int16_t)(y0 * s),
+                          ox + (int16_t)(x1 * s), oy + (int16_t)(y1 * s),
+                          ox + (int16_t)(x2 * s), oy + (int16_t)(y2 * s), color);
+  };
+
+  sr(20, 20, 90, 96, GxEPD_RED);
+  sr(20, 128, 90, 196, GxEPD_RED);
+  sr(122, 20, 134, 96, GxEPD_RED);
+  sr(268, 20, 82, 96, GxEPD_RED);
+
+  st(122, 128, 256, 128, 122, 224, GxEPD_RED);
+  st(256, 128, 206, 224, 122, 224, GxEPD_RED);
+  st(268, 128, 350, 128, 350, 224, GxEPD_RED);
+  st(268, 128, 350, 224, 218, 224, GxEPD_RED);
+
+  sr(122, 236, 84, 88, GxEPD_RED);
+  sr(218, 236, 132, 88, GxEPD_RED);
+}
+
+void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, const String& apName)
 {
   _logger.println("Displaying welcome page...");
 
@@ -62,36 +91,38 @@ void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac)
   {
     _display.fillScreen(GxEPD_WHITE);
 
+    drawIcon((DisplayConst::Width - 80) / 2, 10, 80);
+
     _display.setFont(&FreeSansBold18pt7b);
     _display.setTextColor(GxEPD_BLACK);
     int16_t tbx, tby;
     uint16_t tbw, tbh;
     _display.getTextBounds("izBoard", 0, 0, &tbx, &tby, &tbw, &tbh);
-    _display.setCursor((DisplayConst::Width - tbw) / 2, 60);
+    _display.setCursor((DisplayConst::Width - tbw) / 2, 130);
     _display.print("izBoard");
 
     _display.setFont(&FreeSans12pt7b);
     _display.getTextBounds("Setup Mode", 0, 0, &tbx, &tby, &tbw, &tbh);
-    _display.setCursor((DisplayConst::Width - tbw) / 2, 100);
+    _display.setCursor((DisplayConst::Width - tbw) / 2, 170);
     _display.print("Setup Mode");
 
     _display.setFont(&FreeSans12pt7b);
     String ipText = "IP: " + ip.toString();
-    _display.setCursor(50, 160);
+    _display.setCursor(50, 230);
     _display.print(ipText);
 
     String macText = "MAC: " + mac;
-    _display.setCursor(50, 200);
+    _display.setCursor(50, 270);
     _display.print(macText);
 
-    _display.setCursor(50, 260);
-    _display.print("1. Connect to WiFi:");
-    _display.setCursor(70, 290);
-    _display.print("izBoard-AP");
-
     _display.setCursor(50, 330);
-    _display.print("2. Open browser to:");
+    _display.print("1. Connect to WiFi:");
     _display.setCursor(70, 360);
+    _display.print(apName);
+
+    _display.setCursor(50, 400);
+    _display.print("2. Open browser to:");
+    _display.setCursor(70, 430);
     _display.print(ip.toString());
 
     const char* githubUrl = "https://github.com/izdev-digital/e-paper-dashboard";
@@ -100,7 +131,7 @@ void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac)
     qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, githubUrl);
 
     int qrX = 550;
-    int qrY = 150;
+    int qrY = 220;
     int moduleSize = 6;
 
     for (uint8_t y = 0; y < qrcode.size; y++)

@@ -44,9 +44,11 @@ public:
   void beginPartialWindow();
   void refresh();
   void powerOff();
-  void showWelcomePage(const IPAddress& ip, const String& mac);
+  void showWelcomePage(const IPAddress& ip, const String& mac, const String& apName);
 
 private:
+  void drawIcon(int16_t ox, int16_t oy, int16_t size);
+
   Logger& _logger;
   SPIClass _hspi{HSPI};
   EpaperDisplay _display{GxEPD2_DRIVER_CLASS(Pin::DisplayCs, Pin::DisplayDc, Pin::DisplayRst, Pin::DisplayBusy)};

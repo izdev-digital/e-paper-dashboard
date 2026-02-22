@@ -16,15 +16,17 @@ void SetupPortal::run()
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, gateway, subnet);
-  WiFi.softAP("izBoard-AP");
-  apIP = WiFi.softAPIP();
   String macAddress = WiFi.macAddress();
+  String apName = "izBoard-" + macAddress.substring(macAddress.length() - 5);
+  apName.replace(":", "");
+  WiFi.softAP(apName.c_str());
+  apIP = WiFi.softAPIP();
   _logger.print("AP IP address: ");
   _logger.println(apIP);
   _logger.print("MAC address: ");
   _logger.println(macAddress);
 
-  _display.showWelcomePage(apIP, macAddress);
+  _display.showWelcomePage(apIP, macAddress, apName);
 
   const byte DNS_PORT = 53;
   DNSServer dnsServer;
