@@ -8,8 +8,4 @@ public:
   void startDeepSleep(uint64_t waitSeconds);
   bool isResetRequested();
   void resetDevice(ConfigStore& configStore);
-  void startResetMonitor(ConfigStore& configStore);
-
-private:
-  static void resetMonitorTask(void* param);
 };

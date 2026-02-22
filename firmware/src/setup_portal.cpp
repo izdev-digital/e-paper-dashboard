@@ -4,8 +4,10 @@
 #include <WebServer.h>
 #include <DNSServer.h>
 
-SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display)
-    : _logger(logger), _configStore(configStore), _display(display) {}
+SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display,
+                         Network& network, DeviceApi& deviceApi)
+    : _logger(logger), _configStore(configStore), _display(display),
+      _network(network), _deviceApi(deviceApi) {}
 
 void SetupPortal::run()
 {
@@ -180,7 +182,74 @@ void SetupPortal::run()
     WiFi.scanDelete();
     server.send(200, "application/json", json); });
 
-  server.on("/submit", HTTP_POST, [this, &server, htmlForm]()
+  const int STATE_IDLE = 0;
+  const int STATE_CONNECTING_WIFI = 1;
+  const int STATE_PAIRING = 2;
+  const int STATE_SUCCESS = 3;
+  const int STATE_FAILED = 4;
+
+  int pairingState = STATE_IDLE;
+  String pairingError;
+  DeviceConfig pendingConfig;
+  int wifiRetries = 0;
+  unsigned long successTimestamp = 0;
+
+  const char *progressHtml = R"rawliteral(
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>izBoard Setup</title>
+        <style>
+            *, *::before, *::after { box-sizing: border-box; }
+            .container { max-width: 960px; margin-right: auto; margin-left: auto; padding-right: 12px; padding-left: 12px; }
+            .mt-5 { margin-top: 3rem !important; }
+            .text-center { text-align: center !important; }
+            .card { position: relative; display: flex; flex-direction: column; min-width: 0; word-wrap: break-word; background-color: #fff; background-clip: border-box; border: 1px solid rgba(0,0,0,.125); border-radius: .25rem; }
+            .card-header { padding: .75rem 1.25rem; margin-bottom: 0; background-color: rgba(0,0,0,.03); border-bottom: 1px solid rgba(0,0,0,.125); font-weight: 500; }
+            .card-body { flex: 1 1 auto; padding: 1.25rem; }
+            .btn { display: inline-block; font-weight: 400; line-height: 1.5; color: #fff; text-align: center; text-decoration: none; vertical-align: middle; cursor: pointer; background-color: #6c757d; border: 1px solid #6c757d; padding: .375rem .75rem; font-size: 1rem; border-radius: .25rem; }
+            .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #0d6efd; border-right-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .5rem; }
+            @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+    </head>
+    <body>
+        <div class="container mt-5">
+            <h2 class="text-center">izBoard Setup</h2>
+            <div class="card">
+                <div class="card-header">Pairing Progress</div>
+                <div class="card-body text-center" id="content">
+                    <div><span class="spinner"></span> Connecting to WiFi...</div>
+                </div>
+            </div>
+        </div>
+        <script>
+            function poll() {
+                fetch('/pairing-status').then(function(r) { return r.json(); }).then(function(d) {
+                    var el = document.getElementById('content');
+                    if (d.state === 'connecting_wifi') {
+                        el.innerHTML = '<div><span class="spinner"></span> Connecting to WiFi...</div>';
+                    } else if (d.state === 'pairing') {
+                        el.innerHTML = '<div><span class="spinner"></span> Pairing with dashboard...</div>';
+                    } else if (d.state === 'success') {
+                        el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Paired successfully! Rebooting...</div>';
+                        return;
+                    } else if (d.state === 'failed') {
+                        el.innerHTML = '<div style="color:#dc3545;font-weight:500">&#10007; ' + (d.error || 'Pairing failed') + '</div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        return;
+                    }
+                    setTimeout(poll, 1500);
+                }).catch(function() { setTimeout(poll, 2000); });
+            }
+            setTimeout(poll, 1000);
+        </script>
+    </body>
+    </html>
+    )rawliteral";
+
+  server.on("/submit", HTTP_POST, [this, &server, htmlForm, progressHtml,
+      &pairingState, &pairingError, &pendingConfig, &wifiRetries]()
             {
     const String ssidParam{ "ssid" };
     const String passParam{ "password" };
@@ -216,20 +285,35 @@ void SetupPortal::run()
       url = url.substring(0, colonIdx);
     }
 
-    DeviceConfig config{
-      ssid,
-      pass,
-      url,
-      devicePort,
-      "",
-      pairingCode
-    };
-    _logger.println("Received configuration...");
-    _configStore.save(config);
+    pendingConfig = { ssid, pass, url, devicePort, "", pairingCode };
+    _logger.println("Received configuration, starting WiFi connection...");
 
-    server.send(200, "text/html", "Settings saved. Rebooting...");
-    delay(1000);
-    ESP.restart(); });
+    wifiRetries = 0;
+    pairingState = STATE_CONNECTING_WIFI;
+
+    server.send(200, "text/html", progressHtml);
+
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(pendingConfig.ssid.c_str(), pendingConfig.password.c_str()); });
+
+  server.on("/pairing-status", HTTP_GET, [&server,
+      &pairingState, &pairingError,
+      STATE_IDLE, STATE_CONNECTING_WIFI, STATE_PAIRING, STATE_SUCCESS, STATE_FAILED]()
+            {
+    String state;
+    if (pairingState == STATE_CONNECTING_WIFI) state = "connecting_wifi";
+    else if (pairingState == STATE_PAIRING) state = "pairing";
+    else if (pairingState == STATE_SUCCESS) state = "success";
+    else if (pairingState == STATE_FAILED) state = "failed";
+    else state = "idle";
+
+    String json = "{\"state\":\"" + state + "\"";
+    if (pairingState == STATE_FAILED)
+    {
+      json += ",\"error\":\"" + pairingError + "\"";
+    }
+    json += "}";
+    server.send(200, "application/json", json); });
 
   auto redirectToRoot = [&server]()
   {
@@ -251,10 +335,58 @@ void SetupPortal::run()
   server.begin();
   _logger.println("HTTP server started");
 
+  constexpr int maxWifiRetries = 40; // 20 seconds at 500ms intervals
+
   while (true)
   {
     dnsServer.processNextRequest();
     server.handleClient();
-    delay(2);
+
+    if (pairingState == STATE_CONNECTING_WIFI)
+    {
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        _logger.println("WiFi connected in AP+STA mode");
+        _logger.print("STA IP: ");
+        _logger.println(WiFi.localIP());
+        _logger.println("Starting pairing...");
+        pairingState = STATE_PAIRING;
+
+        String apiKey;
+        if (_deviceApi.pairWithDashboard(pendingConfig.pairingCode,
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
+        {
+          pendingConfig.dashboardApiKey = apiKey;
+          pendingConfig.pairingCode = "";
+          _configStore.save(pendingConfig);
+          _logger.println("Pairing successful!");
+          pairingState = STATE_SUCCESS;
+          successTimestamp = millis();
+        }
+        else
+        {
+          _logger.println("Pairing failed");
+          pairingState = STATE_FAILED;
+          pairingError = "Pairing failed - check the pairing code";
+        }
+
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(apName.c_str());
+      }
+      else if (++wifiRetries >= maxWifiRetries)
+      {
+        _logger.println("WiFi connection failed");
+        pairingState = STATE_FAILED;
+        pairingError = "WiFi connection failed";
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(apName.c_str());
+      }
+    }
+    else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 3000)
+    {
+      ESP.restart();
+    }
+
+    delay(pairingState == STATE_CONNECTING_WIFI ? 500 : 2);
   }
 }

@@ -104,7 +104,12 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                             <div class="mb-2">
                               <strong>Pairing Code:</strong>
                             </div>
-                            <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
+                              <button type="button" class="btn btn-sm btn-outline-primary" (click)="copyPairingCode()" title="Copy to clipboard">
+                                <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'"></i>
+                              </button>
+                            </div>
                           </div>
                           <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelPairing()">
                             <i class="fa-solid fa-times"></i> Cancel
@@ -144,7 +149,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                                 @if (device.firmwareVersion) {
                                   <code class="small">{{ device.firmwareVersion }}</code>
                                   @if (firmwareInfo()?.version) {
-                                    @if (device.firmwareVersion === firmwareInfo()!.version) {
+                                    @if (!isVersionLower(device.firmwareVersion!, firmwareInfo()!.version!)) {
                                       <i class="fa-solid fa-circle-check text-success ms-1" title="Up to date"></i>
                                     } @else {
                                       <i class="fa-solid fa-circle-arrow-up text-warning ms-1" title="Update available (latest: v{{ firmwareInfo()!.version }})"></i>
@@ -433,6 +438,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly pairingCode = signal('');
   readonly pairingTimeRemaining = signal(0);
   readonly isStartingPairing = signal(false);
+  readonly pairingCodeCopied = signal(false);
 
   readonly firmwareInfo = this.firmwareService.firmwareInfo;
   readonly isFirmwareLoading = this.firmwareService.isLoading;
@@ -443,8 +449,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     const devs = this.devices();
     if (!fw?.version || devs.length === 0) return null;
     const latest = fw.version;
-    const upToDate = devs.filter(d => d.firmwareVersion === latest).length;
-    const outdated = devs.filter(d => d.firmwareVersion && d.firmwareVersion !== latest).length;
+    const upToDate = devs.filter(d => d.firmwareVersion && !this.isVersionLower(d.firmwareVersion, latest)).length;
+    const outdated = devs.filter(d => d.firmwareVersion && this.isVersionLower(d.firmwareVersion, latest)).length;
     const unknown = devs.filter(d => !d.firmwareVersion).length;
     return { total: devs.length, upToDate, outdated, unknown, latest };
   });
@@ -981,7 +987,26 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   cancelPairing(): void {
     this.isPairingActive.set(false);
     this.pairingCode.set('');
+    this.pairingCodeCopied.set(false);
     this.stopPairingTimer();
+  }
+
+  copyPairingCode(): void {
+    const code = this.pairingCode();
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      this.pairingCodeCopied.set(true);
+      setTimeout(() => this.pairingCodeCopied.set(false), 2000);
+    });
+  }
+
+  isVersionLower(deviceVersion: string, latestVersion: string): boolean {
+    const parse = (v: string) => v.split('.').map(n => parseInt(n, 10) || 0);
+    const [dMaj, dMin, dPat] = parse(deviceVersion);
+    const [lMaj, lMin, lPat] = parse(latestVersion);
+    if (dMaj !== lMaj) return dMaj < lMaj;
+    if (dMin !== lMin) return dMin < lMin;
+    return dPat < lPat;
   }
 
   removeDevice(device: Device): void {

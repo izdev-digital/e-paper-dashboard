@@ -31,12 +31,17 @@ void setup()
   logger.print("izBoard Firmware v");
   logger.println(FIRMWARE_VERSION);
 
-  hardware.startResetMonitor(configStore);
+  if (hardware.isResetRequested())
+  {
+    logger.println("Reset requested, clearing configuration...");
+    hardware.resetDevice(configStore);
+    return;
+  }
 
   auto configuration = configStore.load();
   if (!configuration.has_value())
   {
-    SetupPortal portal(logger, configStore, displayManager);
+    SetupPortal portal(logger, configStore, displayManager, network, deviceApi);
     portal.run();
     return;
   }
@@ -44,30 +49,18 @@ void setup()
   DeviceConfig config = configuration.value();
   uint64_t waitSeconds = Timing::FallbackRefreshSeconds;
 
+  if (config.dashboardApiKey.length() == 0)
+  {
+    logger.println("No API key configured, clearing config and restarting setup...");
+    hardware.resetDevice(configStore);
+    return;
+  }
+
   if (!network.connectToWiFi(config.ssid, config.password))
   {
     logger.println("WiFi connection failed, retrying after sleep");
     hardware.startDeepSleep(waitSeconds);
     return;
-  }
-
-  if (config.dashboardApiKey.length() == 0 && config.pairingCode.length() > 0)
-  {
-    logger.println("API key not set, attempting pairing...");
-    String apiKey;
-    if (deviceApi.pairWithDashboard(config.pairingCode, config.dashboardUrl, config.devicePort, apiKey))
-    {
-      config.dashboardApiKey = apiKey;
-      config.pairingCode = "";
-      configStore.save(config);
-      logger.println("Pairing successful!");
-    }
-    else
-    {
-      logger.println("Pairing failed, clearing configuration and restarting setup portal");
-      hardware.resetDevice(configStore);
-      return;
-    }
   }
 
   auto status = deviceApi.fetchDeviceStatus(config);
