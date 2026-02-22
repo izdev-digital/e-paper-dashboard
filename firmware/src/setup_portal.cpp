@@ -182,7 +182,6 @@ void SetupPortal::run()
     WiFi.scanDelete();
     server.send(200, "application/json", json); });
 
-  // Pairing state machine
   const int STATE_IDLE = 0;
   const int STATE_CONNECTING_WIFI = 1;
   const int STATE_PAIRING = 2;
@@ -289,12 +288,13 @@ void SetupPortal::run()
     pendingConfig = { ssid, pass, url, devicePort, "", pairingCode };
     _logger.println("Received configuration, starting WiFi connection...");
 
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(pendingConfig.ssid.c_str(), pendingConfig.password.c_str());
     wifiRetries = 0;
     pairingState = STATE_CONNECTING_WIFI;
 
-    server.send(200, "text/html", progressHtml); });
+    server.send(200, "text/html", progressHtml);
+
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.begin(pendingConfig.ssid.c_str(), pendingConfig.password.c_str()); });
 
   server.on("/pairing-status", HTTP_GET, [&server,
       &pairingState, &pairingError,
@@ -349,7 +349,29 @@ void SetupPortal::run()
         _logger.println("WiFi connected in AP+STA mode");
         _logger.print("STA IP: ");
         _logger.println(WiFi.localIP());
+        _logger.println("Starting pairing...");
         pairingState = STATE_PAIRING;
+
+        String apiKey;
+        if (_deviceApi.pairWithDashboard(pendingConfig.pairingCode,
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
+        {
+          pendingConfig.dashboardApiKey = apiKey;
+          pendingConfig.pairingCode = "";
+          _configStore.save(pendingConfig);
+          _logger.println("Pairing successful!");
+          pairingState = STATE_SUCCESS;
+          successTimestamp = millis();
+        }
+        else
+        {
+          _logger.println("Pairing failed");
+          pairingState = STATE_FAILED;
+          pairingError = "Pairing failed - check the pairing code";
+        }
+
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(apName.c_str());
       }
       else if (++wifiRetries >= maxWifiRetries)
       {
@@ -357,28 +379,7 @@ void SetupPortal::run()
         pairingState = STATE_FAILED;
         pairingError = "WiFi connection failed";
         WiFi.mode(WIFI_AP);
-      }
-    }
-    else if (pairingState == STATE_PAIRING)
-    {
-      _logger.println("Starting pairing...");
-      String apiKey;
-      if (_deviceApi.pairWithDashboard(pendingConfig.pairingCode,
-              pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
-      {
-        pendingConfig.dashboardApiKey = apiKey;
-        pendingConfig.pairingCode = "";
-        _configStore.save(pendingConfig);
-        _logger.println("Pairing successful!");
-        pairingState = STATE_SUCCESS;
-        successTimestamp = millis();
-      }
-      else
-      {
-        _logger.println("Pairing failed");
-        pairingState = STATE_FAILED;
-        pairingError = "Pairing failed - check the pairing code";
-        WiFi.mode(WIFI_AP);
+        WiFi.softAP(apName.c_str());
       }
     }
     else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 3000)

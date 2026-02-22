@@ -165,8 +165,6 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
     return false;
   }
 
-  // Read body line-by-line to handle chunked transfer encoding
-  // and avoid timeout hang from readString()
   String response = "";
   while (_network.connected() || _network.available())
   {
