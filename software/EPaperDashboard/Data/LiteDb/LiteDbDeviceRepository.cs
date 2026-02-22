@@ -16,8 +16,12 @@ internal sealed class LiteDbDeviceRepository(LiteDbContext context) : IDeviceRep
     public List<Device> FindByDashboardId(DashboardId dashboardId) =>
         context.Devices.Find(d => d.DashboardId == dashboardId).ToList();
 
-    public void Insert(Device device) =>
+    public void Insert(Device device)
+    {
+        if (device.Id == DeviceId.Empty)
+            device.Id = DeviceId.New();
         context.Devices.Insert(device);
+    }
 
     public void Update(Device device) =>
         context.Devices.Update(device);

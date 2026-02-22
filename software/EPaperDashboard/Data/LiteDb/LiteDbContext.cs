@@ -19,16 +19,16 @@ internal sealed class LiteDbContext : IDisposable
 
         // Register strongly-typed ID types — stored as ObjectId values in the database
         mapper.RegisterType<UserId>(
-            serialize: id => string.IsNullOrEmpty(id.Value) ? new BsonValue(ObjectId.Empty) : new BsonValue(new ObjectId(id.Value)),
+            serialize: id => new BsonValue(new ObjectId(id.Value)),
             deserialize: bson => new UserId(bson.AsObjectId.ToString()));
         mapper.RegisterType<DashboardId>(
-            serialize: id => string.IsNullOrEmpty(id.Value) ? new BsonValue(ObjectId.Empty) : new BsonValue(new ObjectId(id.Value)),
+            serialize: id => new BsonValue(new ObjectId(id.Value)),
             deserialize: bson => new DashboardId(bson.AsObjectId.ToString()));
         mapper.RegisterType<DeviceId>(
-            serialize: id => string.IsNullOrEmpty(id.Value) ? new BsonValue(ObjectId.Empty) : new BsonValue(new ObjectId(id.Value)),
+            serialize: id => new BsonValue(new ObjectId(id.Value)),
             deserialize: bson => new DeviceId(bson.AsObjectId.ToString()));
         mapper.RegisterType<PairingSessionId>(
-            serialize: id => string.IsNullOrEmpty(id.Value) ? new BsonValue(ObjectId.Empty) : new BsonValue(new ObjectId(id.Value)),
+            serialize: id => new BsonValue(new ObjectId(id.Value)),
             deserialize: bson => new PairingSessionId(bson.AsObjectId.ToString()));
 
         // Register custom serialization for JsonElement (must be after ID types)

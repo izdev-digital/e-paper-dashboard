@@ -13,8 +13,12 @@ internal sealed class LiteDbPairingSessionRepository(LiteDbContext context) : IP
     public Maybe<PairingSession> FindByCode(string code) =>
         context.PairingSessions.FindOne(s => s.Code == code);
 
-    public void Insert(PairingSession session) =>
+    public void Insert(PairingSession session)
+    {
+        if (session.Id == PairingSessionId.Empty)
+            session.Id = PairingSessionId.New();
         context.PairingSessions.Insert(session);
+    }
 
     public void Update(PairingSession session) =>
         context.PairingSessions.Update(session);

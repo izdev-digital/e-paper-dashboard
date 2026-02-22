@@ -22,8 +22,12 @@ internal sealed class LiteDbUserRepository(LiteDbContext context) : IUserReposit
     public bool ExistsSuperUser() =>
         context.Users.Exists(u => u.IsSuperUser);
 
-    public void Insert(User user) =>
+    public void Insert(User user)
+    {
+        if (user.Id == UserId.Empty)
+            user.Id = UserId.New();
         context.Users.Insert(user);
+    }
 
     public void Update(User user) =>
         context.Users.Update(user);

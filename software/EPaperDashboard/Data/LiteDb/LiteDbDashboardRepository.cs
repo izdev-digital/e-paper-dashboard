@@ -19,8 +19,12 @@ internal sealed class LiteDbDashboardRepository(LiteDbContext context) : IDashbo
     public IEnumerable<Dashboard> GetAll() =>
         context.Dashboards.FindAll();
 
-    public void Insert(Dashboard dashboard) =>
+    public void Insert(Dashboard dashboard)
+    {
+        if (dashboard.Id == DashboardId.Empty)
+            dashboard.Id = DashboardId.New();
         context.Dashboards.Insert(dashboard);
+    }
 
     public void Update(Dashboard dashboard) =>
         context.Dashboards.Update(dashboard);
