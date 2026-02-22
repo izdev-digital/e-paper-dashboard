@@ -31,11 +31,7 @@ void setup()
   logger.print("izBoard Firmware v");
   logger.println(FIRMWARE_VERSION);
 
-  if (hardware.isResetRequested())
-  {
-    logger.println("Resetting device");
-    hardware.resetDevice(configStore);
-  }
+  hardware.startResetMonitor(configStore);
 
   auto configuration = configStore.load();
   if (!configuration.has_value())

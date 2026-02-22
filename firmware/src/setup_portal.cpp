@@ -9,9 +9,6 @@ SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManage
 
 void SetupPortal::run()
 {
-  pinMode(Pin::Led, OUTPUT);
-  digitalWrite(Pin::Led, LOW);
-
   IPAddress apIP(192, 168, 4, 1);
   IPAddress gateway(192, 168, 4, 1);
   IPAddress subnet(255, 255, 255, 0);
@@ -231,7 +228,6 @@ void SetupPortal::run()
     _configStore.save(config);
 
     server.send(200, "text/html", "Settings saved. Rebooting...");
-    digitalWrite(Pin::Led, LOW);
     delay(1000);
     ESP.restart(); });
 
@@ -255,22 +251,10 @@ void SetupPortal::run()
   server.begin();
   _logger.println("HTTP server started");
 
-  unsigned long lastBlinkTime = 0;
-  bool ledState = false;
-
   while (true)
   {
     dnsServer.processNextRequest();
     server.handleClient();
-
-    unsigned long currentTime = millis();
-    if (currentTime - lastBlinkTime >= Timing::BlinkIntervalMs)
-    {
-      lastBlinkTime = currentTime;
-      ledState = !ledState;
-      digitalWrite(Pin::Led, ledState ? HIGH : LOW);
-    }
-
     delay(2);
   }
 }
