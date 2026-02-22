@@ -9,6 +9,7 @@ export interface Device {
   name: string;
   pairedAt: string;
   lastSeenAt?: string;
+  firmwareVersion?: string;
 }
 
 export interface StartPairingResponse {

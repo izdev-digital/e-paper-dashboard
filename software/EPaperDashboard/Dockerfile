@@ -81,7 +81,7 @@ RUN cp /src/LICENSE /app/publish/ && \
 
 FROM base AS final
 WORKDIR /app
-EXPOSE 8128
+EXPOSE 8128 8129
 COPY --from=publish /app/publish .
 COPY --from=playwright /ms-playwright/ /.cache/ms-playwright/
 ENV PLAYWRIGHT_BROWSERS_PATH=/.cache/ms-playwright

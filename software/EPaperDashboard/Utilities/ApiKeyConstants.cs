@@ -3,4 +3,7 @@ namespace EPaperDashboard.Utilities;
 public static class HttpHeaderNames
 {
     public const string ApiKeyHeaderName = "X-Api-Key";
+    public const string FirmwareVersionHeaderName = "X-Firmware-Version";
+    public const string DeviceFirmwareVersionHeaderName = "X-Device-Firmware-Version";
+    public const string DeviceIdHeaderName = "X-Device-Id";
 }

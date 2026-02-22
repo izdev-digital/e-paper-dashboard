@@ -3,6 +3,7 @@ using EPaperDashboard.Utilities;
 using EPaperDashboard.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
+using EPaperDashboard.Services.Firmware;
 using EPaperDashboard.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
@@ -102,8 +103,28 @@ builder.Services
 	.AddSingleton<DashboardHtmlRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
 
+// Firmware update services
+if (EnvironmentConfiguration.FirmwareUpdateEnabled)
+{
+	switch (EnvironmentConfiguration.FirmwareReleaseProvider.ToLowerInvariant())
+	{
+		case "github":
+		default:
+			builder.Services.AddSingleton<IFirmwareReleaseProvider, GitHubFirmwareReleaseProvider>();
+			break;
+	}
+	builder.Services.AddSingleton<FirmwareUpdateService>();
+	builder.Services.AddHostedService(sp => sp.GetRequiredService<FirmwareUpdateService>());
+}
+
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
+builder.Services.AddHttpClient(Constants.FirmwareHttpClientName, client =>
+{
+	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");
+	client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+	client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
@@ -230,6 +251,37 @@ app.Use(async (context, next) =>
 				context.Response.StatusCode = 503;
 				await context.Response.WriteAsync("Pairing service unavailable");
 				return;
+			}
+		}
+
+		// Add latest firmware version header to all device-port responses
+		var firmwareService = context.RequestServices.GetService<FirmwareUpdateService>();
+		var latestRelease = firmwareService?.GetLatestRelease();
+		if (latestRelease is not null)
+		{
+			context.Response.OnStarting(() =>
+			{
+				context.Response.Headers[HttpHeaderNames.FirmwareVersionHeaderName] = latestRelease.Version;
+				return Task.CompletedTask;
+			});
+		}
+
+		// Track device firmware version and update last seen timestamp
+		if (context.Request.Headers.TryGetValue(HttpHeaderNames.DeviceFirmwareVersionHeaderName, out var deviceFwVersion)
+			&& context.Request.Headers.TryGetValue(HttpHeaderNames.DeviceIdHeaderName, out var deviceIdHeader))
+		{
+			var deviceService = context.RequestServices.GetRequiredService<DeviceService>();
+			var device = deviceService.GetDeviceByIdentifier(deviceIdHeader.ToString());
+			if (device.HasValue)
+			{
+				var fwStr = deviceFwVersion.ToString();
+				if (device.Value.FirmwareVersion != fwStr || device.Value.LastSeenAt is null
+					|| DateTimeOffset.UtcNow - device.Value.LastSeenAt > TimeSpan.FromMinutes(1))
+				{
+					device.Value.FirmwareVersion = fwStr;
+					device.Value.LastSeenAt = DateTimeOffset.UtcNow;
+					deviceService.UpdateDevice(device.Value);
+				}
 			}
 		}
 	}
