@@ -68,8 +68,8 @@ void setup()
     }
     else
     {
-      logger.println("Pairing failed, will retry on next boot");
-      hardware.startDeepSleep(waitSeconds);
+      logger.println("Pairing failed, clearing configuration and restarting setup portal");
+      hardware.resetDevice(configStore);
       return;
     }
   }

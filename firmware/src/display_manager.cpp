@@ -69,15 +69,15 @@ void DisplayManager::drawIcon(int16_t ox, int16_t oy, int16_t size)
   sr(20, 20, 90, 96, GxEPD_RED);
   sr(20, 128, 90, 196, GxEPD_RED);
   sr(122, 20, 134, 96, GxEPD_RED);
-  sr(268, 20, 82, 96, GxEPD_RED);
+  sr(268, 20, 56, 96, GxEPD_RED);
 
   st(122, 128, 256, 128, 122, 224, GxEPD_RED);
   st(256, 128, 206, 224, 122, 224, GxEPD_RED);
-  st(268, 128, 350, 128, 350, 224, GxEPD_RED);
-  st(268, 128, 350, 224, 218, 224, GxEPD_RED);
+  st(268, 128, 324, 128, 324, 224, GxEPD_RED);
+  st(268, 128, 324, 224, 218, 224, GxEPD_RED);
 
-  sr(122, 236, 84, 88, GxEPD_RED);
-  sr(218, 236, 132, 88, GxEPD_RED);
+  sr(122, 236, 134, 88, GxEPD_RED);
+  sr(218, 236, 106, 88, GxEPD_RED);
 }
 
 void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, const String& apName)

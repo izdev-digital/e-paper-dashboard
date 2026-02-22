@@ -36,5 +36,6 @@ bool Hardware::isResetRequested()
 void Hardware::resetDevice(ConfigStore& configStore)
 {
   configStore.clear();
+  delay(1000); // Allow preferences to flush to NVS before restart
   ESP.restart();
 }
