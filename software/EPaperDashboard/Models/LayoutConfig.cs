@@ -13,6 +13,7 @@ namespace EPaperDashboard.Models
         public int CanvasPadding { get; set; }
         public int WidgetGap { get; set; }
         public int WidgetBorder { get; set; }
+        public int WidgetPadding { get; set; }
         public int TitleFontSize { get; set; }
         public int TextFontSize { get; set; }
         public int TitleFontWeight { get; set; }

@@ -33,6 +33,7 @@ public sealed class DashboardHtmlRenderingService(
         int CanvasPadding,
         int WidgetGap,
         int WidgetBorder,
+        int WidgetPadding,
         int TitleFontSize,
         int TextFontSize);
 
@@ -242,6 +243,7 @@ public sealed class DashboardHtmlRenderingService(
             CanvasPadding: root.TryGetProperty("canvasPadding", out var cp) ? cp.GetInt32() : 16,
             WidgetGap: root.TryGetProperty("widgetGap", out var wg) ? wg.GetInt32() : 4,
             WidgetBorder: root.TryGetProperty("widgetBorder", out var wb) ? wb.GetInt32() : 3,
+            WidgetPadding: root.TryGetProperty("widgetPadding", out var wp) ? wp.GetInt32() : 4,
             TitleFontSize: root.TryGetProperty("titleFontSize", out var tf) ? tf.GetInt32() : 16,
             TextFontSize: root.TryGetProperty("textFontSize", out var txf) ? txf.GetInt32() : 14
         );
@@ -535,7 +537,7 @@ public sealed class DashboardHtmlRenderingService(
         var bc = widget.ColorOverrides?.WidgetBorderColor ?? cs.WidgetBorderColor;
         var p = widget.Position;
         return $"grid-column:{p.X + 1}/span {p.W};grid-row:{p.Y + 1}/span {p.H};" +
-               $"background-color:{bg};border:{layout.WidgetBorder}px solid {bc};color:{cs.Text}";
+               $"background-color:{bg};border:{layout.WidgetBorder}px solid {bc};padding:{layout.WidgetPadding}px;box-sizing:border-box;color:{cs.Text}";
     }
 
     private string RenderWidget(WidgetConfigEntry widget, LayoutConfig layout, SsrData data)

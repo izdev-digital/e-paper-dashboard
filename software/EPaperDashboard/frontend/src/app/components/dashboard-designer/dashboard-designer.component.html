@@ -293,6 +293,11 @@
                   <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetBorder"
                     (ngModelChange)="updateWidgetBorder($event)" min="0" max="20" />
                 </div>
+                <div class="mb-2">
+                  <label class="form-label small">Widget Padding (px)</label>
+                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetPadding"
+                    (ngModelChange)="updateWidgetPadding($event)" min="0" max="32" />
+                </div>
               </div>
             </div>
             <div class="card">

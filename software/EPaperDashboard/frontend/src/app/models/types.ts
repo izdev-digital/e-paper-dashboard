@@ -193,6 +193,7 @@ export interface DashboardLayout {
   canvasPadding?: number;
   widgetGap?: number;
   widgetBorder?: number;
+  widgetPadding?: number;
   titleFontSize?: number;
   textFontSize?: number;
   titleFontWeight?: number;

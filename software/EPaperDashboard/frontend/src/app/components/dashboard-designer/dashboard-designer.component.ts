@@ -52,6 +52,7 @@ export class DashboardDesignerComponent implements OnInit {
     canvasPadding: 16,
     widgetGap: 4,
     widgetBorder: 3,
+    widgetPadding: 4,
     titleFontSize: 16,
     textFontSize: 14,
     titleFontWeight: 700,
@@ -593,6 +594,10 @@ export class DashboardDesignerComponent implements OnInit {
     this.layout.update(layout => ({ ...layout, widgetBorder: border }));
   }
 
+  updateWidgetPadding(padding: number): void {
+    this.layout.update(layout => ({ ...layout, widgetPadding: padding }));
+  }
+
   updateTitleFontSize(fontSize: number | string): void {
     const size = typeof fontSize === 'string' ? parseInt(fontSize, 10) : fontSize;
     this.layout.update(layout => ({ ...layout, titleFontSize: size }));
@@ -972,7 +977,8 @@ export class DashboardDesignerComponent implements OnInit {
       backgroundColor: backgroundColor,
       border: `${layout.widgetBorder ?? 2}px solid ${borderColor}`,
       color: layout.colorScheme.text,
-      padding: '0',
+      padding: `${layout.widgetPadding ?? 0}px`,
+      boxSizing: 'border-box',
       overflow: 'visible',
       cursor: 'grab',
       position: 'relative',

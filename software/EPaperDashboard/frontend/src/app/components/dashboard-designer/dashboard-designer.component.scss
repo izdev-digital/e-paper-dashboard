@@ -366,6 +366,9 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 }
 
 .widget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
