@@ -215,7 +215,7 @@
   align-items: flex-start;
   min-height: 600px;
   max-height: calc(100vh - 220px);
-  padding: 20px 0;
+  padding: 20px;
   background: #f5f5f5;
 }
 
@@ -243,13 +243,7 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   pointer-events: auto;
 }
 
-.widget-container:hover {
-  box-shadow: 0 0 0 var(--widget-border, 3px) rgba(0, 123, 255, 0.5);
-}
-
-.widget-container.selected {
-  box-shadow: 0 0 0 var(--widget-border, 3px) rgba(0, 123, 255, 0.8);
-}
+/* No selection chrome on widget-container – handled by .sel-overlay */
 
 .header-edit-toggle-btn {
   position: absolute;
@@ -269,9 +263,11 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   display: flex;
   align-items: center;
   gap: 5px;
+  pointer-events: auto; /* always clickable even when overlay is pointer-events:none */
 
   &.active {
     background: #28a745;
+    border-radius: 4px;
   }
 
   &:hover {
@@ -352,76 +348,103 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   overflow-y: auto;
 }
 
+/* ── Selection overlay ───────────────────────────────────────────────────── */
+/* Absolutely positioned on the canvas – never inside a grid cell, so it      */
+/* can never affect widget layout or overlap adjacent widgets.                 */
+.sel-overlay {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: grab;
+
+  /* pointer-events controlled via [ngStyle] –
+     'auto' in normal mode, 'none' in internal-edit mode
+     (children with pointer-events:auto still receive events). */
+}
+
+/* ── Resize handles ──────────────────────────────────────────────────────── */
+/* Edge handles: thin strips centred along each edge, offset well outside */
+$h-strip: 5px;   /* thickness of edge strip */
+$h-len:   40%;   /* length of edge strip (centred) */
+$h-off:   -9px; /* how far outside the widget edge */
+$h-cor:   14px;  /* corner square size */
+$h-cor-off: -10px; /* corner square offset */
+
 .resize-handle {
   position: absolute;
-  background: rgba(0, 123, 255, 0.7);
+  background: rgba(0, 123, 255, 0.8);
+  border-radius: 2px;
+  pointer-events: auto;
   z-index: 10;
 }
 
 .resize-handle.resize-e {
-  right: -4px;
-  top: 0;
-  bottom: 0;
-  width: 8px;
+  right: $h-off;
+  top: 50%;
+  transform: translateY(-50%);
+  width: $h-strip;
+  height: $h-len;
   cursor: ew-resize;
 }
 
 .resize-handle.resize-w {
-  left: -4px;
-  top: 0;
-  bottom: 0;
-  width: 8px;
+  left: $h-off;
+  top: 50%;
+  transform: translateY(-50%);
+  width: $h-strip;
+  height: $h-len;
   cursor: ew-resize;
 }
 
 .resize-handle.resize-n {
-  left: 0;
-  right: 0;
-  top: -4px;
-  height: 8px;
+  top: $h-off;
+  left: 50%;
+  transform: translateX(-50%);
+  height: $h-strip;
+  width: $h-len;
   cursor: ns-resize;
 }
 
 .resize-handle.resize-s {
-  left: 0;
-  right: 0;
-  bottom: -4px;
-  height: 8px;
+  bottom: $h-off;
+  left: 50%;
+  transform: translateX(-50%);
+  height: $h-strip;
+  width: $h-len;
   cursor: ns-resize;
 }
 
 .resize-handle.resize-se {
-  right: -4px;
-  bottom: -4px;
-  width: 12px;
-  height: 12px;
+  right: $h-cor-off;
+  bottom: $h-cor-off;
+  width: $h-cor;
+  height: $h-cor;
   cursor: nwse-resize;
   border-radius: 0 0 4px 0;
 }
 
 .resize-handle.resize-ne {
-  right: -4px;
-  top: -4px;
-  width: 12px;
-  height: 12px;
+  right: $h-cor-off;
+  top: $h-cor-off;
+  width: $h-cor;
+  height: $h-cor;
   cursor: nesw-resize;
   border-radius: 0 4px 0 0;
 }
 
 .resize-handle.resize-nw {
-  left: -4px;
-  top: -4px;
-  width: 12px;
-  height: 12px;
+  left: $h-cor-off;
+  top: $h-cor-off;
+  width: $h-cor;
+  height: $h-cor;
   cursor: nwse-resize;
   border-radius: 4px 0 0 0;
 }
 
 .resize-handle.resize-sw {
-  left: -4px;
-  bottom: -4px;
-  width: 12px;
-  height: 12px;
+  left: $h-cor-off;
+  bottom: $h-cor-off;
+  width: $h-cor;
+  height: $h-cor;
   cursor: nesw-resize;
   border-radius: 0 0 0 4px;
 }

@@ -132,19 +132,6 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
         </span>
       }
 
-      <!-- position readout – floating bottom-left while dragging/resizing -->
-      @if (internalEdit && selectedId && (dragState || resizeState)) {
-        <div class="hw-readout">
-          @if (editPositions.has(selectedId)) {
-            {{ selectedId }} &nbsp;
-            x:{{ f(editPositions.get(selectedId)!.x) }}%
-            y:{{ f(editPositions.get(selectedId)!.y) }}%
-            w:{{ f(editPositions.get(selectedId)!.w) }}%
-            h:{{ f(editPositions.get(selectedId)!.h) }}%
-          }
-        </div>
-      }
-
     </div>
   `,
 })

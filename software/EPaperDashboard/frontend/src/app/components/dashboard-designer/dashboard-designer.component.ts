@@ -355,6 +355,8 @@ export class DashboardDesignerComponent implements OnInit {
           ...l,
           widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
         }));
+        const updated = this.layout().widgets.find(w => w.id === g.id);
+        if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
@@ -453,6 +455,8 @@ export class DashboardDesignerComponent implements OnInit {
           ...l,
           widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
         }));
+        const updated = this.layout().widgets.find(w => w.id === g.id);
+        if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
@@ -977,11 +981,51 @@ export class DashboardDesignerComponent implements OnInit {
       backgroundColor: backgroundColor,
       border: `${layout.widgetBorder ?? 2}px solid ${borderColor}`,
       color: layout.colorScheme.text,
-      padding: '8px',
+      padding: '0',
       overflow: 'visible',
       cursor: 'grab',
       position: 'relative',
       userSelect: 'none'
+    };
+  }
+
+  getSelectionOverlayStyle(): any {
+    const widget = this.selectedWidget();
+    if (!widget) return { display: 'none' };
+    const layout = this.layout();
+    const padding = layout.canvasPadding ?? 0;
+    const gap     = layout.widgetGap ?? 0;
+    const cols    = layout.gridCols;
+    const rows    = layout.gridRows;
+
+    // Use actual inner dimensions (clientWidth excludes the canvas CSS border)
+    const canvasEl = document.querySelector('.dashboard-canvas') as HTMLElement | null;
+    const totalW = canvasEl ? canvasEl.clientWidth  : layout.width;
+    const totalH = canvasEl ? canvasEl.clientHeight : layout.height;
+
+    const cellW = (totalW - 2 * padding - gap * (cols - 1)) / cols;
+    const cellH = (totalH - 2 * padding - gap * (rows - 1)) / rows;
+
+    // During drag/resize the live position is in ghost(), not layout()
+    const ghost = this.ghost();
+    const p = (ghost?.id === widget.id ? ghost.position : null) ?? widget.position;
+
+    const left   = padding + p.x * (cellW + gap);
+    const top    = padding + p.y * (cellH + gap);
+    const width  = p.w * cellW + (p.w - 1) * gap;
+    const height = p.h * cellH + (p.h - 1) * gap;
+
+    const isInternal = this.internalEditingWidgetId() === widget.id;
+
+    return {
+      position: 'absolute',
+      left:   `${left}px`,
+      top:    `${top}px`,
+      width:  `${width}px`,
+      height: `${height}px`,
+      boxSizing: 'border-box',
+      pointerEvents: isInternal ? 'none' : 'auto',
+      zIndex: 100,
     };
   }
 

@@ -72,8 +72,7 @@
               <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
-                [class.selected]="selectedWidget()?.id === widget.id" (mousedown)="onWidgetMouseDown($event, widget)">
-                <!-- Widget header removed: no name, no delete button -->
+                (mousedown)="onWidgetMouseDown($event, widget)">
                 <div class="widget-content">
                   <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
@@ -84,33 +83,44 @@
                     (headerLayoutChanged)="onHeaderLayoutChanged($event, widget.id)">
                   </app-widget-preview>
                 </div>
-                <!-- Internal-edit toggle button (header widgets only, when selected) -->
-                @if (selectedWidget()?.id === widget.id && widget.type === 'header') {
-                  <button class="header-edit-toggle-btn"
-                    [class.active]="internalEditingWidgetId() === widget.id"
-                    (mousedown)="$event.stopPropagation()"
-                    (click)="toggleInternalEdit(widget)"
-                    [title]="internalEditingWidgetId() === widget.id ? 'Exit layout editing' : 'Edit internal layout'">
-                    @if (internalEditingWidgetId() === widget.id) {
-                      <i class="fa fa-check"></i> Done
-                    } @else {
-                      <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
-                    }
-                  </button>
-                }
-                <!-- Resize Handles (hidden while in internal-edit mode for this widget) -->
-                @if (selectedWidget()?.id === widget.id && internalEditingWidgetId() !== widget.id) {
-                <div class="resize-handle resize-n" data-direction="n"></div>
-                <div class="resize-handle resize-e" data-direction="e"></div>
-                <div class="resize-handle resize-s" data-direction="s"></div>
-                <div class="resize-handle resize-w" data-direction="w"></div>
-                <div class="resize-handle resize-nw" data-direction="nw"></div>
-                <div class="resize-handle resize-ne" data-direction="ne"></div>
-                <div class="resize-handle resize-sw" data-direction="sw"></div>
-                <div class="resize-handle resize-se" data-direction="se"></div>
-                }
               </div>
               }
+
+              <!-- Selection overlay: lives on the canvas, never inside a grid cell -->
+              @if (selectedWidget()) {
+                <div class="sel-overlay"
+                     [ngStyle]="getSelectionOverlayStyle()"
+                     (mousedown)="onWidgetMouseDown($event, selectedWidget()!)">
+
+                  <!-- Resize handles – hidden in internal-layout-edit mode -->
+                  @if (internalEditingWidgetId() !== selectedWidget()!.id) {
+                    <div class="resize-handle resize-n" data-direction="n"></div>
+                    <div class="resize-handle resize-e" data-direction="e"></div>
+                    <div class="resize-handle resize-s" data-direction="s"></div>
+                    <div class="resize-handle resize-w" data-direction="w"></div>
+                    <div class="resize-handle resize-nw" data-direction="nw"></div>
+                    <div class="resize-handle resize-ne" data-direction="ne"></div>
+                    <div class="resize-handle resize-sw" data-direction="sw"></div>
+                    <div class="resize-handle resize-se" data-direction="se"></div>
+                  }
+
+                  <!-- Header-edit toggle (header widgets only) -->
+                  @if (selectedWidget()!.type === 'header') {
+                    <button class="header-edit-toggle-btn"
+                      [class.active]="internalEditingWidgetId() === selectedWidget()!.id"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="toggleInternalEdit(selectedWidget()!)"
+                      [title]="internalEditingWidgetId() === selectedWidget()!.id ? 'Exit layout editing' : 'Edit internal layout'">
+                      @if (internalEditingWidgetId() === selectedWidget()!.id) {
+                        <i class="fa fa-check"></i> Done
+                      } @else {
+                        <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
+                      }
+                    </button>
+                  }
+                </div>
+              }
+
               @if (ghost()) {
               <div class="widget-ghost" [ngStyle]="getGhostStyle(ghost()!)"></div>
               }
