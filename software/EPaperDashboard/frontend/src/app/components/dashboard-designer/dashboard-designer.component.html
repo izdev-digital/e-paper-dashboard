@@ -454,22 +454,20 @@
             </div>
             } @else {
             @for (w of layout().widgets; track w.id) {
-            <div class="widget-item p-2 border rounded" [class.active]="selectedWidget()?.id === w.id"
+            <div class="widget-item" [class.active]="selectedWidget()?.id === w.id"
               (click)="onWidgetSelect(w)">
-              <div class="widget-item-content d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-bold">{{ w.type | titlecase }}</div>
-                  <small class="text-muted">ID: {{ w.id }}</small>
-                  <div class="small mt-1 d-flex gap-2">
-                    <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
-                    <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
-                  </div>
+              <div class="widget-item-info">
+                <div class="fw-bold text-truncate">{{ w.type | titlecase }}</div>
+                <small class="text-muted text-truncate d-block">ID: {{ w.id }}</small>
+                <div class="small mt-1 d-flex gap-1 flex-wrap">
+                  <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
+                  <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
                 </div>
-                <button class="btn btn-sm btn-danger ms-2 flex-shrink-0"
-                  (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
-                  <i class="fa fa-trash"></i>
-                </button>
               </div>
+              <button class="btn btn-sm btn-danger btn-delete"
+                (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
+                <i class="fa fa-trash"></i>
+              </button>
             </div>
             }
             }
