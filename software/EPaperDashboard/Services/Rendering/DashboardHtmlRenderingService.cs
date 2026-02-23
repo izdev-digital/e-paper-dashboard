@@ -472,6 +472,7 @@ public sealed class DashboardHtmlRenderingService(
   width:{layout.Width}px;height:{layout.Height}px;
   min-width:{layout.Width}px;min-height:{layout.Height}px;
   background-color:{cs.CanvasBackgroundColor};color:{cs.Text};
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   display:grid;
   grid-template-columns:repeat({layout.GridCols},1fr);
   grid-template-rows:repeat({layout.GridRows},1fr);
