@@ -366,15 +366,24 @@ public sealed class DashboardHtmlRenderingService(
             }
         }
 
-        // Load inline SVG icon
+        // Load inline SVG icon – check all known candidate paths
         try
         {
-            var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "dist", "frontend", "browser");
-            var svgPath = Path.Combine(basePath, "icon-tab-dynamic.svg");
-            if (!File.Exists(svgPath))
-                svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-tab-dynamic.svg");
-            if (File.Exists(svgPath))
-                data.SvgIcon = await File.ReadAllTextAsync(svgPath);
+            var wwwroot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var candidates = new[]
+            {
+                Path.Combine(wwwroot, "browser", "icon-tab-dynamic.svg"),
+                Path.Combine(wwwroot, "icon-tab-dynamic.svg"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "dist", "frontend", "browser", "icon-tab-dynamic.svg"),
+            };
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    data.SvgIcon = await File.ReadAllTextAsync(candidate);
+                    break;
+                }
+            }
         }
         catch { /* ignore */ }
 
@@ -557,16 +566,24 @@ public sealed class DashboardHtmlRenderingService(
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 16;
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
 
-        var title = GetStringProp(widget.Config, "title") ?? "";
+        var title       = GetStringProp(widget.Config, "title") ?? "";
         var iconPosition = GetStringProp(widget.Config, "iconPosition") ?? "left";
-        var iconSize = GetIntProp(widget.Config, "iconSize") ?? 32;
+        var iconSize    = GetIntProp(widget.Config, "iconSize") ?? 32;
         var isIconOnLeft = iconPosition != "right";
 
-        var sb = new StringBuilder();
-        sb.AppendLine($"      <div class=\"header-widget align-{Enc(iconPosition)}\" style=\"color:{titleColor}\">");
+        // Title element position – mirrors Angular getElPos('title') defaults
+        // defaultTitleX: right→0, left→58; defaultTitleY: 0; default w=42, h=50
+        var titleX = GetDoubleProp(widget.Config, "titleX") ?? (isIconOnLeft ? 58.0 : 0.0);
+        var titleY = GetDoubleProp(widget.Config, "titleY") ?? 0.0;
+        var titleW = GetDoubleProp(widget.Config, "titleW") ?? 42.0;
+        var titleH = GetDoubleProp(widget.Config, "titleH") ?? 50.0;
 
-        // Title section
-        sb.AppendLine("        <div class=\"title-section\">");
+        var sb = new StringBuilder();
+        sb.AppendLine($"      <div class=\"header-widget\" style=\"color:{titleColor}\">");
+
+        // Title section – absolutely positioned, matches Angular [style.left/top/width/height.%]
+        var titleStyle = $"left:{titleX.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{titleY.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{titleW.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{titleH.ToString("0.##", CultureInfo.InvariantCulture)}%;color:{titleColor}";
+        sb.AppendLine($"        <div class=\"title-section\" style=\"{titleStyle}\">");
         if (isIconOnLeft && data.SvgIcon != null)
         {
             var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
@@ -580,33 +597,39 @@ public sealed class DashboardHtmlRenderingService(
         }
         sb.AppendLine("        </div>");
 
-        // Badges
+        // Badges – each absolutely positioned, mirrors Angular getElPos('badge-i') defaults
+        // autoX(i) = (i%4)*22;  autoY(i) = floor(i/4)*30;  default w=22, h=30
         if (widget.Config.TryGetProperty("badges", out var badges) && badges.ValueKind == JsonValueKind.Array)
         {
-            var hasBadges = badges.EnumerateArray().Any(b =>
-                !string.IsNullOrWhiteSpace(b.TryGetProperty("entityId", out var e) ? e.GetString() : null)
-                || !string.IsNullOrWhiteSpace(b.TryGetProperty("icon", out var i) ? i.GetString() : null));
-
-            if (hasBadges)
+            int badgeIndex = 0;
+            foreach (var badge in badges.EnumerateArray())
             {
-                sb.AppendLine("        <div class=\"badges-container\">");
-                foreach (var badge in badges.EnumerateArray())
-                {
-                    sb.Append($"          <span class=\"badge\" style=\"font-size:{textFontSize}px;color:{textColor}\">");
-                    var bIcon = badge.TryGetProperty("icon", out var ic) ? ic.GetString() : null;
-                    if (!string.IsNullOrEmpty(bIcon))
-                        sb.Append($"<i class=\"fa {Enc(bIcon)}\" style=\"color:{iconColor}\"></i> ");
+                var bEntityId = badge.TryGetProperty("entityId", out var eid) ? eid.GetString() : null;
+                var bIcon     = badge.TryGetProperty("icon",     out var ic)  ? ic.GetString()  : null;
+                bool hasContent = !string.IsNullOrWhiteSpace(bEntityId) || !string.IsNullOrWhiteSpace(bIcon);
+                if (!hasContent) { badgeIndex++; continue; }
 
-                    var bEntityId = badge.TryGetProperty("entityId", out var eid) ? eid.GetString() : null;
-                    if (!string.IsNullOrEmpty(bEntityId) && data.EntityStates.TryGetValue(bEntityId, out var es))
-                    {
-                        sb.Append(Enc(es.State));
-                        var uom = GetEntityAttr(es, "unit_of_measurement");
-                        if (!string.IsNullOrEmpty(uom)) sb.Append($" {Enc(uom)}");
-                    }
-                    sb.AppendLine("</span>");
+                var bx = GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
+                var by = GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
+                var bw = GetBadgeDoubleProp(badge, "w") ?? 22.0;
+                var bh = GetBadgeDoubleProp(badge, "h") ?? 30.0;
+
+                var badgeStyle = $"left:{bx.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{by.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{bw.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{bh.ToString("0.##", CultureInfo.InvariantCulture)}%;font-size:{textFontSize}px;color:{textColor}";
+                sb.Append($"        <span class=\"badge\" style=\"{badgeStyle}\">");
+
+                if (!string.IsNullOrEmpty(bIcon))
+                    sb.Append($"<i class=\"fa {Enc(bIcon)}\" style=\"color:{iconColor}\"></i>");
+
+                if (!string.IsNullOrEmpty(bEntityId) && data.EntityStates.TryGetValue(bEntityId, out var es))
+                {
+                    sb.Append($"<span class=\"badge-text\">{Enc(es.State)}");
+                    var uom = GetEntityAttr(es, "unit_of_measurement");
+                    if (!string.IsNullOrEmpty(uom)) sb.Append($" {Enc(uom)}");
+                    sb.Append("</span>");
                 }
-                sb.AppendLine("        </div>");
+
+                sb.AppendLine("</span>");
+                badgeIndex++;
             }
         }
 
@@ -1304,6 +1327,13 @@ public sealed class DashboardHtmlRenderingService(
 
     private static int? GetIntProp(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : null;
+
+    private static double? GetDoubleProp(JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetDouble() : null;
+
+    /// <summary>Reads a numeric property from a badge JsonElement (badges use lowercase x/y/w/h).</summary>
+    private static double? GetBadgeDoubleProp(JsonElement badge, string prop) =>
+        badge.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetDouble() : null;
 
     private static bool? GetBoolProp(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var p)
