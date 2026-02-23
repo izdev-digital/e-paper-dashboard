@@ -330,12 +330,10 @@ export class HeaderGridEditorComponent implements OnChanges, OnDestroy {
   }
 
   private defaultTitleX(): number {
-    const align = this.headerConfig?.titleAlign ?? 'top-left';
-    return align.includes('right') ? 58 : 0;
+    return (this.headerConfig?.iconPosition ?? 'left') === 'right' ? 0 : 58;
   }
   private defaultTitleY(): number {
-    const align = this.headerConfig?.titleAlign ?? 'top-left';
-    return align.includes('bottom') ? 50 : 0;
+    return 0;
   }
   private autoX(i: number): number { return (i % 4) * 22; }
   private autoY(i: number): number { return Math.floor(i / 4) * 30; }

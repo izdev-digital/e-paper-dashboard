@@ -34,14 +34,11 @@
     (ngModelChange)="onPropertyChanged()" />
 </div>
 <div class="mb-3">
-  <label class="form-label">Title Corner (default position)</label>
-  <select class="form-select" [(ngModel)]="headerConfig.titleAlign" (ngModelChange)="onPropertyChanged()">
-    <option [ngValue]="'top-left'">Top Left (Default)</option>
-    <option [ngValue]="'top-right'">Top Right</option>
-    <option [ngValue]="'bottom-left'">Bottom Left</option>
-    <option [ngValue]="'bottom-right'">Bottom Right</option>
+  <label class="form-label">Icon Position</label>
+  <select class="form-select" [(ngModel)]="headerConfig.iconPosition" (ngModelChange)="onPropertyChanged()">
+    <option [ngValue]="'left'">Left (Default)</option>
+    <option [ngValue]="'right'">Right</option>
   </select>
-  <small class="form-text text-muted">Used as the initial placement before you drag elements.</small>
 </div>
 <div class="mb-3">
   <label class="form-label">Icon Size (px)</label>

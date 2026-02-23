@@ -117,7 +117,7 @@ export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
   iconSize?: number;
-  titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  iconPosition?: 'left' | 'right';
   /** Title element position/size as % of the header widget bounds (set by the visual editor) */
   titleX?: number;
   titleY?: number;

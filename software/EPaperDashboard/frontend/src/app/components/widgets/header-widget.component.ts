@@ -460,8 +460,8 @@ export class HeaderWidgetComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   // ─── default / auto positions ─────────────────────────────────────────────
-  private defaultTitleX(): number { return (this.cfg.titleAlign ?? 'top-left').includes('right') ? 58 : 0; }
-  private defaultTitleY(): number { return (this.cfg.titleAlign ?? 'top-left').includes('bottom') ? 50 : 0; }
+  private defaultTitleX(): number { return (this.cfg.iconPosition ?? 'left') === 'right' ? 0 : 58; }
+  private defaultTitleY(): number { return 0; }
   private autoX(i: number): number { return (i % 4) * 22; }
   private autoY(i: number): number { return Math.floor(i / 4) * 30; }
 
@@ -485,8 +485,7 @@ export class HeaderWidgetComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   isIconOnLeft(): boolean {
-    const align = this.cfg.titleAlign ?? 'top-left';
-    return align === 'top-left' || align === 'bottom-left';
+    return (this.cfg.iconPosition ?? 'left') === 'left';
   }
 
   // ─── entity helpers ───────────────────────────────────────────────────────

@@ -558,12 +558,12 @@ public sealed class DashboardHtmlRenderingService(
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
 
         var title = GetStringProp(widget.Config, "title") ?? "";
-        var titleAlign = GetStringProp(widget.Config, "titleAlign") ?? "top-left";
+        var iconPosition = GetStringProp(widget.Config, "iconPosition") ?? "left";
         var iconSize = GetIntProp(widget.Config, "iconSize") ?? 32;
-        var isIconOnLeft = titleAlign is "top-left" or "bottom-left";
+        var isIconOnLeft = iconPosition != "right";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"      <div class=\"header-widget align-{Enc(titleAlign)}\" style=\"color:{titleColor}\">");
+        sb.AppendLine($"      <div class=\"header-widget align-{Enc(iconPosition)}\" style=\"color:{titleColor}\">");
 
         // Title section
         sb.AppendLine("        <div class=\"title-section\">");
