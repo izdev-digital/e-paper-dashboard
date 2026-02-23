@@ -118,6 +118,16 @@
                       }
                     </button>
                   }
+
+                  <!-- Delete widget button -->
+                  @if (internalEditingWidgetId() !== selectedWidget()!.id) {
+                    <button class="widget-delete-btn"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="deleteWidget(selectedWidget()!)"
+                      title="Delete widget">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  }
                 </div>
               }
 
