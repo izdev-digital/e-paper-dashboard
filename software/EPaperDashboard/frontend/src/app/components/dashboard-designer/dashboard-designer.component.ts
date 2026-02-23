@@ -164,15 +164,6 @@ export class DashboardDesignerComponent implements OnInit {
     }
   }
 
-  updateWidgetPosition(widget: WidgetConfig, position: Partial<WidgetPosition>): void {
-    this.layout.update(layout => ({
-      ...layout,
-      widgets: layout.widgets.map(w =>
-        w.id === widget.id ? { ...w, position: { ...w.position, ...position } } : w
-      )
-    }));
-  }
-
   onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
     event.preventDefault();
     const layout = this.layout();

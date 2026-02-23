@@ -340,35 +340,6 @@
             @if (selectedWidget()) {
             <h6>{{ selectedWidget()!.type | titlecase }}</h6>
             <hr />
-            <div class="mb-3">
-              <label class="form-label small">Position & Size</label>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label small">X</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.x"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { x: $event })" min="0"
-                    [max]="layout().gridCols - 1" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Y</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.y"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { y: $event })" min="0"
-                    [max]="layout().gridRows - 1" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Width</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.w"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { w: $event })" min="1"
-                    [max]="layout().gridCols" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Height</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.h"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { h: $event })" min="1"
-                    [max]="layout().gridRows" />
-                </div>
-              </div>
-            </div>
             <div class="card mb-3" [class.collapsed-card]="widgetColorOverridesCollapsed()">
               <div class="card-header" role="button" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())" style="cursor: pointer;width:100%">
                 <div class="d-flex justify-content-between align-items-center" style="width:100%">
