@@ -20,7 +20,8 @@ import {
   ColorScheme,
   DEFAULT_COLOR_SCHEMES,
   WidgetPosition,
-  HassEntityState
+  HassEntityState,
+  HeaderConfig,
 } from '../../models/types';
 
 @Component({
@@ -89,6 +90,8 @@ export class DashboardDesignerComponent implements OnInit {
   previewLoading = signal(false);
   previewError = signal('');
   previewImageUrl = signal('');
+  /** ID of the header widget whose internal layout editor is currently active. */
+  internalEditingWidgetId = signal<string | null>(null);
 
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -271,6 +274,15 @@ export class DashboardDesignerComponent implements OnInit {
 
   onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
     event.stopPropagation();
+    // While a header widget is in internal-edit mode, swallow all outer drag/resize
+    // interactions for that specific widget so the inner editor gets full mouse control.
+    if (this.internalEditingWidgetId() === widget.id) {
+      return;
+    }
+    // Selecting any other widget exits internal-edit mode on the previous one.
+    if (this.internalEditingWidgetId() !== null) {
+      this.internalEditingWidgetId.set(null);
+    }
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
     const target = event.target as HTMLElement;
@@ -282,6 +294,23 @@ export class DashboardDesignerComponent implements OnInit {
       }
     }
     this.startDrag(event, widget);
+  }
+
+  toggleInternalEdit(widget: WidgetConfig): void {
+    const current = this.internalEditingWidgetId();
+    this.internalEditingWidgetId.set(current === widget.id ? null : widget.id);
+  }
+
+  onHeaderLayoutChanged(config: HeaderConfig, widgetId: string): void {
+    this.layout.update(l => ({
+      ...l,
+      widgets: l.widgets.map(w =>
+        w.id === widgetId ? { ...w, config: { ...config } } : w
+      ),
+    }));
+    // Also keep the selectedWidget signal in sync so the config panel reflects changes.
+    const updated = this.layout().widgets.find(w => w.id === widgetId);
+    if (updated) this.selectedWidget.set(updated);
   }
 
   private startDrag(event: MouseEvent, widget: WidgetConfig): void {

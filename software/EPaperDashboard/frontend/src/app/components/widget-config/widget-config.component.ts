@@ -270,19 +270,28 @@ export class WidgetConfigComponent implements OnChanges {
     return colorMap[lowerHex] || hex;
   }
 
+  onHeaderConfigChanged(updatedConfig: HeaderConfig): void {
+    // Merge the updated header config (with new positions) back into the widget
+    this.widget = { ...this.widget, config: updatedConfig };
+    this.widgetChanged.emit(this.widget);
+  }
+
   addBadge(): void {
     const config = this.headerConfig;
+    const newBadge = { entityId: undefined, icon: undefined };
     if (config.badges) {
-      config.badges.push({ entityId: undefined, icon: undefined });
+      config.badges.push(newBadge);
     } else {
-      config.badges = [{ entityId: undefined, icon: undefined }];
+      config.badges = [newBadge];
     }
+    this.onPropertyChanged();
   }
 
   removeBadge(index: number): void {
     const config = this.headerConfig;
     if (config.badges) {
       config.badges.splice(index, 1);
+      this.onPropertyChanged();
     }
   }
 }

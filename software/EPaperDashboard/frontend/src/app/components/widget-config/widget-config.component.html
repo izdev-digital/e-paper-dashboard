@@ -30,50 +30,81 @@
 @case ('header') {
 <div class="mb-3">
   <label class="form-label">Title</label>
-  <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title" />
+  <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title"
+    (ngModelChange)="onPropertyChanged()" />
 </div>
 <div class="mb-3">
-  <label class="form-label">Title Position</label>
-  <select class="form-select" [(ngModel)]="headerConfig.titleAlign">
+  <label class="form-label">Title Corner (default position)</label>
+  <select class="form-select" [(ngModel)]="headerConfig.titleAlign" (ngModelChange)="onPropertyChanged()">
     <option [ngValue]="'top-left'">Top Left (Default)</option>
     <option [ngValue]="'top-right'">Top Right</option>
     <option [ngValue]="'bottom-left'">Bottom Left</option>
     <option [ngValue]="'bottom-right'">Bottom Right</option>
   </select>
-  <small class="form-text text-muted">Badges will wrap around the title and fill remaining space.</small>
+  <small class="form-text text-muted">Used as the initial placement before you drag elements.</small>
 </div>
 <div class="mb-3">
   <label class="form-label">Icon Size (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32" />
+  <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
+    (ngModelChange)="onPropertyChanged()" />
 </div>
+
+<!-- Layout editor settings (used when "Edit Layout" mode is active on the canvas) -->
 <div class="mb-3">
-  <label class="form-label">Badges</label>
-  <small class="form-text text-muted d-block mb-2">Badges automatically adjust to widget size. Only visible badges that
-    fit will be shown.</small>
+  <label class="form-label fw-semibold">Layout Editor</label>
+  <div class="d-flex gap-3 align-items-center">
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="showGuides-{{widget.id}}"
+        [(ngModel)]="headerConfig.showGuides"
+        (ngModelChange)="onPropertyChanged()" />
+      <label class="form-check-label" for="showGuides-{{widget.id}}">Smart guides</label>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0 text-nowrap">Snap</label>
+      <select class="form-select form-select-sm w-auto" [(ngModel)]="headerConfig.snapStep"
+        (ngModelChange)="onPropertyChanged()">
+        <option [ngValue]="0">Off</option>
+        <option [ngValue]="1">1%</option>
+        <option [ngValue]="2">2%</option>
+        <option [ngValue]="5">5%</option>
+      </select>
+    </div>
+  </div>
+  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
+</div>
+
+<!-- Badges (content only – positions are set in the visual editor below) -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Badges</label>
+  <small class="form-text text-muted d-block mb-2">
+    Configure badge content here; drag to position them in the layout editor below.
+  </small>
   @if (headerConfig.badges?.length) {
   <div>
     @for (badge of headerConfig.badges; track trackByBadgeLabel($index, badge); let i = $index) {
-    <div class="badge-item mb-2">
-      <div class="d-flex gap-2 align-items-center">
-        <input type="text" class="form-control form-control-sm" placeholder="Icon (e.g., fa-thermometer)"
-          [(ngModel)]="badge.icon" />
-        <select class="form-select form-select-sm" [(ngModel)]="badge.entityId">
-          <option [ngValue]="undefined">No Entity</option>
-          @for (entity of entities(); track trackByEntityId($index, entity)) {
-          <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-          }
-        </select>
-        <button class="btn btn-sm btn-danger" (click)="removeBadge(i)"><i class="fa fa-trash"></i></button>
-      </div>
+    <div class="badge-item mb-2 d-flex gap-2 align-items-center">
+      <input type="text" class="form-control form-control-sm" placeholder="Icon (e.g., fa-thermometer)"
+        [(ngModel)]="badge.icon" (ngModelChange)="onPropertyChanged()" />
+      <select class="form-select form-select-sm" [(ngModel)]="badge.entityId" (ngModelChange)="onPropertyChanged()">
+        <option [ngValue]="undefined">No Entity</option>
+        @for (entity of entities(); track trackByEntityId($index, entity)) {
+        <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+        }
+      </select>
+      <button class="btn btn-sm btn-danger flex-shrink-0" (click)="removeBadge(i)">
+        <i class="fa fa-trash"></i>
+      </button>
     </div>
     }
   </div>
   } @else {
   <div class="text-muted small mb-2">No badges configured.</div>
   }
-  <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()"><i class="fa fa-plus"></i> Add
-    Badge</button>
+  <button class="btn btn-sm btn-outline-primary w-100" (click)="addBadge()">
+    <i class="fa fa-plus"></i> Add Badge
+  </button>
 </div>
+
 }
 
 @case ('markdown') {

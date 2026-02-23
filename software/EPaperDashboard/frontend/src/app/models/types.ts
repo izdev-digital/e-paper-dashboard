@@ -118,11 +118,24 @@ export interface HeaderConfig {
   badges?: BadgeConfig[];
   iconSize?: number;
   titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  /** Title element position/size as % of the header widget bounds (set by the visual editor) */
+  titleX?: number;
+  titleY?: number;
+  titleW?: number;
+  titleH?: number;
+  /** Layout editor settings – stored with the widget so they persist across sessions */
+  snapStep?: number;      // 0 = off, or 1 / 2 / 5 (%)
+  showGuides?: boolean;
 }
 
 export interface BadgeConfig {
   entityId?: string;
   icon?: string;
+  /** Position and size as % of the header widget bounds (set by the visual editor) */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
 }
 
 export interface MarkdownConfig {

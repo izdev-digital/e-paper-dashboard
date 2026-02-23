@@ -79,10 +79,27 @@
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
                     [dashboardId]="dashboardId"
-                    [designerSettings]="layout()"></app-widget-preview>
+                    [designerSettings]="layout()"
+                    [headerInternalEdit]="internalEditingWidgetId() === widget.id"
+                    (headerLayoutChanged)="onHeaderLayoutChanged($event, widget.id)">
+                  </app-widget-preview>
                 </div>
-                <!-- Resize Handles -->
-                @if (selectedWidget()?.id === widget.id) {
+                <!-- Internal-edit toggle button (header widgets only, when selected) -->
+                @if (selectedWidget()?.id === widget.id && widget.type === 'header') {
+                  <button class="header-edit-toggle-btn"
+                    [class.active]="internalEditingWidgetId() === widget.id"
+                    (mousedown)="$event.stopPropagation()"
+                    (click)="toggleInternalEdit(widget)"
+                    [title]="internalEditingWidgetId() === widget.id ? 'Exit layout editing' : 'Edit internal layout'">
+                    @if (internalEditingWidgetId() === widget.id) {
+                      <i class="fa fa-check"></i> Done
+                    } @else {
+                      <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
+                    }
+                  </button>
+                }
+                <!-- Resize Handles (hidden while in internal-edit mode for this widget) -->
+                @if (selectedWidget()?.id === widget.id && internalEditingWidgetId() !== widget.id) {
                 <div class="resize-handle resize-n" data-direction="n"></div>
                 <div class="resize-handle resize-e" data-direction="e"></div>
                 <div class="resize-handle resize-s" data-direction="s"></div>
