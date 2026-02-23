@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme } from '../../models/types';
@@ -26,7 +26,7 @@ export class AppIconWidgetComponent implements OnInit, OnChanges {
 
   inlineSvg: SafeHtml | null = null;
 
-  constructor(private sanitizer: DomSanitizer) { }
+  constructor(private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) { }
 
   ngOnInit(): void {
     this.loadSvg();
@@ -47,6 +47,7 @@ export class AppIconWidgetComponent implements OnInit, OnChanges {
         const accentColor = this.getIconColor();
         svgText = svgText.replace(/--accent-color: #[0-9a-f]{6};/i, `--accent-color: ${accentColor};`);
         this.inlineSvg = this.sanitizer.bypassSecurityTrustHtml(svgText);
+        this.cdr.markForCheck();
       }
     } catch (error) {
       // Silently fail
