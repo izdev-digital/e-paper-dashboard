@@ -118,6 +118,82 @@
   <label class="form-label">Max Events</label>
   <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
 </div>
+<div class="mb-3">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="calShowTitle-{{widget.id}}"
+      [checked]="calendarConfig.showTitle !== false"
+      (change)="calendarConfig.showTitle = !calendarConfig.showTitle; onPropertyChanged()" />
+    <label class="form-check-label" for="calShowTitle-{{widget.id}}">Show Title</label>
+  </div>
+</div>
+
+<!-- Calendar Event Items: toggle visibility and configure icons -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Event Entry Fields</label>
+  <small class="form-text text-muted d-block mb-2">
+    Select which fields to show for each event; drag to position them in the layout editor on the canvas.
+  </small>
+  @for (item of getCalendarEventItems(); track trackByCalendarEventItem($index, item); let i = $index) {
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" [id]="'citem-' + widget.id + '-' + i"
+          [checked]="item.visible !== false"
+          [disabled]="isCalendarItemAlwaysVisible(item)"
+          (change)="toggleCalendarEventItemVisibility(i)" />
+        <label class="form-check-label text-capitalize" [for]="'citem-' + widget.id + '-' + i">
+          {{ getCalendarEventItemLabel(item) }}
+        </label>
+      </div>
+      @if (getDefaultCalendarEventItemIcon(item)) {
+        <input type="text" class="form-control form-control-sm" style="width: 140px;"
+          placeholder="{{ getDefaultCalendarEventItemIcon(item) }}"
+          [(ngModel)]="item.icon"
+          (ngModelChange)="onPropertyChanged()" />
+        <i class="fa {{ item.icon || getDefaultCalendarEventItemIcon(item) }} text-muted"></i>
+      }
+    </div>
+  }
+</div>
+
+<!-- Event list layout -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Event List</label>
+  <div class="d-flex gap-3 align-items-center flex-wrap">
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0 text-nowrap" for="calEventGap-{{widget.id}}">Gap</label>
+      <input type="number" class="form-control form-control-sm" style="width: 70px;"
+        id="calEventGap-{{widget.id}}" min="0" step="1"
+        [(ngModel)]="calendarConfig.eventGap"
+        (ngModelChange)="onPropertyChanged()" placeholder="0" />
+      <span class="text-muted small">px</span>
+    </div>
+  </div>
+  <small class="form-text text-muted">Gap between events. Drag the bottom edge in the layout editor to set event height.</small>
+</div>
+
+<!-- Layout editor settings -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Layout Editor</label>
+  <div class="d-flex gap-3 align-items-center">
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="calShowGuides-{{widget.id}}"
+        [(ngModel)]="calendarConfig.showGuides"
+        (ngModelChange)="onPropertyChanged()" />
+      <label class="form-check-label" for="calShowGuides-{{widget.id}}">Smart guides</label>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0 text-nowrap">Snap</label>
+      <select class="form-select form-select-sm w-auto" [(ngModel)]="calendarConfig.snapStep"
+        (ngModelChange)="onPropertyChanged()">
+        <option [ngValue]="0">Off</option>
+        <option [ngValue]="1">1%</option>
+        <option [ngValue]="2">2%</option>
+        <option [ngValue]="5">5%</option>
+      </select>
+    </div>
+  </div>
+  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
+</div>
 
 }
 

@@ -7,6 +7,9 @@ import {
   HeaderConfig,
   MarkdownConfig,
   CalendarConfig,
+  CalendarEventItemConfig,
+  DEFAULT_CALENDAR_EVENT_ITEMS,
+  defaultCalendarEventItemIcon,
   WeatherConfig,
   WeatherItemConfig,
   DEFAULT_WEATHER_ITEMS,
@@ -331,5 +334,43 @@ export class WidgetConfigComponent implements OnChanges {
 
   getDefaultWeatherItemIcon(item: WeatherItemConfig): string {
     return defaultWeatherItemIcon(item.type, item.attributeKey);
+  }
+
+  // ─── Calendar event item helpers ──────────────────────────────────────────
+
+  getCalendarEventItems(): CalendarEventItemConfig[] {
+    const cfg = this.calendarConfig;
+    if (!cfg.items || cfg.items.length === 0) {
+      cfg.items = [...DEFAULT_CALENDAR_EVENT_ITEMS];
+    }
+    return cfg.items;
+  }
+
+  trackByCalendarEventItem(index: number, item: CalendarEventItemConfig): string {
+    return item.type;
+  }
+
+  toggleCalendarEventItemVisibility(index: number): void {
+    const items = this.getCalendarEventItems();
+    items[index] = { ...items[index], visible: items[index].visible === false };
+    this.onPropertyChanged();
+  }
+
+  isCalendarItemAlwaysVisible(item: CalendarEventItemConfig): boolean {
+    return item.type === 'datetime' || item.type === 'title';
+  }
+
+  getCalendarEventItemLabel(item: CalendarEventItemConfig): string {
+    switch (item.type) {
+      case 'datetime':    return 'Date / Time';
+      case 'title':       return 'Event Title';
+      case 'location':    return 'Location';
+      case 'description': return 'Description';
+      default: return item.type;
+    }
+  }
+
+  getDefaultCalendarEventItemIcon(item: CalendarEventItemConfig): string {
+    return defaultCalendarEventItemIcon(item.type);
   }
 }

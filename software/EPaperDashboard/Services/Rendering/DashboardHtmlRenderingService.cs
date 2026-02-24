@@ -654,6 +654,10 @@ public sealed class DashboardHtmlRenderingService(
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var maxEvents = GetIntProp(widget.Config, "maxEvents") ?? 7;
+        var showTitle = GetBoolProp(widget.Config, "showTitle") ?? true;
+        var eventGap = GetIntProp(widget.Config, "eventGap") ?? 0;
+        var eventHeight = GetIntProp(widget.Config, "eventHeight");
+        var visibleItems = GetCalendarEventItems(widget.Config);
 
         var cssVars = $"--headerFontSize:{headerFontSize}px;--eventFontSize:{eventFontSize}px;" +
                       $"--iconColor:{iconColor};--titleColor:{titleColor};--textColor:{textColor}";
@@ -666,7 +670,8 @@ public sealed class DashboardHtmlRenderingService(
             && events.Count > 0)
         {
             sb.AppendLine("        <div class=\"calendar-content\">");
-            sb.AppendLine("          <h4>Events</h4>");
+            if (showTitle)
+                sb.AppendLine($"          <h4>{Enc(widget.TitleOverride ?? "Events")}</h4>");
 
             var now = DateTimeOffset.UtcNow;
             var upcoming = events
@@ -682,13 +687,45 @@ public sealed class DashboardHtmlRenderingService(
 
             if (upcoming.Count > 0)
             {
+                var gapStyle = eventGap > 0 ? $"gap:{eventGap}px" : "";
+                sb.AppendLine($"          <div class=\"calendar-events\" style=\"{gapStyle}\">");
                 foreach (var ev in upcoming)
                 {
-                    sb.AppendLine("          <div class=\"calendar-event\">");
-                    sb.AppendLine($"            <div class=\"event-datetime\"><i class=\"fa fa-clock\"></i><span>{Enc(FormatEventDate(ev.Start))}</span></div>");
-                    sb.AppendLine($"            <div class=\"event-title\">{Enc(ev.Summary ?? ev.Description ?? "-")}</div>");
-                    sb.AppendLine("          </div>");
+                    var evStyle = eventHeight.HasValue ? $"height:{eventHeight.Value}px;flex:0 0 auto" : "";
+                    sb.AppendLine($"            <div class=\"calendar-event\" style=\"{evStyle}\">");
+                    foreach (var item in visibleItems)
+                    {
+                        var itemIcon = item.Icon ?? GetDefaultCalendarEventItemIcon(item.Type);
+                        var posStyle = $"left:{item.X.ToString(CultureInfo.InvariantCulture)}%;top:{item.Y.ToString(CultureInfo.InvariantCulture)}%;width:{item.W.ToString(CultureInfo.InvariantCulture)}%;height:{item.H.ToString(CultureInfo.InvariantCulture)}%";
+                        switch (item.Type)
+                        {
+                            case "datetime":
+                                var dtIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{dtIcon}<span class=\"cw-text\">{Enc(FormatEventDate(ev.Start))}</span></span></div>");
+                                break;
+                            case "title":
+                                var titleIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{titleIcon}<span class=\"cw-text\">{Enc(ev.Summary ?? ev.Description ?? "-")}</span></span></div>");
+                                break;
+                            case "location":
+                                if (!string.IsNullOrEmpty(ev.Location))
+                                {
+                                    var locIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                    sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{locIcon}<span class=\"cw-text\">{Enc(ev.Location)}</span></span></div>");
+                                }
+                                break;
+                            case "description":
+                                if (!string.IsNullOrEmpty(ev.Description))
+                                {
+                                    var descIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                    sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{descIcon}<span class=\"cw-text\">{Enc(ev.Description)}</span></span></div>");
+                                }
+                                break;
+                        }
+                    }
+                    sb.AppendLine("            </div>");
                 }
+                sb.AppendLine("          </div>");
             }
             else
             {
@@ -704,6 +741,49 @@ public sealed class DashboardHtmlRenderingService(
         sb.AppendLine("      </div>");
         return sb.ToString();
     }
+
+    private record CalendarEventItemEntry(string Type, bool Visible, string? Icon, double X, double Y, double W, double H);
+
+    private List<CalendarEventItemEntry> GetCalendarEventItems(JsonElement config)
+    {
+        var defaults = new List<CalendarEventItemEntry>
+        {
+            new("datetime", true, "fa-clock", 0, 0, 100, 50),
+            new("title", true, null, 0, 50, 100, 50),
+            new("location", false, "fa-location-dot", 0, 50, 100, 25),
+            new("description", false, "fa-align-left", 0, 75, 100, 25),
+        };
+
+        if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+        {
+            var result = new List<CalendarEventItemEntry>();
+            foreach (var el in itemsEl.EnumerateArray())
+            {
+                var type = el.TryGetProperty("type", out var tProp) ? tProp.GetString() ?? "" : "";
+                var visible = !el.TryGetProperty("visible", out var vProp) || vProp.ValueKind != JsonValueKind.False;
+                var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
+                var def = defaults.FirstOrDefault(d => d.Type == type) ?? defaults[0];
+                var x = el.TryGetProperty("x", out var xP) && xP.TryGetDouble(out var xv) ? xv : def.X;
+                var y = el.TryGetProperty("y", out var yP) && yP.TryGetDouble(out var yv) ? yv : def.Y;
+                var w = el.TryGetProperty("w", out var wP) && wP.TryGetDouble(out var wv) ? wv : def.W;
+                var h = el.TryGetProperty("h", out var hP) && hP.TryGetDouble(out var hv) ? hv : def.H;
+                if (visible)
+                    result.Add(new CalendarEventItemEntry(type, visible, icon, x, y, w, h));
+            }
+            return result;
+        }
+
+        return defaults.Where(d => d.Visible).ToList();
+    }
+
+    private static string GetDefaultCalendarEventItemIcon(string type) => type switch
+    {
+        "datetime" => "fa-clock",
+        "title" => "fa-heading",
+        "location" => "fa-location-dot",
+        "description" => "fa-align-left",
+        _ => ""
+    };
 
     // ==================== WEATHER ====================
 

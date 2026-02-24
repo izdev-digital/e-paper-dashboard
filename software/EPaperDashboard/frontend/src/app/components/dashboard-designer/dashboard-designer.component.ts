@@ -23,7 +23,9 @@ import {
   HassEntityState,
   HeaderConfig,
   WeatherConfig,
+  CalendarConfig,
   DEFAULT_WEATHER_ITEMS,
+  DEFAULT_CALENDAR_EVENT_ITEMS,
 } from '../../models/types';
 
 @Component({
@@ -308,6 +310,17 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
+    this.layout.update(l => ({
+      ...l,
+      widgets: l.widgets.map(w =>
+        w.id === widgetId ? { ...w, config: { ...config } } : w
+      ),
+    }));
+    const updated = this.layout().widgets.find(w => w.id === widgetId);
+    if (updated) this.selectedWidget.set(updated);
+  }
+
+  onCalendarLayoutChanged(config: CalendarConfig, widgetId: string): void {
     this.layout.update(l => ({
       ...l,
       widgets: l.widgets.map(w =>
@@ -1149,7 +1162,7 @@ export class DashboardDesignerComponent implements OnInit {
       case 'markdown':
         return { content: '# Markdown Content' };
       case 'calendar':
-        return { entityId: '', maxEvents: 7 };
+        return { entityId: '', maxEvents: 7, items: [...DEFAULT_CALENDAR_EVENT_ITEMS] };
       case 'weather':
         return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
       case 'weather-forecast':

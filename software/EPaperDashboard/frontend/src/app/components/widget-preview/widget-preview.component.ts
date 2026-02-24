@@ -75,7 +75,10 @@ import {
         <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId" [designerSettings]="designerSettings"></app-widget-todo>
       }
       @if (widget.type === 'calendar') {
-        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId" [designerSettings]="designerSettings"></app-widget-calendar>
+        <app-widget-calendar [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [calendarEventsByEntityId]="calendarEventsByEntityId" [designerSettings]="designerSettings"
+          [internalEdit]="calendarInternalEdit"
+          (internalLayoutChanged)="calendarLayoutChanged.emit($event)">
+        </app-widget-calendar>
       }
       @if (widget.type === 'version') {
         <app-widget-version [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-version>
@@ -101,6 +104,9 @@ export class WidgetPreviewComponent {
   /** When true, the weather widget will show its internal layout editor overlay. */
   @Input() weatherInternalEdit = false;
   @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
+  /** When true, the calendar widget will show its internal layout editor overlay. */
+  @Input() calendarInternalEdit = false;
+  @Output() calendarLayoutChanged = new EventEmitter<CalendarConfig>();
 
   asHeaderConfig(config: any): HeaderConfig {
     return config as HeaderConfig;
