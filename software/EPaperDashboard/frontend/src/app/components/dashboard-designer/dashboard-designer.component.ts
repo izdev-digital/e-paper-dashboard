@@ -22,6 +22,8 @@ import {
   WidgetPosition,
   HassEntityState,
   HeaderConfig,
+  WeatherConfig,
+  DEFAULT_WEATHER_ITEMS,
 } from '../../models/types';
 
 @Component({
@@ -91,7 +93,7 @@ export class DashboardDesignerComponent implements OnInit {
   previewLoading = signal(false);
   previewError = signal('');
   previewImageUrl = signal('');
-  /** ID of the header widget whose internal layout editor is currently active. */
+  /** ID of the widget whose internal layout editor is currently active (header or weather). */
   internalEditingWidgetId = signal<string | null>(null);
 
   // Tab navigation
@@ -301,6 +303,17 @@ export class DashboardDesignerComponent implements OnInit {
       ),
     }));
     // Also keep the selectedWidget signal in sync so the config panel reflects changes.
+    const updated = this.layout().widgets.find(w => w.id === widgetId);
+    if (updated) this.selectedWidget.set(updated);
+  }
+
+  onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
+    this.layout.update(l => ({
+      ...l,
+      widgets: l.widgets.map(w =>
+        w.id === widgetId ? { ...w, config: { ...config } } : w
+      ),
+    }));
     const updated = this.layout().widgets.find(w => w.id === widgetId);
     if (updated) this.selectedWidget.set(updated);
   }
@@ -1138,7 +1151,7 @@ export class DashboardDesignerComponent implements OnInit {
       case 'calendar':
         return { entityId: '', maxEvents: 7 };
       case 'weather':
-        return { entityId: '' };
+        return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
       case 'weather-forecast':
         return { 
           entityId: '', 

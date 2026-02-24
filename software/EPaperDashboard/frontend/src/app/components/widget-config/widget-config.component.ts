@@ -8,6 +8,9 @@ import {
   MarkdownConfig,
   CalendarConfig,
   WeatherConfig,
+  WeatherItemConfig,
+  DEFAULT_WEATHER_ITEMS,
+  defaultWeatherItemIcon,
   WeatherForecastConfig,
   GraphConfig,
   TodoConfig,
@@ -293,5 +296,40 @@ export class WidgetConfigComponent implements OnChanges {
       config.badges.splice(index, 1);
       this.onPropertyChanged();
     }
+  }
+
+  // ─── Weather item helpers ─────────────────────────────────────────────────
+
+  getWeatherItems(): WeatherItemConfig[] {
+    const cfg = this.weatherConfig;
+    if (!cfg.items || cfg.items.length === 0) {
+      cfg.items = [...DEFAULT_WEATHER_ITEMS];
+    }
+    return cfg.items;
+  }
+
+  trackByWeatherItem(index: number, item: WeatherItemConfig): string {
+    return item.type + '-' + (item.attributeKey ?? index);
+  }
+
+  toggleWeatherItemVisibility(index: number): void {
+    const items = this.getWeatherItems();
+    items[index] = { ...items[index], visible: items[index].visible === false };
+    this.onPropertyChanged();
+  }
+
+  getWeatherItemLabel(item: WeatherItemConfig): string {
+    switch (item.type) {
+      case 'title': return 'Title';
+      case 'temperature': return 'Temperature';
+      case 'condition': return 'Condition';
+      case 'pressure': return 'Pressure';
+      case 'attribute': return item.label || item.attributeKey || 'Attribute';
+      default: return item.type;
+    }
+  }
+
+  getDefaultWeatherItemIcon(item: WeatherItemConfig): string {
+    return defaultWeatherItemIcon(item.type, item.attributeKey);
   }
 }

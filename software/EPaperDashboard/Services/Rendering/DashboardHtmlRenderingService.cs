@@ -66,7 +66,8 @@ public sealed class DashboardHtmlRenderingService(
         string Type,
         WidgetPositionConfig Position,
         JsonElement Config,
-        WidgetColorOverridesConfig? ColorOverrides);
+        WidgetColorOverridesConfig? ColorOverrides,
+        string? TitleOverride = null);
 
     // Aggregated HA data for rendering
     public class SsrData
@@ -220,7 +221,8 @@ public sealed class DashboardHtmlRenderingService(
                     Type: typeEl.GetString() ?? "",
                     Position: position,
                     Config: configEl.Clone(),
-                    ColorOverrides: overrides
+                    ColorOverrides: overrides,
+                    TitleOverride: w.TryGetProperty("titleOverride", out var toEl) ? toEl.GetString() : null
                 ));
                 _logger.LogInformation("SSR: Successfully parsed widget {Index}: type={Type}, id={Id}, pos=({X},{Y},{W},{H})",
                     widgetIndex, typeEl.GetString(), idEl.GetString(), position.X, position.Y, position.W, position.H);
@@ -712,86 +714,75 @@ public sealed class DashboardHtmlRenderingService(
         var iconColor = ResolveColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
+        var titleFontWeight = 700;
+        var textFontWeight = 400;
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
-        var w = widget.Position.W;
-        var h = widget.Position.H;
-        var isMinimal = w == 1 && h == 1;
-        var isHorizontal = w >= 2 && h < 2;
-        var isVerticalCompact = w < 2;
-        var isCompact = isVerticalCompact || isHorizontal;
 
         var cssVars = $"--titleFontSize:{titleFontSize}px;--textFontSize:{textFontSize}px;" +
                       $"--titleColor:{titleColor};--textColor:{textColor};--iconColor:{iconColor}";
 
-        var classes = "weather-widget";
-        if (isCompact) classes += " compact";
-        if (isHorizontal) classes += " horizontal";
-        if (isVerticalCompact) classes += " vertical-compact";
-
         var sb = new StringBuilder();
-        sb.AppendLine($"      <div class=\"{classes}\" style=\"{cssVars};color:{textColor}\">");
+        sb.AppendLine($"      <div class=\"weather-widget\" style=\"{cssVars};color:{textColor};position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden\">");
 
         if (!string.IsNullOrEmpty(entityId) && data.EntityStates.TryGetValue(entityId, out var es))
         {
             var temperature = GetEntityAttr(es, "temperature");
             if (!string.IsNullOrEmpty(temperature))
             {
-                var humidity = GetEntityAttr(es, "humidity");
-                var windSpeed = GetEntityAttr(es, "wind_speed");
                 var condition = es.State;
+                var pressure = GetEntityAttr(es, "pressure");
+                var titleOverride = widget.TitleOverride;
 
-                if (isMinimal)
+                // Parse items from config, fall back to defaults
+                var items = GetWeatherItems(widget.Config);
+
+                foreach (var item in items)
                 {
-                    sb.AppendLine("        <div class=\"weather-content minimal\">");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    sb.AppendLine("        </div>");
-                }
-                else if (isHorizontal)
-                {
-                    sb.AppendLine("        <div class=\"weather-content horizontal\">");
-                    sb.AppendLine($"          <div class=\"weather-condition\">{Enc(condition)}</div>");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    if (!string.IsNullOrEmpty(humidity) || !string.IsNullOrEmpty(windSpeed))
+                    var visible = item.Visible;
+                    if (!visible) continue;
+
+                    var posStyle = $"position:absolute;left:{item.X}%;top:{item.Y}%;width:{item.W}%;height:{item.H}%;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;gap:4px;padding:0 4px";
+
+                    switch (item.Type)
                     {
-                        sb.AppendLine("          <div class=\"weather-attributes-horizontal\">");
-                        if (!string.IsNullOrEmpty(humidity))
-                            sb.AppendLine($"            <div class=\"weather-attribute-horizontal\" title=\"Humidity\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                        if (!string.IsNullOrEmpty(windSpeed))
-                            sb.AppendLine($"            <div class=\"weather-attribute-horizontal\" title=\"Wind Speed\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                        sb.AppendLine("          </div>");
-                    }
-                    sb.AppendLine("        </div>");
-                }
-                else
-                {
-                    sb.AppendLine("        <div class=\"weather-content\">");
-                    if (!isVerticalCompact)
-                        sb.AppendLine("          <h4 class=\"weather-title\">Weather</h4>");
-                    sb.AppendLine($"          <div class=\"weather-condition\">{Enc(condition)}</div>");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    if (!string.IsNullOrEmpty(humidity) || !string.IsNullOrEmpty(windSpeed))
-                    {
-                        if (!isVerticalCompact)
+                        case "title":
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{titleFontSize}px;font-weight:{titleFontWeight};color:{titleColor};white-space:nowrap;text-overflow:ellipsis\">{Enc(titleOverride ?? "Weather")}</div>");
+                            break;
+                        case "temperature":
                         {
-                            sb.AppendLine("          <div class=\"weather-attributes\">");
-                            if (!string.IsNullOrEmpty(humidity))
-                                sb.AppendLine($"            <div class=\"weather-attribute\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                            if (!string.IsNullOrEmpty(windSpeed))
-                                sb.AppendLine($"            <div class=\"weather-attribute\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                            sb.AppendLine("          </div>");
+                            var tempIcon = item.Icon ?? "fa-temperature-half";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {tempIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(temperature)}°</div>");
+                            break;
                         }
-                        else
+                        case "condition":
                         {
-                            sb.AppendLine("          <div class=\"weather-attributes-compact\">");
-                            if (!string.IsNullOrEmpty(humidity))
-                                sb.AppendLine($"            <div class=\"weather-attribute-compact\" title=\"Humidity\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                            if (!string.IsNullOrEmpty(windSpeed))
-                                sb.AppendLine($"            <div class=\"weather-attribute-compact\" title=\"Wind Speed\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                            sb.AppendLine("          </div>");
+                            var condIcon = item.Icon ?? "fa-cloud-sun";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {condIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(condition)}</div>");
+                            break;
+                        }
+                        case "pressure":
+                        {
+                            var pressureVal = pressure ?? "";
+                            var pressIcon = item.Icon ?? "fa-gauge";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {pressIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(pressureVal)}</div>");
+                            break;
+                        }
+                        case "attribute":
+                        {
+                            var attrKey = item.AttributeKey ?? "humidity";
+                            var attrVal = GetEntityAttr(es, attrKey) ?? "";
+                            var attrIcon = item.Icon ?? attrKey switch
+                            {
+                                "humidity" => "fa-droplet",
+                                "wind_speed" => "fa-wind",
+                                _ => "fa-circle-info"
+                            };
+                            var suffix = attrKey == "humidity" ? "%" : "";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {attrIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(attrVal)}{suffix}</div>");
+                            break;
                         }
                     }
-                    sb.AppendLine("        </div>");
                 }
             }
             else
@@ -806,6 +797,41 @@ public sealed class DashboardHtmlRenderingService(
 
         sb.AppendLine("      </div>");
         return sb.ToString();
+    }
+
+    private record WeatherItemEntry(string Type, bool Visible, double X, double Y, double W, double H, string? AttributeKey, string? Label, string? Icon);
+
+    private List<WeatherItemEntry> GetWeatherItems(JsonElement config)
+    {
+        var defaults = new List<WeatherItemEntry>
+        {
+            new("title", true, 0, 0, 100, 20, null, null, null),
+            new("temperature", true, 0, 22, 50, 20, null, null, "fa-temperature-half"),
+            new("condition", true, 50, 22, 50, 20, null, null, "fa-cloud-sun"),
+            new("pressure", true, 0, 44, 50, 20, null, null, "fa-gauge"),
+            new("attribute", true, 50, 44, 50, 20, "humidity", "Humidity", "fa-droplet"),
+        };
+
+        if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+        {
+            var result = new List<WeatherItemEntry>();
+            foreach (var el in itemsEl.EnumerateArray())
+            {
+                var type = el.TryGetProperty("type", out var tProp) ? tProp.GetString() ?? "" : "";
+                var visible = !el.TryGetProperty("visible", out var vProp) || vProp.ValueKind != JsonValueKind.False;
+                var x = el.TryGetProperty("x", out var xProp) ? xProp.GetDouble() : 0;
+                var y = el.TryGetProperty("y", out var yProp) ? yProp.GetDouble() : 0;
+                var w = el.TryGetProperty("w", out var wProp) ? wProp.GetDouble() : 100;
+                var h = el.TryGetProperty("h", out var hProp) ? hProp.GetDouble() : 20;
+                var attrKey = el.TryGetProperty("attributeKey", out var akProp) ? akProp.GetString() : null;
+                var label = el.TryGetProperty("label", out var lProp) ? lProp.GetString() : null;
+                var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
+                result.Add(new WeatherItemEntry(type, visible, x, y, w, h, attrKey, label, icon));
+            }
+            return result;
+        }
+
+        return defaults;
     }
 
     // ==================== WEATHER FORECAST ====================

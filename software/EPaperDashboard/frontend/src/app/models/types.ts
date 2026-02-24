@@ -155,8 +155,59 @@ export interface WeatherForecastConfig {
   maxItems?: number; // Max forecast items to display (auto if not specified)
 }
 
+export type WeatherItemType = 'title' | 'temperature' | 'condition' | 'pressure' | 'attribute';
+
+export interface WeatherItemConfig {
+  type: WeatherItemType;
+  visible?: boolean;
+  /** Font Awesome icon class (e.g. 'fa-temperature-half'). Each item type has a default. */
+  icon?: string;
+  /** For 'attribute' type – which HA attribute key to display (e.g. 'humidity', 'wind_speed') */
+  attributeKey?: string;
+  /** Optional display label (e.g. "Humidity") */
+  label?: string;
+  /** Position and size as % of the weather widget bounds (set by the visual editor) */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+/** Default icon for each weather item type */
+export function defaultWeatherItemIcon(type: WeatherItemType, attributeKey?: string): string {
+  switch (type) {
+    case 'temperature': return 'fa-temperature-half';
+    case 'condition':   return 'fa-cloud-sun';
+    case 'pressure':    return 'fa-gauge';
+    case 'attribute':
+      switch (attributeKey) {
+        case 'humidity':       return 'fa-droplet';
+        case 'wind_speed':     return 'fa-wind';
+        case 'wind_bearing':   return 'fa-compass';
+        case 'visibility':     return 'fa-eye';
+        case 'dew_point':      return 'fa-temperature-low';
+        case 'cloud_coverage': return 'fa-cloud';
+        case 'uv_index':       return 'fa-sun';
+        default:               return 'fa-circle-info';
+      }
+    default: return '';
+  }
+}
+
+export const DEFAULT_WEATHER_ITEMS: WeatherItemConfig[] = [
+  { type: 'title',       visible: true, x: 0,  y: 0,  w: 100, h: 20 },
+  { type: 'temperature', visible: true, x: 0,  y: 22, w: 50,  h: 20, icon: 'fa-temperature-half' },
+  { type: 'condition',   visible: true, x: 50, y: 22, w: 50,  h: 20, icon: 'fa-cloud-sun' },
+  { type: 'pressure',    visible: true, x: 0,  y: 44, w: 50,  h: 20, icon: 'fa-gauge' },
+  { type: 'attribute',   visible: true, x: 50, y: 44, w: 50,  h: 20, attributeKey: 'humidity', label: 'Humidity', icon: 'fa-droplet' },
+];
+
 export interface WeatherConfig {
   entityId: string;
+  items?: WeatherItemConfig[];
+  /** Layout editor settings – stored with the widget so they persist across sessions */
+  snapStep?: number;      // 0 = off, or 1 / 2 / 5 (%)
+  showGuides?: boolean;
 }
 
 export interface GraphSeriesConfig {

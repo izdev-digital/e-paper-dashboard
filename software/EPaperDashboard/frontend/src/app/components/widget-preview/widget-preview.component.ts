@@ -22,7 +22,7 @@ import {
   GraphConfig,
   TodoConfig,
   HassEntityState,
-  DashboardLayout
+  DashboardLayout,
 } from '../../models/types';
 
 @Component({
@@ -60,7 +60,10 @@ import {
         <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-markdown>
       }
       @if (widget.type === 'weather') {
-        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-weather>
+        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
+          [internalEdit]="weatherInternalEdit"
+          (internalLayoutChanged)="weatherLayoutChanged.emit($event)">
+        </app-widget-weather>
       }
       @if (widget.type === 'weather-forecast') {
         <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-weather-forecast>
@@ -95,6 +98,9 @@ export class WidgetPreviewComponent {
   /** When true, the header widget will show its internal layout editor overlay. */
   @Input() headerInternalEdit = false;
   @Output() headerLayoutChanged = new EventEmitter<HeaderConfig>();
+  /** When true, the weather widget will show its internal layout editor overlay. */
+  @Input() weatherInternalEdit = false;
+  @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
 
   asHeaderConfig(config: any): HeaderConfig {
     return config as HeaderConfig;
