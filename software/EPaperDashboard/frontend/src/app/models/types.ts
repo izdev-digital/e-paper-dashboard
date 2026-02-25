@@ -268,6 +268,7 @@ export interface GraphConfig {
 export interface TodoConfig {
   entityId: string;
   showCompleted?: boolean;
+  maxItems?: number;
 }
 
 export interface RssFeedConfig {

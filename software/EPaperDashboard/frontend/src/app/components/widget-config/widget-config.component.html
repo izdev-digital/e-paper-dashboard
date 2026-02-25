@@ -387,6 +387,12 @@
     </label>
   </div>
 </div>
+<div class="mb-3">
+  <label class="form-label">Max Items</label>
+  <input type="number" class="form-control" [(ngModel)]="todoConfig.maxItems" min="1" max="50"
+    (ngModelChange)="onPropertyChanged()" placeholder="Auto" />
+  <small class="form-text text-muted">Leave empty to show as many as fit in the widget</small>
+</div>
 }
 
 @case ('rss-feed') {

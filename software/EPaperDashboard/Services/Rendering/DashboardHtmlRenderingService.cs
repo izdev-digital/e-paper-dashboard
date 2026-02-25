@@ -1060,7 +1060,7 @@ public sealed class DashboardHtmlRenderingService(
                 if (widget.ShowTitle)
                     sb.AppendLine($"          <h4>{Enc(widget.TitleOverride ?? friendlyName)}</h4>");
 
-                var maxShow = Math.Max(1, w * Math.Max(1, h * 2));
+                var maxShow = GetIntProp(widget.Config, "maxItems") ?? 50;
                 var limited = mapped.Take(maxShow).ToList();
 
                 if (limited.Count > 0)
