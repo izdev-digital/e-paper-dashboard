@@ -89,6 +89,7 @@ export class DashboardDesignerComponent implements OnInit {
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
+  toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
   widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
   showPreviewModal = signal(false);

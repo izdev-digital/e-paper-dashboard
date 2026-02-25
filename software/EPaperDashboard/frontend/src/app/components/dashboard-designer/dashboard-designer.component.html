@@ -1,7 +1,7 @@
-<div class="container-fluid py-4">
+<div class="container-fluid py-2">
   <div class="row">
     <div class="col-12">
-      <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-3">
           <button class="btn btn-secondary" (click)="goBack()">
             <i class="fa fa-arrow-left"></i> Back
@@ -32,20 +32,29 @@
   }
 
   @if (!isLoading()) {
-  <div class="designer-grid-container">
+  <div class="designer-grid-container" [class.toolbox-collapsed]="toolboxCollapsed()">
     <!-- Left Panel - Widget Toolbar -->
     <div class="designer-panel-left">
       <div class="card">
-        <div class="card-header">
-          <h5>Widgets</h5>
+        <div class="card-header d-flex align-items-center" [class.justify-content-between]="!toolboxCollapsed()" [class.justify-content-center]="toolboxCollapsed()">
+          @if (!toolboxCollapsed()) {
+            <h5 class="mb-0">Widgets</h5>
+          }
+          <button class="toolbox-collapse-btn" (click)="toolboxCollapsed.set(!toolboxCollapsed())"
+            [title]="toolboxCollapsed() ? 'Expand widget toolbox' : 'Collapse widget toolbox'">
+            <i class="fa fa-bars"></i>
+          </button>
         </div>
         <div class="card-body p-2">
           <div class="widget-list">
             @for (widget of availableWidgets; track widget.type) {
-            <div class="widget-item toolbox-drag-item" (mousedown)="onToolboxWidgetMouseDown($event, widget)"
-              tabindex="0" title="Drag to canvas">
+            <div class="widget-item toolbox-drag-item" [class.icon-only]="toolboxCollapsed()"
+              (mousedown)="onToolboxWidgetMouseDown($event, widget)"
+              tabindex="0" [title]="toolboxCollapsed() ? widget.label : 'Drag to canvas'">
               <i class="fa {{ widget.icon }}"></i>
-              <span>{{ widget.label }}</span>
+              @if (!toolboxCollapsed()) {
+                <span>{{ widget.label }}</span>
+              }
             </div>
             }
           </div>
