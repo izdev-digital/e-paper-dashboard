@@ -72,28 +72,82 @@
               <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
-                [class.selected]="selectedWidget()?.id === widget.id" (mousedown)="onWidgetMouseDown($event, widget)">
-                <!-- Widget header removed: no name, no delete button -->
+                (mousedown)="onWidgetMouseDown($event, widget)">
                 <div class="widget-content">
                   <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
                     [dashboardId]="dashboardId"
-                    [designerSettings]="layout()"></app-widget-preview>
+                    [designerSettings]="layout()"
+                    [headerInternalEdit]="internalEditingWidgetId() === widget.id"
+                    (headerLayoutChanged)="onHeaderLayoutChanged($event, widget.id)"
+                    [weatherInternalEdit]="internalEditingWidgetId() === widget.id"
+                    (weatherLayoutChanged)="onWeatherLayoutChanged($event, widget.id)">
+                  </app-widget-preview>
                 </div>
-                <!-- Resize Handles -->
-                @if (selectedWidget()?.id === widget.id) {
-                <div class="resize-handle resize-n" data-direction="n"></div>
-                <div class="resize-handle resize-e" data-direction="e"></div>
-                <div class="resize-handle resize-s" data-direction="s"></div>
-                <div class="resize-handle resize-w" data-direction="w"></div>
-                <div class="resize-handle resize-nw" data-direction="nw"></div>
-                <div class="resize-handle resize-ne" data-direction="ne"></div>
-                <div class="resize-handle resize-sw" data-direction="sw"></div>
-                <div class="resize-handle resize-se" data-direction="se"></div>
-                }
               </div>
               }
+
+              <!-- Selection overlay: lives on the canvas, never inside a grid cell -->
+              @if (selectedWidget()) {
+                <div class="sel-overlay"
+                     [ngStyle]="getSelectionOverlayStyle()"
+                     (mousedown)="onWidgetMouseDown($event, selectedWidget()!)">
+
+                  <!-- Resize handles – hidden in internal-layout-edit mode -->
+                  @if (internalEditingWidgetId() !== selectedWidget()!.id) {
+                    <div class="resize-handle resize-n" data-direction="n"></div>
+                    <div class="resize-handle resize-e" data-direction="e"></div>
+                    <div class="resize-handle resize-s" data-direction="s"></div>
+                    <div class="resize-handle resize-w" data-direction="w"></div>
+                    <div class="resize-handle resize-nw" data-direction="nw"></div>
+                    <div class="resize-handle resize-ne" data-direction="ne"></div>
+                    <div class="resize-handle resize-sw" data-direction="sw"></div>
+                    <div class="resize-handle resize-se" data-direction="se"></div>
+                  }
+
+                  <!-- Header-edit toggle (header widgets only) -->
+                  @if (selectedWidget()!.type === 'header') {
+                    <button class="header-edit-toggle-btn"
+                      [class.active]="internalEditingWidgetId() === selectedWidget()!.id"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="toggleInternalEdit(selectedWidget()!)"
+                      [title]="internalEditingWidgetId() === selectedWidget()!.id ? 'Exit layout editing' : 'Edit internal layout'">
+                      @if (internalEditingWidgetId() === selectedWidget()!.id) {
+                        <i class="fa fa-check"></i> Done
+                      } @else {
+                        <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
+                      }
+                    </button>
+                  }
+
+                  <!-- Weather-edit toggle (weather widgets only) -->
+                  @if (selectedWidget()!.type === 'weather') {
+                    <button class="header-edit-toggle-btn"
+                      [class.active]="internalEditingWidgetId() === selectedWidget()!.id"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="toggleInternalEdit(selectedWidget()!)"
+                      [title]="internalEditingWidgetId() === selectedWidget()!.id ? 'Exit layout editing' : 'Edit internal layout'">
+                      @if (internalEditingWidgetId() === selectedWidget()!.id) {
+                        <i class="fa fa-check"></i> Done
+                      } @else {
+                        <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
+                      }
+                    </button>
+                  }
+
+                  <!-- Delete widget button -->
+                  @if (internalEditingWidgetId() !== selectedWidget()!.id) {
+                    <button class="widget-delete-btn"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="deleteWidget(selectedWidget()!)"
+                      title="Delete widget">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  }
+                </div>
+              }
+
               @if (ghost()) {
               <div class="widget-ghost" [ngStyle]="getGhostStyle(ghost()!)"></div>
               }
@@ -256,6 +310,11 @@
                   <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetBorder"
                     (ngModelChange)="updateWidgetBorder($event)" min="0" max="20" />
                 </div>
+                <div class="mb-2">
+                  <label class="form-label small">Widget Padding (px)</label>
+                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetPadding"
+                    (ngModelChange)="updateWidgetPadding($event)" min="0" max="32" />
+                </div>
               </div>
             </div>
             <div class="card">
@@ -313,35 +372,6 @@
             @if (selectedWidget()) {
             <h6>{{ selectedWidget()!.type | titlecase }}</h6>
             <hr />
-            <div class="mb-3">
-              <label class="form-label small">Position & Size</label>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label small">X</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.x"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { x: $event })" min="0"
-                    [max]="layout().gridCols - 1" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Y</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.y"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { y: $event })" min="0"
-                    [max]="layout().gridRows - 1" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Width</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.w"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { w: $event })" min="1"
-                    [max]="layout().gridCols" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label small">Height</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="selectedWidget()!.position.h"
-                    (ngModelChange)="updateWidgetPosition(selectedWidget()!, { h: $event })" min="1"
-                    [max]="layout().gridRows" />
-                </div>
-              </div>
-            </div>
             <div class="card mb-3" [class.collapsed-card]="widgetColorOverridesCollapsed()">
               <div class="card-header" role="button" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())" style="cursor: pointer;width:100%">
                 <div class="d-flex justify-content-between align-items-center" style="width:100%">
@@ -456,22 +486,20 @@
             </div>
             } @else {
             @for (w of layout().widgets; track w.id) {
-            <div class="widget-item p-2 border rounded" [class.active]="selectedWidget()?.id === w.id"
+            <div class="widget-item" [class.active]="selectedWidget()?.id === w.id"
               (click)="onWidgetSelect(w)">
-              <div class="widget-item-content d-flex justify-content-between align-items-start">
-                <div>
-                  <div class="fw-bold">{{ w.type | titlecase }}</div>
-                  <small class="text-muted">ID: {{ w.id }}</small>
-                  <div class="small mt-1 d-flex gap-2">
-                    <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
-                    <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
-                  </div>
+              <div class="widget-item-info">
+                <div class="fw-bold text-truncate">{{ w.type | titlecase }}</div>
+                <small class="text-muted text-truncate d-block">ID: {{ w.id }}</small>
+                <div class="small mt-1 d-flex gap-1 flex-wrap">
+                  <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
+                  <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
                 </div>
-                <button class="btn btn-sm btn-danger ms-2 flex-shrink-0"
-                  (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
-                  <i class="fa fa-trash"></i>
-                </button>
               </div>
+              <button class="btn btn-sm btn-danger btn-delete"
+                (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
+                <i class="fa fa-trash"></i>
+              </button>
             </div>
             }
             }

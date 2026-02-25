@@ -1,6 +1,23 @@
-import { Component, Input } from '@angular/core';
+import {
+  Component,
+  Input,
+  OnChanges,
+  SimpleChanges,
+  ChangeDetectorRef,
+  ViewChild,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLayout } from '../../models/types';
+import {
+  WidgetConfig,
+  ColorScheme,
+  HassEntityState,
+  CalendarConfig,
+  CalendarEventItemConfig,
+  DEFAULT_CALENDAR_EVENT_ITEMS,
+  defaultCalendarEventItemIcon,
+  DashboardLayout,
+} from '../../models/types';
 
 @Component({
   selector: 'app-widget-calendar',
@@ -8,7 +25,16 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
   imports: [CommonModule],
   styleUrls: ['./calendar-widget.component.scss'],
   template: `
-    <div class="calendar-widget" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--eventFontSize]="getEventFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--eventFontWeight]="getEventFontWeight()" [style.--iconColor]="getIconColor()" [style.--titleColor]="getTitleColor()" [style.--textColor]="getTextColor()" [style.color]="getTextColor()">
+    <div #host class="calendar-widget"
+         [style.--headerFontSize]="getHeaderFontSize() + 'px'"
+         [style.--eventFontSize]="getEventFontSize() + 'px'"
+         [style.--headerFontWeight]="getHeaderFontWeight()"
+         [style.--eventFontWeight]="getEventFontWeight()"
+         [style.--iconColor]="getIconColor()"
+         [style.--titleColor]="getTitleColor()"
+         [style.--textColor]="getTextColor()"
+         [style.color]="getTextColor()">
+
       @if (!isDataFetched()) {
         <div class="preview-state">
           <i class="fa fa-calendar"></i>
@@ -17,17 +43,51 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
       }
       @if (isDataFetched()) {
         <div class="calendar-content">
-          <h4>{{ widget.titleOverride || 'Events' }}</h4>
+          @if (widget.showTitle !== false) {
+            <h4>{{ widget.titleOverride || 'Events' }}</h4>
+          }
           @if (getUpcomingEvents(config.entityId).length > 0) {
+            <div class="calendar-events"
+                 [style.gap.px]="config.eventGap ?? 0">
             @for (ev of getUpcomingEvents(config.entityId); track trackByEvent($index, ev)) {
               <div class="calendar-event">
-                <div class="event-datetime">
-                  <i class="fa fa-clock"></i>
-                  <span>{{ formatEventDate(ev) }}</span>
-                </div>
-                <div class="event-title">{{ ev.summary || ev.title || ev.description || '-' }}</div>
+                @for (item of visibleItems(); track item.type) {
+                  <div class="cw-item-row">
+                    @switch (item.type) {
+                      @case ('datetime') {
+                        <span class="cw-value cw-with-icon">
+                          <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
+                          <span class="cw-text">{{ formatEventDate(ev) }}</span>
+                        </span>
+                      }
+                      @case ('title') {
+                        <span class="cw-value cw-with-icon">
+                          <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
+                          <span class="cw-text">{{ ev.summary || ev.title || ev.description || '-' }}</span>
+                        </span>
+                      }
+                      @case ('location') {
+                        @if (ev.location) {
+                          <span class="cw-value cw-with-icon">
+                            <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
+                            <span class="cw-text">{{ ev.location }}</span>
+                          </span>
+                        }
+                      }
+                      @case ('description') {
+                        @if (ev.description) {
+                          <span class="cw-value cw-with-icon">
+                            <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
+                            <span class="cw-text">{{ ev.description }}</span>
+                          </span>
+                        }
+                      }
+                    }
+                  </div>
+                }
               </div>
             }
+            </div>
           } @else {
             <div class="empty-state">
               <i class="fa fa-calendar-days"></i>
@@ -39,15 +99,38 @@ import { WidgetConfig, ColorScheme, HassEntityState, CalendarConfig, DashboardLa
     </div>
   `
 })
-export class CalendarWidgetComponent {
+export class CalendarWidgetComponent implements OnChanges {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
   @Input() calendarEventsByEntityId: Record<string, any[]> | undefined;
   @Input() designerSettings?: DashboardLayout;
 
+  @ViewChild('host') hostRef!: ElementRef<HTMLDivElement>;
+
   get config(): CalendarConfig { return (this.widget?.config || {}) as CalendarConfig; }
 
+  constructor(
+    private cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnChanges(_changes: SimpleChanges): void {}
+
+  // ─── items ────────────────────────────────────────────────────────────────
+  getItems(): CalendarEventItemConfig[] {
+    return this.config.items?.length ? this.config.items : DEFAULT_CALENDAR_EVENT_ITEMS;
+  }
+
+  visibleItems(): CalendarEventItemConfig[] {
+    return this.getItems().filter(i => i.visible !== false);
+  }
+
+  // ─── icon resolver ────────────────────────────────────────────────────────
+  resolveIcon(item: CalendarEventItemConfig): string {
+    return item.icon || defaultCalendarEventItemIcon(item.type);
+  }
+
+  // ─── style helpers ────────────────────────────────────────────────────────
   getHeaderFontSize(): number {
     return this.designerSettings?.titleFontSize ?? 15;
   }
@@ -71,12 +154,10 @@ export class CalendarWidgetComponent {
     const entityId = this.config.entityId;
     if (!entityId) return false;
 
-    // Check if events have been fetched from the API
     if (this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId) {
       return true;
     }
 
-    // Fallback: check if entity has attributes with events data
     const state = this.getEntityState(entityId);
     if (!state || !state.attributes) return false;
 
@@ -95,15 +176,9 @@ export class CalendarWidgetComponent {
     return this.entityStates[entityId] ?? null;
   }
 
-  /**
-   * Extracts upcoming events from calendar events data.
-   * Events are fetched from the parent component via the API.
-   * Falls back to entity state attributes for compatibility.
-   */
   getUpcomingEvents(entityId?: string) {
     if (!entityId) return [];
 
-    // First try to get events from the calendarEventsByEntityId input
     if (this.calendarEventsByEntityId && this.calendarEventsByEntityId[entityId]) {
       const events = this.calendarEventsByEntityId[entityId];
       const max = Math.max(1, (this.config.maxEvents as number) || 7);
@@ -112,13 +187,10 @@ export class CalendarWidgetComponent {
         .slice(0, max);
     }
 
-    // Fallback to entity state attributes for backward compatibility
     const state = this.getEntityState(entityId);
     if (!state) return [];
 
     const attrs = state.attributes || {};
-
-    // Try multiple attribute names for events (different integrations use different names)
     const eventsList =
       attrs['events'] ||
       attrs['entries'] ||
@@ -128,19 +200,11 @@ export class CalendarWidgetComponent {
       [];
 
     const max = Math.max(1, (this.config.maxEvents as number) || 7);
-
-    // Ensure we have an array and filter to upcoming events
-    const events = (Array.isArray(eventsList) ? eventsList : [])
+    return (Array.isArray(eventsList) ? eventsList : [])
       .filter(ev => this.isUpcomingEvent(ev))
       .slice(0, max);
-
-    return events;
   }
 
-  /**
-   * Checks if an event is upcoming or currently ongoing (not fully in the past).
-   * Handles various date formats from different calendar integrations.
-   */
   private isUpcomingEvent(event: any): boolean {
     if (!event) return false;
 
@@ -150,31 +214,24 @@ export class CalendarWidgetComponent {
 
       if (!startStr) return false;
 
-      // Parse the dates
       const startDate = this.parseEventDate(startStr);
       if (!startDate) return false;
 
       const now = new Date();
 
-      // Include events that are currently happening (started in the past, haven't ended yet)
       if (endStr) {
         const endDate = this.parseEventDate(endStr);
         if (endDate && endDate > now) {
-          return true; // Event is ongoing or starts in the future
+          return true;
         }
       }
 
-      // Include events starting from now onwards
       return startDate >= now;
     } catch {
       return false;
     }
   }
 
-  /**
-   * Formats an event date for display with proper handling of all-day events.
-   * Shows date and time for regular events, just date for all-day events.
-   */
   formatEventDate(ev: any): string {
     if (!ev) return '';
 
@@ -185,7 +242,6 @@ export class CalendarWidgetComponent {
       const d = this.parseEventDate(start);
       if (!d) return String(start);
 
-      // Check if this is an all-day event (date-only format: YYYY-MM-DD)
       if (typeof start === 'string' && start.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(start)) {
         return d.toLocaleDateString(navigator.language, {
           weekday: 'short',
@@ -194,7 +250,6 @@ export class CalendarWidgetComponent {
         });
       }
 
-      // Regular event with time
       return d.toLocaleString(navigator.language, {
         month: 'short',
         day: 'numeric',
@@ -206,23 +261,17 @@ export class CalendarWidgetComponent {
     }
   }
 
-  /**
-   * Parses various date/time formats that Home Assistant calendar entities can provide.
-   */
   private parseEventDate(dateStr: any): Date | null {
     if (!dateStr) return null;
 
     try {
-      // If it's already an object with date properties
       if (typeof dateStr === 'object' && dateStr !== null) {
         if (dateStr instanceof Date) return dateStr;
 
-        // Try to create from ISO string if available
         if (dateStr.isoformat) {
           return new Date(dateStr.isoformat);
         }
 
-        // Try to create from components
         if (dateStr.year && dateStr.month && dateStr.day) {
           const month = String(dateStr.month).padStart(2, '0');
           const day = String(dateStr.day).padStart(2, '0');
@@ -236,7 +285,6 @@ export class CalendarWidgetComponent {
         }
       }
 
-      // Handle string dates
       if (typeof dateStr === 'string') {
         return new Date(dateStr);
       }

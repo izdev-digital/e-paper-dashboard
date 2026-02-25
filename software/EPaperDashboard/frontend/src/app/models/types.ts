@@ -78,7 +78,10 @@ export interface AppIconConfig {
 
 export interface ImageConfig {
   imageUrl: string;
-  fit?: 'contain' | 'cover' | 'fill';
+  fit?: 'contain' | 'cover' | 'fill';  // legacy, kept for backward compat
+  zoom?: number;      // 1 = fit container, >1 = zoom in (default 1)
+  offsetX?: number;   // -1 to +1, horizontal pan (default 0 = center)
+  offsetY?: number;   // -1 to +1, vertical pan (default 0 = center)
 }
 
 export interface VersionConfig {
@@ -111,39 +114,151 @@ export interface WidgetConfig {
   | RssFeedConfig;
   colorOverrides?: WidgetColorOverrides;
   titleOverride?: string;
+  showTitle?: boolean;
 }
 
 export interface HeaderConfig {
   title: string;
   badges?: BadgeConfig[];
   iconSize?: number;
-  titleAlign?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  iconPosition?: 'left' | 'right';
+  /** Title element position/size as % of the header widget bounds (set by the visual editor) */
+  titleX?: number;
+  titleY?: number;
+  titleW?: number;
+  titleH?: number;
+  /** Layout editor settings – stored with the widget so they persist across sessions */
+  snapStep?: number;      // 0 = off, or 1 / 2 / 5 (%)
+  showGuides?: boolean;
 }
 
 export interface BadgeConfig {
   entityId?: string;
   icon?: string;
+  /** Position and size as % of the header widget bounds (set by the visual editor) */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
 }
 
 export interface MarkdownConfig {
   content: string;
 }
 
+export type CalendarEventItemType = 'datetime' | 'title' | 'location' | 'description';
+
+export interface CalendarEventItemConfig {
+  type: CalendarEventItemType;
+  visible?: boolean;
+  /** Font Awesome icon class (e.g. 'fa-clock'). Each item type has a default. */
+  icon?: string;
+}
+
+/** Default icon for each calendar event item type */
+export function defaultCalendarEventItemIcon(type: CalendarEventItemType): string {
+  switch (type) {
+    case 'datetime':    return 'fa-clock';
+    case 'title':       return 'fa-heading';
+    case 'location':    return 'fa-location-dot';
+    case 'description': return 'fa-align-left';
+    default:            return '';
+  }
+}
+
+export const DEFAULT_CALENDAR_EVENT_ITEMS: CalendarEventItemConfig[] = [
+  { type: 'datetime',    visible: true },
+  { type: 'title',       visible: true },
+  { type: 'location',    visible: false, icon: 'fa-location-dot' },
+  { type: 'description', visible: false, icon: 'fa-align-left' },
+];
+
 export interface CalendarConfig {
   entityId: string;
   maxEvents: number;
+  items?: CalendarEventItemConfig[];
+  /** Gap between event entries in px (default 0) */
+  eventGap?: number;
 }
 
 export type ForecastMode = 'hourly' | 'daily' | 'weekly';
+
+export type ForecastField = 'time' | 'condition' | 'tempHigh' | 'tempLow' | 'precipitation' | 'wind';
+
+export const ALL_FORECAST_FIELDS: ForecastField[] = ['time', 'condition', 'tempHigh', 'tempLow', 'precipitation', 'wind'];
+
+export const DEFAULT_FORECAST_FIELDS: ForecastField[] = ['time', 'condition', 'tempHigh', 'tempLow'];
+
+export const FORECAST_FIELD_LABELS: Record<ForecastField, string> = {
+  time: 'Time',
+  condition: 'Condition',
+  tempHigh: 'Temperature High',
+  tempLow: 'Temperature Low',
+  precipitation: 'Precipitation %',
+  wind: 'Wind Speed',
+};
 
 export interface WeatherForecastConfig {
   entityId: string;
   forecastMode?: ForecastMode; // 'hourly', 'daily', 'weekly' - defaults to 'daily'
   maxItems?: number; // Max forecast items to display (auto if not specified)
+  visibleFields?: ForecastField[]; // Which fields to show in each column (defaults to DEFAULT_FORECAST_FIELDS)
+  rowGap?: number; // Gap between rows in each column in px (default 0)
 }
+
+export type WeatherItemType = 'title' | 'temperature' | 'condition' | 'pressure' | 'attribute';
+
+export interface WeatherItemConfig {
+  type: WeatherItemType;
+  visible?: boolean;
+  /** Font Awesome icon class (e.g. 'fa-temperature-half'). Each item type has a default. */
+  icon?: string;
+  /** For 'attribute' type – which HA attribute key to display (e.g. 'humidity', 'wind_speed') */
+  attributeKey?: string;
+  /** Optional display label (e.g. "Humidity") */
+  label?: string;
+  /** Position and size as % of the weather widget bounds (set by the visual editor) */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+/** Default icon for each weather item type */
+export function defaultWeatherItemIcon(type: WeatherItemType, attributeKey?: string): string {
+  switch (type) {
+    case 'temperature': return 'fa-temperature-half';
+    case 'condition':   return 'fa-cloud-sun';
+    case 'pressure':    return 'fa-gauge';
+    case 'attribute':
+      switch (attributeKey) {
+        case 'humidity':       return 'fa-droplet';
+        case 'wind_speed':     return 'fa-wind';
+        case 'wind_bearing':   return 'fa-compass';
+        case 'visibility':     return 'fa-eye';
+        case 'dew_point':      return 'fa-temperature-low';
+        case 'cloud_coverage': return 'fa-cloud';
+        case 'uv_index':       return 'fa-sun';
+        default:               return 'fa-circle-info';
+      }
+    default: return '';
+  }
+}
+
+export const DEFAULT_WEATHER_ITEMS: WeatherItemConfig[] = [
+  { type: 'title',       visible: true, x: 0,  y: 0,  w: 100, h: 20 },
+  { type: 'temperature', visible: true, x: 0,  y: 22, w: 50,  h: 20, icon: 'fa-temperature-half' },
+  { type: 'condition',   visible: true, x: 50, y: 22, w: 50,  h: 20, icon: 'fa-cloud-sun' },
+  { type: 'pressure',    visible: true, x: 0,  y: 44, w: 50,  h: 20, icon: 'fa-gauge' },
+  { type: 'attribute',   visible: true, x: 50, y: 44, w: 50,  h: 20, attributeKey: 'humidity', label: 'Humidity', icon: 'fa-droplet' },
+];
 
 export interface WeatherConfig {
   entityId: string;
+  items?: WeatherItemConfig[];
+  /** Layout editor settings – stored with the widget so they persist across sessions */
+  snapStep?: number;      // 0 = off, or 1 / 2 / 5 (%)
+  showGuides?: boolean;
 }
 
 export interface GraphSeriesConfig {
@@ -163,6 +278,9 @@ export interface GraphConfig {
 export interface TodoConfig {
   entityId: string;
   showCompleted?: boolean;
+  maxItems?: number;
+  pendingIcon?: string;
+  completedIcon?: string;
 }
 
 export interface RssFeedConfig {
@@ -180,6 +298,7 @@ export interface DashboardLayout {
   canvasPadding?: number;
   widgetGap?: number;
   widgetBorder?: number;
+  widgetPadding?: number;
   titleFontSize?: number;
   textFontSize?: number;
   titleFontWeight?: number;

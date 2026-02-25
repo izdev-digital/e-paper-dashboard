@@ -7,14 +7,25 @@ import {
   HeaderConfig,
   MarkdownConfig,
   CalendarConfig,
+  CalendarEventItemConfig,
+  DEFAULT_CALENDAR_EVENT_ITEMS,
+  defaultCalendarEventItemIcon,
   WeatherConfig,
+  WeatherItemConfig,
+  DEFAULT_WEATHER_ITEMS,
+  defaultWeatherItemIcon,
   WeatherForecastConfig,
+  ForecastField,
+  ALL_FORECAST_FIELDS,
+  DEFAULT_FORECAST_FIELDS,
+  FORECAST_FIELD_LABELS,
   GraphConfig,
   TodoConfig,
   AppIconConfig,
   RssFeedConfig,
   ColorScheme
 } from '../../models/types';
+import { HttpClient } from '@angular/common/http';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -36,6 +47,12 @@ export class WidgetConfigComponent implements OnChanges {
 
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
+  private readonly http = inject(HttpClient);
+
+  imageUploading = false;
+  imageUploadError: string | null = null;
+  showImageUrlInput = false;
+  imageUrlValue = '';
 
   formatEntityLabel(entity: any): string {
     const base = entity?.friendly_name || entity?.entity_id || 'Unknown';
@@ -106,6 +123,33 @@ export class WidgetConfigComponent implements OnChanges {
 
   onPropertyChanged(): void {
     this.widgetChanged.emit(this.widget);
+  }
+
+  // ---- Weather Forecast field visibility helpers ----
+  readonly allForecastFields = ALL_FORECAST_FIELDS;
+
+  isForecastFieldVisible(field: ForecastField): boolean {
+    const fields = this.weatherForecastConfig.visibleFields ?? DEFAULT_FORECAST_FIELDS;
+    return fields.includes(field);
+  }
+
+  toggleForecastField(field: ForecastField): void {
+    const current = this.weatherForecastConfig.visibleFields ?? [...DEFAULT_FORECAST_FIELDS];
+    const idx = current.indexOf(field);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      // Insert in canonical order
+      const ordered = ALL_FORECAST_FIELDS.filter(f => current.includes(f) || f === field);
+      current.length = 0;
+      current.push(...ordered);
+    }
+    this.weatherForecastConfig.visibleFields = current;
+    this.onPropertyChanged();
+  }
+
+  getForecastFieldLabel(field: ForecastField): string {
+    return FORECAST_FIELD_LABELS[field];
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -270,19 +314,221 @@ export class WidgetConfigComponent implements OnChanges {
     return colorMap[lowerHex] || hex;
   }
 
+  onHeaderConfigChanged(updatedConfig: HeaderConfig): void {
+    // Merge the updated header config (with new positions) back into the widget
+    this.widget = { ...this.widget, config: updatedConfig };
+    this.widgetChanged.emit(this.widget);
+  }
+
   addBadge(): void {
     const config = this.headerConfig;
+    const newBadge = { entityId: undefined, icon: undefined };
     if (config.badges) {
-      config.badges.push({ entityId: undefined, icon: undefined });
+      config.badges.push(newBadge);
     } else {
-      config.badges = [{ entityId: undefined, icon: undefined }];
+      config.badges = [newBadge];
     }
+    this.onPropertyChanged();
   }
 
   removeBadge(index: number): void {
     const config = this.headerConfig;
     if (config.badges) {
       config.badges.splice(index, 1);
+      this.onPropertyChanged();
     }
+  }
+
+  getBadgeEntityLabel(badge: any): string {
+    if (!badge.entityId) return '';
+    const entity = this.entities().find((e: any) => e.entity_id === badge.entityId);
+    return entity ? this.formatEntityLabel(entity) : badge.entityId;
+  }
+
+  // ─── Weather item helpers ─────────────────────────────────────────────────
+
+  getWeatherItems(): WeatherItemConfig[] {
+    const cfg = this.weatherConfig;
+    if (!cfg.items || cfg.items.length === 0) {
+      cfg.items = [...DEFAULT_WEATHER_ITEMS];
+    }
+    return cfg.items;
+  }
+
+  trackByWeatherItem(index: number, item: WeatherItemConfig): string {
+    return item.type + '-' + (item.attributeKey ?? index);
+  }
+
+  toggleWeatherItemVisibility(index: number): void {
+    const items = this.getWeatherItems();
+    items[index] = { ...items[index], visible: items[index].visible === false };
+    this.onPropertyChanged();
+  }
+
+  getWeatherNonTitleItems(): WeatherItemConfig[] {
+    return this.getWeatherItems().filter(i => i.type !== 'title');
+  }
+
+  toggleWeatherNonTitleItemVisibility(filteredIndex: number): void {
+    const allItems = this.getWeatherItems();
+    const nonTitleItems = allItems.filter(i => i.type !== 'title');
+    const item = nonTitleItems[filteredIndex];
+    const realIndex = allItems.indexOf(item);
+    if (realIndex >= 0) {
+      allItems[realIndex] = { ...allItems[realIndex], visible: allItems[realIndex].visible === false };
+      this.onPropertyChanged();
+    }
+  }
+
+  toggleWeatherTitleVisibility(): void {
+    const items = this.getWeatherItems();
+    const idx = items.findIndex(i => i.type === 'title');
+    if (idx >= 0) {
+      items[idx] = { ...items[idx], visible: items[idx].visible === false };
+    }
+  }
+
+  toggleTitleVisibility(): void {
+    this.widget.showTitle = !(this.widget.showTitle !== false);
+    // Keep weather title item visibility in sync
+    if (this.widget.type === 'weather') {
+      const items = this.getWeatherItems();
+      const idx = items.findIndex(i => i.type === 'title');
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], visible: this.widget.showTitle };
+      }
+    }
+    this.onPropertyChanged();
+  }
+
+  getWeatherItemLabel(item: WeatherItemConfig): string {
+    switch (item.type) {
+      case 'title': return 'Title';
+      case 'temperature': return 'Temperature';
+      case 'condition': return 'Condition';
+      case 'pressure': return 'Pressure';
+      case 'attribute': return item.label || item.attributeKey || 'Attribute';
+      default: return item.type;
+    }
+  }
+
+  getDefaultWeatherItemIcon(item: WeatherItemConfig): string {
+    return defaultWeatherItemIcon(item.type, item.attributeKey);
+  }
+
+  // ─── Calendar event item helpers ──────────────────────────────────────────
+
+  getCalendarEventItems(): CalendarEventItemConfig[] {
+    const cfg = this.calendarConfig;
+    if (!cfg.items || cfg.items.length === 0) {
+      cfg.items = [...DEFAULT_CALENDAR_EVENT_ITEMS];
+    }
+    return cfg.items;
+  }
+
+  trackByCalendarEventItem(index: number, item: CalendarEventItemConfig): string {
+    return item.type;
+  }
+
+  toggleCalendarEventItemVisibility(index: number): void {
+    const items = this.getCalendarEventItems();
+    items[index] = { ...items[index], visible: items[index].visible === false };
+    this.onPropertyChanged();
+  }
+
+  isCalendarItemAlwaysVisible(item: CalendarEventItemConfig): boolean {
+    return item.type === 'datetime' || item.type === 'title';
+  }
+
+  getCalendarEventItemLabel(item: CalendarEventItemConfig): string {
+    switch (item.type) {
+      case 'datetime':    return 'Date / Time';
+      case 'title':       return 'Event Title';
+      case 'location':    return 'Location';
+      case 'description': return 'Description';
+      default: return item.type;
+    }
+  }
+
+  getDefaultCalendarEventItemIcon(item: CalendarEventItemConfig): string {
+    return defaultCalendarEventItemIcon(item.type);
+  }
+
+  // ─── Image upload helpers ─────────────────────────────────────────────────
+
+  onImageFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.dashboard) return;
+
+    this.imageUploading = true;
+    this.imageUploadError = null;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<{ imageUrl: string }>(
+      `/api/dashboards/${this.dashboard.id}/images`,
+      formData
+    ).subscribe({
+      next: (res) => {
+        (this.widget.config as any).imageUrl = res.imageUrl;
+        this.imageUploading = false;
+        this.onPropertyChanged();
+      },
+      error: (err) => {
+        this.imageUploadError = err?.error?.message || 'Upload failed.';
+        this.imageUploading = false;
+      }
+    });
+
+    // Reset input so re-selecting the same file triggers change
+    input.value = '';
+  }
+
+  clearUploadedImage(): void {
+    const config = this.widget.config as any;
+    const imageUrl: string = config.imageUrl || '';
+
+    // If it's an uploaded image, delete it from the server
+    if (imageUrl.startsWith('/api/dashboards/') && imageUrl.includes('/images/')) {
+      this.http.delete(imageUrl).subscribe({
+        error: () => { /* ignore delete errors */ }
+      });
+    }
+
+    config.imageUrl = '';
+    this.onPropertyChanged();
+  }
+
+  uploadImageFromUrl(): void {
+    if (!this.imageUrlValue || !this.dashboard) return;
+
+    // Delete previous uploaded image if any
+    const config = this.widget.config as any;
+    const prevUrl: string = config.imageUrl || '';
+    if (prevUrl.startsWith('/api/dashboards/') && prevUrl.includes('/images/')) {
+      this.http.delete(prevUrl).subscribe({ error: () => {} });
+    }
+
+    this.imageUploading = true;
+    this.imageUploadError = null;
+
+    this.http.post<{ imageUrl: string }>(
+      `/api/dashboards/${this.dashboard.id}/images/from-url`,
+      { url: this.imageUrlValue }
+    ).subscribe({
+      next: (res) => {
+        config.imageUrl = res.imageUrl;
+        this.imageUploading = false;
+        this.showImageUrlInput = false;
+        this.imageUrlValue = '';
+        this.onPropertyChanged();
+      },
+      error: (err) => {
+        this.imageUploadError = err?.error?.message || 'Failed to fetch image from URL.';
+        this.imageUploading = false;
+      }
+    });
   }
 }

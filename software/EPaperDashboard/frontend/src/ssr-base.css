@@ -21,9 +21,10 @@ body {
 
 /* ===== WIDGET CONTAINER (grid cell) ===== */
 .widget-container {
-  overflow: visible;
-  padding: 8px;
+  overflow: hidden;
+  padding: 0;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* ===== QR CODE INLINE SVG ===== */

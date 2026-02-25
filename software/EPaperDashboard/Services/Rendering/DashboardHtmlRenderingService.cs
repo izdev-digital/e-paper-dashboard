@@ -33,8 +33,11 @@ public sealed class DashboardHtmlRenderingService(
         int CanvasPadding,
         int WidgetGap,
         int WidgetBorder,
+        int WidgetPadding,
         int TitleFontSize,
-        int TextFontSize);
+        int TextFontSize,
+        int TitleFontWeight,
+        int TextFontWeight);
 
     public record ColorSchemeConfig(
         string Name,
@@ -65,7 +68,9 @@ public sealed class DashboardHtmlRenderingService(
         string Type,
         WidgetPositionConfig Position,
         JsonElement Config,
-        WidgetColorOverridesConfig? ColorOverrides);
+        WidgetColorOverridesConfig? ColorOverrides,
+        string? TitleOverride = null,
+        bool ShowTitle = true);
 
     // Aggregated HA data for rendering
     public class SsrData
@@ -219,7 +224,9 @@ public sealed class DashboardHtmlRenderingService(
                     Type: typeEl.GetString() ?? "",
                     Position: position,
                     Config: configEl.Clone(),
-                    ColorOverrides: overrides
+                    ColorOverrides: overrides,
+                    TitleOverride: w.TryGetProperty("titleOverride", out var toEl) ? toEl.GetString() : null,
+                    ShowTitle: w.TryGetProperty("showTitle", out var stEl) && stEl.ValueKind == JsonValueKind.False ? false : true
                 ));
                 _logger.LogInformation("SSR: Successfully parsed widget {Index}: type={Type}, id={Id}, pos=({X},{Y},{W},{H})",
                     widgetIndex, typeEl.GetString(), idEl.GetString(), position.X, position.Y, position.W, position.H);
@@ -242,8 +249,11 @@ public sealed class DashboardHtmlRenderingService(
             CanvasPadding: root.TryGetProperty("canvasPadding", out var cp) ? cp.GetInt32() : 16,
             WidgetGap: root.TryGetProperty("widgetGap", out var wg) ? wg.GetInt32() : 4,
             WidgetBorder: root.TryGetProperty("widgetBorder", out var wb) ? wb.GetInt32() : 3,
+            WidgetPadding: root.TryGetProperty("widgetPadding", out var wp) ? wp.GetInt32() : 4,
             TitleFontSize: root.TryGetProperty("titleFontSize", out var tf) ? tf.GetInt32() : 16,
-            TextFontSize: root.TryGetProperty("textFontSize", out var txf) ? txf.GetInt32() : 14
+            TextFontSize: root.TryGetProperty("textFontSize", out var txf) ? txf.GetInt32() : 14,
+            TitleFontWeight: root.TryGetProperty("titleFontWeight", out var tfw) ? tfw.GetInt32() : 700,
+            TextFontWeight: root.TryGetProperty("textFontWeight", out var txfw) ? txfw.GetInt32() : 400
         );
     }
 
@@ -366,15 +376,24 @@ public sealed class DashboardHtmlRenderingService(
             }
         }
 
-        // Load inline SVG icon
+        // Load inline SVG icon – check all known candidate paths
         try
         {
-            var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "dist", "frontend", "browser");
-            var svgPath = Path.Combine(basePath, "icon-tab-dynamic.svg");
-            if (!File.Exists(svgPath))
-                svgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-tab-dynamic.svg");
-            if (File.Exists(svgPath))
-                data.SvgIcon = await File.ReadAllTextAsync(svgPath);
+            var wwwroot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+            var candidates = new[]
+            {
+                Path.Combine(wwwroot, "browser", "icon-tab-dynamic.svg"),
+                Path.Combine(wwwroot, "icon-tab-dynamic.svg"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "dist", "frontend", "browser", "icon-tab-dynamic.svg"),
+            };
+            foreach (var candidate in candidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    data.SvgIcon = await File.ReadAllTextAsync(candidate);
+                    break;
+                }
+            }
         }
         catch { /* ignore */ }
 
@@ -463,6 +482,7 @@ public sealed class DashboardHtmlRenderingService(
   width:{layout.Width}px;height:{layout.Height}px;
   min-width:{layout.Width}px;min-height:{layout.Height}px;
   background-color:{cs.CanvasBackgroundColor};color:{cs.Text};
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
   display:grid;
   grid-template-columns:repeat({layout.GridCols},1fr);
   grid-template-rows:repeat({layout.GridRows},1fr);
@@ -525,7 +545,7 @@ public sealed class DashboardHtmlRenderingService(
         var bc = widget.ColorOverrides?.WidgetBorderColor ?? cs.WidgetBorderColor;
         var p = widget.Position;
         return $"grid-column:{p.X + 1}/span {p.W};grid-row:{p.Y + 1}/span {p.H};" +
-               $"background-color:{bg};border:{layout.WidgetBorder}px solid {bc};color:{cs.Text}";
+               $"background-color:{bg};border:{layout.WidgetBorder}px solid {bc};padding:{layout.WidgetPadding}px;box-sizing:border-box;color:{cs.Text}";
     }
 
     private string RenderWidget(WidgetConfigEntry widget, LayoutConfig layout, SsrData data)
@@ -557,56 +577,73 @@ public sealed class DashboardHtmlRenderingService(
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 16;
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
 
-        var title = GetStringProp(widget.Config, "title") ?? "";
-        var titleAlign = GetStringProp(widget.Config, "titleAlign") ?? "top-left";
-        var iconSize = GetIntProp(widget.Config, "iconSize") ?? 32;
-        var isIconOnLeft = titleAlign is "top-left" or "bottom-left";
+        var title       = GetStringProp(widget.Config, "title") ?? "";
+        var iconPosition = GetStringProp(widget.Config, "iconPosition") ?? "left";
+        var iconSize    = GetIntProp(widget.Config, "iconSize") ?? 32;
+        var isIconOnLeft = iconPosition != "right";
+
+        // Title element position – mirrors Angular getElPos('title') defaults
+        // defaultTitleX: right→0, left→58; defaultTitleY: 0; default w=42, h=50
+        var titleX = GetDoubleProp(widget.Config, "titleX") ?? (isIconOnLeft ? 58.0 : 0.0);
+        var titleY = GetDoubleProp(widget.Config, "titleY") ?? 0.0;
+        var titleW = GetDoubleProp(widget.Config, "titleW") ?? 42.0;
+        var titleH = GetDoubleProp(widget.Config, "titleH") ?? 50.0;
 
         var sb = new StringBuilder();
-        sb.AppendLine($"      <div class=\"header-widget align-{Enc(titleAlign)}\" style=\"color:{titleColor}\">");
+        sb.AppendLine($"      <div class=\"header-widget\" style=\"color:{titleColor}\">");
 
-        // Title section
-        sb.AppendLine("        <div class=\"title-section\">");
-        if (isIconOnLeft && data.SvgIcon != null)
+        // Title section – absolutely positioned, matches Angular [style.left/top/width/height.%]
+        if (widget.ShowTitle)
         {
-            var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
-            sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            var titleStyle = $"left:{titleX.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{titleY.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{titleW.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{titleH.ToString("0.##", CultureInfo.InvariantCulture)}%;color:{titleColor}";
+            sb.AppendLine($"        <div class=\"title-section\" style=\"{titleStyle}\">");
+            if (isIconOnLeft && data.SvgIcon != null)
+            {
+                var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
+                sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            }
+            sb.AppendLine($"          <div class=\"title\" style=\"font-size:{titleFontSize}px;color:{titleColor}\">{Enc(title)}</div>");
+            if (!isIconOnLeft && data.SvgIcon != null)
+            {
+                var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
+                sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            }
+            sb.AppendLine("        </div>");
         }
-        sb.AppendLine($"          <div class=\"title\" style=\"font-size:{titleFontSize}px;color:{titleColor}\">{Enc(title)}</div>");
-        if (!isIconOnLeft && data.SvgIcon != null)
-        {
-            var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
-            sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
-        }
-        sb.AppendLine("        </div>");
 
-        // Badges
+        // Badges – each absolutely positioned, mirrors Angular getElPos('badge-i') defaults
+        // autoX(i) = (i%4)*22;  autoY(i) = floor(i/4)*30;  default w=22, h=30
         if (widget.Config.TryGetProperty("badges", out var badges) && badges.ValueKind == JsonValueKind.Array)
         {
-            var hasBadges = badges.EnumerateArray().Any(b =>
-                !string.IsNullOrWhiteSpace(b.TryGetProperty("entityId", out var e) ? e.GetString() : null)
-                || !string.IsNullOrWhiteSpace(b.TryGetProperty("icon", out var i) ? i.GetString() : null));
-
-            if (hasBadges)
+            int badgeIndex = 0;
+            foreach (var badge in badges.EnumerateArray())
             {
-                sb.AppendLine("        <div class=\"badges-container\">");
-                foreach (var badge in badges.EnumerateArray())
-                {
-                    sb.Append($"          <span class=\"badge\" style=\"font-size:{textFontSize}px;color:{textColor}\">");
-                    var bIcon = badge.TryGetProperty("icon", out var ic) ? ic.GetString() : null;
-                    if (!string.IsNullOrEmpty(bIcon))
-                        sb.Append($"<i class=\"fa {Enc(bIcon)}\" style=\"color:{iconColor}\"></i> ");
+                var bEntityId = badge.TryGetProperty("entityId", out var eid) ? eid.GetString() : null;
+                var bIcon     = badge.TryGetProperty("icon",     out var ic)  ? ic.GetString()  : null;
+                bool hasContent = !string.IsNullOrWhiteSpace(bEntityId) || !string.IsNullOrWhiteSpace(bIcon);
+                if (!hasContent) { badgeIndex++; continue; }
 
-                    var bEntityId = badge.TryGetProperty("entityId", out var eid) ? eid.GetString() : null;
-                    if (!string.IsNullOrEmpty(bEntityId) && data.EntityStates.TryGetValue(bEntityId, out var es))
-                    {
-                        sb.Append(Enc(es.State));
-                        var uom = GetEntityAttr(es, "unit_of_measurement");
-                        if (!string.IsNullOrEmpty(uom)) sb.Append($" {Enc(uom)}");
-                    }
-                    sb.AppendLine("</span>");
+                var bx = GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
+                var by = GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
+                var bw = GetBadgeDoubleProp(badge, "w") ?? 22.0;
+                var bh = GetBadgeDoubleProp(badge, "h") ?? 30.0;
+
+                var badgeStyle = $"left:{bx.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{by.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{bw.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{bh.ToString("0.##", CultureInfo.InvariantCulture)}%;font-size:{textFontSize}px;color:{textColor}";
+                sb.Append($"        <span class=\"badge\" style=\"{badgeStyle}\">");
+
+                if (!string.IsNullOrEmpty(bIcon))
+                    sb.Append($"<i class=\"fa {Enc(bIcon)}\" style=\"color:{iconColor}\"></i>");
+
+                if (!string.IsNullOrEmpty(bEntityId) && data.EntityStates.TryGetValue(bEntityId, out var es))
+                {
+                    sb.Append($"<span class=\"badge-text\">{Enc(es.State)}");
+                    var uom = GetEntityAttr(es, "unit_of_measurement");
+                    if (!string.IsNullOrEmpty(uom)) sb.Append($" {Enc(uom)}");
+                    sb.Append("</span>");
                 }
-                sb.AppendLine("        </div>");
+
+                sb.AppendLine("</span>");
+                badgeIndex++;
             }
         }
 
@@ -623,11 +660,17 @@ public sealed class DashboardHtmlRenderingService(
         var iconColor = ResolveColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var headerFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
         var eventFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
+        var headerFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var eventFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var maxEvents = GetIntProp(widget.Config, "maxEvents") ?? 7;
+        var showTitle = widget.ShowTitle;
+        var eventGap = GetIntProp(widget.Config, "eventGap") ?? 0;
+        var visibleItems = GetCalendarEventItems(widget.Config);
 
         var cssVars = $"--headerFontSize:{headerFontSize}px;--eventFontSize:{eventFontSize}px;" +
+                      $"--headerFontWeight:{headerFontWeight};--eventFontWeight:{eventFontWeight};" +
                       $"--iconColor:{iconColor};--titleColor:{titleColor};--textColor:{textColor}";
 
         var sb = new StringBuilder();
@@ -638,7 +681,8 @@ public sealed class DashboardHtmlRenderingService(
             && events.Count > 0)
         {
             sb.AppendLine("        <div class=\"calendar-content\">");
-            sb.AppendLine("          <h4>Events</h4>");
+            if (showTitle)
+                sb.AppendLine($"          <h4>{Enc(widget.TitleOverride ?? "Events")}</h4>");
 
             var now = DateTimeOffset.UtcNow;
             var upcoming = events
@@ -654,13 +698,43 @@ public sealed class DashboardHtmlRenderingService(
 
             if (upcoming.Count > 0)
             {
+                var gapStyle = eventGap > 0 ? $"gap:{eventGap}px" : "";
+                sb.AppendLine($"          <div class=\"calendar-events\" style=\"{gapStyle}\">");
                 foreach (var ev in upcoming)
                 {
-                    sb.AppendLine("          <div class=\"calendar-event\">");
-                    sb.AppendLine($"            <div class=\"event-datetime\"><i class=\"fa fa-clock\"></i><span>{Enc(FormatEventDate(ev.Start))}</span></div>");
-                    sb.AppendLine($"            <div class=\"event-title\">{Enc(ev.Summary ?? ev.Description ?? "-")}</div>");
-                    sb.AppendLine("          </div>");
+                    sb.AppendLine("            <div class=\"calendar-event\">");
+                    foreach (var item in visibleItems)
+                    {
+                        var itemIcon = item.Icon ?? GetDefaultCalendarEventItemIcon(item.Type);
+                        switch (item.Type)
+                        {
+                            case "datetime":
+                                var dtIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{dtIcon}<span class=\"cw-text\">{Enc(FormatEventDate(ev.Start))}</span></span></div>");
+                                break;
+                            case "title":
+                                var titleIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{titleIcon}<span class=\"cw-text\">{Enc(ev.Summary ?? ev.Description ?? "-")}</span></span></div>");
+                                break;
+                            case "location":
+                                if (!string.IsNullOrEmpty(ev.Location))
+                                {
+                                    var locIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                    sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{locIcon}<span class=\"cw-text\">{Enc(ev.Location)}</span></span></div>");
+                                }
+                                break;
+                            case "description":
+                                if (!string.IsNullOrEmpty(ev.Description))
+                                {
+                                    var descIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
+                                    sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{descIcon}<span class=\"cw-text\">{Enc(ev.Description)}</span></span></div>");
+                                }
+                                break;
+                        }
+                    }
+                    sb.AppendLine("            </div>");
                 }
+                sb.AppendLine("          </div>");
             }
             else
             {
@@ -677,6 +751,49 @@ public sealed class DashboardHtmlRenderingService(
         return sb.ToString();
     }
 
+    private record CalendarEventItemEntry(string Type, bool Visible, string? Icon, double X, double Y, double W, double H);
+
+    private List<CalendarEventItemEntry> GetCalendarEventItems(JsonElement config)
+    {
+        var defaults = new List<CalendarEventItemEntry>
+        {
+            new("datetime", true, "fa-clock", 0, 0, 100, 50),
+            new("title", true, null, 0, 50, 100, 50),
+            new("location", false, "fa-location-dot", 0, 50, 100, 25),
+            new("description", false, "fa-align-left", 0, 75, 100, 25),
+        };
+
+        if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+        {
+            var result = new List<CalendarEventItemEntry>();
+            foreach (var el in itemsEl.EnumerateArray())
+            {
+                var type = el.TryGetProperty("type", out var tProp) ? tProp.GetString() ?? "" : "";
+                var visible = !el.TryGetProperty("visible", out var vProp) || vProp.ValueKind != JsonValueKind.False;
+                var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
+                var def = defaults.FirstOrDefault(d => d.Type == type) ?? defaults[0];
+                var x = el.TryGetProperty("x", out var xP) && xP.TryGetDouble(out var xv) ? xv : def.X;
+                var y = el.TryGetProperty("y", out var yP) && yP.TryGetDouble(out var yv) ? yv : def.Y;
+                var w = el.TryGetProperty("w", out var wP) && wP.TryGetDouble(out var wv) ? wv : def.W;
+                var h = el.TryGetProperty("h", out var hP) && hP.TryGetDouble(out var hv) ? hv : def.H;
+                if (visible)
+                    result.Add(new CalendarEventItemEntry(type, visible, icon, x, y, w, h));
+            }
+            return result;
+        }
+
+        return defaults.Where(d => d.Visible).ToList();
+    }
+
+    private static string GetDefaultCalendarEventItemIcon(string type) => type switch
+    {
+        "datetime" => "fa-clock",
+        "title" => "fa-heading",
+        "location" => "fa-location-dot",
+        "description" => "fa-align-left",
+        _ => ""
+    };
+
     // ==================== WEATHER ====================
 
     private string RenderWeatherWidget(WidgetConfigEntry widget, LayoutConfig layout, SsrData data)
@@ -686,86 +803,77 @@ public sealed class DashboardHtmlRenderingService(
         var iconColor = ResolveColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
+        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
-        var w = widget.Position.W;
-        var h = widget.Position.H;
-        var isMinimal = w == 1 && h == 1;
-        var isHorizontal = w >= 2 && h < 2;
-        var isVerticalCompact = w < 2;
-        var isCompact = isVerticalCompact || isHorizontal;
 
         var cssVars = $"--titleFontSize:{titleFontSize}px;--textFontSize:{textFontSize}px;" +
                       $"--titleColor:{titleColor};--textColor:{textColor};--iconColor:{iconColor}";
 
-        var classes = "weather-widget";
-        if (isCompact) classes += " compact";
-        if (isHorizontal) classes += " horizontal";
-        if (isVerticalCompact) classes += " vertical-compact";
-
         var sb = new StringBuilder();
-        sb.AppendLine($"      <div class=\"{classes}\" style=\"{cssVars};color:{textColor}\">");
+        sb.AppendLine($"      <div class=\"weather-widget\" style=\"{cssVars};color:{textColor};position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden\">");
 
         if (!string.IsNullOrEmpty(entityId) && data.EntityStates.TryGetValue(entityId, out var es))
         {
             var temperature = GetEntityAttr(es, "temperature");
             if (!string.IsNullOrEmpty(temperature))
             {
-                var humidity = GetEntityAttr(es, "humidity");
-                var windSpeed = GetEntityAttr(es, "wind_speed");
                 var condition = es.State;
+                var pressure = GetEntityAttr(es, "pressure");
+                var titleOverride = widget.TitleOverride;
 
-                if (isMinimal)
+                // Parse items from config, fall back to defaults
+                var items = GetWeatherItems(widget.Config);
+
+                foreach (var item in items)
                 {
-                    sb.AppendLine("        <div class=\"weather-content minimal\">");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    sb.AppendLine("        </div>");
-                }
-                else if (isHorizontal)
-                {
-                    sb.AppendLine("        <div class=\"weather-content horizontal\">");
-                    sb.AppendLine($"          <div class=\"weather-condition\">{Enc(condition)}</div>");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    if (!string.IsNullOrEmpty(humidity) || !string.IsNullOrEmpty(windSpeed))
+                    var visible = item.Visible;
+                    // Title visibility is also controlled by widget-level ShowTitle
+                    if (item.Type == "title" && !widget.ShowTitle) visible = false;
+                    if (!visible) continue;
+
+                    var posStyle = $"position:absolute;left:{item.X}%;top:{item.Y}%;width:{item.W}%;height:{item.H}%;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;gap:4px;padding:0 4px";
+
+                    switch (item.Type)
                     {
-                        sb.AppendLine("          <div class=\"weather-attributes-horizontal\">");
-                        if (!string.IsNullOrEmpty(humidity))
-                            sb.AppendLine($"            <div class=\"weather-attribute-horizontal\" title=\"Humidity\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                        if (!string.IsNullOrEmpty(windSpeed))
-                            sb.AppendLine($"            <div class=\"weather-attribute-horizontal\" title=\"Wind Speed\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                        sb.AppendLine("          </div>");
-                    }
-                    sb.AppendLine("        </div>");
-                }
-                else
-                {
-                    sb.AppendLine("        <div class=\"weather-content\">");
-                    if (!isVerticalCompact)
-                        sb.AppendLine("          <h4 class=\"weather-title\">Weather</h4>");
-                    sb.AppendLine($"          <div class=\"weather-condition\">{Enc(condition)}</div>");
-                    sb.AppendLine($"          <div class=\"weather-temp\">{Enc(temperature)}°</div>");
-                    if (!string.IsNullOrEmpty(humidity) || !string.IsNullOrEmpty(windSpeed))
-                    {
-                        if (!isVerticalCompact)
+                        case "title":
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{titleFontSize}px;font-weight:{titleFontWeight};color:{titleColor};white-space:nowrap;text-overflow:ellipsis\">{Enc(titleOverride ?? "Weather")}</div>");
+                            break;
+                        case "temperature":
                         {
-                            sb.AppendLine("          <div class=\"weather-attributes\">");
-                            if (!string.IsNullOrEmpty(humidity))
-                                sb.AppendLine($"            <div class=\"weather-attribute\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                            if (!string.IsNullOrEmpty(windSpeed))
-                                sb.AppendLine($"            <div class=\"weather-attribute\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                            sb.AppendLine("          </div>");
+                            var tempIcon = item.Icon ?? "fa-temperature-half";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {tempIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(temperature)}°</div>");
+                            break;
                         }
-                        else
+                        case "condition":
                         {
-                            sb.AppendLine("          <div class=\"weather-attributes-compact\">");
-                            if (!string.IsNullOrEmpty(humidity))
-                                sb.AppendLine($"            <div class=\"weather-attribute-compact\" title=\"Humidity\"><i class=\"fa fa-droplet\"></i><span>{Enc(humidity)}%</span></div>");
-                            if (!string.IsNullOrEmpty(windSpeed))
-                                sb.AppendLine($"            <div class=\"weather-attribute-compact\" title=\"Wind Speed\"><i class=\"fa fa-wind\"></i><span>{Enc(windSpeed)}</span></div>");
-                            sb.AppendLine("          </div>");
+                            var condIcon = item.Icon ?? "fa-cloud-sun";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {condIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(condition)}</div>");
+                            break;
+                        }
+                        case "pressure":
+                        {
+                            var pressureVal = pressure ?? "";
+                            var pressIcon = item.Icon ?? "fa-gauge";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {pressIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(pressureVal)}</div>");
+                            break;
+                        }
+                        case "attribute":
+                        {
+                            var attrKey = item.AttributeKey ?? "humidity";
+                            var attrVal = GetEntityAttr(es, attrKey) ?? "";
+                            var attrIcon = item.Icon ?? attrKey switch
+                            {
+                                "humidity" => "fa-droplet",
+                                "wind_speed" => "fa-wind",
+                                _ => "fa-circle-info"
+                            };
+                            var suffix = attrKey == "humidity" ? "%" : "";
+                            sb.AppendLine($"        <div style=\"{posStyle};font-size:{textFontSize}px;font-weight:{textFontWeight};color:{textColor};white-space:nowrap;text-overflow:ellipsis\"><i class=\"fa {attrIcon}\" style=\"color:{iconColor};flex-shrink:0;width:1em;text-align:center\"></i>{Enc(attrVal)}{suffix}</div>");
+                            break;
                         }
                     }
-                    sb.AppendLine("        </div>");
                 }
             }
             else
@@ -782,6 +890,41 @@ public sealed class DashboardHtmlRenderingService(
         return sb.ToString();
     }
 
+    private record WeatherItemEntry(string Type, bool Visible, double X, double Y, double W, double H, string? AttributeKey, string? Label, string? Icon);
+
+    private List<WeatherItemEntry> GetWeatherItems(JsonElement config)
+    {
+        var defaults = new List<WeatherItemEntry>
+        {
+            new("title", true, 0, 0, 100, 20, null, null, null),
+            new("temperature", true, 0, 22, 50, 20, null, null, "fa-temperature-half"),
+            new("condition", true, 50, 22, 50, 20, null, null, "fa-cloud-sun"),
+            new("pressure", true, 0, 44, 50, 20, null, null, "fa-gauge"),
+            new("attribute", true, 50, 44, 50, 20, "humidity", "Humidity", "fa-droplet"),
+        };
+
+        if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+        {
+            var result = new List<WeatherItemEntry>();
+            foreach (var el in itemsEl.EnumerateArray())
+            {
+                var type = el.TryGetProperty("type", out var tProp) ? tProp.GetString() ?? "" : "";
+                var visible = !el.TryGetProperty("visible", out var vProp) || vProp.ValueKind != JsonValueKind.False;
+                var x = el.TryGetProperty("x", out var xProp) ? xProp.GetDouble() : 0;
+                var y = el.TryGetProperty("y", out var yProp) ? yProp.GetDouble() : 0;
+                var w = el.TryGetProperty("w", out var wProp) ? wProp.GetDouble() : 100;
+                var h = el.TryGetProperty("h", out var hProp) ? hProp.GetDouble() : 20;
+                var attrKey = el.TryGetProperty("attributeKey", out var akProp) ? akProp.GetString() : null;
+                var label = el.TryGetProperty("label", out var lProp) ? lProp.GetString() : null;
+                var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
+                result.Add(new WeatherItemEntry(type, visible, x, y, w, h, attrKey, label, icon));
+            }
+            return result;
+        }
+
+        return defaults;
+    }
+
     // ==================== WEATHER FORECAST ====================
 
     private string RenderWeatherForecastWidget(WidgetConfigEntry widget, LayoutConfig layout, SsrData data)
@@ -796,12 +939,22 @@ public sealed class DashboardHtmlRenderingService(
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
         var maxItems = GetIntProp(widget.Config, "maxItems");
+        var visibleFields = GetStringArrayProp(widget.Config, "visibleFields") ?? new[] { "time", "condition", "tempHigh", "tempLow" };
+        // Backward compat: migrate old 'temperature' to 'tempHigh' + 'tempLow'
+        if (visibleFields.Contains("temperature"))
+            visibleFields = visibleFields.Where(f => f != "temperature").Concat(new[] { "tempHigh", "tempLow" }).Distinct().ToArray();
+        var rowGap = GetIntProp(widget.Config, "rowGap") ?? 0;
         var w = widget.Position.W;
         var h = widget.Position.H;
         var isCompact = w <= 2 && h <= 2;
         var isTiny = w <= 2 || h == 1;
 
+        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
+
         var cssVars = $"--titleFontSize:{titleFontSize}px;--textFontSize:{textFontSize}px;--smallFontSize:{smallFontSize}px;" +
+                      $"--titleFontWeight:{titleFontWeight};--textFontWeight:{textFontWeight};" +
+                      $"--rowGap:{rowGap}px;" +
                       $"--titleColor:{titleColor};--textColor:{textColor};--iconColor:{iconColor}";
 
         var classes = "weather-forecast-widget";
@@ -822,8 +975,8 @@ public sealed class DashboardHtmlRenderingService(
             var items = forecastList.Take(itemCount).ToList();
 
             // Show header unless tiny
-            if (!isTiny)
-                sb.AppendLine("        <div class=\"forecast-header\">Forecast</div>");
+            if (!isTiny && widget.ShowTitle)
+                sb.AppendLine($"        <div class=\"forecast-header\">{Enc(widget.TitleOverride ?? "Forecast")}</div>");
 
             // Temperature unit from entity state
             var tempUnit = "°C";
@@ -838,23 +991,46 @@ public sealed class DashboardHtmlRenderingService(
 
                 sb.AppendLine("          <div class=\"forecast-item\">");
                 var dt = dict.TryGetValue("datetime", out var dtVal) ? dtVal?.ToString() : "";
-                sb.AppendLine($"            <div class=\"item-time\">{Enc(FormatForecastTime(dt, forecastMode))}</div>");
+                if (visibleFields.Contains("time"))
+                    sb.AppendLine($"            <div class=\"item-time\">{Enc(FormatForecastTime(dt, forecastMode))}</div>");
 
-                // Condition (hidden by CSS when height-1 or height-2, but still rendered)
-                var cond = dict.TryGetValue("condition", out var condVal) ? FormatCondition(condVal?.ToString()) : "";
-                sb.AppendLine($"            <div class=\"item-condition\">{Enc(cond)}</div>");
+                // Condition
+                if (visibleFields.Contains("condition"))
+                {
+                    var cond = dict.TryGetValue("condition", out var condVal) ? FormatCondition(condVal?.ToString()) : "";
+                    sb.AppendLine($"            <div class=\"item-condition\">{Enc(cond)}</div>");
+                }
 
-                if (forecastMode == "hourly")
+                if (visibleFields.Contains("tempHigh"))
                 {
                     var temp = dict.TryGetValue("temperature", out var tVal) ? RoundNum(tVal) : "";
                     sb.AppendLine($"            <div class=\"item-temp\">{Enc(temp)}{Enc(tempUnit)}</div>");
                 }
-                else
+
+                if (visibleFields.Contains("tempLow") && forecastMode != "hourly")
                 {
-                    var tempHigh = dict.TryGetValue("temperature", out var thVal) ? RoundNum(thVal) : "";
                     var tempLow = dict.TryGetValue("templow", out var tlVal) ? RoundNum(tlVal) : "";
-                    sb.AppendLine($"            <div class=\"item-temps\"><span>{Enc(tempHigh)}{Enc(tempUnit)}</span><span>{Enc(tempLow)}{Enc(tempUnit)}</span></div>");
+                    if (!string.IsNullOrEmpty(tempLow))
+                        sb.AppendLine($"            <div class=\"item-temp item-temp-low\">{Enc(tempLow)}{Enc(tempUnit)}</div>");
                 }
+
+                if (visibleFields.Contains("precipitation"))
+                {
+                    var precip = dict.TryGetValue("precipitation_probability", out var ppVal) ? RoundNum(ppVal) : null;
+                    if (!string.IsNullOrEmpty(precip))
+                        sb.AppendLine($"            <div class=\"item-precip\">{Enc(precip)}%</div>");
+                }
+
+                if (visibleFields.Contains("wind"))
+                {
+                    var windSpeed = dict.TryGetValue("wind_speed", out var wsVal) ? RoundNum(wsVal) : null;
+                    if (!string.IsNullOrEmpty(windSpeed))
+                    {
+                        var windUnit = data.EntityStates.TryGetValue(entityId, out var wes) ? GetEntityAttr(wes, "wind_speed_unit") ?? "" : "";
+                        sb.AppendLine($"            <div class=\"item-wind\">{Enc(windSpeed)} {Enc(windUnit)}</div>");
+                    }
+                }
+
                 sb.AppendLine("          </div>");
             }
             sb.AppendLine("        </div>");
@@ -881,6 +1057,8 @@ public sealed class DashboardHtmlRenderingService(
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var showCompleted = GetBoolProp(widget.Config, "showCompleted") ?? true;
+        var pendingIcon = GetStringProp(widget.Config, "pendingIcon") ?? "fa-circle";
+        var completedIcon = GetStringProp(widget.Config, "completedIcon") ?? "fa-check-circle";
         var w = widget.Position.W;
         var h = widget.Position.H;
 
@@ -918,9 +1096,10 @@ public sealed class DashboardHtmlRenderingService(
                 if (data.EntityStates.TryGetValue(entityId, out var es))
                     friendlyName = GetEntityAttr(es, "friendly_name") ?? "Tasks";
 
-                sb.AppendLine($"          <h4>{Enc(friendlyName)}</h4>");
+                if (widget.ShowTitle)
+                    sb.AppendLine($"          <h4>{Enc(widget.TitleOverride ?? friendlyName)}</h4>");
 
-                var maxShow = Math.Max(1, w * Math.Max(1, h * 2));
+                var maxShow = GetIntProp(widget.Config, "maxItems") ?? 50;
                 var limited = mapped.Take(maxShow).ToList();
 
                 if (limited.Count > 0)
@@ -928,7 +1107,7 @@ public sealed class DashboardHtmlRenderingService(
                     sb.AppendLine("          <div class=\"todo-items\">");
                     foreach (var (summary, complete) in limited)
                     {
-                        var iconCls = complete ? "fa-check-circle" : "fa-circle";
+                        var iconCls = complete ? completedIcon : pendingIcon;
                         var spanCls = complete ? " class=\"completed\"" : "";
                         sb.AppendLine("            <div class=\"todo-item\">");
                         sb.AppendLine($"              <i class=\"fa {iconCls}\"></i>");
@@ -997,8 +1176,8 @@ public sealed class DashboardHtmlRenderingService(
             _logger.LogDebug("SSR RSS: Entry title={Title}, link={Link}", entry.Title, entry.Link);
 
             sb.AppendLine("        <div class=\"rss-feed-content\">");
-            if (!string.IsNullOrEmpty(feedTitle))
-                sb.AppendLine($"          <h3 class=\"feed-title\">{Enc(feedTitle)}</h3>");
+            if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride ?? feedTitle))
+                sb.AppendLine($"          <h3 class=\"feed-title\">{Enc(widget.TitleOverride ?? feedTitle)}</h3>");
             sb.AppendLine("          <div class=\"rss-entry\">");
             sb.AppendLine("            <div class=\"entry-title-container\">");
             sb.AppendLine($"              <h4 class=\"entry-title\">{Enc(entry.Title)}</h4>");
@@ -1070,8 +1249,19 @@ public sealed class DashboardHtmlRenderingService(
     private static string RenderImageWidget(WidgetConfigEntry widget, LayoutConfig layout)
     {
         var imageUrl = GetStringProp(widget.Config, "imageUrl") ?? "";
-        var fit = GetStringProp(widget.Config, "fit") ?? "contain";
-        return $"      <div class=\"image-widget-container\"><img src=\"{Enc(imageUrl)}\" alt=\"Image\" style=\"object-fit:{fit}\" /></div>\n";
+        var zoom = GetDoubleProp(widget.Config, "zoom") ?? 1.0;
+        var offsetX = GetDoubleProp(widget.Config, "offsetX") ?? 0.0;
+        var offsetY = GetDoubleProp(widget.Config, "offsetY") ?? 0.0;
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var w = (zoom * 100).ToString("0.##", inv);
+        var h = (zoom * 100).ToString("0.##", inv);
+        var l = (-((zoom - 1) * (offsetX + 1) * 50)).ToString("0.##", inv);
+        var t = (-((zoom - 1) * (offsetY + 1) * 50)).ToString("0.##", inv);
+
+        var fit = zoom > 1.0 ? "cover" : "contain";
+        var imgStyle = $"position:absolute;object-fit:{fit};width:{w}%;height:{h}%;left:{l}%;top:{t}%";
+        return $"      <div class=\"image-widget-container\"><img src=\"{Enc(imageUrl)}\" alt=\"Image\" style=\"{imgStyle}\" /></div>\n";
     }
 
     // ==================== GRAPH (SVG) ====================
@@ -1305,10 +1495,27 @@ public sealed class DashboardHtmlRenderingService(
     private static int? GetIntProp(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : null;
 
+    private static double? GetDoubleProp(JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetDouble() : null;
+
+    /// <summary>Reads a numeric property from a badge JsonElement (badges use lowercase x/y/w/h).</summary>
+    private static double? GetBadgeDoubleProp(JsonElement badge, string prop) =>
+        badge.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.Number ? p.GetDouble() : null;
+
     private static bool? GetBoolProp(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var p)
             ? p.ValueKind == JsonValueKind.True ? true : p.ValueKind == JsonValueKind.False ? false : null
             : null;
+
+    private static string[]? GetStringArrayProp(JsonElement el, string prop)
+    {
+        if (!el.TryGetProperty(prop, out var p) || p.ValueKind != JsonValueKind.Array)
+            return null;
+        return p.EnumerateArray()
+            .Where(v => v.ValueKind == JsonValueKind.String)
+            .Select(v => v.GetString()!)
+            .ToArray();
+    }
 
     /// <summary>
     /// Extracts an attribute from HassEntityState.Attributes (Dictionary&lt;string, object?&gt;).

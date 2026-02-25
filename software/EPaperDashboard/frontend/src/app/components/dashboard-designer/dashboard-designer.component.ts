@@ -20,7 +20,12 @@ import {
   ColorScheme,
   DEFAULT_COLOR_SCHEMES,
   WidgetPosition,
-  HassEntityState
+  HassEntityState,
+  HeaderConfig,
+  WeatherConfig,
+  DEFAULT_WEATHER_ITEMS,
+  DEFAULT_CALENDAR_EVENT_ITEMS,
+  DEFAULT_FORECAST_FIELDS,
 } from '../../models/types';
 
 @Component({
@@ -51,6 +56,7 @@ export class DashboardDesignerComponent implements OnInit {
     canvasPadding: 16,
     widgetGap: 4,
     widgetBorder: 3,
+    widgetPadding: 4,
     titleFontSize: 16,
     textFontSize: 14,
     titleFontWeight: 700,
@@ -89,6 +95,8 @@ export class DashboardDesignerComponent implements OnInit {
   previewLoading = signal(false);
   previewError = signal('');
   previewImageUrl = signal('');
+  /** ID of the widget whose internal layout editor is currently active (header or weather). */
+  internalEditingWidgetId = signal<string | null>(null);
 
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -159,15 +167,6 @@ export class DashboardDesignerComponent implements OnInit {
     if (this.selectedWidget()?.id === widget.id) {
       this.selectedWidget.set(null);
     }
-  }
-
-  updateWidgetPosition(widget: WidgetConfig, position: Partial<WidgetPosition>): void {
-    this.layout.update(layout => ({
-      ...layout,
-      widgets: layout.widgets.map(w =>
-        w.id === widget.id ? { ...w, position: { ...w.position, ...position } } : w
-      )
-    }));
   }
 
   onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
@@ -271,6 +270,15 @@ export class DashboardDesignerComponent implements OnInit {
 
   onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
     event.stopPropagation();
+    // While a header widget is in internal-edit mode, swallow all outer drag/resize
+    // interactions for that specific widget so the inner editor gets full mouse control.
+    if (this.internalEditingWidgetId() === widget.id) {
+      return;
+    }
+    // Selecting any other widget exits internal-edit mode on the previous one.
+    if (this.internalEditingWidgetId() !== null) {
+      this.internalEditingWidgetId.set(null);
+    }
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
     const target = event.target as HTMLElement;
@@ -282,6 +290,34 @@ export class DashboardDesignerComponent implements OnInit {
       }
     }
     this.startDrag(event, widget);
+  }
+
+  toggleInternalEdit(widget: WidgetConfig): void {
+    const current = this.internalEditingWidgetId();
+    this.internalEditingWidgetId.set(current === widget.id ? null : widget.id);
+  }
+
+  onHeaderLayoutChanged(config: HeaderConfig, widgetId: string): void {
+    this.layout.update(l => ({
+      ...l,
+      widgets: l.widgets.map(w =>
+        w.id === widgetId ? { ...w, config: { ...config } } : w
+      ),
+    }));
+    // Also keep the selectedWidget signal in sync so the config panel reflects changes.
+    const updated = this.layout().widgets.find(w => w.id === widgetId);
+    if (updated) this.selectedWidget.set(updated);
+  }
+
+  onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
+    this.layout.update(l => ({
+      ...l,
+      widgets: l.widgets.map(w =>
+        w.id === widgetId ? { ...w, config: { ...config } } : w
+      ),
+    }));
+    const updated = this.layout().widgets.find(w => w.id === widgetId);
+    if (updated) this.selectedWidget.set(updated);
   }
 
   private startDrag(event: MouseEvent, widget: WidgetConfig): void {
@@ -326,6 +362,8 @@ export class DashboardDesignerComponent implements OnInit {
           ...l,
           widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
         }));
+        const updated = this.layout().widgets.find(w => w.id === g.id);
+        if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
@@ -424,6 +462,8 @@ export class DashboardDesignerComponent implements OnInit {
           ...l,
           widgets: l.widgets.map(w => w.id === g.id ? { ...w, position: { ...g.position } } : w)
         }));
+        const updated = this.layout().widgets.find(w => w.id === g.id);
+        if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
       document.removeEventListener('mousemove', onMouseMove);
@@ -567,6 +607,10 @@ export class DashboardDesignerComponent implements OnInit {
 
   updateWidgetBorder(border: number): void {
     this.layout.update(layout => ({ ...layout, widgetBorder: border }));
+  }
+
+  updateWidgetPadding(padding: number): void {
+    this.layout.update(layout => ({ ...layout, widgetPadding: padding }));
   }
 
   updateTitleFontSize(fontSize: number | string): void {
@@ -948,11 +992,52 @@ export class DashboardDesignerComponent implements OnInit {
       backgroundColor: backgroundColor,
       border: `${layout.widgetBorder ?? 2}px solid ${borderColor}`,
       color: layout.colorScheme.text,
-      padding: '8px',
+      padding: `${layout.widgetPadding ?? 0}px`,
+      boxSizing: 'border-box',
       overflow: 'visible',
       cursor: 'grab',
       position: 'relative',
       userSelect: 'none'
+    };
+  }
+
+  getSelectionOverlayStyle(): any {
+    const widget = this.selectedWidget();
+    if (!widget) return { display: 'none' };
+    const layout = this.layout();
+    const padding = layout.canvasPadding ?? 0;
+    const gap     = layout.widgetGap ?? 0;
+    const cols    = layout.gridCols;
+    const rows    = layout.gridRows;
+
+    // Use actual inner dimensions (clientWidth excludes the canvas CSS border)
+    const canvasEl = document.querySelector('.dashboard-canvas') as HTMLElement | null;
+    const totalW = canvasEl ? canvasEl.clientWidth  : layout.width;
+    const totalH = canvasEl ? canvasEl.clientHeight : layout.height;
+
+    const cellW = (totalW - 2 * padding - gap * (cols - 1)) / cols;
+    const cellH = (totalH - 2 * padding - gap * (rows - 1)) / rows;
+
+    // During drag/resize the live position is in ghost(), not layout()
+    const ghost = this.ghost();
+    const p = (ghost?.id === widget.id ? ghost.position : null) ?? widget.position;
+
+    const left   = padding + p.x * (cellW + gap);
+    const top    = padding + p.y * (cellH + gap);
+    const width  = p.w * cellW + (p.w - 1) * gap;
+    const height = p.h * cellH + (p.h - 1) * gap;
+
+    const isInternal = this.internalEditingWidgetId() === widget.id;
+
+    return {
+      position: 'absolute',
+      left:   `${left}px`,
+      top:    `${top}px`,
+      width:  `${width}px`,
+      height: `${height}px`,
+      boxSizing: 'border-box',
+      pointerEvents: isInternal ? 'none' : 'auto',
+      zIndex: 100,
     };
   }
 
@@ -1066,13 +1151,14 @@ export class DashboardDesignerComponent implements OnInit {
       case 'markdown':
         return { content: '# Markdown Content' };
       case 'calendar':
-        return { entityId: '', maxEvents: 7 };
+        return { entityId: '', maxEvents: 7, items: [...DEFAULT_CALENDAR_EVENT_ITEMS] };
       case 'weather':
-        return { entityId: '' };
+        return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
       case 'weather-forecast':
-        return { 
-          entityId: '', 
-          forecastMode: 'daily'
+        return {
+          entityId: '',
+          forecastMode: 'daily',
+          visibleFields: [...DEFAULT_FORECAST_FIELDS]
         };
       case 'graph':
         return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };

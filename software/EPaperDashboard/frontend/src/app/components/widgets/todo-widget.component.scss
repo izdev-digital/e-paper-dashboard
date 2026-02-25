@@ -1,9 +1,8 @@
 .todo-widget {
-  display: grid;
-  grid-auto-flow: row;
-  gap: 0px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden;
-  align-content: start;
   --headerFontSize: 15px;
   --itemFontSize: 12px;
   --smallFontSize: 9px;
@@ -81,11 +80,12 @@
 }
 
 .todo-content {
-  display: grid;
-  grid-auto-flow: row;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   overflow: hidden;
-  align-content: start;
+  flex: 1;
+  min-height: 0;
 
   h4 {
     margin: 0;
@@ -132,12 +132,13 @@
 }
 
 .todo-items {
-  display: grid;
-  grid-auto-flow: row;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
   font-size: var(--itemFontSize);
   overflow: hidden;
-  align-items: start;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -148,6 +149,7 @@
   overflow: hidden;
   width: 100%;
   min-width: 0;
+  flex-shrink: 0;
 
   i {
     flex-shrink: 0;

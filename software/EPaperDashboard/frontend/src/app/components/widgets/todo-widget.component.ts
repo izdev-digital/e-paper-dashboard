@@ -35,15 +35,17 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
               <small>Pending</small>
             </div>
           } @else {
-            <h4>{{ widget.titleOverride || getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
-            @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
+            @if (widget.showTitle !== false) {
+              <h4>{{ widget.titleOverride || getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
+            }
+            @if (getVisibleTodoItems(config.entityId).length > 0) {
               <div class="todo-items">
-                @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {
+                @for (item of getVisibleTodoItems(config.entityId); track trackByItemId($index, item)) {
                   <div class="todo-item">
                     @if (item.complete) {
-                      <i class="fa fa-check-circle"></i>
+                      <i class="fa {{ config.completedIcon || 'fa-check-circle' }}"></i>
                     } @else {
-                      <i class="fa fa-circle"></i>
+                      <i class="fa {{ config.pendingIcon || 'fa-circle' }}"></i>
                     }
                     <span [class.completed]="item.complete">{{ item.summary }}</span>
                   </div>
@@ -153,6 +155,12 @@ export class TodoWidgetComponent {
   getTodoItemsLimited(entityId?: string, w = 2, h = 2): any[] {
     const max = Math.max(1, w * Math.max(1, h * 2));
     return this.getTodoItems(entityId).slice(0, max);
+  }
+
+  getVisibleTodoItems(entityId?: string): any[] {
+    const items = this.getTodoItems(entityId);
+    const max = this.config.maxItems;
+    return max ? items.slice(0, max) : items;
   }
 
   trackByItemId(index: number, item: any) { return item.id || index; }

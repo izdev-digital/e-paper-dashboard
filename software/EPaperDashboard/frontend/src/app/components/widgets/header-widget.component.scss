@@ -1,61 +1,47 @@
+// ── container ────────────────────────────────────────────────────────────────
 .header-widget {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 10px;
+  position: relative;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
   overflow: hidden;
-  align-items: start;
-
-  &.align-top-left {
-    justify-items: start;
-  }
-
-  &.align-top-right {
-    grid-template-columns: 1fr auto;
-    justify-items: end;
-  }
-
-  &.align-bottom-left {
-    justify-items: start;
-  }
-
-  &.align-bottom-right {
-    grid-template-columns: 1fr auto;
-    justify-items: end;
-  }
 }
 
+// dot-grid background in edit mode (renders between elements & behind)
+.header-widget.hw-editing {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.13) 1px, transparent 1px);
+  background-size: 5% 5%;
+}
+
+// ── guide lines ───────────────────────────────────────────────────────────────
+.hw-guide {
+  position: absolute;
+  background: #0077ff;
+  pointer-events: none;
+  z-index: 20;
+  opacity: 0.7;
+}
+.hw-guide-v { top: 0; bottom: 0; width: 1px; transform: translateX(-50%); }
+.hw-guide-h { left: 0; right: 0; height: 1px; transform: translateY(-50%); }
+
+// ── title & badge (shared layout) ─────────────────────────────────────────────
 .title-section {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-  padding: 0;
-  min-height: 0;
-
-  .header-widget.align-top-right &,
-  .header-widget.align-bottom-right & {
-    grid-column: 2;
-  }
+  gap: 8px;
 }
 
-.badges-container {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
-  align-content: start;
-  gap: 10px;
+.title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
-  min-height: 0;
-
-  .header-widget.align-top-right &,
-  .header-widget.align-bottom-right & {
-    grid-column: 1;
-  }
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .header-icon {
@@ -63,7 +49,6 @@
   display: block;
   border-radius: 8px;
   object-fit: contain;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
   :deep(svg) {
     display: block;
@@ -72,30 +57,82 @@
   }
 }
 
-.title {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+.badge {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  // Override Bootstrap's .badge padding which would otherwise push content inward
+  padding: 0 4px;
+}
+
+.badge-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-height: 0;
+  min-width: 0;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
+// ── edit-mode element overlay ─────────────────────────────────────────────────
+// Uses inset box-shadow (not outline/border) so it stays inside the element
+// box and is never clipped when the element sits at the widget boundary.
+.hw-edit-el {
+  cursor: grab;
+  box-shadow: inset 0 0 0 1.5px rgba(0, 80, 200, 0.35);
+  z-index: 2;
+  transition: box-shadow 80ms;
+
+  &:hover {
+    box-shadow: inset 0 0 0 2px rgba(0, 100, 255, 0.55);
+  }
+
+  &.hw-el-selected {
+    box-shadow: inset 0 0 0 2px #0077ff, inset 0 0 8px rgba(0, 119, 255, 0.12);
+    z-index: 5;
+    cursor: grabbing;
+  }
 }
 
-.badge-value {
-  opacity: 0.7;
-  font-size: 0.813rem;
+// ── resize handles ────────────────────────────────────────────────────────────
+// Anchored INSIDE the element corners so they are never clipped by overflow:hidden
+// on the widget boundary.
+.hw-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #0077ff;
+  border: 1.5px solid #fff;
+  border-radius: 2px;
+  z-index: 10;
+  pointer-events: all;
 }
 
-.badge-icon {
-  font-size: 1.25rem;
-  line-height: 1;
+// Corners – flush with the element's own corners (inside, not outside)
+.hw-handle-nw { top: 0;    left: 0;                                cursor: nw-resize; }
+.hw-handle-ne { top: 0;    right: 0;                               cursor: ne-resize; }
+.hw-handle-se { bottom: 0; right: 0;                               cursor: se-resize; }
+.hw-handle-sw { bottom: 0; left: 0;                                cursor: sw-resize; }
+// Edge midpoints – still centred on the element's edge (half inside, visually centred)
+.hw-handle-n  { top: 0;    left: 50%; transform: translateX(-50%); cursor: n-resize;  }
+.hw-handle-e  { top: 50%;  right: 0;  transform: translateY(-50%); cursor: e-resize;  }
+.hw-handle-s  { bottom: 0; left: 50%; transform: translateX(-50%); cursor: s-resize;  }
+.hw-handle-w  { top: 50%;  left: 0;   transform: translateY(-50%); cursor: w-resize;  }
+
+// ── position readout ─────────────────────────────────────────────────────────
+.hw-readout {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  right: 6px;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(4px);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
+
