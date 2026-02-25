@@ -78,7 +78,10 @@ export interface AppIconConfig {
 
 export interface ImageConfig {
   imageUrl: string;
-  fit?: 'contain' | 'cover' | 'fill';
+  fit?: 'contain' | 'cover' | 'fill';  // legacy, kept for backward compat
+  zoom?: number;      // 1 = fit container, >1 = zoom in (default 1)
+  offsetX?: number;   // -1 to +1, horizontal pan (default 0 = center)
+  offsetY?: number;   // -1 to +1, vertical pan (default 0 = center)
 }
 
 export interface VersionConfig {

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme } from '../../models/types';
+import { WidgetConfig, ColorScheme, ImageConfig } from '../../models/types';
 
 @Component({
   selector: 'app-widget-image',
@@ -12,7 +12,15 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
         <h4 class="image-title">{{ widget.titleOverride }}</h4>
       }
       <div class="image-widget-container">
-        <img [src]="asImageConfig(widget.config).imageUrl" alt="Image" [style.object-fit]="asImageConfig(widget.config).fit || 'contain'" />
+        <img
+          [src]="cfg.imageUrl"
+          alt="Image"
+          [style.width.%]="(cfg.zoom ?? 1) * 100"
+          [style.height.%]="(cfg.zoom ?? 1) * 100"
+          [style.left.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetX ?? 0) + 1) * 50"
+          [style.top.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetY ?? 0) + 1) * 50"
+          [style.object-fit]="(cfg.zoom ?? 1) > 1 ? 'cover' : 'contain'"
+        />
       </div>
     </div>
   `,
@@ -37,17 +45,14 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
     .image-widget-container {
       width: 100%;
       flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       overflow: hidden;
       min-height: 0;
+      position: relative;
     }
     
     img {
-      width: 100%;
-      height: 100%;
-      object-position: center;
+      position: absolute;
+      object-fit: contain;
     }
   `]
 })
@@ -55,5 +60,7 @@ export class ImageWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
 
-  asImageConfig(config: any) { return config as any; }
+  get cfg(): ImageConfig {
+    return this.widget.config as ImageConfig;
+  }
 }

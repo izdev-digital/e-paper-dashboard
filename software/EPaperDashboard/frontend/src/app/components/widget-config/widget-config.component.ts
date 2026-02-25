@@ -25,6 +25,7 @@ import {
   RssFeedConfig,
   ColorScheme
 } from '../../models/types';
+import { HttpClient } from '@angular/common/http';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -46,6 +47,12 @@ export class WidgetConfigComponent implements OnChanges {
 
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
+  private readonly http = inject(HttpClient);
+
+  imageUploading = false;
+  imageUploadError: string | null = null;
+  showImageUrlInput = false;
+  imageUrlValue = '';
 
   formatEntityLabel(entity: any): string {
     const base = entity?.friendly_name || entity?.entity_id || 'Unknown';
@@ -445,5 +452,83 @@ export class WidgetConfigComponent implements OnChanges {
 
   getDefaultCalendarEventItemIcon(item: CalendarEventItemConfig): string {
     return defaultCalendarEventItemIcon(item.type);
+  }
+
+  // ─── Image upload helpers ─────────────────────────────────────────────────
+
+  onImageFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.dashboard) return;
+
+    this.imageUploading = true;
+    this.imageUploadError = null;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<{ imageUrl: string }>(
+      `/api/dashboards/${this.dashboard.id}/images`,
+      formData
+    ).subscribe({
+      next: (res) => {
+        (this.widget.config as any).imageUrl = res.imageUrl;
+        this.imageUploading = false;
+        this.onPropertyChanged();
+      },
+      error: (err) => {
+        this.imageUploadError = err?.error?.message || 'Upload failed.';
+        this.imageUploading = false;
+      }
+    });
+
+    // Reset input so re-selecting the same file triggers change
+    input.value = '';
+  }
+
+  clearUploadedImage(): void {
+    const config = this.widget.config as any;
+    const imageUrl: string = config.imageUrl || '';
+
+    // If it's an uploaded image, delete it from the server
+    if (imageUrl.startsWith('/api/dashboards/') && imageUrl.includes('/images/')) {
+      this.http.delete(imageUrl).subscribe({
+        error: () => { /* ignore delete errors */ }
+      });
+    }
+
+    config.imageUrl = '';
+    this.onPropertyChanged();
+  }
+
+  uploadImageFromUrl(): void {
+    if (!this.imageUrlValue || !this.dashboard) return;
+
+    // Delete previous uploaded image if any
+    const config = this.widget.config as any;
+    const prevUrl: string = config.imageUrl || '';
+    if (prevUrl.startsWith('/api/dashboards/') && prevUrl.includes('/images/')) {
+      this.http.delete(prevUrl).subscribe({ error: () => {} });
+    }
+
+    this.imageUploading = true;
+    this.imageUploadError = null;
+
+    this.http.post<{ imageUrl: string }>(
+      `/api/dashboards/${this.dashboard.id}/images/from-url`,
+      { url: this.imageUrlValue }
+    ).subscribe({
+      next: (res) => {
+        config.imageUrl = res.imageUrl;
+        this.imageUploading = false;
+        this.showImageUrlInput = false;
+        this.imageUrlValue = '';
+        this.onPropertyChanged();
+      },
+      error: (err) => {
+        this.imageUploadError = err?.error?.message || 'Failed to fetch image from URL.';
+        this.imageUploading = false;
+      }
+    });
   }
 }

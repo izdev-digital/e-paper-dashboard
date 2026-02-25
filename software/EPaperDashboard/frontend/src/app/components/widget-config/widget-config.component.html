@@ -463,18 +463,76 @@
 @case ('image') {
 @if (widget.config && 'imageUrl' in widget.config) {
 <div class="mb-3">
-  <label class="form-label">Image URL</label>
-  <input type="text" class="form-control" [(ngModel)]="widget.config.imageUrl"
-    placeholder="https://... or /assets/..." />
+  <label class="form-label">Image</label>
+  <div class="d-flex gap-2 mb-2">
+    <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
+      <i class="fa fa-upload"></i> From File
+    </button>
+    <button class="btn btn-sm btn-outline-secondary flex-grow-1" (click)="showImageUrlInput = !showImageUrlInput">
+      <i class="fa fa-link"></i> From URL
+    </button>
+    @if (widget.config.imageUrl) {
+    <button class="btn btn-sm btn-outline-danger" (click)="clearUploadedImage()" title="Clear image">
+      <i class="fa fa-trash"></i>
+    </button>
+    }
+  </div>
+  <input #imageFileInput type="file" accept="image/*" class="d-none"
+    (change)="onImageFileSelected($event)" />
+  @if (showImageUrlInput) {
+  <div class="input-group input-group-sm mb-2">
+    <input type="text" class="form-control" [(ngModel)]="imageUrlValue"
+      placeholder="https://example.com/image.png" />
+    <button class="btn btn-outline-primary" [disabled]="!imageUrlValue || imageUploading"
+      (click)="uploadImageFromUrl()">
+      <i class="fa fa-download"></i> Fetch
+    </button>
+  </div>
+  }
+  @if (imageUploading) {
+  <div class="text-muted small mb-2"><i class="fa fa-spinner fa-spin"></i> Uploading...</div>
+  }
+  @if (imageUploadError) {
+  <div class="alert alert-danger py-1 px-2 small mb-2">{{ imageUploadError }}</div>
+  }
+  @if (widget.config.imageUrl) {
+  <div class="mt-2 border rounded p-1 text-center" style="height: 120px; overflow: hidden; position: relative;">
+    <img [src]="widget.config.imageUrl" alt="Preview"
+      [style.width.%]="(widget.config.zoom || 1) * 100"
+      [style.height.%]="(widget.config.zoom || 1) * 100"
+      [style.left.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetX ?? 0) + 1) * 50"
+      [style.top.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetY ?? 0) + 1) * 50"
+      [style.object-fit]="(widget.config.zoom || 1) > 1 ? 'cover' : 'contain'"
+      style="position: absolute;" />
+  </div>
+  }
 </div>
 <div class="mb-3">
-  <label class="form-label">Fit</label>
-  <select class="form-select" [(ngModel)]="widget.config.fit">
-    <option value="contain">Contain</option>
-    <option value="cover">Cover</option>
-    <option value="fill">Fill</option>
-  </select>
+  <label class="form-label">Zoom ({{ (widget.config.zoom || 1) | number:'1.1-1' }}x)</label>
+  <input type="range" class="form-range" min="1" max="3" step="0.1"
+    [ngModel]="widget.config.zoom || 1"
+    (ngModelChange)="widget.config.zoom = $event; onPropertyChanged()" />
 </div>
+@if (widget.config.zoom && widget.config.zoom > 1) {
+<div class="mb-3">
+  <label class="form-label">Horizontal Position ({{ (widget.config.offsetX ?? 0) | number:'1.1-1' }})</label>
+  <input type="range" class="form-range" min="-1" max="1" step="0.05"
+    [ngModel]="widget.config.offsetX ?? 0"
+    (ngModelChange)="widget.config.offsetX = $event; onPropertyChanged()" />
+  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+    <span>Left</span><span>Center</span><span>Right</span>
+  </div>
+</div>
+<div class="mb-3">
+  <label class="form-label">Vertical Position ({{ (widget.config.offsetY ?? 0) | number:'1.1-1' }})</label>
+  <input type="range" class="form-range" min="-1" max="1" step="0.05"
+    [ngModel]="widget.config.offsetY ?? 0"
+    (ngModelChange)="widget.config.offsetY = $event; onPropertyChanged()" />
+  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+    <span>Top</span><span>Center</span><span>Bottom</span>
+  </div>
+</div>
+}
 }
 }
 

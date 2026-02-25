@@ -1252,8 +1252,19 @@ public sealed class DashboardHtmlRenderingService(
     private static string RenderImageWidget(WidgetConfigEntry widget, LayoutConfig layout)
     {
         var imageUrl = GetStringProp(widget.Config, "imageUrl") ?? "";
-        var fit = GetStringProp(widget.Config, "fit") ?? "contain";
-        return $"      <div class=\"image-widget-container\"><img src=\"{Enc(imageUrl)}\" alt=\"Image\" style=\"object-fit:{fit}\" /></div>\n";
+        var zoom = GetDoubleProp(widget.Config, "zoom") ?? 1.0;
+        var offsetX = GetDoubleProp(widget.Config, "offsetX") ?? 0.0;
+        var offsetY = GetDoubleProp(widget.Config, "offsetY") ?? 0.0;
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var w = (zoom * 100).ToString("0.##", inv);
+        var h = (zoom * 100).ToString("0.##", inv);
+        var l = (-((zoom - 1) * (offsetX + 1) * 50)).ToString("0.##", inv);
+        var t = (-((zoom - 1) * (offsetY + 1) * 50)).ToString("0.##", inv);
+
+        var fit = zoom > 1.0 ? "cover" : "contain";
+        var imgStyle = $"position:absolute;object-fit:{fit};width:{w}%;height:{h}%;left:{l}%;top:{t}%";
+        return $"      <div class=\"image-widget-container\"><img src=\"{Enc(imageUrl)}\" alt=\"Image\" style=\"{imgStyle}\" /></div>\n";
     }
 
     // ==================== GRAPH (SVG) ====================
