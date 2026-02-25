@@ -667,7 +667,6 @@ public sealed class DashboardHtmlRenderingService(
         var maxEvents = GetIntProp(widget.Config, "maxEvents") ?? 7;
         var showTitle = widget.ShowTitle;
         var eventGap = GetIntProp(widget.Config, "eventGap") ?? 0;
-        var eventHeight = GetIntProp(widget.Config, "eventHeight");
         var visibleItems = GetCalendarEventItems(widget.Config);
 
         var cssVars = $"--headerFontSize:{headerFontSize}px;--eventFontSize:{eventFontSize}px;" +
@@ -703,34 +702,32 @@ public sealed class DashboardHtmlRenderingService(
                 sb.AppendLine($"          <div class=\"calendar-events\" style=\"{gapStyle}\">");
                 foreach (var ev in upcoming)
                 {
-                    var evStyle = eventHeight.HasValue ? $"height:{eventHeight.Value}px;flex:0 0 auto" : "";
-                    sb.AppendLine($"            <div class=\"calendar-event\" style=\"{evStyle}\">");
+                    sb.AppendLine("            <div class=\"calendar-event\">");
                     foreach (var item in visibleItems)
                     {
                         var itemIcon = item.Icon ?? GetDefaultCalendarEventItemIcon(item.Type);
-                        var posStyle = $"left:{item.X.ToString(CultureInfo.InvariantCulture)}%;top:{item.Y.ToString(CultureInfo.InvariantCulture)}%;width:{item.W.ToString(CultureInfo.InvariantCulture)}%;height:{item.H.ToString(CultureInfo.InvariantCulture)}%";
                         switch (item.Type)
                         {
                             case "datetime":
                                 var dtIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
-                                sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{dtIcon}<span class=\"cw-text\">{Enc(FormatEventDate(ev.Start))}</span></span></div>");
+                                sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{dtIcon}<span class=\"cw-text\">{Enc(FormatEventDate(ev.Start))}</span></span></div>");
                                 break;
                             case "title":
                                 var titleIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
-                                sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{titleIcon}<span class=\"cw-text\">{Enc(ev.Summary ?? ev.Description ?? "-")}</span></span></div>");
+                                sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{titleIcon}<span class=\"cw-text\">{Enc(ev.Summary ?? ev.Description ?? "-")}</span></span></div>");
                                 break;
                             case "location":
                                 if (!string.IsNullOrEmpty(ev.Location))
                                 {
                                     var locIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
-                                    sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{locIcon}<span class=\"cw-text\">{Enc(ev.Location)}</span></span></div>");
+                                    sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{locIcon}<span class=\"cw-text\">{Enc(ev.Location)}</span></span></div>");
                                 }
                                 break;
                             case "description":
                                 if (!string.IsNullOrEmpty(ev.Description))
                                 {
                                     var descIcon = !string.IsNullOrEmpty(itemIcon) ? $"<i class=\"fa {itemIcon}\"></i>" : "";
-                                    sb.AppendLine($"              <div class=\"cw-item\" style=\"{posStyle}\"><span class=\"cw-value cw-with-icon\">{descIcon}<span class=\"cw-text\">{Enc(ev.Description)}</span></span></div>");
+                                    sb.AppendLine($"              <div class=\"cw-item-row\"><span class=\"cw-value cw-with-icon\">{descIcon}<span class=\"cw-text\">{Enc(ev.Description)}</span></span></div>");
                                 }
                                 break;
                         }

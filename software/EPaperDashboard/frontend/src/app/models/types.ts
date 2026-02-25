@@ -153,11 +153,6 @@ export interface CalendarEventItemConfig {
   visible?: boolean;
   /** Font Awesome icon class (e.g. 'fa-clock'). Each item type has a default. */
   icon?: string;
-  /** Position and size as % of the event entry bounds (set by the visual editor) */
-  x?: number;
-  y?: number;
-  w?: number;
-  h?: number;
 }
 
 /** Default icon for each calendar event item type */
@@ -172,10 +167,10 @@ export function defaultCalendarEventItemIcon(type: CalendarEventItemType): strin
 }
 
 export const DEFAULT_CALENDAR_EVENT_ITEMS: CalendarEventItemConfig[] = [
-  { type: 'datetime',    visible: true,  x: 0, y: 0,  w: 100, h: 50 },
-  { type: 'title',       visible: true,  x: 0, y: 50, w: 100, h: 50 },
-  { type: 'location',    visible: false, x: 0, y: 50, w: 100, h: 25, icon: 'fa-location-dot' },
-  { type: 'description', visible: false, x: 0, y: 75, w: 100, h: 25, icon: 'fa-align-left' },
+  { type: 'datetime',    visible: true },
+  { type: 'title',       visible: true },
+  { type: 'location',    visible: false, icon: 'fa-location-dot' },
+  { type: 'description', visible: false, icon: 'fa-align-left' },
 ];
 
 export interface CalendarConfig {
@@ -184,11 +179,6 @@ export interface CalendarConfig {
   items?: CalendarEventItemConfig[];
   /** Gap between event entries in px (default 0) */
   eventGap?: number;
-  /** Fixed height per event entry in px. When unset, events share available space equally. */
-  eventHeight?: number;
-  /** Layout editor settings – stored with the widget so they persist across sessions */
-  snapStep?: number;      // 0 = off, or 1 / 2 / 5 (%)
-  showGuides?: boolean;
 }
 
 export type ForecastMode = 'hourly' | 'daily' | 'weekly';

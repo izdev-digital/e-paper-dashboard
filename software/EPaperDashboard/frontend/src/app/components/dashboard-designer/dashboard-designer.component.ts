@@ -23,7 +23,6 @@ import {
   HassEntityState,
   HeaderConfig,
   WeatherConfig,
-  CalendarConfig,
   DEFAULT_WEATHER_ITEMS,
   DEFAULT_CALENDAR_EVENT_ITEMS,
   DEFAULT_FORECAST_FIELDS,
@@ -311,17 +310,6 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w =>
-        w.id === widgetId ? { ...w, config: { ...config } } : w
-      ),
-    }));
-    const updated = this.layout().widgets.find(w => w.id === widgetId);
-    if (updated) this.selectedWidget.set(updated);
-  }
-
-  onCalendarLayoutChanged(config: CalendarConfig, widgetId: string): void {
     this.layout.update(l => ({
       ...l,
       widgets: l.widgets.map(w =>
