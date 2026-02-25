@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS } from '../../models/types';
 
 interface ForecastItem {
   id: number;
@@ -34,6 +34,7 @@ interface ForecastItem {
       [style.--titleColor]="getTitleColor()"
       [style.--textColor]="getTextColor()"
       [style.--iconColor]="getIconColor()"
+      [style.--rowGap]="getRowGap() + 'px'"
       [style.color]="getTextColor()">
       
       @if (!isDataFetched()) {
@@ -54,27 +55,25 @@ interface ForecastItem {
           <div class="forecast-items" [class.hourly]="getForecastMode() === 'hourly'">
             @for (item of getForecastItems(); track item.id) {
               <div class="forecast-item">
-                <div class="item-time">{{ item.time }}</div>
-                @if (!isTinyMode()) {
+                @if (isFieldVisible('time')) {
+                  <div class="item-time">{{ item.time }}</div>
+                }
+                @if (isFieldVisible('condition') && !isTinyMode()) {
                   <div class="item-condition">{{ item.condition }}</div>
                 }
                 
-                @switch (getForecastMode()) {
-                  @case ('hourly') {
-                    <div class="item-temp">{{ item.temp }}{{ getTemperatureUnit() }}</div>
-                  }
-                  @case ('daily') {
-                    <div class="item-temps">
-                      <span>{{ item.tempHigh }}{{ getTemperatureUnit() }}</span>
-                      <span>{{ item.tempLow }}{{ getTemperatureUnit() }}</span>
-                    </div>
-                  }
-                  @case ('weekly') {
-                    <div class="item-temps">
-                      <span>{{ item.tempHigh }}{{ getTemperatureUnit() }}</span>
-                      <span>{{ item.tempLow }}{{ getTemperatureUnit() }}</span>
-                    </div>
-                  }
+                @if (isFieldVisible('tempHigh')) {
+                  <div class="item-temp">{{ getForecastMode() === 'hourly' ? item.temp : item.tempHigh }}{{ getTemperatureUnit() }}</div>
+                }
+                @if (isFieldVisible('tempLow') && getForecastMode() !== 'hourly' && item.tempLow) {
+                  <div class="item-temp item-temp-low">{{ item.tempLow }}{{ getTemperatureUnit() }}</div>
+                }
+                
+                @if (isFieldVisible('precipitation') && item.precip) {
+                  <div class="item-precip">{{ item.precip }}%</div>
+                }
+                @if (isFieldVisible('wind') && item.wind) {
+                  <div class="item-wind">{{ item.wind }} {{ getWindSpeedUnit() }}</div>
                 }
               </div>
             }
@@ -125,6 +124,22 @@ export class WeatherForecastWidgetComponent {
 
   getForecastMode(): 'hourly' | 'daily' | 'weekly' {
     return this.config.forecastMode || 'daily';
+  }
+
+  getVisibleFields(): ForecastField[] {
+    const fields = this.config.visibleFields || DEFAULT_FORECAST_FIELDS;
+    // Backward compat: migrate old 'temperature' field to 'tempHigh' + 'tempLow'
+    if ((fields as string[]).includes('temperature')) {
+      const migrated = fields.filter(f => f !== ('temperature' as any)) as ForecastField[];
+      if (!migrated.includes('tempHigh')) migrated.push('tempHigh');
+      if (!migrated.includes('tempLow')) migrated.push('tempLow');
+      return migrated;
+    }
+    return fields;
+  }
+
+  isFieldVisible(field: ForecastField): boolean {
+    return this.getVisibleFields().includes(field);
   }
 
   getForecastItems(): ForecastItem[] {
@@ -352,6 +367,10 @@ export class WeatherForecastWidgetComponent {
 
   getSmallFontSize(): number {
     return Math.round((this.designerSettings?.textFontSize ?? 12) * 0.75);
+  }
+
+  getRowGap(): number {
+    return this.config.rowGap ?? 0;
   }
 
   getTitleColor(): string {

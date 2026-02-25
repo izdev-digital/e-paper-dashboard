@@ -26,6 +26,7 @@ import {
   CalendarConfig,
   DEFAULT_WEATHER_ITEMS,
   DEFAULT_CALENDAR_EVENT_ITEMS,
+  DEFAULT_FORECAST_FIELDS,
 } from '../../models/types';
 
 @Component({
@@ -1166,9 +1167,10 @@ export class DashboardDesignerComponent implements OnInit {
       case 'weather':
         return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
       case 'weather-forecast':
-        return { 
-          entityId: '', 
-          forecastMode: 'daily'
+        return {
+          entityId: '',
+          forecastMode: 'daily',
+          visibleFields: [...DEFAULT_FORECAST_FIELDS]
         };
       case 'graph':
         return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };

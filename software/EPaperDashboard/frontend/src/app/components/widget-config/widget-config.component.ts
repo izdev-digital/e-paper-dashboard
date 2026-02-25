@@ -15,6 +15,10 @@ import {
   DEFAULT_WEATHER_ITEMS,
   defaultWeatherItemIcon,
   WeatherForecastConfig,
+  ForecastField,
+  ALL_FORECAST_FIELDS,
+  DEFAULT_FORECAST_FIELDS,
+  FORECAST_FIELD_LABELS,
   GraphConfig,
   TodoConfig,
   AppIconConfig,
@@ -112,6 +116,33 @@ export class WidgetConfigComponent implements OnChanges {
 
   onPropertyChanged(): void {
     this.widgetChanged.emit(this.widget);
+  }
+
+  // ---- Weather Forecast field visibility helpers ----
+  readonly allForecastFields = ALL_FORECAST_FIELDS;
+
+  isForecastFieldVisible(field: ForecastField): boolean {
+    const fields = this.weatherForecastConfig.visibleFields ?? DEFAULT_FORECAST_FIELDS;
+    return fields.includes(field);
+  }
+
+  toggleForecastField(field: ForecastField): void {
+    const current = this.weatherForecastConfig.visibleFields ?? [...DEFAULT_FORECAST_FIELDS];
+    const idx = current.indexOf(field);
+    if (idx >= 0) {
+      current.splice(idx, 1);
+    } else {
+      // Insert in canonical order
+      const ordered = ALL_FORECAST_FIELDS.filter(f => current.includes(f) || f === field);
+      current.length = 0;
+      current.push(...ordered);
+    }
+    this.weatherForecastConfig.visibleFields = current;
+    this.onPropertyChanged();
+  }
+
+  getForecastFieldLabel(field: ForecastField): string {
+    return FORECAST_FIELD_LABELS[field];
   }
 
   ngOnChanges(changes: SimpleChanges): void {

@@ -942,12 +942,22 @@ public sealed class DashboardHtmlRenderingService(
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
         var maxItems = GetIntProp(widget.Config, "maxItems");
+        var visibleFields = GetStringArrayProp(widget.Config, "visibleFields") ?? new[] { "time", "condition", "tempHigh", "tempLow" };
+        // Backward compat: migrate old 'temperature' to 'tempHigh' + 'tempLow'
+        if (visibleFields.Contains("temperature"))
+            visibleFields = visibleFields.Where(f => f != "temperature").Concat(new[] { "tempHigh", "tempLow" }).Distinct().ToArray();
+        var rowGap = GetIntProp(widget.Config, "rowGap") ?? 0;
         var w = widget.Position.W;
         var h = widget.Position.H;
         var isCompact = w <= 2 && h <= 2;
         var isTiny = w <= 2 || h == 1;
 
+        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
+
         var cssVars = $"--titleFontSize:{titleFontSize}px;--textFontSize:{textFontSize}px;--smallFontSize:{smallFontSize}px;" +
+                      $"--titleFontWeight:{titleFontWeight};--textFontWeight:{textFontWeight};" +
+                      $"--rowGap:{rowGap}px;" +
                       $"--titleColor:{titleColor};--textColor:{textColor};--iconColor:{iconColor}";
 
         var classes = "weather-forecast-widget";
@@ -984,23 +994,46 @@ public sealed class DashboardHtmlRenderingService(
 
                 sb.AppendLine("          <div class=\"forecast-item\">");
                 var dt = dict.TryGetValue("datetime", out var dtVal) ? dtVal?.ToString() : "";
-                sb.AppendLine($"            <div class=\"item-time\">{Enc(FormatForecastTime(dt, forecastMode))}</div>");
+                if (visibleFields.Contains("time"))
+                    sb.AppendLine($"            <div class=\"item-time\">{Enc(FormatForecastTime(dt, forecastMode))}</div>");
 
-                // Condition (hidden by CSS when height-1 or height-2, but still rendered)
-                var cond = dict.TryGetValue("condition", out var condVal) ? FormatCondition(condVal?.ToString()) : "";
-                sb.AppendLine($"            <div class=\"item-condition\">{Enc(cond)}</div>");
+                // Condition
+                if (visibleFields.Contains("condition"))
+                {
+                    var cond = dict.TryGetValue("condition", out var condVal) ? FormatCondition(condVal?.ToString()) : "";
+                    sb.AppendLine($"            <div class=\"item-condition\">{Enc(cond)}</div>");
+                }
 
-                if (forecastMode == "hourly")
+                if (visibleFields.Contains("tempHigh"))
                 {
                     var temp = dict.TryGetValue("temperature", out var tVal) ? RoundNum(tVal) : "";
                     sb.AppendLine($"            <div class=\"item-temp\">{Enc(temp)}{Enc(tempUnit)}</div>");
                 }
-                else
+
+                if (visibleFields.Contains("tempLow") && forecastMode != "hourly")
                 {
-                    var tempHigh = dict.TryGetValue("temperature", out var thVal) ? RoundNum(thVal) : "";
                     var tempLow = dict.TryGetValue("templow", out var tlVal) ? RoundNum(tlVal) : "";
-                    sb.AppendLine($"            <div class=\"item-temps\"><span>{Enc(tempHigh)}{Enc(tempUnit)}</span><span>{Enc(tempLow)}{Enc(tempUnit)}</span></div>");
+                    if (!string.IsNullOrEmpty(tempLow))
+                        sb.AppendLine($"            <div class=\"item-temp item-temp-low\">{Enc(tempLow)}{Enc(tempUnit)}</div>");
                 }
+
+                if (visibleFields.Contains("precipitation"))
+                {
+                    var precip = dict.TryGetValue("precipitation_probability", out var ppVal) ? RoundNum(ppVal) : null;
+                    if (!string.IsNullOrEmpty(precip))
+                        sb.AppendLine($"            <div class=\"item-precip\">{Enc(precip)}%</div>");
+                }
+
+                if (visibleFields.Contains("wind"))
+                {
+                    var windSpeed = dict.TryGetValue("wind_speed", out var wsVal) ? RoundNum(wsVal) : null;
+                    if (!string.IsNullOrEmpty(windSpeed))
+                    {
+                        var windUnit = data.EntityStates.TryGetValue(entityId, out var wes) ? GetEntityAttr(wes, "wind_speed_unit") ?? "" : "";
+                        sb.AppendLine($"            <div class=\"item-wind\">{Enc(windSpeed)} {Enc(windUnit)}</div>");
+                    }
+                }
+
                 sb.AppendLine("          </div>");
             }
             sb.AppendLine("        </div>");
@@ -1465,6 +1498,16 @@ public sealed class DashboardHtmlRenderingService(
         el.TryGetProperty(prop, out var p)
             ? p.ValueKind == JsonValueKind.True ? true : p.ValueKind == JsonValueKind.False ? false : null
             : null;
+
+    private static string[]? GetStringArrayProp(JsonElement el, string prop)
+    {
+        if (!el.TryGetProperty(prop, out var p) || p.ValueKind != JsonValueKind.Array)
+            return null;
+        return p.EnumerateArray()
+            .Where(v => v.ValueKind == JsonValueKind.String)
+            .Select(v => v.GetString()!)
+            .ToArray();
+    }
 
     /// <summary>
     /// Extracts an attribute from HassEntityState.Attributes (Dictionary&lt;string, object?&gt;).

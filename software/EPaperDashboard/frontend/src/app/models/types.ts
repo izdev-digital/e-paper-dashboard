@@ -190,10 +190,27 @@ export interface CalendarConfig {
 
 export type ForecastMode = 'hourly' | 'daily' | 'weekly';
 
+export type ForecastField = 'time' | 'condition' | 'tempHigh' | 'tempLow' | 'precipitation' | 'wind';
+
+export const ALL_FORECAST_FIELDS: ForecastField[] = ['time', 'condition', 'tempHigh', 'tempLow', 'precipitation', 'wind'];
+
+export const DEFAULT_FORECAST_FIELDS: ForecastField[] = ['time', 'condition', 'tempHigh', 'tempLow'];
+
+export const FORECAST_FIELD_LABELS: Record<ForecastField, string> = {
+  time: 'Time',
+  condition: 'Condition',
+  tempHigh: 'Temperature High',
+  tempLow: 'Temperature Low',
+  precipitation: 'Precipitation %',
+  wind: 'Wind Speed',
+};
+
 export interface WeatherForecastConfig {
   entityId: string;
   forecastMode?: ForecastMode; // 'hourly', 'daily', 'weekly' - defaults to 'daily'
   maxItems?: number; // Max forecast items to display (auto if not specified)
+  visibleFields?: ForecastField[]; // Which fields to show in each column (defaults to DEFAULT_FORECAST_FIELDS)
+  rowGap?: number; // Gap between rows in each column in px (default 0)
 }
 
 export type WeatherItemType = 'title' | 'temperature' | 'condition' | 'pressure' | 'attribute';

@@ -16,6 +16,7 @@
   --iconColor: currentColor;
   --titleColor: currentColor;
   --textColor: currentColor;
+  --rowGap: 0px;
 
   i {
     color: var(--iconColor);
@@ -52,17 +53,11 @@
     .forecast-item {
       padding: 0;
       border: none;
-      gap: 1px;
 
       .item-condition,
       .item-precip,
       .item-wind {
         display: none;
-      }
-
-      .item-temps {
-        gap: 0;
-        line-height: 1;
       }
     }
   }
@@ -84,7 +79,6 @@
 
     .forecast-item {
       padding: 0;
-      gap: 1px;
       border: none;
 
       .item-condition {
@@ -110,7 +104,6 @@
 
     .forecast-item {
       padding: 0;
-      gap: 2px;
       border: none;
     }
   }
@@ -217,44 +210,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  gap: var(--rowGap);
   padding: 0;
   border: none;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
   opacity: 0.95;
-  justify-content: center;
+  justify-content: start;
 
-  .weather-forecast-widget.tiny & {
-    border: none;
-    padding: 0;
-    gap: 0;
-  }
-
-  .weather-forecast-widget.height-1 & {
-    border: none;
-    padding: 0;
-    gap: 0;
-  }
-
-  .weather-forecast-widget.height-2 & {
-    border: none;
-    padding: 0;
-    gap: 0;
-  }
-
-  .weather-forecast-widget.height-3plus & {
-    border: none;
-    padding: 0;
-    gap: 0;
-  }
 }
 
 .forecast-time {
   font-size: var(--smallFontSize);
   font-weight: var(--titleFontWeight);
   color: var(--titleColor);
-  line-height: 1;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -271,7 +241,7 @@
   white-space: nowrap;
   width: 100%;
   text-align: center;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .forecast-temp {
@@ -280,7 +250,7 @@
   color: var(--textColor);
   width: 100%;
   text-align: center;
-  line-height: 1;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -313,7 +283,8 @@
   font-size: var(--textFontSize);
   font-weight: var(--textFontWeight);
   color: var(--titleColor);
-  line-height: 1;
+  line-height: 1.2;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -323,14 +294,16 @@
 
 .item-condition {
   font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
   color: var(--textColor);
   text-transform: capitalize;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
   text-align: center;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .item-temp {
@@ -339,48 +312,39 @@
   color: var(--textColor);
   width: 100%;
   text-align: center;
-  line-height: 1;
+  line-height: 1.2;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.item-temps {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.item-temp-low {
+  opacity: 0.7;
+}
+
+.item-precip {
   font-size: var(--textFontSize);
   font-weight: var(--textFontWeight);
   color: var(--textColor);
   width: 100%;
   text-align: center;
-  line-height: 1.1;
-
-  span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.item-precip {
-  font-size: calc(var(--smallFontSize) - 1px);
-  color: var(--textColor);
-  opacity: 0.8;
-  width: 100%;
-  text-align: center;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .item-wind {
-  font-size: calc(var(--smallFontSize) - 1px);
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
   color: var(--textColor);
-  opacity: 0.8;
   width: 100%;
   text-align: center;
+  flex-shrink: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
