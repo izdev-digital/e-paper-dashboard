@@ -127,7 +127,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
         }
         @if (isDataFetched()) {
           <div class="calendar-content">
-            @if (config.showTitle !== false) {
+            @if (widget.showTitle !== false) {
               <h4>{{ widget.titleOverride || 'Events' }}</h4>
             }
             @if (getUpcomingEvents(config.entityId).length > 0) {

@@ -26,7 +26,7 @@ interface ChartDataPoint {
         </div>
       }
       @if (isDataFetched()) {
-        @if (widget.titleOverride) {
+        @if (widget.showTitle !== false && widget.titleOverride) {
           <h4 class="graph-title">{{ widget.titleOverride }}</h4>
         }
         <canvas 

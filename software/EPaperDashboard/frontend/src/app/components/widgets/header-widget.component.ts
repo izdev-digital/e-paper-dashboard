@@ -59,6 +59,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
       }
 
       <!-- ── Title (icon + text) ──────────────────────────────────────── -->
+      @if (widget.showTitle !== false || internalEdit) {
       <div class="title-section"
            [class.hw-edit-el]="internalEdit"
            [class.hw-el-selected]="internalEdit && selectedId === 'title'"
@@ -67,6 +68,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
            [style.width.%]="getElPos('title').w"
            [style.height.%]="getElPos('title').h"
            [style.color]="getTitleColor()"
+           [style.opacity]="widget.showTitle === false && internalEdit ? 0.35 : null"
            (mousedown)="onElementMouseDown($event, 'title')">
 
         @if (isIconOnLeft() && inlineSvg) {
@@ -95,6 +97,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
           }
         }
       </div>
+      }
 
       <!-- ── Badges ──────────────────────────────────────────────────── -->
       @for (badge of visibleBadges(); track $index; let i = $index) {

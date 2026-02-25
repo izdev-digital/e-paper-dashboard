@@ -67,7 +67,8 @@ public sealed class DashboardHtmlRenderingService(
         WidgetPositionConfig Position,
         JsonElement Config,
         WidgetColorOverridesConfig? ColorOverrides,
-        string? TitleOverride = null);
+        string? TitleOverride = null,
+        bool ShowTitle = true);
 
     // Aggregated HA data for rendering
     public class SsrData
@@ -222,7 +223,8 @@ public sealed class DashboardHtmlRenderingService(
                     Position: position,
                     Config: configEl.Clone(),
                     ColorOverrides: overrides,
-                    TitleOverride: w.TryGetProperty("titleOverride", out var toEl) ? toEl.GetString() : null
+                    TitleOverride: w.TryGetProperty("titleOverride", out var toEl) ? toEl.GetString() : null,
+                    ShowTitle: w.TryGetProperty("showTitle", out var stEl) && stEl.ValueKind == JsonValueKind.False ? false : true
                 ));
                 _logger.LogInformation("SSR: Successfully parsed widget {Index}: type={Type}, id={Id}, pos=({X},{Y},{W},{H})",
                     widgetIndex, typeEl.GetString(), idEl.GetString(), position.X, position.Y, position.W, position.H);
@@ -587,20 +589,23 @@ public sealed class DashboardHtmlRenderingService(
         sb.AppendLine($"      <div class=\"header-widget\" style=\"color:{titleColor}\">");
 
         // Title section – absolutely positioned, matches Angular [style.left/top/width/height.%]
-        var titleStyle = $"left:{titleX.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{titleY.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{titleW.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{titleH.ToString("0.##", CultureInfo.InvariantCulture)}%;color:{titleColor}";
-        sb.AppendLine($"        <div class=\"title-section\" style=\"{titleStyle}\">");
-        if (isIconOnLeft && data.SvgIcon != null)
+        if (widget.ShowTitle)
         {
-            var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
-            sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            var titleStyle = $"left:{titleX.ToString("0.##", CultureInfo.InvariantCulture)}%;top:{titleY.ToString("0.##", CultureInfo.InvariantCulture)}%;width:{titleW.ToString("0.##", CultureInfo.InvariantCulture)}%;height:{titleH.ToString("0.##", CultureInfo.InvariantCulture)}%;color:{titleColor}";
+            sb.AppendLine($"        <div class=\"title-section\" style=\"{titleStyle}\">");
+            if (isIconOnLeft && data.SvgIcon != null)
+            {
+                var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
+                sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            }
+            sb.AppendLine($"          <div class=\"title\" style=\"font-size:{titleFontSize}px;color:{titleColor}\">{Enc(title)}</div>");
+            if (!isIconOnLeft && data.SvgIcon != null)
+            {
+                var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
+                sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
+            }
+            sb.AppendLine("        </div>");
         }
-        sb.AppendLine($"          <div class=\"title\" style=\"font-size:{titleFontSize}px;color:{titleColor}\">{Enc(title)}</div>");
-        if (!isIconOnLeft && data.SvgIcon != null)
-        {
-            var svg = ApplySvgAccentColor(data.SvgIcon, iconColor);
-            sb.AppendLine($"          <div class=\"header-icon\" style=\"width:{iconSize}px;height:{iconSize}px;--accent-color:{iconColor}\">{svg}</div>");
-        }
-        sb.AppendLine("        </div>");
 
         // Badges – each absolutely positioned, mirrors Angular getElPos('badge-i') defaults
         // autoX(i) = (i%4)*22;  autoY(i) = floor(i/4)*30;  default w=22, h=30
@@ -654,7 +659,7 @@ public sealed class DashboardHtmlRenderingService(
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var maxEvents = GetIntProp(widget.Config, "maxEvents") ?? 7;
-        var showTitle = GetBoolProp(widget.Config, "showTitle") ?? true;
+        var showTitle = widget.ShowTitle;
         var eventGap = GetIntProp(widget.Config, "eventGap") ?? 0;
         var eventHeight = GetIntProp(widget.Config, "eventHeight");
         var visibleItems = GetCalendarEventItems(widget.Config);
@@ -820,6 +825,8 @@ public sealed class DashboardHtmlRenderingService(
                 foreach (var item in items)
                 {
                     var visible = item.Visible;
+                    // Title visibility is also controlled by widget-level ShowTitle
+                    if (item.Type == "title" && !widget.ShowTitle) visible = false;
                     if (!visible) continue;
 
                     var posStyle = $"position:absolute;left:{item.X}%;top:{item.Y}%;width:{item.W}%;height:{item.H}%;box-sizing:border-box;overflow:hidden;display:flex;align-items:center;gap:4px;padding:0 4px";
@@ -954,8 +961,8 @@ public sealed class DashboardHtmlRenderingService(
             var items = forecastList.Take(itemCount).ToList();
 
             // Show header unless tiny
-            if (!isTiny)
-                sb.AppendLine("        <div class=\"forecast-header\">Forecast</div>");
+            if (!isTiny && widget.ShowTitle)
+                sb.AppendLine($"        <div class=\"forecast-header\">{Enc(widget.TitleOverride ?? "Forecast")}</div>");
 
             // Temperature unit from entity state
             var tempUnit = "°C";
@@ -1050,7 +1057,8 @@ public sealed class DashboardHtmlRenderingService(
                 if (data.EntityStates.TryGetValue(entityId, out var es))
                     friendlyName = GetEntityAttr(es, "friendly_name") ?? "Tasks";
 
-                sb.AppendLine($"          <h4>{Enc(friendlyName)}</h4>");
+                if (widget.ShowTitle)
+                    sb.AppendLine($"          <h4>{Enc(widget.TitleOverride ?? friendlyName)}</h4>");
 
                 var maxShow = Math.Max(1, w * Math.Max(1, h * 2));
                 var limited = mapped.Take(maxShow).ToList();
@@ -1129,8 +1137,8 @@ public sealed class DashboardHtmlRenderingService(
             _logger.LogDebug("SSR RSS: Entry title={Title}, link={Link}", entry.Title, entry.Link);
 
             sb.AppendLine("        <div class=\"rss-feed-content\">");
-            if (!string.IsNullOrEmpty(feedTitle))
-                sb.AppendLine($"          <h3 class=\"feed-title\">{Enc(feedTitle)}</h3>");
+            if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride ?? feedTitle))
+                sb.AppendLine($"          <h3 class=\"feed-title\">{Enc(widget.TitleOverride ?? feedTitle)}</h3>");
             sb.AppendLine("          <div class=\"rss-entry\">");
             sb.AppendLine("            <div class=\"entry-title-container\">");
             sb.AppendLine($"              <h4 class=\"entry-title\">{Enc(entry.Title)}</h4>");

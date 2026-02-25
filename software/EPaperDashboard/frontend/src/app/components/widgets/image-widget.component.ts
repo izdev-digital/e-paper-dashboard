@@ -8,7 +8,7 @@ import { WidgetConfig, ColorScheme } from '../../models/types';
   imports: [CommonModule],
   template: `
     <div class="image-widget-wrapper">
-      @if (widget.titleOverride) {
+      @if (widget.showTitle !== false && widget.titleOverride) {
         <h4 class="image-title">{{ widget.titleOverride }}</h4>
       }
       <div class="image-widget-container">

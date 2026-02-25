@@ -35,7 +35,9 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
               <small>Pending</small>
             </div>
           } @else {
-            <h4>{{ widget.titleOverride || getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
+            @if (widget.showTitle !== false) {
+              <h4>{{ widget.titleOverride || getEntityState(config.entityId)?.attributes?.['friendly_name'] || 'Tasks' }}</h4>
+            }
             @if (getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h).length > 0) {
               <div class="todo-items">
                 @for (item of getTodoItemsLimited(config.entityId, widget.position.w, widget.position.h); track trackByItemId($index, item)) {

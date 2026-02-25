@@ -111,6 +111,7 @@ export interface WidgetConfig {
   | RssFeedConfig;
   colorOverrides?: WidgetColorOverrides;
   titleOverride?: string;
+  showTitle?: boolean;
 }
 
 export interface HeaderConfig {
@@ -177,7 +178,6 @@ export const DEFAULT_CALENDAR_EVENT_ITEMS: CalendarEventItemConfig[] = [
 export interface CalendarConfig {
   entityId: string;
   maxEvents: number;
-  showTitle?: boolean;
   items?: CalendarEventItemConfig[];
   /** Gap between event entries in px (default 0) */
   eventGap?: number;

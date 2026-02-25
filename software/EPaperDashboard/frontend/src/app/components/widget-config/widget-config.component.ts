@@ -301,6 +301,12 @@ export class WidgetConfigComponent implements OnChanges {
     }
   }
 
+  getBadgeEntityLabel(badge: any): string {
+    if (!badge.entityId) return '';
+    const entity = this.entities().find((e: any) => e.entity_id === badge.entityId);
+    return entity ? this.formatEntityLabel(entity) : badge.entityId;
+  }
+
   // ─── Weather item helpers ─────────────────────────────────────────────────
 
   getWeatherItems(): WeatherItemConfig[] {
@@ -318,6 +324,42 @@ export class WidgetConfigComponent implements OnChanges {
   toggleWeatherItemVisibility(index: number): void {
     const items = this.getWeatherItems();
     items[index] = { ...items[index], visible: items[index].visible === false };
+    this.onPropertyChanged();
+  }
+
+  getWeatherNonTitleItems(): WeatherItemConfig[] {
+    return this.getWeatherItems().filter(i => i.type !== 'title');
+  }
+
+  toggleWeatherNonTitleItemVisibility(filteredIndex: number): void {
+    const allItems = this.getWeatherItems();
+    const nonTitleItems = allItems.filter(i => i.type !== 'title');
+    const item = nonTitleItems[filteredIndex];
+    const realIndex = allItems.indexOf(item);
+    if (realIndex >= 0) {
+      allItems[realIndex] = { ...allItems[realIndex], visible: allItems[realIndex].visible === false };
+      this.onPropertyChanged();
+    }
+  }
+
+  toggleWeatherTitleVisibility(): void {
+    const items = this.getWeatherItems();
+    const idx = items.findIndex(i => i.type === 'title');
+    if (idx >= 0) {
+      items[idx] = { ...items[idx], visible: items[idx].visible === false };
+    }
+  }
+
+  toggleTitleVisibility(): void {
+    this.widget.showTitle = !(this.widget.showTitle !== false);
+    // Keep weather title item visibility in sync
+    if (this.widget.type === 'weather') {
+      const items = this.getWeatherItems();
+      const idx = items.findIndex(i => i.type === 'title');
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], visible: this.widget.showTitle };
+      }
+    }
     this.onPropertyChanged();
   }
 
