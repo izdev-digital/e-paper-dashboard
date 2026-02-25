@@ -20,7 +20,7 @@ export class VersionService {
         this.version.set(response.version);
       },
       error: () => {
-        this.version.set('0.2.1');
+        this.version.set('0.2.2');
       }
     });
   }
