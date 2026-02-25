@@ -35,7 +35,9 @@ public sealed class DashboardHtmlRenderingService(
         int WidgetBorder,
         int WidgetPadding,
         int TitleFontSize,
-        int TextFontSize);
+        int TextFontSize,
+        int TitleFontWeight,
+        int TextFontWeight);
 
     public record ColorSchemeConfig(
         string Name,
@@ -249,7 +251,9 @@ public sealed class DashboardHtmlRenderingService(
             WidgetBorder: root.TryGetProperty("widgetBorder", out var wb) ? wb.GetInt32() : 3,
             WidgetPadding: root.TryGetProperty("widgetPadding", out var wp) ? wp.GetInt32() : 4,
             TitleFontSize: root.TryGetProperty("titleFontSize", out var tf) ? tf.GetInt32() : 16,
-            TextFontSize: root.TryGetProperty("textFontSize", out var txf) ? txf.GetInt32() : 14
+            TextFontSize: root.TryGetProperty("textFontSize", out var txf) ? txf.GetInt32() : 14,
+            TitleFontWeight: root.TryGetProperty("titleFontWeight", out var tfw) ? tfw.GetInt32() : 700,
+            TextFontWeight: root.TryGetProperty("textFontWeight", out var txfw) ? txfw.GetInt32() : 400
         );
     }
 
@@ -656,6 +660,8 @@ public sealed class DashboardHtmlRenderingService(
         var iconColor = ResolveColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var headerFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
         var eventFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
+        var headerFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var eventFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var maxEvents = GetIntProp(widget.Config, "maxEvents") ?? 7;
@@ -665,6 +671,7 @@ public sealed class DashboardHtmlRenderingService(
         var visibleItems = GetCalendarEventItems(widget.Config);
 
         var cssVars = $"--headerFontSize:{headerFontSize}px;--eventFontSize:{eventFontSize}px;" +
+                      $"--headerFontWeight:{headerFontWeight};--eventFontWeight:{eventFontWeight};" +
                       $"--iconColor:{iconColor};--titleColor:{titleColor};--textColor:{textColor}";
 
         var sb = new StringBuilder();
@@ -799,8 +806,8 @@ public sealed class DashboardHtmlRenderingService(
         var iconColor = ResolveColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
-        var titleFontWeight = 700;
-        var textFontWeight = 400;
+        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
 

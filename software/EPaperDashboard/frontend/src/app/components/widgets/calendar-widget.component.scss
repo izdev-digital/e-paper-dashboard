@@ -96,6 +96,8 @@
   min-width: 0;
   flex: 1;
   line-height: 1.2;
+  font-size: var(--eventFontSize);
+  font-weight: var(--eventFontWeight);
 
   &.cw-with-icon {
     display: flex;

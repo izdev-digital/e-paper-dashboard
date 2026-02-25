@@ -69,33 +69,25 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
 
               @switch (item.type) {
                 @case ('datetime') {
-                  <span class="cw-value cw-with-icon"
-                        [style.fontSize.px]="getEventFontSize()"
-                        [style.fontWeight]="getEventFontWeight()">
+                  <span class="cw-value cw-with-icon">
                     <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                     <span class="cw-text">Feb 25, 10:00 AM</span>
                   </span>
                 }
                 @case ('title') {
-                  <span class="cw-value cw-with-icon"
-                        [style.fontSize.px]="getEventFontSize()"
-                        [style.fontWeight]="getEventFontWeight()">
+                  <span class="cw-value cw-with-icon">
                     <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                     <span class="cw-text">Sample Event Title</span>
                   </span>
                 }
                 @case ('location') {
-                  <span class="cw-value cw-with-icon"
-                        [style.fontSize.px]="getEventFontSize()"
-                        [style.fontWeight]="getEventFontWeight()">
+                  <span class="cw-value cw-with-icon">
                     <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                     <span class="cw-text">Conference Room A</span>
                   </span>
                 }
                 @case ('description') {
-                  <span class="cw-value cw-with-icon"
-                        [style.fontSize.px]="getEventFontSize()"
-                        [style.fontWeight]="getEventFontWeight()">
+                  <span class="cw-value cw-with-icon">
                     <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                     <span class="cw-text">Weekly team standup meeting</span>
                   </span>
@@ -145,26 +137,20 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
                          [style.height.%]="getElPos(item.type, item, idx).h">
                       @switch (item.type) {
                         @case ('datetime') {
-                          <span class="cw-value cw-with-icon"
-                                [style.fontSize.px]="getEventFontSize()"
-                                [style.fontWeight]="getEventFontWeight()">
+                          <span class="cw-value cw-with-icon">
                             <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                             <span class="cw-text">{{ formatEventDate(ev) }}</span>
                           </span>
                         }
                         @case ('title') {
-                          <span class="cw-value cw-with-icon"
-                                [style.fontSize.px]="getEventFontSize()"
-                                [style.fontWeight]="getEventFontWeight()">
+                          <span class="cw-value cw-with-icon">
                             <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                             <span class="cw-text">{{ ev.summary || ev.title || ev.description || '-' }}</span>
                           </span>
                         }
                         @case ('location') {
                           @if (ev.location) {
-                            <span class="cw-value cw-with-icon"
-                                  [style.fontSize.px]="getEventFontSize()"
-                                  [style.fontWeight]="getEventFontWeight()">
+                            <span class="cw-value cw-with-icon">
                               <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                               <span class="cw-text">{{ ev.location }}</span>
                             </span>
@@ -172,9 +158,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
                         }
                         @case ('description') {
                           @if (ev.description) {
-                            <span class="cw-value cw-with-icon"
-                                  [style.fontSize.px]="getEventFontSize()"
-                                  [style.fontWeight]="getEventFontWeight()">
+                            <span class="cw-value cw-with-icon">
                               <i class="fa {{ resolveIcon(item) }}" [style.color]="getIconColor()"></i>
                               <span class="cw-text">{{ ev.description }}</span>
                             </span>
