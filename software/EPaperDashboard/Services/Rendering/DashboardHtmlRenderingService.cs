@@ -1027,6 +1027,8 @@ public sealed class DashboardHtmlRenderingService(
 
         var entityId = GetStringProp(widget.Config, "entityId") ?? "";
         var showCompleted = GetBoolProp(widget.Config, "showCompleted") ?? true;
+        var pendingIcon = GetStringProp(widget.Config, "pendingIcon") ?? "fa-circle";
+        var completedIcon = GetStringProp(widget.Config, "completedIcon") ?? "fa-check-circle";
         var w = widget.Position.W;
         var h = widget.Position.H;
 
@@ -1075,7 +1077,7 @@ public sealed class DashboardHtmlRenderingService(
                     sb.AppendLine("          <div class=\"todo-items\">");
                     foreach (var (summary, complete) in limited)
                     {
-                        var iconCls = complete ? "fa-check-circle" : "fa-circle";
+                        var iconCls = complete ? completedIcon : pendingIcon;
                         var spanCls = complete ? " class=\"completed\"" : "";
                         sb.AppendLine("            <div class=\"todo-item\">");
                         sb.AppendLine($"              <i class=\"fa {iconCls}\"></i>");

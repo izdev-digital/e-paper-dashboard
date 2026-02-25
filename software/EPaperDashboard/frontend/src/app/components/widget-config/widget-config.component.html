@@ -393,6 +393,35 @@
     (ngModelChange)="onPropertyChanged()" placeholder="Auto" />
   <small class="form-text text-muted">Leave empty to show as many as fit in the widget</small>
 </div>
+<div class="mb-3">
+  <label class="form-label fw-semibold">Item Icons</label>
+  <div class="list-group list-group-flush border rounded">
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="flex-grow-1 mb-0" style="min-width:0">Pending</span>
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <i class="fa {{ todoConfig.pendingIcon || 'fa-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+          placeholder="fa-circle"
+          [(ngModel)]="todoConfig.pendingIcon"
+          (ngModelChange)="onPropertyChanged()" />
+      </div>
+    </div>
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="flex-grow-1 mb-0" style="min-width:0">Completed</span>
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <i class="fa {{ todoConfig.completedIcon || 'fa-check-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+          placeholder="fa-check-circle"
+          [(ngModel)]="todoConfig.completedIcon"
+          (ngModelChange)="onPropertyChanged()" />
+      </div>
+    </div>
+  </div>
+</div>
 }
 
 @case ('rss-feed') {

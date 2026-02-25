@@ -269,6 +269,8 @@ export interface TodoConfig {
   entityId: string;
   showCompleted?: boolean;
   maxItems?: number;
+  pendingIcon?: string;
+  completedIcon?: string;
 }
 
 export interface RssFeedConfig {

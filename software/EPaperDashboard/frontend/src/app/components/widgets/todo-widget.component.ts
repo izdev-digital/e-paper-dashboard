@@ -43,9 +43,9 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
                 @for (item of getVisibleTodoItems(config.entityId); track trackByItemId($index, item)) {
                   <div class="todo-item">
                     @if (item.complete) {
-                      <i class="fa fa-check-circle"></i>
+                      <i class="fa {{ config.completedIcon || 'fa-check-circle' }}"></i>
                     } @else {
-                      <i class="fa fa-circle"></i>
+                      <i class="fa {{ config.pendingIcon || 'fa-circle' }}"></i>
                     }
                     <span [class.completed]="item.complete">{{ item.summary }}</span>
                   </div>
