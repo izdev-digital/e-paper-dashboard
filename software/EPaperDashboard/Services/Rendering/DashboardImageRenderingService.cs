@@ -354,27 +354,6 @@ public sealed class DashboardImageRenderingService
             }
         }
 
-        // Load inline SVG icon – check all known candidate paths
-        try
-        {
-            var wwwroot = _env.WebRootPath ?? System.IO.Path.Combine(_env.ContentRootPath, "wwwroot");
-            var candidates = new[]
-            {
-                System.IO.Path.Combine(wwwroot, "browser", "icon-tab-dynamic.svg"),
-                System.IO.Path.Combine(wwwroot, "icon-tab-dynamic.svg"),
-                System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "dist", "frontend", "browser", "icon-tab-dynamic.svg"),
-            };
-            foreach (var candidate in candidates)
-            {
-                if (File.Exists(candidate))
-                {
-                    data.SvgIcon = await File.ReadAllTextAsync(candidate);
-                    break;
-                }
-            }
-        }
-        catch { /* ignore */ }
-
         return data;
     }
 
@@ -603,20 +582,49 @@ public sealed class DashboardImageRenderingService
             var titleW = GetDoubleProp(widget.Config, "titleW") ?? 42.0;
             var titleH = GetDoubleProp(widget.Config, "titleH") ?? 50.0;
 
-            var titleRect = new RectangleF(
+            // The title section region (matches the Angular flex container)
+            var sectionRect = new RectangleF(
                 contentRect.X + (float)(titleX / 100.0 * contentRect.Width),
                 contentRect.Y + (float)(titleY / 100.0 * contentRect.Height),
                 (float)(titleW / 100.0 * contentRect.Width),
                 (float)(titleH / 100.0 * contentRect.Height));
 
-            // Draw SVG icon if available
-            if (data.SvgIcon != null)
+            // Clamp the icon to the section height, preserving aspect ratio
+            var effectiveIconSize = Math.Min(iconSize, sectionRect.Height);
+
+            float textLeftOffset = 0;
+            float textRightOffset = 0;
+
+            // Draw app icon — placed inside the title section like the Angular flex layout
             {
-                var iconBounds = isIconOnLeft
-                    ? new RectangleF(contentRect.X, contentRect.Y, iconSize, iconSize)
-                    : new RectangleF(titleRect.Right + 4, contentRect.Y, iconSize, iconSize);
-                DrawSvgFromContent(image, data.SvgIcon, iconColor, iconBounds);
+                RectangleF iconBounds;
+                if (isIconOnLeft)
+                {
+                    iconBounds = new RectangleF(
+                        sectionRect.X,
+                        sectionRect.Y + (sectionRect.Height - effectiveIconSize) / 2f,
+                        effectiveIconSize,
+                        effectiveIconSize);
+                    textLeftOffset = effectiveIconSize + 4;
+                }
+                else
+                {
+                    iconBounds = new RectangleF(
+                        sectionRect.Right - effectiveIconSize,
+                        sectionRect.Y + (sectionRect.Height - effectiveIconSize) / 2f,
+                        effectiveIconSize,
+                        effectiveIconSize);
+                    textRightOffset = effectiveIconSize + 4;
+                }
+                DrawAppIcon(image, iconColor, iconBounds);
             }
+
+            // Title text fills the remaining space beside the icon
+            var titleRect = new RectangleF(
+                sectionRect.X + textLeftOffset,
+                sectionRect.Y,
+                sectionRect.Width - textLeftOffset - textRightOffset,
+                sectionRect.Height);
 
             DrawTextEllipsis(image, title, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
         }
@@ -1290,20 +1298,13 @@ public sealed class DashboardImageRenderingService
         var iconColor = ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var size = GetIntProp(widget.Config, "size") ?? 64;
 
-        if (data.SvgIcon != null)
-        {
-            // Center the icon in the content rect, capped to configured size
-            var actualSize = Math.Min(size, Math.Min(contentRect.Width, contentRect.Height));
-            var iconBounds = new RectangleF(
-                contentRect.X + (contentRect.Width - actualSize) / 2f,
-                contentRect.Y + (contentRect.Height - actualSize) / 2f,
-                actualSize, actualSize);
-            DrawSvgFromContent(image, data.SvgIcon, iconColor, iconBounds);
-        }
-        else
-        {
-            RenderPlaceholder(image, widget, layout, contentRect, "Icon");
-        }
+        // Center the icon in the content rect, capped to configured size
+        var actualSize = Math.Min(size, Math.Min(contentRect.Width, contentRect.Height));
+        var iconBounds = new RectangleF(
+            contentRect.X + (contentRect.Width - actualSize) / 2f,
+            contentRect.Y + (contentRect.Height - actualSize) / 2f,
+            actualSize, actualSize);
+        DrawAppIcon(image, iconColor, iconBounds);
     }
 
     // =============================================
@@ -1661,74 +1662,94 @@ public sealed class DashboardImageRenderingService
     }
 
     /// <summary>
-    /// Renders an inline SVG string (like the app icon) by extracting path data and drawing it.
+    /// Draws the app dashboard icon directly using ImageSharp primitives.
+    /// Reproduces the layout from icon-tab-dynamic.svg (viewBox 0 0 370 370):
+    /// a 2-column grid of rounded rectangles and two diagonal polygons.
     /// </summary>
-    private static void DrawSvgFromContent(Image<Rgba32> image, string svgContent, Color color, RectangleF bounds)
+    private static void DrawAppIcon(Image<Rgba32> image, Color accentColor, RectangleF bounds)
     {
-        if (string.IsNullOrEmpty(svgContent) || bounds.Width <= 0 || bounds.Height <= 0)
-            return;
+        if (bounds.Width <= 0 || bounds.Height <= 0) return;
 
-        try
+        const float vb = 370f;
+        var scale = Math.Min(bounds.Width / vb, bounds.Height / vb);
+        var ox = bounds.X + (bounds.Width - vb * scale) / 2f;
+        var oy = bounds.Y + (bounds.Height - vb * scale) / 2f;
+
+        // Accent color shades (matching the SVG CSS classes)
+        var p = accentColor.ToPixel<Rgba32>();
+        var darkest  = new Color(new Rgba32((byte)(p.R * 0.3f), (byte)(p.G * 0.3f), (byte)(p.B * 0.3f), p.A));
+        var darker   = new Color(new Rgba32((byte)(p.R * 0.7f), (byte)(p.G * 0.7f), (byte)(p.B * 0.7f), p.A));
+        var baseC    = accentColor;
+        var light    = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.2f), (byte)(p.G + (255 - p.G) * 0.2f), (byte)(p.B + (255 - p.B) * 0.2f), p.A));
+        var lighter  = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.4f), (byte)(p.G + (255 - p.G) * 0.4f), (byte)(p.B + (255 - p.B) * 0.4f), p.A));
+        var lightest = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.6f), (byte)(p.G + (255 - p.G) * 0.6f), (byte)(p.B + (255 - p.B) * 0.6f), p.A));
+
+        // Shape definitions: (x, y, w, h, rx, color)
+        (float x, float y, float w, float h, float rx, Color c)[] rects =
+        [
+            (20, 20, 90, 96, 4, darkest),   // top-left small
+            (20, 128, 90, 196, 4, darker),   // left tall
+            (122, 20, 134, 96, 4, baseC),    // top-center wide
+            (268, 20, 82, 96, 4, light),     // top-right
+            (122, 236, 84, 88, 4, light),    // bottom-left
+            (218, 236, 132, 88, 4, lighter), // bottom-right
+        ];
+
+        foreach (var (rx, ry, rw, rh, rrx, color) in rects)
         {
-            // Extract viewBox
-            float vbX = 0, vbY = 0, vbW = 24, vbH = 24;
-            var vbMatch = Regex.Match(svgContent, @"viewBox\s*=\s*""([^""]+)""", RegexOptions.IgnoreCase);
-            if (vbMatch.Success)
-            {
-                var parts = vbMatch.Groups[1].Value.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 4)
-                {
-                    float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out vbX);
-                    float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out vbY);
-                    float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out vbW);
-                    float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out vbH);
-                }
-            }
-
-            if (vbW < 0.1f || vbH < 0.1f)
-                return;
-
-            // Extract all path "d" attributes
-            var pathMatches = Regex.Matches(svgContent, @"<path[^>]*\bd\s*=\s*""([^""]+)""", RegexOptions.IgnoreCase);
-            if (pathMatches.Count == 0)
-                return;
-
-            var scale = Math.Min(bounds.Width / vbW, bounds.Height / vbH);
-            var offsetX = bounds.X + (bounds.Width - vbW * scale) / 2f - vbX * scale;
-            var offsetY = bounds.Y + (bounds.Height - vbH * scale) / 2f - vbY * scale;
-
-            var matrix = Matrix3x2.CreateScale(scale) *
-                         Matrix3x2.CreateTranslation(offsetX, offsetY);
-
-            foreach (Match m in pathMatches)
-            {
-                var pathData = m.Groups[1].Value;
-
-                // Determine fill color: use path's own fill if specified, otherwise use the supplied color
-                var fillColor = color;
-                var fillMatch = Regex.Match(m.Value, @"fill\s*=\s*""([^""]+)""", RegexOptions.IgnoreCase);
-                if (fillMatch.Success)
-                {
-                    var fillVal = fillMatch.Groups[1].Value.Trim();
-                    if (fillVal.Equals("none", StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    if (fillVal.Contains("var(--accent-color"))
-                        fillColor = color; // use accent color
-                    else
-                    {
-                        try { fillColor = Color.ParseHex(fillVal); } catch { }
-                    }
-                }
-
-                var parsed = SvgPathParser.Parse(pathData);
-                var transformed = parsed.Transform(matrix);
-                image.Mutate(ctx => ctx.Fill(fillColor, transformed));
-            }
+            var x1 = rx * scale + ox;
+            var y1 = ry * scale + oy;
+            var w1 = rw * scale;
+            var h1 = rh * scale;
+            var cr = Math.Min(rrx * scale, Math.Min(w1, h1) / 2f);
+            image.Mutate(ctx => ctx.Fill(color, BuildRoundedRect(x1, y1, w1, h1, cr)));
         }
-        catch
+
+        // Middle row diagonal split — two trapezoid polygons
+        // At icon scale the rounded-corner clip is sub-pixel, so draw directly.
+        // Left trapezoid (lightest)
+        PointF[] leftPoly = [
+            new(122 * scale + ox, 128 * scale + oy),
+            new(256 * scale + ox, 128 * scale + oy),
+            new(206 * scale + ox, 224 * scale + oy),
+            new(122 * scale + ox, 224 * scale + oy),
+        ];
+        // Right trapezoid (lighter)
+        PointF[] rightPoly = [
+            new(268 * scale + ox, 128 * scale + oy),
+            new(350 * scale + ox, 128 * scale + oy),
+            new(350 * scale + ox, 224 * scale + oy),
+            new(218 * scale + ox, 224 * scale + oy),
+        ];
+
+        image.Mutate(ctx =>
         {
-            // Silently ignore SVG rendering failures
-        }
+            ctx.Fill(lightest, new Polygon(new LinearLineSegment(leftPoly)));
+            ctx.Fill(lighter, new Polygon(new LinearLineSegment(rightPoly)));
+        });
+    }
+
+    /// <summary>
+    /// Builds a rounded rectangle IPath from position, size, and corner radius.
+    /// </summary>
+    private static IPath BuildRoundedRect(float x, float y, float w, float h, float cr)
+    {
+        if (cr < 0.5f)
+            return new RectangularPolygon(x, y, w, h);
+
+        cr = Math.Min(cr, Math.Min(w, h) / 2f);
+        var pb = new PathBuilder();
+        pb.MoveTo(new PointF(x + cr, y));
+        pb.LineTo(new PointF(x + w - cr, y));
+        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + w, y + cr));
+        pb.LineTo(new PointF(x + w, y + h - cr));
+        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + w - cr, y + h));
+        pb.LineTo(new PointF(x + cr, y + h));
+        pb.ArcTo(cr, cr, 0, false, true, new PointF(x, y + h - cr));
+        pb.LineTo(new PointF(x, y + cr));
+        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + cr, y));
+        pb.CloseFigure();
+        return pb.Build();
     }
 
     // =============================================
