@@ -1517,7 +1517,6 @@ public sealed class DashboardImageRenderingService
 
             // Apply per-widget dithering to the source image before compositing
             var dithering = GetBoolProp(widget.Config, "dithering") ?? false;
-            if (dithering)
             {
                 var paletteColors = layout.ColorScheme.Palette
                     .Select(hex => ParseColor(hex))
@@ -1526,7 +1525,7 @@ public sealed class DashboardImageRenderingService
                 {
                     srcImage.Mutate(ctx => ctx.Quantize(new PaletteQuantizer(
                         new ReadOnlyMemory<Color>(paletteColors),
-                        new QuantizerOptions { Dither = KnownDitherings.JarvisJudiceNinke })));
+                        new QuantizerOptions { Dither = dithering ? KnownDitherings.JarvisJudiceNinke : null })));
                 }
             }
 
