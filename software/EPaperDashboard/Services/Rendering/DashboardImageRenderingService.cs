@@ -742,7 +742,19 @@ public sealed class DashboardImageRenderingService
         }
         else
         {
-            DrawCenteredText(image, "No events", GetFont(textFontSize), textColor, contentRect);
+            var emptyIconSize = Math.Min(contentRect.Width, contentRect.Height) * 0.25f;
+            var emptyIconBounds = new RectangleF(
+                contentRect.X + (contentRect.Width - emptyIconSize) / 2f,
+                contentRect.Y + contentRect.Height * 0.25f - emptyIconSize / 2f,
+                emptyIconSize, emptyIconSize);
+            DrawFaIcon(image, "fa-calendar-days", iconColor, emptyIconBounds);
+
+            var emptyTextRect = new RectangleF(
+                contentRect.X,
+                emptyIconBounds.Bottom + 4,
+                contentRect.Width,
+                textFontSize + 4);
+            DrawCenteredText(image, "No upcoming events", GetFont(textFontSize), textColor, emptyTextRect);
         }
     }
 
@@ -783,7 +795,7 @@ public sealed class DashboardImageRenderingService
     private static string GetDefaultCalendarEventItemIcon(string type) => type switch
     {
         "datetime" => "fa-clock",
-        "title" => "",
+        "title" => "fa-heading",
         "location" => "fa-location-dot",
         "description" => "fa-align-left",
         _ => ""
