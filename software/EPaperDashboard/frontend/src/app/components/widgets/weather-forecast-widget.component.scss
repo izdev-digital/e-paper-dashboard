@@ -194,7 +194,7 @@
   grid-auto-flow: column;
   grid-auto-columns: minmax(38px, 1fr);
   gap: 2px;
-  overflow-x: auto;
+  overflow: visible;
   font-size: var(--smallFontSize);
   height: 100%;
   min-height: 0;
@@ -221,9 +221,9 @@
 }
 
 .forecast-time {
-  font-size: var(--smallFontSize);
-  font-weight: var(--titleFontWeight);
-  color: var(--titleColor);
+  font-size: var(--textFontSize);
+  font-weight: var(--textFontWeight);
+  color: var(--textColor);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -246,7 +246,7 @@
 
 .forecast-temp {
   font-size: var(--textFontSize);
-  font-weight: var(--titleFontWeight);
+  font-weight: var(--textFontWeight);
   color: var(--textColor);
   width: 100%;
   text-align: center;
@@ -282,7 +282,7 @@
 .item-time {
   font-size: var(--textFontSize);
   font-weight: var(--textFontWeight);
-  color: var(--titleColor);
+  color: var(--textColor);
   line-height: 1.2;
   flex-shrink: 0;
   overflow: hidden;
