@@ -11,6 +11,8 @@ using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Processing.Processors.Dithering;
+using SixLabors.ImageSharp.Processing.Processors.Quantization;
 using Color = SixLabors.ImageSharp.Color;
 using PointF = SixLabors.ImageSharp.PointF;
 using RectangleF = SixLabors.ImageSharp.RectangleF;
@@ -589,6 +591,13 @@ public sealed class DashboardImageRenderingService
                     textRightOffset = effectiveIconSize + 8;
                 }
                 DrawAppIcon(image, iconColor, iconBounds);
+
+                // Apply per-widget dithering to the header icon when configured
+                var dithering = GetBoolProp(widget.Config, "dithering") ?? false;
+                if (dithering)
+                {
+                    DitherRegion(image, layout, iconBounds);
+                }
             }
 
             // Title text fills the remaining space beside the icon
@@ -1385,6 +1394,13 @@ public sealed class DashboardImageRenderingService
             contentRect.Y + (contentRect.Height - actualSize) / 2f,
             actualSize, actualSize);
         DrawAppIcon(image, iconColor, iconBounds);
+
+        // Apply per-widget dithering when configured
+        var dithering = GetBoolProp(widget.Config, "dithering") ?? false;
+        if (dithering)
+        {
+            DitherRegion(image, layout, iconBounds);
+        }
     }
 
     // =============================================
@@ -1437,28 +1453,47 @@ public sealed class DashboardImageRenderingService
             var containerH = contentRect.Height;
 
             // The Angular component sets the img element to (zoom * 100%) of the container,
-            // then uses object-fit: contain to preserve aspect ratio.
-            // Replicate: first compute the "virtual img element" size, then fit the
-            // actual image within that while maintaining aspect ratio.
+            // then uses object-fit: contain (zoom<=1) or cover (zoom>1) to preserve aspect ratio.
             var imgElW = containerW * (float)zoom;
             var imgElH = containerH * (float)zoom;
 
-            // Fit the source image within the virtual img element (object-fit: contain)
+            // Fit the source image within the virtual img element
             float srcAspect = (float)srcImage.Width / srcImage.Height;
             float elAspect = imgElW / imgElH;
+            bool useCover = zoom > 1.0;
 
             float drawW, drawH;
-            if (srcAspect > elAspect)
+            if (useCover)
             {
-                // Source is wider → constrained by width
-                drawW = imgElW;
-                drawH = imgElW / srcAspect;
+                // object-fit: cover — image fills the element entirely, may overflow
+                if (srcAspect > elAspect)
+                {
+                    // Source is wider → constrain by height, width overflows
+                    drawH = imgElH;
+                    drawW = imgElH * srcAspect;
+                }
+                else
+                {
+                    // Source is taller → constrain by width, height overflows
+                    drawW = imgElW;
+                    drawH = imgElW / srcAspect;
+                }
             }
             else
             {
-                // Source is taller → constrained by height
-                drawH = imgElH;
-                drawW = imgElH * srcAspect;
+                // object-fit: contain — image fits entirely within the element
+                if (srcAspect > elAspect)
+                {
+                    // Source is wider → constrained by width
+                    drawW = imgElW;
+                    drawH = imgElW / srcAspect;
+                }
+                else
+                {
+                    // Source is taller → constrained by height
+                    drawH = imgElH;
+                    drawW = imgElH * srcAspect;
+                }
             }
 
             // Center the fitted image within the virtual element
@@ -1480,7 +1515,42 @@ public sealed class DashboardImageRenderingService
             var resizedH = Math.Max(1, (int)Math.Round(drawH));
             srcImage.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Size(resizedW, resizedH)));
 
-            image.Mutate(ctx => ctx.DrawImage(srcImage, new SixLabors.ImageSharp.Point((int)drawX, (int)drawY), 1f));
+            // Apply per-widget dithering to the source image before compositing
+            var dithering = GetBoolProp(widget.Config, "dithering") ?? false;
+            if (dithering)
+            {
+                var paletteColors = layout.ColorScheme.Palette
+                    .Select(hex => ParseColor(hex))
+                    .ToArray();
+                if (paletteColors.Length > 0)
+                {
+                    srcImage.Mutate(ctx => ctx.Quantize(new PaletteQuantizer(
+                        new ReadOnlyMemory<Color>(paletteColors),
+                        new QuantizerOptions { Dither = KnownDitherings.JarvisJudiceNinke })));
+                }
+            }
+
+            // Clip the source image to the visible portion within the content rect
+            // (the Angular container has overflow: hidden)
+            int srcDrawX = (int)Math.Round(drawX);
+            int srcDrawY = (int)Math.Round(drawY);
+
+            int clipLeft = Math.Max(0, (int)contentRect.X - srcDrawX);
+            int clipTop = Math.Max(0, (int)contentRect.Y - srcDrawY);
+            int clipRight = Math.Min(srcImage.Width, (int)(contentRect.X + contentRect.Width) - srcDrawX);
+            int clipBottom = Math.Min(srcImage.Height, (int)(contentRect.Y + contentRect.Height) - srcDrawY);
+
+            int clipW = clipRight - clipLeft;
+            int clipH = clipBottom - clipTop;
+
+            if (clipW > 0 && clipH > 0)
+            {
+                using var clipped = srcImage.Clone(ctx =>
+                    ctx.Crop(new SixLabors.ImageSharp.Rectangle(clipLeft, clipTop, clipW, clipH)));
+
+                image.Mutate(ctx => ctx.DrawImage(clipped,
+                    new SixLabors.ImageSharp.Point(srcDrawX + clipLeft, srcDrawY + clipTop), 1f));
+            }
         }
         catch (Exception ex)
         {
@@ -2018,6 +2088,38 @@ public sealed class DashboardImageRenderingService
         pb.ArcTo(cr, cr, 0, false, true, new PointF(x + cr, y));
         pb.CloseFigure();
         return pb.Build();
+    }
+
+    /// <summary>
+    /// Applies palette-based dithering to a rectangular sub-region of the target image.
+    /// Extracts the region, quantises it using the layout colour palette and
+    /// Jarvis-Judice-Ninke error-diffusion, then draws the result back.
+    /// </summary>
+    private static void DitherRegion(Image<Rgba32> image, LayoutConfig layout, RectangleF region)
+    {
+        // Clamp to image bounds
+        int rx = Math.Max(0, (int)region.X);
+        int ry = Math.Max(0, (int)region.Y);
+        int rw = Math.Min(image.Width - rx, Math.Max(1, (int)Math.Ceiling(region.Width)));
+        int rh = Math.Min(image.Height - ry, Math.Max(1, (int)Math.Ceiling(region.Height)));
+        if (rw <= 0 || rh <= 0) return;
+
+        // Build palette colours from the scheme
+        var paletteColors = layout.ColorScheme.Palette
+            .Select(hex => ParseColor(hex))
+            .ToArray();
+        if (paletteColors.Length == 0) return;
+
+        // Extract the sub-region into a temporary image
+        using var sub = image.Clone(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(rx, ry, rw, rh)));
+
+        // Quantise with dithering
+        sub.Mutate(ctx => ctx.Quantize(new PaletteQuantizer(
+            new ReadOnlyMemory<Color>(paletteColors),
+            new QuantizerOptions { Dither = KnownDitherings.JarvisJudiceNinke })));
+
+        // Draw the quantised sub-image back onto the main image
+        image.Mutate(ctx => ctx.DrawImage(sub, new SixLabors.ImageSharp.Point(rx, ry), 1f));
     }
 
     // =============================================
