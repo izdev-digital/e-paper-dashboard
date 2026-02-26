@@ -103,7 +103,8 @@ builder.Services
 	.AddSingleton<PairingService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
-	.AddSingleton<DashboardHtmlRenderingService>()
+	.AddSingleton<FontAwesomeIconRegistry>()
+	.AddSingleton<DashboardImageRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
 
 // Firmware update services

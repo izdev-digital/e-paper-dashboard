@@ -101,7 +101,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
 
       <!-- ── Badges ──────────────────────────────────────────────────── -->
       @for (badge of visibleBadges(); track $index; let i = $index) {
-        <span class="badge"
+        <span class="hw-badge"
               [class.hw-edit-el]="internalEdit"
               [class.hw-el-selected]="internalEdit && selectedId === 'badge-' + i"
               [style.left.%]="getElPos('badge-' + i, badge, i).x"
@@ -117,7 +117,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
             <i class="fa {{ badge.icon }}" [style.color]="getIconColor()"></i>
           }
           @if (badge.entityId) {
-            <span class="badge-text">
+            <span class="hw-badge-text">
               {{ getEntityState(badge.entityId)?.state || '' }}
               @if (getEntityAttribute(badge.entityId, 'unit_of_measurement')) {
                 {{ getEntityAttribute(badge.entityId, 'unit_of_measurement') }}

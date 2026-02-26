@@ -51,6 +51,15 @@
   <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
     (ngModelChange)="onPropertyChanged()" />
 </div>
+<div class="mb-3">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="headerDithering-{{widget.id}}"
+      [(ngModel)]="headerConfig.dithering"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="headerDithering-{{widget.id}}">Dither icon</label>
+  </div>
+  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
+</div>
 
 <!-- Layout editor settings (used when "Edit Layout" mode is active on the canvas) -->
 <div class="mb-3">
@@ -434,6 +443,15 @@
   <label class="form-label">Size (px)</label>
   <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />
 </div>
+<div class="mb-3">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="appIconDithering-{{widget.id}}"
+      [(ngModel)]="appIconConfig.dithering"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="appIconDithering-{{widget.id}}">Dither icon</label>
+  </div>
+  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
+</div>
 }
 
 @case ('image') {
@@ -509,6 +527,15 @@
   </div>
 </div>
 }
+<div class="mb-3">
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="imageDithering-{{widget.id}}"
+      [(ngModel)]="widget.config.dithering"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="imageDithering-{{widget.id}}">Dither image</label>
+  </div>
+  <small class="form-text text-muted">Apply dithering to map image colors to the color palette.</small>
+</div>
 }
 }
 

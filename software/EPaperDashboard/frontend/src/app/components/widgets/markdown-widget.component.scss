@@ -20,48 +20,71 @@
   min-height: 0;
   
   // Normalize paragraph spacing
-  & :deep(p) {
+  ::ng-deep p {
     margin: 0.25rem 0;
     line-height: 1.5;
   }
   
   // Normalize heading spacing
-  & :deep(h1),
-  & :deep(h2),
-  & :deep(h3),
-  & :deep(h4),
-  & :deep(h5),
-  & :deep(h6) {
+  ::ng-deep h1,
+  ::ng-deep h2,
+  ::ng-deep h3,
+  ::ng-deep h4,
+  ::ng-deep h5,
+  ::ng-deep h6 {
     margin: 0.25rem 0;
     line-height: 1.3;
-    font-size: inherit;
   }
+
+  ::ng-deep h1 { font-size: 1.4rem; font-weight: 700; }
+  ::ng-deep h2 { font-size: 1.2rem; font-weight: 700; }
+  ::ng-deep h3 { font-size: 1.05rem; font-weight: 600; }
+  ::ng-deep h4,
+  ::ng-deep h5,
+  ::ng-deep h6 { font-size: inherit; font-weight: 600; }
   
   // Normalize list spacing
-  & :deep(ul),
-  & :deep(ol) {
+  ::ng-deep ul,
+  ::ng-deep ol {
     margin: 0.25rem 0;
     padding-left: 1.5rem;
     
-    & li {
+    li {
       margin: 0.1rem 0;
       line-height: 1.5;
     }
   }
   
   // Ensure code doesn't overflow
-  & :deep(code) {
+  ::ng-deep code {
     word-break: break-word;
     white-space: pre-wrap;
   }
   
-  & :deep(blockquote) {
+  ::ng-deep blockquote {
     margin: 0.25rem 0;
     padding-left: 0.5rem;
+    border-left: 3px solid currentColor;
+    opacity: 0.8;
+  }
+
+  ::ng-deep hr {
+    border: none;
+    border-top: 1px solid currentColor;
+    margin: 0.5rem 0;
+    opacity: 0.3;
+  }
+
+  ::ng-deep strong {
+    font-weight: 700;
+  }
+
+  ::ng-deep em {
+    font-style: italic;
   }
   
   // Ensure tables fit
-  & :deep(table) {
+  ::ng-deep table {
     width: 100%;
     border-collapse: collapse;
   }

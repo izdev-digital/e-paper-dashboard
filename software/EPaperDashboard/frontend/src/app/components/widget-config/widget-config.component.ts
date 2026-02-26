@@ -283,6 +283,13 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   private getDefaultGraphColor(index: number): string {
+    // Prefer palette colors (excluding background colors) for graph series
+    if (this.colorScheme?.palette?.length) {
+      const bg = this.colorScheme.canvasBackgroundColor || this.colorScheme.background;
+      const wbg = this.colorScheme.widgetBackgroundColor;
+      const chartColors = this.colorScheme.palette.filter(c => c !== bg && c !== wbg);
+      if (chartColors.length > 0) return chartColors[index % chartColors.length];
+    }
     const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
     return colors[index % colors.length];
   }

@@ -69,11 +69,17 @@ export interface WidgetPosition {
   y: number;
   w: number;
   h: number;
+  /** Computed pixel position/size – populated on save for SSR */
+  pixelX?: number;
+  pixelY?: number;
+  pixelWidth?: number;
+  pixelHeight?: number;
 }
 
 
 export interface AppIconConfig {
   size?: number;
+  dithering?: boolean;   // when true, renderer applies dithering to map icon shades to the palette
 }
 
 export interface ImageConfig {
@@ -82,6 +88,7 @@ export interface ImageConfig {
   zoom?: number;      // 1 = fit container, >1 = zoom in (default 1)
   offsetX?: number;   // -1 to +1, horizontal pan (default 0 = center)
   offsetY?: number;   // -1 to +1, vertical pan (default 0 = center)
+  dithering?: boolean; // when true, renderer applies dithering to map image colors to the palette
 }
 
 export interface VersionConfig {
@@ -122,6 +129,7 @@ export interface HeaderConfig {
   badges?: BadgeConfig[];
   iconSize?: number;
   iconPosition?: 'left' | 'right';
+  dithering?: boolean;   // when true, renderer applies dithering to the header icon
   /** Title element position/size as % of the header widget bounds (set by the visual editor) */
   titleX?: number;
   titleY?: number;

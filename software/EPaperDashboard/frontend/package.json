@@ -4,8 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build:ssr-css": "node build-ssr-css.js",
-    "build": "ng build && npm run build:ssr-css",
+    "prebuild": "node generate-fa-icons.js",
+    "build": "npm run prebuild && ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
