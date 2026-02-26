@@ -1164,48 +1164,137 @@ public sealed class DashboardImageRenderingService
             int fontSize;
             int fontWeight;
             string text;
+            float xIndent = 0;
 
-            if (line.StartsWith("### "))
+            // Headings
+            if (line.StartsWith("#### "))
+            {
+                fontSize = (int)(textFontSize * 1.05);
+                fontWeight = titleFontWeight;
+                text = StripInlineMarkdown(line[5..]);
+            }
+            else if (line.StartsWith("### "))
             {
                 fontSize = (int)(textFontSize * 1.1);
                 fontWeight = titleFontWeight;
-                text = line[4..];
+                text = StripInlineMarkdown(line[4..]);
             }
             else if (line.StartsWith("## "))
             {
                 fontSize = (int)(titleFontSize * 1.0);
                 fontWeight = titleFontWeight;
-                text = line[3..];
+                text = StripInlineMarkdown(line[3..]);
             }
             else if (line.StartsWith("# "))
             {
                 fontSize = (int)(titleFontSize * 1.2);
                 fontWeight = titleFontWeight;
-                text = line[2..];
+                text = StripInlineMarkdown(line[2..]);
             }
-            else if (line.StartsWith("- ") || line.StartsWith("* "))
+            // Horizontal rules
+            else if (Regex.IsMatch(line, @"^[-*_]{3,}\s*$"))
+            {
+                var lineY = yOffset + textFontSize / 2f;
+                image.Mutate(ctx => ctx.DrawLine(
+                    textColor, 1f,
+                    new PointF(contentRect.X, lineY),
+                    new PointF(contentRect.Right, lineY)));
+                yOffset += textFontSize + 2;
+                continue;
+            }
+            // Blockquotes
+            else if (line.StartsWith("> ") || line == ">")
             {
                 fontSize = textFontSize;
                 fontWeight = textFontWeight;
-                text = $"• {line[2..]}";
+                text = StripInlineMarkdown(line.Length > 2 ? line[2..] : "");
+                xIndent = textFontSize * 0.8f;
+
+                // Draw blockquote bar
+                var barX = contentRect.X + xIndent * 0.3f;
+                var barTop = yOffset;
+                var barBottom = yOffset + fontSize + 4;
+                image.Mutate(ctx => ctx.DrawLine(
+                    textColor, 2f,
+                    new PointF(barX, barTop),
+                    new PointF(barX, barBottom)));
             }
+            // Unordered lists
+            else if (line.StartsWith("- ") || line.StartsWith("* ") || line.StartsWith("+ "))
+            {
+                fontSize = textFontSize;
+                fontWeight = textFontWeight;
+                text = $"• {StripInlineMarkdown(line[2..])}";
+            }
+            // Numbered lists (e.g. "1. item", "12. item")
+            else if (Regex.IsMatch(line, @"^\d+\.\s"))
+            {
+                fontSize = textFontSize;
+                fontWeight = textFontWeight;
+                var match = Regex.Match(line, @"^(\d+\.)\s(.*)$");
+                text = match.Success
+                    ? $"{match.Groups[1].Value} {StripInlineMarkdown(match.Groups[2].Value)}"
+                    : StripInlineMarkdown(line);
+            }
+            // Empty lines
             else if (string.IsNullOrWhiteSpace(line))
             {
                 yOffset += textFontSize / 2f;
                 continue;
             }
+            // Regular paragraph text - strip inline markdown formatting
             else
             {
                 fontSize = textFontSize;
-                fontWeight = textFontWeight;
-                text = line;
+                // Use bold weight if line is entirely bold
+                fontWeight = IsEntirelyBold(line) ? titleFontWeight : textFontWeight;
+                text = StripInlineMarkdown(line);
             }
 
             var lineHeight = fontSize + 4;
-            var lineRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, lineHeight);
+            var lineRect = new RectangleF(contentRect.X + xIndent, yOffset, contentRect.Width - xIndent, lineHeight);
             DrawTextEllipsis(image, text, GetFont(fontSize, fontWeight), textColor, lineRect);
             yOffset += lineHeight;
         }
+    }
+
+    /// <summary>
+    /// Strips inline markdown formatting syntax, preserving the visible text content.
+    /// Handles: bold, italic, strikethrough, inline code, links, and images.
+    /// </summary>
+    private static string StripInlineMarkdown(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        // Images: ![alt](url) → alt
+        text = Regex.Replace(text, @"!\[([^\]]*)\]\([^)]*\)", "$1");
+        // Links: [text](url) → text
+        text = Regex.Replace(text, @"\[([^\]]*)\]\([^)]*\)", "$1");
+        // Bold+italic: ***text*** or ___text___
+        text = Regex.Replace(text, @"\*{3}(.+?)\*{3}", "$1");
+        text = Regex.Replace(text, @"_{3}(.+?)_{3}", "$1");
+        // Bold: **text** or __text__
+        text = Regex.Replace(text, @"\*{2}(.+?)\*{2}", "$1");
+        text = Regex.Replace(text, @"_{2}(.+?)_{2}", "$1");
+        // Italic: *text* or _text_
+        text = Regex.Replace(text, @"\*(.+?)\*", "$1");
+        text = Regex.Replace(text, @"(?<=\s|^)_(.+?)_(?=\s|$)", "$1");
+        // Strikethrough: ~~text~~
+        text = Regex.Replace(text, @"~~(.+?)~~", "$1");
+        // Inline code: `code`
+        text = Regex.Replace(text, @"`(.+?)`", "$1");
+
+        return text;
+    }
+
+    /// <summary>
+    /// Checks if a line consists entirely of bold text (e.g. "**some text**").
+    /// </summary>
+    private static bool IsEntirelyBold(string line)
+    {
+        var trimmed = line.Trim();
+        return (trimmed.StartsWith("**") && trimmed.EndsWith("**") && trimmed.Length > 4)
+            || (trimmed.StartsWith("__") && trimmed.EndsWith("__") && trimmed.Length > 4);
     }
 
     // =============================================
