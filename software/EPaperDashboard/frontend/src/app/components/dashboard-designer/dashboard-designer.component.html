@@ -192,7 +192,13 @@
           <div class="tab-pane" [class.active]="activeTab() === 'dashboard'">
             <div class="card mb-3">
               <div class="card-header">
-                <h5>Color Scheme</h5>
+                <div class="d-flex justify-content-between align-items-center" style="width:100%">
+                  <h5>Color Scheme</h5>
+                  <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides()"
+                    title="Reset all color overrides (layout + widgets) to the selected scheme defaults">
+                    <i class="fa fa-undo"></i> Reset All
+                  </button>
+                </div>
               </div>
               <div class="card-body p-2">
                 <select class="form-select" [ngModel]="layout().colorScheme"
@@ -209,19 +215,27 @@
             <div class="card mb-3" [class.collapsed-card]="colorOverridesCollapsed()">
               <div class="card-header" role="button" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())" style="cursor: pointer;width:100%">
                 <div class="d-flex justify-content-between align-items-center" style="width:100%">
-                  <div>
-                    <h5 class="mb-0" style="display: inline-block;">Color Overrides</h5>
+                  <div class="d-flex align-items-center">
+                    <h5 class="mb-0">Color Overrides</h5>
                     @if (hasLayoutColorOverrides()) {
-                    <span class="badge bg-warning text-dark ms-2" title="Some colors are overridden">Custom</span>
+                    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
                     }
                   </div>
-                  <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+                  <div class="d-flex align-items-center gap-2">
+                    @if (hasLayoutColorOverrides()) {
+                    <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
+                      title="Reset layout colors to scheme defaults">
+                      <i class="fa fa-undo"></i>
+                    </button>
+                    }
+                    <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+                  </div>
                 </div>
               </div>
               @if (!colorOverridesCollapsed()) {
               <div class="card-body p-2">
                 <div class="mb-2">
-                  <label class="form-label small">Canvas Background</label>
+                  <label class="form-label small">Canvas Background @if (isLayoutColorOverridden('canvasBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor"
                     (ngModelChange)="updateCanvasBackgroundColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -232,7 +246,7 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Background</label>
+                  <label class="form-label small">Widget Background @if (isLayoutColorOverridden('widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBackgroundColor"
                     (ngModelChange)="updateWidgetBackgroundColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -241,7 +255,7 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Border Color</label>
+                  <label class="form-label small">Widget Border Color @if (isLayoutColorOverridden('widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBorderColor"
                     (ngModelChange)="updateWidgetBorderColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -250,7 +264,7 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Title Text Color</label>
+                  <label class="form-label small">Widget Title Text Color @if (isLayoutColorOverridden('widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor"
                     (ngModelChange)="updateWidgetTitleTextColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -259,7 +273,7 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Text Color</label>
+                  <label class="form-label small">Widget Text Color @if (isLayoutColorOverridden('widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTextColor"
                     (ngModelChange)="updateWidgetTextColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -268,7 +282,7 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Icon Color</label>
+                  <label class="form-label small">Icon Color @if (isLayoutColorOverridden('iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.iconColor"
                     (ngModelChange)="updateIconColor($event)">
                     @for (color of layout().colorScheme.palette; track color) {
@@ -384,10 +398,10 @@
             <div class="card mb-3" [class.collapsed-card]="widgetColorOverridesCollapsed()">
               <div class="card-header" role="button" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())" style="cursor: pointer;width:100%">
                 <div class="d-flex justify-content-between align-items-center" style="width:100%">
-                  <div>
-                    <h6 class="mb-0" style="display: inline-block;">Color Overrides</h6>
+                  <div class="d-flex align-items-center">
+                    <h6 class="mb-0">Color Overrides</h6>
                     @if (hasWidgetColorOverrides(selectedWidget())) {
-                    <span class="badge bg-warning text-dark ms-2" title="Some colors are overridden">Custom</span>
+                    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
                     }
                   </div>
                   <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
@@ -396,7 +410,7 @@
               @if (!widgetColorOverridesCollapsed()) {
               <div class="card-body p-2">
                 <div class="mb-2">
-                  <label class="form-label small">Widget Background Color</label>
+                  <label class="form-label small">Widget Background Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">
                     <select class="form-select form-select-sm"
                       [ngModel]="selectedWidget()!.colorOverrides?.widgetBackgroundColor || ''"
@@ -412,7 +426,7 @@
                   </div>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Border Color</label>
+                  <label class="form-label small">Widget Border Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">
                     <select class="form-select form-select-sm"
                       [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor || ''"
@@ -428,7 +442,7 @@
                   </div>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Title Text Color</label>
+                  <label class="form-label small">Widget Title Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">
                     <select class="form-select form-select-sm"
                       [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor || ''"
@@ -444,7 +458,7 @@
                   </div>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Widget Text Color</label>
+                  <label class="form-label small">Widget Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">
                     <select class="form-select form-select-sm"
                       [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor || ''"
@@ -460,7 +474,7 @@
                   </div>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Icon Color</label>
+                  <label class="form-label small">Icon Color @if (isWidgetColorOverridden(selectedWidget(), 'iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">
                     <select class="form-select form-select-sm"
                       [ngModel]="selectedWidget()!.colorOverrides?.iconColor || ''"

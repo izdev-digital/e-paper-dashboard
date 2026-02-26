@@ -604,7 +604,66 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   updateColorScheme(scheme: ColorScheme): void {
-    this.layout.update(layout => ({ ...layout, colorScheme: scheme }));
+    this.layout.update(layout => {
+      // Strip widget color overrides that reference colors outside the new palette
+      const widgets = layout.widgets.map(w => {
+        if (!w.colorOverrides) return w;
+        const cleaned: WidgetColorOverrides = {};
+        let hasAny = false;
+        for (const [key, val] of Object.entries(w.colorOverrides)) {
+          if (val && scheme.palette.includes(val.toLowerCase())) {
+            (cleaned as any)[key] = val;
+            hasAny = true;
+          }
+        }
+        // Also strip graph series colors outside the new palette
+        let config = w.config;
+        if (w.type === 'graph' && (config as any)?.series) {
+          const series = ((config as any).series as any[]).map(s => {
+            if (s.color && !scheme.palette.includes(s.color.toLowerCase())) {
+              return { ...s, color: this.getDefaultGraphColor(scheme, 0) };
+            }
+            return s;
+          });
+          config = { ...(config as any), series };
+        }
+        return { ...w, colorOverrides: hasAny ? cleaned : undefined, config };
+      });
+      return { ...layout, colorScheme: scheme, widgets };
+    });
+    // Refresh selected widget reference if needed
+    const sel = this.selectedWidget();
+    if (sel) {
+      const updated = this.layout().widgets.find(w => w.id === sel.id);
+      if (updated) this.selectedWidget.set(updated);
+    }
+  }
+
+  /** Reset the current color scheme to its base defaults and clear ALL widget color overrides. */
+  resetAllColorOverrides(): void {
+    const currentName = this.layout().colorScheme.name;
+    const baseScheme = this.colorSchemes.find(cs => cs.name === currentName) || DEFAULT_COLOR_SCHEMES[0];
+    this.layout.update(layout => ({
+      ...layout,
+      colorScheme: { ...baseScheme },
+      widgets: layout.widgets.map(w => {
+        const { colorOverrides, ...rest } = w;
+        return rest as WidgetConfig;
+      })
+    }));
+    // Refresh selected widget reference
+    const sel = this.selectedWidget();
+    if (sel) {
+      const updated = this.layout().widgets.find(w => w.id === sel.id);
+      if (updated) this.selectedWidget.set(updated);
+    }
+  }
+
+  /** Reset only the layout-level color overrides back to the base scheme defaults. */
+  resetLayoutColorOverrides(): void {
+    const currentName = this.layout().colorScheme.name;
+    const baseScheme = this.colorSchemes.find(cs => cs.name === currentName) || DEFAULT_COLOR_SCHEMES[0];
+    this.layout.update(layout => ({ ...layout, colorScheme: { ...baseScheme } }));
   }
 
   updateLayoutWidth(width: number): void {
@@ -748,22 +807,62 @@ export class DashboardDesignerComponent implements OnInit {
     }
   }
 
-  // Helper method to check if layout has any color overrides
+  /** Find the base (default) scheme that matches the current scheme by name. */
+  private getBaseScheme(): ColorScheme {
+    const currentName = this.layout().colorScheme.name;
+    return this.colorSchemes.find(cs => cs.name === currentName) || DEFAULT_COLOR_SCHEMES[0];
+  }
+
+  // Helper method to check if a specific layout color property is overridden vs. the base scheme
+  isLayoutColorOverridden(prop: 'canvasBackgroundColor' | 'widgetBackgroundColor' | 'widgetBorderColor' | 'widgetTitleTextColor' | 'widgetTextColor' | 'iconColor'): boolean {
+    return this.layout().colorScheme[prop] !== this.getBaseScheme()[prop];
+  }
+
+  // Helper method to check if layout has any color overrides vs. the selected base scheme
   hasLayoutColorOverrides(): boolean {
+    return this.isLayoutColorOverridden('canvasBackgroundColor') ||
+      this.isLayoutColorOverridden('widgetBackgroundColor') ||
+      this.isLayoutColorOverridden('widgetBorderColor') ||
+      this.isLayoutColorOverridden('widgetTitleTextColor') ||
+      this.isLayoutColorOverridden('widgetTextColor') ||
+      this.isLayoutColorOverridden('iconColor');
+  }
+
+  // Helper method to check if a specific widget color override differs from the current scheme
+  isWidgetColorOverridden(widget: WidgetConfig | null, prop: keyof WidgetColorOverrides): boolean {
+    if (!widget?.colorOverrides) return false;
+    const val = widget.colorOverrides[prop];
+    if (val == null || val === '') return false;
     const scheme = this.layout().colorScheme;
-    return scheme.canvasBackgroundColor !== DEFAULT_COLOR_SCHEMES[0].canvasBackgroundColor ||
-      scheme.widgetBackgroundColor !== DEFAULT_COLOR_SCHEMES[0].widgetBackgroundColor ||
-      scheme.widgetBorderColor !== DEFAULT_COLOR_SCHEMES[0].widgetBorderColor ||
-      scheme.widgetTitleTextColor !== DEFAULT_COLOR_SCHEMES[0].widgetTitleTextColor ||
-      scheme.widgetTextColor !== DEFAULT_COLOR_SCHEMES[0].widgetTextColor ||
-      scheme.iconColor !== DEFAULT_COLOR_SCHEMES[0].iconColor;
+    const schemeDefaults: Record<string, string> = {
+      widgetBackgroundColor: scheme.widgetBackgroundColor,
+      widgetBorderColor: scheme.widgetBorderColor,
+      widgetTitleTextColor: scheme.widgetTitleTextColor,
+      widgetTextColor: scheme.widgetTextColor,
+      iconColor: scheme.iconColor,
+    };
+    return val !== schemeDefaults[prop];
   }
 
-  // Helper method to check if widget has any color overrides
+  // Helper method to check if widget has any color overrides that actually differ from the current scheme
   hasWidgetColorOverrides(widget: WidgetConfig | null): boolean {
-    return !!widget?.colorOverrides && Object.keys(widget.colorOverrides).length > 0;
+    if (!widget?.colorOverrides) return false;
+    return this.isWidgetColorOverridden(widget, 'widgetBackgroundColor') ||
+      this.isWidgetColorOverridden(widget, 'widgetBorderColor') ||
+      this.isWidgetColorOverridden(widget, 'widgetTitleTextColor') ||
+      this.isWidgetColorOverridden(widget, 'widgetTextColor') ||
+      this.isWidgetColorOverridden(widget, 'iconColor');
   }
 
+
+  /** Get a sensible default color for a graph series from the palette. */
+  private getDefaultGraphColor(scheme: ColorScheme, index: number): string {
+    const chartColors = scheme.palette.filter(
+      c => c !== scheme.canvasBackgroundColor && c !== scheme.widgetBackgroundColor && c !== scheme.background
+    );
+    if (chartColors.length > 0) return chartColors[index % chartColors.length];
+    return scheme.palette[index % scheme.palette.length] || '#000000';
+  }
 
   getColorName(color: string): string {
     const colorMap: Record<string, string> = {
