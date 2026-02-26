@@ -1333,10 +1333,14 @@ public sealed class DashboardImageRenderingService
             yOffset += titleFontSize + 8;
         }
 
-        // Entry title
-        var entryTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, textFontSize * 2 + 4);
-        DrawTextEllipsis(image, entry.Title, GetFont(textFontSize, textFontWeight), titleColor, entryTitleRect);
-        yOffset += textFontSize * 2 + 8;
+        // Entry title (word-wrapped, max 3 lines to match frontend behavior)
+        var entryTitleFont = GetFont(textFontSize, textFontWeight);
+        var entryLineHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(entryTitleFont)).Height;
+        var maxEntryLines = Math.Max(1, (int)((contentRect.Bottom - yOffset - 8) / entryLineHeight));
+        maxEntryLines = Math.Min(maxEntryLines, 2);
+        var entryTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, entryLineHeight * maxEntryLines);
+        var entryTitleHeight = DrawWrappedTextEllipsis(image, entry.Title, entryTitleFont, titleColor, entryTitleRect, maxEntryLines);
+        yOffset += entryTitleHeight + 8;
 
         // QR code (rendered as ImageSharp image from QRCoder)
         if (!string.IsNullOrEmpty(entry.Link))
@@ -1719,6 +1723,130 @@ public sealed class DashboardImageRenderingService
         var truncSize = TextMeasurer.MeasureSize(truncated, new TextOptions(font));
         var ty = bounds.Y + (bounds.Height - truncSize.Height) / 2f;
         image.Mutate(ctx => ctx.DrawText(truncated, font, color, new PointF(bounds.X, ty)));
+    }
+
+    /// <summary>
+    /// Draws text with word-wrapping within a bounding rectangle, up to a maximum number of lines.
+    /// The last visible line is truncated with ellipsis if the text doesn't fully fit.
+    /// Returns the total height consumed.
+    /// </summary>
+    private float DrawWrappedTextEllipsis(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds, int maxLines = int.MaxValue)
+    {
+        if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0 || maxLines <= 0)
+            return 0;
+
+        var lineHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
+        var ellipsis = "…";
+        var ellipsisWidth = TextMeasurer.MeasureSize(ellipsis, new TextOptions(font)).Width;
+
+        // Split text into words
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return 0;
+
+        var lines = new List<string>();
+        var currentLine = words[0];
+
+        for (int i = 1; i < words.Length; i++)
+        {
+            var candidate = currentLine + " " + words[i];
+            var candidateWidth = TextMeasurer.MeasureSize(candidate, new TextOptions(font)).Width;
+
+            if (candidateWidth <= bounds.Width)
+            {
+                currentLine = candidate;
+            }
+            else
+            {
+                lines.Add(currentLine);
+                currentLine = words[i];
+
+                // If we already have enough lines, break early
+                if (lines.Count >= maxLines) break;
+            }
+        }
+
+        if (lines.Count < maxLines)
+        {
+            lines.Add(currentLine);
+        }
+
+        var needsEllipsis = lines.Count > maxLines ||
+            (lines.Count == maxLines && words.Length > 0 && !text.EndsWith(lines[^1]));
+
+        // Trim to maxLines
+        if (lines.Count > maxLines)
+        {
+            lines = lines.Take(maxLines).ToList();
+            needsEllipsis = true;
+        }
+
+        // Check if the original text was fully consumed
+        var reconstructed = string.Join(" ", lines);
+        if (reconstructed.Length < text.Replace("  ", " ").Trim().Length)
+        {
+            needsEllipsis = true;
+        }
+
+        float yOffset = bounds.Y;
+        for (int i = 0; i < lines.Count; i++)
+        {
+            if (yOffset + lineHeight > bounds.Bottom + 1) break;
+
+            var line = lines[i];
+            var isLastLine = i == lines.Count - 1;
+
+            if (isLastLine && needsEllipsis)
+            {
+                // Truncate last line with ellipsis if it overflows
+                var lineWidth = TextMeasurer.MeasureSize(line, new TextOptions(font)).Width;
+                var availableWidth = bounds.Width - ellipsisWidth;
+
+                if (lineWidth > availableWidth && availableWidth > 0)
+                {
+                    // Binary search for truncation point
+                    int lo = 0, hi = line.Length;
+                    while (lo < hi)
+                    {
+                        int mid = (lo + hi + 1) / 2;
+                        var subWidth = TextMeasurer.MeasureSize(line[..mid], new TextOptions(font)).Width;
+                        if (subWidth <= availableWidth)
+                            lo = mid;
+                        else
+                            hi = mid - 1;
+                    }
+                    line = (lo > 0 ? line[..lo].TrimEnd() : "") + ellipsis;
+                }
+                else
+                {
+                    line = line.TrimEnd() + ellipsis;
+                }
+            }
+            else if (isLastLine)
+            {
+                // Even on the last line, if a single word is too wide, truncate it
+                var lineWidth = TextMeasurer.MeasureSize(line, new TextOptions(font)).Width;
+                if (lineWidth > bounds.Width)
+                {
+                    var availableWidth = bounds.Width - ellipsisWidth;
+                    int lo = 0, hi = line.Length;
+                    while (lo < hi)
+                    {
+                        int mid = (lo + hi + 1) / 2;
+                        var subWidth = TextMeasurer.MeasureSize(line[..mid], new TextOptions(font)).Width;
+                        if (subWidth <= availableWidth)
+                            lo = mid;
+                        else
+                            hi = mid - 1;
+                    }
+                    line = (lo > 0 ? line[..lo] : "") + ellipsis;
+                }
+            }
+
+            image.Mutate(ctx => ctx.DrawText(line, font, color, new PointF(bounds.X, yOffset)));
+            yOffset += lineHeight;
+        }
+
+        return yOffset - bounds.Y;
     }
 
     /// <summary>

@@ -84,6 +84,10 @@
   color: var(--titleColor);
   line-height: 1.2;
   flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: break-word;
 }
 
 .rss-entry {
