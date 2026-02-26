@@ -14,7 +14,7 @@ using SixLabors.ImageSharp.Formats.Png;
 namespace EPaperDashboard.Controllers;
 
 /// <summary>
-/// Serves dashboards as self-contained static HTML pages (server-side rendered).
+/// Serves dashboards as server-side rendered images.
 /// Uses the same cookie auth as the Angular frontend.
 /// </summary>
 [ApiController]
@@ -22,54 +22,10 @@ namespace EPaperDashboard.Controllers;
 [Authorize]
 public class DashboardSsrController(
     DashboardService dashboardService,
-    DashboardHtmlRenderingService htmlRenderingService,
-    IPageToImageRenderingService pageToImageRenderingService) : BaseApiController
+    DashboardImageRenderingService dashboardImageRenderingService) : BaseApiController
 {
     /// <summary>
-    /// Returns the dashboard rendered as a self-contained HTML page with live data from Home Assistant.
-    /// </summary>
-    [HttpGet("{id}/render-html")]
-    public async Task<IActionResult> RenderDashboardHtml(string id)
-    {
-        if (!DashboardId.TryParse(id, out var dashboardId))
-        {
-            return BadRequest("Invalid dashboard ID");
-        }
-
-        var dashboard = dashboardService.GetDashboardById(dashboardId);
-        if (dashboard.HasNoValue)
-            return NotFound("Dashboard not found");
-
-        if (dashboard.Value.UserId != CurrentUserId)
-            return Forbid();
-
-        if (dashboard.Value.LayoutConfig == null)
-            return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
-
-        try
-        {
-            // Serialize LayoutConfig object to JSON with camelCase naming for JavaScript compatibility
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            };
-            var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.Value.LayoutConfig, serializerOptions);
-            
-            var html = await htmlRenderingService.RenderDashboardHtmlAsync(
-                dashboard.Value.Id.ToString(),
-                layoutConfigJson);
-
-            return Content(html, "text/html");
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Failed to render dashboard: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Returns the SSR HTML rendered to an image using Playwright.
+    /// Returns the dashboard rendered directly to an image using ImageSharp.
     /// </summary>
     [HttpGet("{id}/render-image")]
     public async Task<IActionResult> RenderDashboardImage(string id, [FromQuery] string format = "jpeg")
@@ -89,10 +45,6 @@ public class DashboardSsrController(
         if (dashboard.Value.LayoutConfig == null)
             return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
 
-        var width = dashboard.Value.LayoutConfig.Width > 0 ? dashboard.Value.LayoutConfig.Width : 800;
-        var height = dashboard.Value.LayoutConfig.Height > 0 ? dashboard.Value.LayoutConfig.Height : 480;
-        var size = new Size(width, height);
-
         try
         {
             var serializerOptions = new JsonSerializerOptions
@@ -102,16 +54,14 @@ public class DashboardSsrController(
             };
             var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.Value.LayoutConfig, serializerOptions);
 
-            var html = await htmlRenderingService.RenderDashboardHtmlAsync(
+            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
                 layoutConfigJson);
 
-            var imageResult = await pageToImageRenderingService.RenderHtmlAsync(html, size);
-            if (imageResult.IsFailure)
-                return StatusCode(500, imageResult.Error);
+            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 
             var (contentType, encoder) = GetEncoder(format);
-            return await ConvertToResult(imageResult.Value, encoder, contentType);
+            return await ConvertToResult(image, encoder, contentType);
         }
         catch (Exception ex)
         {

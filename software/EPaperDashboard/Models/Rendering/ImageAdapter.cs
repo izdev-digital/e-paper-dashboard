@@ -20,6 +20,11 @@ where TPixel : unmanaged, IPixel<TPixel>
         return new(Image.Load<TPixel>(data));
     }
 
+    /// <summary>
+    /// Wraps an existing ImageSharp image in an IImage adapter.
+    /// </summary>
+    public static ImageAdapter<TPixel> Wrap(Image<TPixel> image) => new(image);
+
     public IImage Quantize(ReadOnlyMemory<Color> palette, IDither? dither)
     {
         _image.Mutate(x => x.Quantize(new PaletteQuantizer(palette, new QuantizerOptions { Dither = dither })));

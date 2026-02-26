@@ -69,6 +69,11 @@ export interface WidgetPosition {
   y: number;
   w: number;
   h: number;
+  /** Computed pixel position/size – populated on save for SSR */
+  pixelX?: number;
+  pixelY?: number;
+  pixelWidth?: number;
+  pixelHeight?: number;
 }
 
 

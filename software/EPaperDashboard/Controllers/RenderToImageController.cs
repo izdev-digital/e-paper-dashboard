@@ -25,7 +25,7 @@ namespace EPaperDashboard.Controllers;
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
 	DashboardService dashboardService,
-	DashboardHtmlRenderingService dashboardHtmlRenderingService,
+	DashboardImageRenderingService dashboardImageRenderingService,
 	IDeploymentStrategy deploymentStrategy) : ControllerBase
 {
 	[HttpGet("binary")]
@@ -101,7 +101,6 @@ public sealed class RenderToImageController(
 
 		try
 		{
-			// Serialize LayoutConfig object to JSON with camelCase naming for JavaScript compatibility
 			var serializerOptions = new JsonSerializerOptions
 			{
 				PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -109,19 +108,12 @@ public sealed class RenderToImageController(
 			};
 			var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.LayoutConfig, serializerOptions);
 
-			var html = await dashboardHtmlRenderingService.RenderDashboardHtmlAsync(
+			var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
 				dashboard.Id.ToString(),
 				layoutConfigJson);
 
-			var size = new Size(
-				dashboard.LayoutConfig.Width > 0 ? dashboard.LayoutConfig.Width : imageSize.Width,
-				dashboard.LayoutConfig.Height > 0 ? dashboard.LayoutConfig.Height : imageSize.Height);
-
-			var imageResult = await renderingService.RenderHtmlAsync(html, size);
-			if (imageResult.IsFailure)
-				return StatusCode(500, imageResult.Error);
-
-			var resultImage = transform?.Invoke(imageResult.Value) ?? imageResult.Value;
+			IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+			var resultImage = transform?.Invoke(image) ?? image;
 
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
 			dashboardService.UpdateDashboard(dashboard);

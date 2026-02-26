@@ -479,7 +479,7 @@ export class DashboardDesignerComponent implements OnInit {
   saveDashboard(): void {
     if (!this.dashboard()) return;
 
-    const layoutConfig = this.layout();
+    const layoutConfig = this.computePixelPositions(this.layout());
     this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
       next: () => {
         this.toastService.show('Dashboard layout saved successfully', 'success');
@@ -495,12 +495,37 @@ export class DashboardDesignerComponent implements OnInit {
     });
   }
 
-  goBack(): void {
-    this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
+  /**
+   * Computes and stores pixel positions for every widget based on grid layout parameters.
+   * These stored pixel values are used by the server-side rendering to position widgets
+   * with absolute pixel coordinates, ensuring pixel-perfect rendering.
+   */
+  private computePixelPositions(layout: DashboardLayout): DashboardLayout {
+    const padding = layout.canvasPadding ?? 0;
+    const gap = layout.widgetGap ?? 0;
+    const cols = Math.max(1, layout.gridCols);
+    const rows = Math.max(1, layout.gridRows);
+    const innerWidth = Math.max(0, layout.width - padding * 2 - gap * (cols - 1));
+    const innerHeight = Math.max(0, layout.height - padding * 2 - gap * (rows - 1));
+    const cellWidth = innerWidth / cols;
+    const cellHeight = innerHeight / rows;
+
+    const widgets = layout.widgets.map(widget => ({
+      ...widget,
+      position: {
+        ...widget.position,
+        pixelX: Math.round((padding + widget.position.x * (cellWidth + gap)) * 100) / 100,
+        pixelY: Math.round((padding + widget.position.y * (cellHeight + gap)) * 100) / 100,
+        pixelWidth: Math.round((widget.position.w * cellWidth + (widget.position.w - 1) * gap) * 100) / 100,
+        pixelHeight: Math.round((widget.position.h * cellHeight + (widget.position.h - 1) * gap) * 100) / 100,
+      }
+    }));
+
+    return { ...layout, widgets };
   }
 
-  openRenderedDashboard(): void {
-    window.open(`/api/dashboards/${this.dashboardId}/render-html`, '_blank');
+  goBack(): void {
+    this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
   }
 
   previewServerSideRendered(): void {
@@ -510,7 +535,7 @@ export class DashboardDesignerComponent implements OnInit {
       return;
     }
 
-    const layoutConfig = this.layout();
+    const layoutConfig = this.computePixelPositions(this.layout());
     this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
       next: () => {
         this.openRenderedPreview();
