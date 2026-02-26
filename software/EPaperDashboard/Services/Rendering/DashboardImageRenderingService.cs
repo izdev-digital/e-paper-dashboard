@@ -577,7 +577,7 @@ public sealed class DashboardImageRenderingService
                         sectionRect.Y + (sectionRect.Height - effectiveIconSize) / 2f,
                         effectiveIconSize,
                         effectiveIconSize);
-                    textLeftOffset = effectiveIconSize + 4;
+                    textLeftOffset = effectiveIconSize + 8;
                 }
                 else
                 {
@@ -586,7 +586,7 @@ public sealed class DashboardImageRenderingService
                         sectionRect.Y + (sectionRect.Height - effectiveIconSize) / 2f,
                         effectiveIconSize,
                         effectiveIconSize);
-                    textRightOffset = effectiveIconSize + 4;
+                    textRightOffset = effectiveIconSize + 8;
                 }
                 DrawAppIcon(image, iconColor, iconBounds);
             }
@@ -623,19 +623,21 @@ public sealed class DashboardImageRenderingService
                     (float)(bw / 100.0 * contentRect.Width),
                     (float)(bh / 100.0 * contentRect.Height));
 
-                float textStartX = badgeRect.X;
+                // CSS: .hw-badge { padding: 0 4px; gap: 4px; align-items: center; }
+                float badgePadding = 4f;
+                float textStartX = badgeRect.X + badgePadding;
 
                 // Draw badge FA icon if present
                 if (!string.IsNullOrEmpty(bIcon))
                 {
-                    var badgeIconSize = Math.Min(textFontSize, badgeRect.Height * 0.6f);
+                    var badgeIconSize = textFontSize;
                     var iconBounds = new RectangleF(
-                        badgeRect.X,
+                        badgeRect.X + badgePadding,
                         badgeRect.Y + (badgeRect.Height - badgeIconSize) / 2f,
                         badgeIconSize,
                         badgeIconSize);
                     DrawFaIcon(image, bIcon, iconColor, iconBounds);
-                    textStartX = iconBounds.Right + 2;
+                    textStartX = iconBounds.Right + 4; // gap: 4px
                 }
 
                 if (!string.IsNullOrEmpty(bEntityId) && data.EntityStates.TryGetValue(bEntityId, out var es))
@@ -643,7 +645,7 @@ public sealed class DashboardImageRenderingService
                     var badgeText = es.State;
                     var uom = GetEntityAttr(es, "unit_of_measurement");
                     if (!string.IsNullOrEmpty(uom)) badgeText += $" {uom}";
-                    var textRect = new RectangleF(textStartX, badgeRect.Y, badgeRect.Right - textStartX, badgeRect.Height);
+                    var textRect = new RectangleF(textStartX, badgeRect.Y, badgeRect.Right - textStartX - badgePadding, badgeRect.Height);
                     DrawTextEllipsis(image, badgeText, GetFont(textFontSize, textFontWeight), textColor, textRect);
                 }
 
@@ -697,8 +699,8 @@ public sealed class DashboardImageRenderingService
                 })
                 .Take(maxEvents).ToList();
 
-            var lineHeight = textFontSize + 4;
-            var iconSize = textFontSize * 0.9f;
+            var lineHeight = (int)Math.Ceiling(textFontSize * 1.2f);
+            var iconSize = (float)textFontSize;
 
             foreach (var ev in upcoming)
             {
@@ -719,13 +721,13 @@ public sealed class DashboardImageRenderingService
                     if (string.IsNullOrEmpty(text)) continue;
 
                     var itemIcon = item.Icon ?? GetDefaultCalendarEventItemIcon(item.Type);
-                    float textX = contentRect.X;
+                    float textX = contentRect.X + 4;
 
                     // Draw icon if present
                     if (!string.IsNullOrEmpty(itemIcon))
                     {
                         var iconBounds = new RectangleF(
-                            contentRect.X,
+                            contentRect.X + 4,
                             yOffset + (lineHeight - iconSize) / 2f,
                             iconSize, iconSize);
                         DrawFaIcon(image, itemIcon, iconColor, iconBounds);
@@ -829,7 +831,7 @@ public sealed class DashboardImageRenderingService
 
         // Parse items from config, fall back to defaults
         var items = GetWeatherItems(widget.Config);
-        var iconSize = textFontSize * 0.9f;
+        var iconSize = (float)textFontSize;
 
         foreach (var item in items)
         {
@@ -900,11 +902,11 @@ public sealed class DashboardImageRenderingService
         if (!string.IsNullOrEmpty(icon))
         {
             var iconBounds = new RectangleF(
-                itemRect.X + 2,
+                itemRect.X + 4,
                 itemRect.Y + (itemRect.Height - iconSize) / 2f,
                 iconSize, iconSize);
             DrawFaIcon(image, icon, iconColor, iconBounds);
-            return (iconBounds.Right + 4, itemRect.Width - iconSize - 6);
+            return (iconBounds.Right + 4, itemRect.Width - iconSize - 8);
         }
         return (itemRect.X, itemRect.Width);
     }
@@ -937,7 +939,7 @@ public sealed class DashboardImageRenderingService
         {
             var headerRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
             DrawTextEllipsis(image, widget.TitleOverride ?? "Forecast", GetFont(titleFontSize, titleFontWeight), titleColor, headerRect);
-            yOffset += titleFontSize + 6;
+            yOffset += titleFontSize + 8;
         }
 
         if (string.IsNullOrEmpty(entityId)
@@ -960,13 +962,15 @@ public sealed class DashboardImageRenderingService
 
         // Distribute columns evenly
         if (items.Count == 0) return;
-        var colWidth = contentRect.Width / items.Count;
+        var colGap = 2f;
+        var totalGaps = colGap * (items.Count - 1);
+        var colWidth = (contentRect.Width - totalGaps) / items.Count;
         var lineHeight = textFontSize + 2;
 
         for (int i = 0; i < items.Count; i++)
         {
             if (items[i] is not Dictionary<string, object?> dict) continue;
-            var colX = contentRect.X + i * colWidth;
+            var colX = contentRect.X + i * (colWidth + colGap);
             float itemY = yOffset;
 
             var dt = dict.TryGetValue("datetime", out var dtVal) ? dtVal?.ToString() : "";
@@ -1092,23 +1096,24 @@ public sealed class DashboardImageRenderingService
             var titleText = widget.TitleOverride ?? friendlyName;
             var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
             DrawTextEllipsis(image, titleText, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
-            yOffset += titleFontSize + 6;
+            yOffset += titleFontSize + 10;
         }
 
         var maxShow = GetIntProp(widget.Config, "maxItems") ?? 50;
         var limited = mapped.Take(maxShow).ToList();
-        var lineHeight = textFontSize + 4;
-        var todoIconSize = textFontSize * 0.85f;
+        var lineHeight = (int)Math.Ceiling(textFontSize * 1.4f);
+        var todoIconSize = (float)textFontSize;
+        var todoItemGap = 4;
 
         foreach (var (summary, complete) in limited)
         {
             if (yOffset + lineHeight > contentRect.Bottom) break;
 
-            // Draw configurable FA icon
+            // Draw configurable FA icon (flex-start alignment with 2px top margin)
             var itemIconClass = complete ? completedIcon : pendingIcon;
             var iconBounds = new RectangleF(
-                contentRect.X + 2,
-                yOffset + (lineHeight - todoIconSize) / 2f,
+                contentRect.X,
+                yOffset + 2,
                 todoIconSize, todoIconSize);
             DrawFaIcon(image, itemIconClass, iconColor, iconBounds);
 
@@ -1116,7 +1121,7 @@ public sealed class DashboardImageRenderingService
             var textX = iconBounds.Right + 6;
             var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, lineHeight);
             DrawTextEllipsis(image, summary, GetFont(textFontSize, textFontWeight), textColor, textRect);
-            yOffset += lineHeight;
+            yOffset += lineHeight + todoItemGap;
         }
     }
 
