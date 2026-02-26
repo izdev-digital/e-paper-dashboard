@@ -1318,30 +1318,89 @@ public sealed class DashboardImageRenderingService
 
         try
         {
-            // Download the image
-            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-            var imageBytes = httpClient.GetByteArrayAsync(imageUrl).GetAwaiter().GetResult();
+            byte[] imageBytes;
+
+            // Images are stored on disk and served via /api/dashboards/{id}/images/{file}
+            // Load directly from disk instead of making an HTTP request to ourselves.
+            var localMatch = System.Text.RegularExpressions.Regex.Match(
+                imageUrl, @"^/api/dashboards/([^/]+)/images/([^/]+)$");
+            if (localMatch.Success)
+            {
+                var dashId = localMatch.Groups[1].Value;
+                var fileName = localMatch.Groups[2].Value;
+                // Guard against traversal
+                if (fileName.Contains("..") || fileName.Contains('/') || fileName.Contains('\\'))
+                    return;
+                var filePath = System.IO.Path.Combine(
+                    Utilities.EnvironmentConfiguration.ConfigDir, "uploads", dashId, fileName);
+                if (!File.Exists(filePath))
+                {
+                    _logger.LogWarning("Image file not found on disk: {Path}", filePath);
+                    return;
+                }
+                imageBytes = File.ReadAllBytes(filePath);
+            }
+            else
+            {
+                // Fallback: external URL
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                imageBytes = httpClient.GetByteArrayAsync(imageUrl).GetAwaiter().GetResult();
+            }
+
             using var srcImage = Image.Load<Rgba32>(imageBytes);
 
             var zoom = GetDoubleProp(widget.Config, "zoom") ?? 1.0;
-            var offsetX = GetDoubleProp(widget.Config, "offsetX") ?? 0.0;
-            var offsetY = GetDoubleProp(widget.Config, "offsetY") ?? 0.0;
+            var panX = GetDoubleProp(widget.Config, "offsetX") ?? 0.0;
+            var panY = GetDoubleProp(widget.Config, "offsetY") ?? 0.0;
 
-            var targetW = (int)contentRect.Width;
-            var targetH = (int)contentRect.Height;
+            var containerW = contentRect.Width;
+            var containerH = contentRect.Height;
 
-            // Compute scaled dimensions
-            var scaledW = (int)(targetW * zoom);
-            var scaledH = (int)(targetH * zoom);
+            // The Angular component sets the img element to (zoom * 100%) of the container,
+            // then uses object-fit: contain to preserve aspect ratio.
+            // Replicate: first compute the "virtual img element" size, then fit the
+            // actual image within that while maintaining aspect ratio.
+            var imgElW = containerW * (float)zoom;
+            var imgElH = containerH * (float)zoom;
 
-            // Resize source image to scaled size
-            srcImage.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Size(scaledW, scaledH)));
+            // Fit the source image within the virtual img element (object-fit: contain)
+            float srcAspect = (float)srcImage.Width / srcImage.Height;
+            float elAspect = imgElW / imgElH;
 
-            // Compute offset (center + pan)
-            var drawX = (int)(contentRect.X - ((zoom - 1) * (offsetX + 1) * targetW / 2));
-            var drawY = (int)(contentRect.Y - ((zoom - 1) * (offsetY + 1) * targetH / 2));
+            float drawW, drawH;
+            if (srcAspect > elAspect)
+            {
+                // Source is wider → constrained by width
+                drawW = imgElW;
+                drawH = imgElW / srcAspect;
+            }
+            else
+            {
+                // Source is taller → constrained by height
+                drawH = imgElH;
+                drawW = imgElH * srcAspect;
+            }
 
-            image.Mutate(ctx => ctx.DrawImage(srcImage, new SixLabors.ImageSharp.Point(drawX, drawY), 1f));
+            // Center the fitted image within the virtual element
+            float fitOffsetX = (imgElW - drawW) / 2f;
+            float fitOffsetY = (imgElH - drawH) / 2f;
+
+            // Angular positions the img element at:
+            //   left = -((zoom - 1) * (offsetX + 1) * 50)%   of container width
+            //   top  = -((zoom - 1) * (offsetY + 1) * 50)%   of container height
+            float elLeft = -(float)((zoom - 1) * (panX + 1) * 50.0 / 100.0) * containerW;
+            float elTop = -(float)((zoom - 1) * (panY + 1) * 50.0 / 100.0) * containerH;
+
+            // Final draw position = container origin + element offset + fit centering
+            float drawX = contentRect.X + elLeft + fitOffsetX;
+            float drawY = contentRect.Y + elTop + fitOffsetY;
+
+            // Resize source image to the fitted dimensions
+            var resizedW = Math.Max(1, (int)Math.Round(drawW));
+            var resizedH = Math.Max(1, (int)Math.Round(drawH));
+            srcImage.Mutate(ctx => ctx.Resize(new SixLabors.ImageSharp.Size(resizedW, resizedH)));
+
+            image.Mutate(ctx => ctx.DrawImage(srcImage, new SixLabors.ImageSharp.Point((int)drawX, (int)drawY), 1f));
         }
         catch (Exception ex)
         {
