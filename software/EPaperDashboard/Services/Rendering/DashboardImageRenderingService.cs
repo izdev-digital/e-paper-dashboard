@@ -1106,18 +1106,16 @@ public sealed class DashboardImageRenderingService
 
             // Draw configurable FA icon
             var itemIconClass = complete ? completedIcon : pendingIcon;
-            var itemIconColor = complete ? ParseColor(layout.ColorScheme.IconColor + "99") : iconColor;
             var iconBounds = new RectangleF(
                 contentRect.X + 2,
                 yOffset + (lineHeight - todoIconSize) / 2f,
                 todoIconSize, todoIconSize);
-            DrawFaIcon(image, itemIconClass, itemIconColor, iconBounds);
+            DrawFaIcon(image, itemIconClass, iconColor, iconBounds);
 
             // Draw text
             var textX = iconBounds.Right + 6;
             var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, lineHeight);
-            var itemColor = complete ? ParseColor(layout.ColorScheme.WidgetTextColor + "99") : textColor;
-            DrawTextEllipsis(image, summary, GetFont(textFontSize, textFontWeight), itemColor, textRect);
+            DrawTextEllipsis(image, summary, GetFont(textFontSize, textFontWeight), textColor, textRect);
             yOffset += lineHeight;
         }
     }
