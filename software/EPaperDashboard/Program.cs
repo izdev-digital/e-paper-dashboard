@@ -103,6 +103,7 @@ builder.Services
 	.AddSingleton<PairingService>()
 	.AddSingleton<HomeAssistantAuthService>()
 	.AddSingleton<HomeAssistantService>()
+	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<DashboardImageRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
 

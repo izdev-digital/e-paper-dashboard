@@ -57,18 +57,17 @@
   }
 }
 
-.badge {
+.hw-badge {
   position: absolute;
   box-sizing: border-box;
   overflow: hidden;
   display: flex;
   align-items: center;
   gap: 4px;
-  // Override Bootstrap's .badge padding which would otherwise push content inward
   padding: 0 4px;
 }
 
-.badge-text {
+.hw-badge-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
