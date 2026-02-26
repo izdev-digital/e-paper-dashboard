@@ -39,57 +39,11 @@
 @switch (widget.type) {
 
 @case ('header') {
-<div class="mb-3">
-  <label class="form-label">Icon Position</label>
-  <select class="form-select" [(ngModel)]="headerConfig.iconPosition" (ngModelChange)="onPropertyChanged()">
-    <option [ngValue]="'left'">Left (Default)</option>
-    <option [ngValue]="'right'">Right</option>
-  </select>
-</div>
-<div class="mb-3">
-  <label class="form-label">Icon Size (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
-    (ngModelChange)="onPropertyChanged()" />
-</div>
-<div class="mb-3">
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="headerDithering-{{widget.id}}"
-      [(ngModel)]="headerConfig.dithering"
-      (ngModelChange)="onPropertyChanged()" />
-    <label class="form-check-label" for="headerDithering-{{widget.id}}">Dither icon</label>
-  </div>
-  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
-</div>
-
-<!-- Layout editor settings (used when "Edit Layout" mode is active on the canvas) -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Layout Editor</label>
-  <div class="d-flex gap-3 align-items-center">
-    <div class="form-check form-switch mb-0">
-      <input class="form-check-input" type="checkbox" id="showGuides-{{widget.id}}"
-        [(ngModel)]="headerConfig.showGuides"
-        (ngModelChange)="onPropertyChanged()" />
-      <label class="form-check-label" for="showGuides-{{widget.id}}">Smart guides</label>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label mb-0 text-nowrap">Snap</label>
-      <select class="form-select form-select-sm w-auto" [(ngModel)]="headerConfig.snapStep"
-        (ngModelChange)="onPropertyChanged()">
-        <option [ngValue]="0">Off</option>
-        <option [ngValue]="1">1%</option>
-        <option [ngValue]="2">2%</option>
-        <option [ngValue]="5">5%</option>
-      </select>
-    </div>
-  </div>
-  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
-</div>
-
-<!-- Badges (content only – positions are set in the visual editor below) -->
+<!-- Badges (content) – most important config for the header widget -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Badges</label>
   <small class="form-text text-muted d-block mb-2">
-    Configure badge content here; drag to position them in the layout editor below.
+    Configure badge content here; drag to position them in the layout editor on the canvas.
   </small>
   <div class="list-group list-group-flush border rounded">
     @for (badge of headerConfig.badges ?? []; track trackByBadgeLabel($index, badge); let i = $index) {
@@ -130,6 +84,56 @@
   </button>
 </div>
 
+<!-- Icon appearance -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Icon</label>
+  <div class="row g-2 mb-2">
+    <div class="col">
+      <label class="form-label small mb-1">Position</label>
+      <select class="form-select form-select-sm" [(ngModel)]="headerConfig.iconPosition" (ngModelChange)="onPropertyChanged()">
+        <option [ngValue]="'left'">Left (Default)</option>
+        <option [ngValue]="'right'">Right</option>
+      </select>
+    </div>
+    <div class="col">
+      <label class="form-label small mb-1">Size (px)</label>
+      <input type="number" class="form-control form-control-sm" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
+        (ngModelChange)="onPropertyChanged()" />
+    </div>
+  </div>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="headerDithering-{{widget.id}}"
+      [(ngModel)]="headerConfig.dithering"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="headerDithering-{{widget.id}}">Dither icon</label>
+  </div>
+  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
+</div>
+
+<!-- Layout editor settings (used when "Edit Layout" mode is active on the canvas) -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Layout Editor</label>
+  <div class="d-flex gap-3 align-items-center">
+    <div class="form-check form-switch mb-0">
+      <input class="form-check-input" type="checkbox" id="showGuides-{{widget.id}}"
+        [(ngModel)]="headerConfig.showGuides"
+        (ngModelChange)="onPropertyChanged()" />
+      <label class="form-check-label" for="showGuides-{{widget.id}}">Smart guides</label>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0 text-nowrap">Snap</label>
+      <select class="form-select form-select-sm w-auto" [(ngModel)]="headerConfig.snapStep"
+        (ngModelChange)="onPropertyChanged()">
+        <option [ngValue]="0">Off</option>
+        <option [ngValue]="1">1%</option>
+        <option [ngValue]="2">2%</option>
+        <option [ngValue]="5">5%</option>
+      </select>
+    </div>
+  </div>
+  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
+</div>
+
 }
 
 @case ('markdown') {
@@ -142,12 +146,7 @@
 }
 
 @case ('calendar') {
-<div class="mb-3">
-  <label class="form-label">Max Events</label>
-  <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
-</div>
-
-<!-- Calendar Event Items: toggle visibility and configure icons -->
+<!-- Event display settings -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Event Entry Fields</label>
   <small class="form-text text-muted d-block mb-2">
@@ -181,20 +180,23 @@
   </div>
 </div>
 
-<!-- Event list layout -->
+<!-- Display limits & layout -->
 <div class="mb-3">
-  <label class="form-label fw-semibold">Event List</label>
-  <div class="d-flex gap-3 align-items-center flex-wrap">
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label mb-0 text-nowrap" for="calEventGap-{{widget.id}}">Gap</label>
-      <input type="number" class="form-control form-control-sm" style="width: 70px;"
+  <label class="form-label fw-semibold">Display</label>
+  <div class="row g-2">
+    <div class="col">
+      <label class="form-label small mb-1">Max Events</label>
+      <input type="number" class="form-control form-control-sm" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20"
+        (ngModelChange)="onPropertyChanged()" />
+    </div>
+    <div class="col">
+      <label class="form-label small mb-1">Event Gap (px)</label>
+      <input type="number" class="form-control form-control-sm"
         id="calEventGap-{{widget.id}}" min="0" step="1"
         [(ngModel)]="calendarConfig.eventGap"
         (ngModelChange)="onPropertyChanged()" placeholder="0" />
-      <span class="text-muted small">px</span>
     </div>
   </div>
-  <small class="form-text text-muted">Gap between event entries.</small>
 </div>
 
 }
@@ -257,8 +259,9 @@
 }
 
 @case ('weather-forecast') {
+<!-- Forecast mode -->
 <div class="mb-3">
-  <label class="form-label">Forecast Type</label>
+  <label class="form-label fw-semibold">Forecast Type</label>
   <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode">
     <option value="daily">Daily</option>
     <option value="hourly">Hourly</option>
@@ -268,11 +271,8 @@
     Daily: High/Low temperatures | Hourly: Temperature for each hour | Weekly: Summary for each day
   </small>
 </div>
-<div class="mb-3">
-  <label class="form-label">Max Items to Display</label>
-  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto" />
-  <small class="form-text text-muted">Leave empty for automatic sizing based on widget size</small>
-</div>
+
+<!-- Visible fields -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Visible Fields</label>
   <small class="form-text text-muted d-block mb-2">Choose which rows to display in each forecast column.</small>
@@ -293,47 +293,30 @@
     }
   </div>
 </div>
+
+<!-- Display settings -->
 <div class="mb-3">
-  <label class="form-label">Row Gap</label>
-  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.rowGap" min="0" placeholder="0" (ngModelChange)="onPropertyChanged()" />
-  <small class="form-text text-muted">Gap between rows within each forecast column (px)</small>
+  <label class="form-label fw-semibold">Display</label>
+  <div class="row g-2">
+    <div class="col">
+      <label class="form-label small mb-1">Max Items</label>
+      <input type="number" class="form-control form-control-sm" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto"
+        (ngModelChange)="onPropertyChanged()" />
+      <small class="form-text text-muted">Leave empty for auto</small>
+    </div>
+    <div class="col">
+      <label class="form-label small mb-1">Row Gap (px)</label>
+      <input type="number" class="form-control form-control-sm" [(ngModel)]="weatherForecastConfig.rowGap" min="0" placeholder="0"
+        (ngModelChange)="onPropertyChanged()" />
+    </div>
+  </div>
 </div>
 }
 
 @case ('graph') {
+<!-- Data series – the core of a graph widget -->
 <div class="mb-3">
-  <label class="form-label">Period</label>
-  <select class="form-select" [(ngModel)]="graphConfig.period">
-    <option value="1h">1 Hour</option>
-    <option value="6h">6 Hours</option>
-    <option value="24h">24 Hours</option>
-    <option value="7d">7 Days</option>
-    <option value="30d">30 Days</option>
-  </select>
-</div>
-<div class="mb-3">
-  <label class="form-label">Plot Type</label>
-  <select class="form-select" [(ngModel)]="graphConfig.plotType">
-    <option value="line">Line Chart</option>
-    <option value="bar">Bar Chart</option>
-  </select>
-</div>
-@if (graphConfig.plotType === 'line') {
-<div class="mb-3">
-  <label class="form-label">Line Width (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
-  <small class="form-text text-muted">Default: 2px</small>
-</div>
-}
-@if (graphConfig.plotType === 'bar') {
-<div class="mb-3">
-  <label class="form-label">Bar Width</label>
-  <input type="number" class="form-control" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
-  <small class="form-text text-muted">Leave empty for automatic width</small>
-</div>
-}
-<div class="mb-3">
-  <label class="form-label">Data Series</label>
+  <label class="form-label fw-semibold">Data Series</label>
   <small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
   @if (graphConfig.series && graphConfig.series.length > 0) {
     <div class="series-list">
@@ -385,24 +368,66 @@
     <i class="fa fa-plus"></i> Add Series
   </button>
 </div>
+
+<!-- Chart settings -->
+<div class="mb-3">
+  <label class="form-label fw-semibold">Chart Settings</label>
+  <div class="row g-2 mb-2">
+    <div class="col">
+      <label class="form-label small mb-1">Period</label>
+      <select class="form-select form-select-sm" [(ngModel)]="graphConfig.period">
+        <option value="1h">1 Hour</option>
+        <option value="6h">6 Hours</option>
+        <option value="24h">24 Hours</option>
+        <option value="7d">7 Days</option>
+        <option value="30d">30 Days</option>
+      </select>
+    </div>
+    <div class="col">
+      <label class="form-label small mb-1">Plot Type</label>
+      <select class="form-select form-select-sm" [(ngModel)]="graphConfig.plotType">
+        <option value="line">Line Chart</option>
+        <option value="bar">Bar Chart</option>
+      </select>
+    </div>
+  </div>
+  @if (graphConfig.plotType === 'line') {
+  <div>
+    <label class="form-label small mb-1">Line Width (px)</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
+    <small class="form-text text-muted">Default: 2px</small>
+  </div>
+  }
+  @if (graphConfig.plotType === 'bar') {
+  <div>
+    <label class="form-label small mb-1">Bar Width</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
+    <small class="form-text text-muted">Leave empty for automatic width</small>
+  </div>
+  }
+</div>
 }
 
 @case ('todo') {
-<!-- Todo widget uses the universal entity selector above -->
+<!-- Display settings -->
 <div class="mb-3">
-  <div class="form-check">
-    <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted">
+  <label class="form-label fw-semibold">Display</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted"
+      (ngModelChange)="onPropertyChanged()">
     <label class="form-check-label" for="showCompleted">
       Show completed items
     </label>
   </div>
+  <div>
+    <label class="form-label small mb-1">Max Items</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="todoConfig.maxItems" min="1" max="50"
+      (ngModelChange)="onPropertyChanged()" placeholder="Auto" />
+    <small class="form-text text-muted">Leave empty to show as many as fit in the widget</small>
+  </div>
 </div>
-<div class="mb-3">
-  <label class="form-label">Max Items</label>
-  <input type="number" class="form-control" [(ngModel)]="todoConfig.maxItems" min="1" max="50"
-    (ngModelChange)="onPropertyChanged()" placeholder="Auto" />
-  <small class="form-text text-muted">Leave empty to show as many as fit in the widget</small>
-</div>
+
+<!-- Appearance -->
 <div class="mb-3">
   <label class="form-label fw-semibold">Item Icons</label>
   <div class="list-group list-group-flush border rounded">
@@ -440,10 +465,12 @@
 
 @case ('app-icon') {
 <div class="mb-3">
-  <label class="form-label">Size (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />
-</div>
-<div class="mb-3">
+  <label class="form-label fw-semibold">Appearance</label>
+  <div class="mb-2">
+    <label class="form-label small mb-1">Size (px)</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="appIconConfig.size" min="16" max="256"
+      (ngModelChange)="onPropertyChanged()" />
+  </div>
   <div class="form-check form-switch">
     <input class="form-check-input" type="checkbox" id="appIconDithering-{{widget.id}}"
       [(ngModel)]="appIconConfig.dithering"
@@ -456,8 +483,9 @@
 
 @case ('image') {
 @if (widget.config && 'imageUrl' in widget.config) {
+<!-- Image source -->
 <div class="mb-3">
-  <label class="form-label">Image</label>
+  <label class="form-label fw-semibold">Image</label>
   <div class="d-flex gap-2 mb-2">
     <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
       <i class="fa fa-upload"></i> From File
@@ -501,32 +529,39 @@
   </div>
   }
 </div>
+
+<!-- Framing –  zoom & pan -->
 <div class="mb-3">
-  <label class="form-label">Zoom ({{ (widget.config.zoom || 1) | number:'1.1-1' }}x)</label>
-  <input type="range" class="form-range" min="1" max="3" step="0.1"
-    [ngModel]="widget.config.zoom || 1"
-    (ngModelChange)="widget.config.zoom = $event; onPropertyChanged()" />
-</div>
-@if (widget.config.zoom && widget.config.zoom > 1) {
-<div class="mb-3">
-  <label class="form-label">Horizontal Position ({{ (widget.config.offsetX ?? 0) | number:'1.1-1' }})</label>
-  <input type="range" class="form-range" min="-1" max="1" step="0.05"
-    [ngModel]="widget.config.offsetX ?? 0"
-    (ngModelChange)="widget.config.offsetX = $event; onPropertyChanged()" />
-  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
-    <span>Left</span><span>Center</span><span>Right</span>
+  <label class="form-label fw-semibold">Framing</label>
+  <div class="mb-2">
+    <label class="form-label small mb-1">Zoom ({{ (widget.config.zoom || 1) | number:'1.1-1' }}x)</label>
+    <input type="range" class="form-range" min="1" max="3" step="0.1"
+      [ngModel]="widget.config.zoom || 1"
+      (ngModelChange)="widget.config.zoom = $event; onPropertyChanged()" />
   </div>
-</div>
-<div class="mb-3">
-  <label class="form-label">Vertical Position ({{ (widget.config.offsetY ?? 0) | number:'1.1-1' }})</label>
-  <input type="range" class="form-range" min="-1" max="1" step="0.05"
-    [ngModel]="widget.config.offsetY ?? 0"
-    (ngModelChange)="widget.config.offsetY = $event; onPropertyChanged()" />
-  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
-    <span>Top</span><span>Center</span><span>Bottom</span>
+  @if (widget.config.zoom && widget.config.zoom > 1) {
+  <div class="mb-2">
+    <label class="form-label small mb-1">Horizontal Position ({{ (widget.config.offsetX ?? 0) | number:'1.1-1' }})</label>
+    <input type="range" class="form-range" min="-1" max="1" step="0.05"
+      [ngModel]="widget.config.offsetX ?? 0"
+      (ngModelChange)="widget.config.offsetX = $event; onPropertyChanged()" />
+    <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+      <span>Left</span><span>Center</span><span>Right</span>
+    </div>
   </div>
+  <div class="mb-2">
+    <label class="form-label small mb-1">Vertical Position ({{ (widget.config.offsetY ?? 0) | number:'1.1-1' }})</label>
+    <input type="range" class="form-range" min="-1" max="1" step="0.05"
+      [ngModel]="widget.config.offsetY ?? 0"
+      (ngModelChange)="widget.config.offsetY = $event; onPropertyChanged()" />
+    <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+      <span>Top</span><span>Center</span><span>Bottom</span>
+    </div>
+  </div>
+  }
 </div>
-}
+
+<!-- Rendering -->
 <div class="mb-3">
   <div class="form-check form-switch">
     <input class="form-check-input" type="checkbox" id="imageDithering-{{widget.id}}"
