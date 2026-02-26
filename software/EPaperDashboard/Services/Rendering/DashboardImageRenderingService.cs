@@ -989,7 +989,7 @@ public sealed class DashboardImageRenderingService
             if (visibleFields.Contains("time"))
             {
                 var timeRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                DrawTextCentered(image, FormatForecastTime(dt, forecastMode), GetFont(textFontSize, titleFontWeight), titleColor, timeRect);
+                DrawTextCentered(image, FormatForecastTime(dt, forecastMode), GetFont(textFontSize, textFontWeight), titleColor, timeRect);
                 itemY += lineHeight + rowGap;
             }
 
@@ -1005,7 +1005,7 @@ public sealed class DashboardImageRenderingService
             {
                 var temp = dict.TryGetValue("temperature", out var tVal) ? RoundNum(tVal) : "";
                 var tempRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                DrawTextCentered(image, $"{temp}{tempUnit}", GetFont(textFontSize, titleFontWeight), textColor, tempRect);
+                DrawTextCentered(image, $"{temp}{tempUnit}", GetFont(textFontSize, textFontWeight), textColor, tempRect);
                 itemY += lineHeight + rowGap;
             }
 
@@ -1508,7 +1508,17 @@ public sealed class DashboardImageRenderingService
         var textColor = ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
         var titleColor = ResolveWidgetColor(widget, layout, c => c.WidgetTitleTextColor, o => o?.WidgetTitleTextColor);
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
+        var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
+        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
         var gridColorStr = (widget.ColorOverrides?.WidgetBorderColor ?? layout.ColorScheme.WidgetBorderColor);
+
+        // Render title if configured (matches frontend graph-title)
+        if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride))
+        {
+            var titleRect = new RectangleF(contentRect.X, contentRect.Y, contentRect.Width, titleFontSize + 8);
+            DrawTextCentered(image, widget.TitleOverride, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
+            contentRect = new RectangleF(contentRect.X, contentRect.Y + titleFontSize + 8, contentRect.Width, contentRect.Height - titleFontSize - 8);
+        }
 
         var plotType = GetStringProp(widget.Config, "plotType") ?? "line";
         var lineWidth = GetIntProp(widget.Config, "lineWidth") ?? 2;
