@@ -55,13 +55,13 @@ export class HomeAssistantService {
   }
 
   getEntityStates(dashboardId: string, entityIds: string[]): Observable<HassEntityState[]> {
-    return this.http.post<{ data: HassEntityState[] }>(`/api/dashboards/${dashboardId}/homeassistant/entity-states`, {
+    return this.http.post<{ data: HassEntityState[] }>(`/api/dashboards/${dashboardId}/entity-states`, {
       entityIds
     }).pipe(map(res => res.data || []));
   }
 
   getEntityHistory(dashboardId: string, entityIds: string[], hours: number = 24): Observable<Record<string, HistoryState[]>> {
-    return this.http.post<{ data: Record<string, HistoryState[]> }>(`/api/dashboards/${dashboardId}/homeassistant/entity-history`, {
+    return this.http.post<{ data: Record<string, HistoryState[]> }>(`/api/dashboards/${dashboardId}/entity-history`, {
       entityIds,
       hours
     }).pipe(
@@ -70,19 +70,19 @@ export class HomeAssistantService {
   }
 
   getTodoItems(dashboardId: string, todoEntityId: string): Observable<TodoItem[]> {
-    return this.http.get<{ data: TodoItem[] }>(`/api/dashboards/${dashboardId}/homeassistant/todo-items/${todoEntityId}`).pipe(
+    return this.http.get<{ data: TodoItem[] }>(`/api/dashboards/${dashboardId}/todo-items/${todoEntityId}`).pipe(
       map(response => response.data || [])
     );
   }
 
   getCalendarEvents(dashboardId: string, calendarEntityId: string, hoursAhead: number = 168): Observable<any[]> {
-    return this.http.get<{ data: any[] }>(`/api/dashboards/${dashboardId}/homeassistant/calendar-events/${calendarEntityId}?hoursAhead=${hoursAhead}`).pipe(
+    return this.http.get<{ data: any[] }>(`/api/dashboards/${dashboardId}/calendar-events/${calendarEntityId}?hoursAhead=${hoursAhead}`).pipe(
       map(response => response.data || [])
     );
   }
 
   getWeatherForecast(dashboardId: string, weatherEntityId: string, forecastType: string = 'daily'): Observable<any> {
-    return this.http.get<{ data: any }>(`/api/dashboards/${dashboardId}/homeassistant/weather-forecast/${weatherEntityId}?forecastType=${forecastType}`).pipe(
+    return this.http.get<{ data: any }>(`/api/dashboards/${dashboardId}/weather-forecast/${weatherEntityId}?forecastType=${forecastType}`).pipe(
       map(response => response.data)
     );
   }
