@@ -184,12 +184,16 @@ builder.Services.AddAuthorizationBuilder()
 				return false;
 			}
 
-			if (httpContext.RequestServices.GetService(typeof(DashboardService)) is not DashboardService dashboardService)
+			var dashboardService = httpContext.RequestServices.GetService(typeof(DashboardService)) as DashboardService;
+			var deviceService = httpContext.RequestServices.GetService(typeof(DeviceService)) as DeviceService;
+
+			if (dashboardService is null || deviceService is null)
 			{
 				return false;
 			}
 
-			return dashboardService.GetDashboardByApiKey(apiKey!).HasValue;
+			return dashboardService.GetDashboardByApiKey(apiKey!).HasValue ||
+				   deviceService.GetDeviceByApiKey(apiKey!).HasValue;
 		});
 	});
 

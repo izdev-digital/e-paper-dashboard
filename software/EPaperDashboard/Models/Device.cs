@@ -3,9 +3,11 @@ namespace EPaperDashboard.Models;
 public class Device
 {
     public DeviceId Id { get; set; } = DeviceId.Empty;
+    public UserId UserId { get; set; } = UserId.Empty;
     public DashboardId DashboardId { get; set; } = DashboardId.Empty;
     public string DeviceIdentifier { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
     public DateTimeOffset PairedAt { get; set; }
     public DateTimeOffset? LastSeenAt { get; set; }
     public string? FirmwareVersion { get; set; }

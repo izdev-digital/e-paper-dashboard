@@ -19,16 +19,9 @@ public class PairingController(
 
     [HttpPost("start")]
     [Authorize]
-    [DashboardOwnerFromBody]
-    public IActionResult StartPairing([FromBody] StartPairingRequest request)
+    public IActionResult StartPairing()
     {
-        var dashboard = _dashboardService.GetDashboardById(request.DashboardId);
-        if (dashboard.HasNoValue)
-        {
-            return NotFound("Dashboard not found");
-        }
-
-        var session = _pairingService.CreatePairingSession(request.DashboardId, dashboard.Value.ApiKey);
+        var session = _pairingService.CreatePairingSession(CurrentUserId);
 
         return Ok(new StartPairingResponse
         {
@@ -98,7 +91,8 @@ public class PairingController(
         var existingDevice = _deviceService.GetDeviceByIdentifier(request.DeviceIdentifier);
         if (existingDevice.HasValue)
         {
-            existingDevice.Value.DashboardId = session.Value.DashboardId;
+            existingDevice.Value.UserId = session.Value.UserId;
+            existingDevice.Value.ApiKey = session.Value.ApiKey;
             existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
             existingDevice.Value.Name = request.DeviceName ?? request.DeviceIdentifier;
             _deviceService.UpdateDevice(existingDevice.Value);
@@ -107,9 +101,10 @@ public class PairingController(
         {
             var device = new Models.Device
             {
-                DashboardId = session.Value.DashboardId,
+                UserId = session.Value.UserId,
                 DeviceIdentifier = request.DeviceIdentifier,
                 Name = request.DeviceName ?? request.DeviceIdentifier,
+                ApiKey = session.Value.ApiKey,
                 PairedAt = DateTimeOffset.UtcNow
             };
             _deviceService.AddDevice(device);
@@ -121,7 +116,6 @@ public class PairingController(
     }
 }
 
-public record StartPairingRequest(DashboardId DashboardId);
 public record StartPairingResponse
 {
     public string Code { get; init; } = string.Empty;

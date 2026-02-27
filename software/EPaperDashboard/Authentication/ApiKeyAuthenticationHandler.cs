@@ -11,10 +11,12 @@ public sealed class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    DashboardService dashboardService) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    DashboardService dashboardService,
+    DeviceService deviceService) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "ApiKey";
     private readonly DashboardService _dashboardService = dashboardService;
+    private readonly DeviceService _deviceService = deviceService;
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
@@ -23,7 +25,9 @@ public sealed class ApiKeyAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.Fail("Missing or empty API Key"));
         }
 
-        if (_dashboardService.GetDashboardByApiKey(apiKey!).HasNoValue)
+        // Check dashboard API keys first, then device API keys
+        if (_dashboardService.GetDashboardByApiKey(apiKey!).HasNoValue &&
+            _deviceService.GetDeviceByApiKey(apiKey!).HasNoValue)
         {
             return Task.FromResult(AuthenticateResult.Fail("Invalid API Key"));
         }

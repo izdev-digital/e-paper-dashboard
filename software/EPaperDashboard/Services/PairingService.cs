@@ -10,13 +10,13 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
 
-    public PairingSession CreatePairingSession(DashboardId dashboardId, string apiKey)
+    public PairingSession CreatePairingSession(UserId userId)
     {
         var session = new PairingSession
         {
-            DashboardId = dashboardId,
+            UserId = userId,
             Code = GenerateCode(),
-            ApiKey = apiKey,
+            ApiKey = Guid.NewGuid().ToString("N"),
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(ExpiryMinutes),
             IsCompleted = false

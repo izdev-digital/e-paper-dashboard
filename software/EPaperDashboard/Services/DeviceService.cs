@@ -9,6 +9,9 @@ public sealed class DeviceService(IDeviceRepository deviceRepository)
     public List<Device> GetDevicesForDashboard(DashboardId dashboardId) =>
         deviceRepository.FindByDashboardId(dashboardId);
 
+    public List<Device> GetDevicesForUser(UserId userId) =>
+        deviceRepository.FindByUserId(userId);
+
     public void AddDevice(Device device) =>
         deviceRepository.Insert(device);
 
@@ -23,4 +26,7 @@ public sealed class DeviceService(IDeviceRepository deviceRepository)
 
     public Maybe<Device> GetDeviceByIdentifier(string deviceIdentifier) =>
         deviceRepository.FindByIdentifier(deviceIdentifier);
+
+    public Maybe<Device> GetDeviceByApiKey(string apiKey) =>
+        deviceRepository.FindByApiKey(apiKey);
 }

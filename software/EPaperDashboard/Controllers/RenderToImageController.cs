@@ -25,6 +25,7 @@ namespace EPaperDashboard.Controllers;
 public sealed class RenderToImageController(
 	IPageToImageRenderingService renderingService,
 	DashboardService dashboardService,
+	DeviceService deviceService,
 	DashboardImageRenderingService dashboardImageRenderingService,
 	IDeploymentStrategy deploymentStrategy) : ControllerBase
 {
@@ -55,12 +56,28 @@ public sealed class RenderToImageController(
 
 	[HttpGet("health")]
 	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey) =>
-		await dashboardService
-			.GetDashboardByApiKey(apiKey)
+		await ResolveDashboardByApiKey(apiKey)
 			.Bind(d => GetDashboardUri(d, deploymentStrategy))
 			.Match(
 				Some: async (uri, _) => (IActionResult)Ok(await renderingService.GetHealth(uri)),
 				None: _ => Task.FromResult<IActionResult>(NotFound()));
+
+	private Maybe<Dashboard> ResolveDashboardByApiKey(string apiKey)
+	{
+		var dashboard = dashboardService.GetDashboardByApiKey(apiKey);
+		if (dashboard.HasValue)
+			return dashboard;
+
+		var device = deviceService.GetDeviceByApiKey(apiKey);
+		if (device.HasValue && device.Value.DashboardId != DashboardId.Empty)
+		{
+			device.Value.LastSeenAt = DateTimeOffset.UtcNow;
+			deviceService.UpdateDevice(device.Value);
+			return dashboardService.GetDashboardById(device.Value.DashboardId);
+		}
+
+		return Maybe.None;
+	}
 
 	private async Task<IActionResult> RenderImage(
 		string apiKey,
@@ -68,7 +85,7 @@ public sealed class RenderToImageController(
 		string format,
 		Func<IImage, IImage>? transform = null)
 	{
-		var dashboardResult = dashboardService.GetDashboardByApiKey(apiKey);
+		var dashboardResult = ResolveDashboardByApiKey(apiKey);
 		if (dashboardResult.HasNoValue)
 		{
 			return NotFound("Dashboard not found for this API key");

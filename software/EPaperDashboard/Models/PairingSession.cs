@@ -3,7 +3,7 @@ namespace EPaperDashboard.Models;
 public class PairingSession
 {
     public PairingSessionId Id { get; set; } = PairingSessionId.Empty;
-    public DashboardId DashboardId { get; set; } = DashboardId.Empty;
+    public UserId UserId { get; set; } = UserId.Empty;
     public string Code { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }

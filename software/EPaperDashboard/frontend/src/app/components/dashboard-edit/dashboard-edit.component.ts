@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { HomeAssistantService } from '../../services/home-assistant.service';
@@ -18,7 +18,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
   styles: [`
     .btn-group[role="group"] {
       display: grid !important;
@@ -94,34 +94,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                 </div>
                 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Paired Devices</label>
-                  
-                  @if (isPairingActive()) {
-                    <div class="alert alert-info mb-3">
-                      <div class="d-flex flex-column gap-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                          <div>
-                            <div class="mb-2">
-                              <strong>Pairing Code:</strong>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                              <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
-                              <button type="button" class="btn btn-sm btn-outline-primary" (click)="copyPairingCode()" title="Copy to clipboard">
-                                <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'"></i>
-                              </button>
-                            </div>
-                          </div>
-                          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelPairing()">
-                            <i class="fa-solid fa-times"></i> Cancel
-                          </button>
-                        </div>
-                        <div class="text-muted small">
-                          <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
-                          <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device web interface</div>
-                        </div>
-                      </div>
-                    </div>
-                  }
+                  <label class="form-label fw-semibold">Assigned Devices</label>
 
                   @if (isLoadingDevices()) {
                     <div class="text-center py-3">
@@ -137,7 +110,6 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                             <th>Name</th>
                             <th>Device ID</th>
                             <th>Firmware</th>
-                            <th class="text-end"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -159,11 +131,6 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                                   <span class="text-muted small">—</span>
                                 }
                               </td>
-                              <td class="text-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeDevice(device)">
-                                  <i class="fa-solid fa-trash"></i>
-                                </button>
-                              </td>
                             </tr>
                           }
                         </tbody>
@@ -171,16 +138,13 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                     </div>
                   } @else {
                     <div class="text-muted small mb-2">
-                      <i class="fa-solid fa-info-circle"></i> No devices paired yet
+                      <i class="fa-solid fa-info-circle"></i> No devices assigned to this dashboard
                     </div>
                   }
 
-                  @if (!isPairingActive()) {
-                    <button type="button" class="btn btn-outline-primary btn-sm w-100" (click)="startPairing()" [disabled]="isStartingPairing()">
-                      <i class="fa-solid fa-plus"></i> 
-                      {{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}
-                    </button>
-                  }
+                  <a routerLink="/devices" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="fa-solid fa-microchip"></i> Manage Devices
+                  </a>
                 </div>
 
                 <!-- Firmware Updates Section -->
@@ -434,11 +398,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   
   readonly devices = signal<Device[]>([]);
   readonly isLoadingDevices = signal(false);
-  readonly isPairingActive = signal(false);
-  readonly pairingCode = signal('');
-  readonly pairingTimeRemaining = signal(0);
-  readonly isStartingPairing = signal(false);
-  readonly pairingCodeCopied = signal(false);
 
   readonly firmwareInfo = this.firmwareService.firmwareInfo;
   readonly isFirmwareLoading = this.firmwareService.isLoading;
@@ -470,8 +429,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private oauthToken: string | null = null;
   private originalDashboard: Dashboard | null = null;
   private originalUpdateTimes: string[] = [];
-  private pairingTimer: any = null;
-  private pairingExpiresAt: Date | null = null;
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -964,42 +921,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.firmwareService.refreshFirmwareCheck();
   }
 
-  startPairing(): void {
-    const currentDashboard = this.dashboard();
-    if (!currentDashboard) return;
-
-    this.isStartingPairing.set(true);
-    this.deviceService.startPairing(currentDashboard.id).subscribe({
-      next: (response) => {
-        this.pairingCode.set(response.code);
-        this.pairingExpiresAt = new Date(response.expiresAt);
-        this.isPairingActive.set(true);
-        this.isStartingPairing.set(false);
-        this.startPairingTimer();
-      },
-      error: () => {
-        this.isStartingPairing.set(false);
-        this.toastService.error('Failed to start pairing');
-      }
-    });
-  }
-
-  cancelPairing(): void {
-    this.isPairingActive.set(false);
-    this.pairingCode.set('');
-    this.pairingCodeCopied.set(false);
-    this.stopPairingTimer();
-  }
-
-  copyPairingCode(): void {
-    const code = this.pairingCode();
-    if (!code) return;
-    navigator.clipboard.writeText(code).then(() => {
-      this.pairingCodeCopied.set(true);
-      setTimeout(() => this.pairingCodeCopied.set(false), 2000);
-    });
-  }
-
   isVersionLower(deviceVersion: string, latestVersion: string): boolean {
     const parse = (v: string) => v.split('.').map(n => parseInt(n, 10) || 0);
     const [dMaj, dMin, dPat] = parse(deviceVersion);
@@ -1009,56 +930,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     return dPat < lPat;
   }
 
-  removeDevice(device: Device): void {
-    this.dialogService.confirm({
-      title: 'Remove Device',
-      message: `Are you sure you want to remove device "${device.name}"?`,
-      confirmLabel: 'Remove',
-      isDangerous: true,
-      onConfirm: () => {
-        this.deviceService.deleteDevice(device.id).subscribe({
-          next: () => {
-            this.toastService.success('Device removed successfully');
-            this.loadDevices();
-          },
-          error: () => {
-            this.toastService.error('Failed to remove device');
-          }
-        });
-      }
-    });
-  }
-
-  private startPairingTimer(): void {
-    this.updatePairingTimeRemaining();
-    this.pairingTimer = setInterval(() => {
-      this.updatePairingTimeRemaining();
-      if (this.pairingTimeRemaining() <= 0) {
-        this.cancelPairing();
-        this.toastService.error('Pairing code expired');
-      }
-    }, 1000);
-  }
-
-  private stopPairingTimer(): void {
-    if (this.pairingTimer) {
-      clearInterval(this.pairingTimer);
-      this.pairingTimer = null;
-    }
-  }
-
-  private updatePairingTimeRemaining(): void {
-    if (!this.pairingExpiresAt) {
-      this.pairingTimeRemaining.set(0);
-      return;
-    }
-    const now = new Date();
-    const remaining = Math.max(0, Math.floor((this.pairingExpiresAt.getTime() - now.getTime()) / 1000));
-    this.pairingTimeRemaining.set(remaining);
-  }
-
   ngOnDestroy(): void {
-    this.stopPairingTimer();
     if (this.previewObjectUrl) {
       try {
         URL.revokeObjectURL(this.previewObjectUrl);
