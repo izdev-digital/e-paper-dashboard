@@ -291,7 +291,7 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   font-size: 11px;
   font-weight: 600;
   border: none;
-  border-radius: 4px 4px 0 0;
+  border-radius: 4px;
   background: #0077ff;
   color: #fff;
   cursor: pointer;
@@ -303,11 +303,14 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 
   &.active {
     background: #28a745;
-    border-radius: 4px;
   }
 
   &:hover {
-    opacity: 0.88;
+    background: #268fff;
+  }
+
+  &.active:hover {
+    background: #2fbd4e;
   }
 }
 
