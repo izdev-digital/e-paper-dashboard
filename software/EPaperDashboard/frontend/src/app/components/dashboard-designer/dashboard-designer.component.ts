@@ -92,7 +92,10 @@ export class DashboardDesignerComponent implements OnInit {
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
+  colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
+  layoutCollapsed = signal(false); // Layout section expanded by default
+  fontsCollapsed = signal(true); // Fonts section collapsed by default
   widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
   showPreviewModal = signal(false);
   previewLoading = signal(false);

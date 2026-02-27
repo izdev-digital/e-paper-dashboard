@@ -191,17 +191,19 @@
         <div class="card-body">
           <!-- Dashboard Settings Tab -->
           <div class="tab-pane" [class.active]="activeTab() === 'dashboard'">
-            <div class="card mb-3">
-              <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center" style="width:100%">
-                  <h5>Color Scheme</h5>
-                  <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides()"
+            <div class="collapsible-section" [class.collapsed]="colorSchemeCollapsed()">
+              <div class="collapsible-header" (click)="colorSchemeCollapsed.set(!colorSchemeCollapsed())">
+                <span class="section-title">Color Scheme</span>
+                <div class="d-flex align-items-center gap-2">
+                  <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides(); $event.stopPropagation()"
                     title="Reset all color overrides (layout + widgets) to the selected scheme defaults">
                     <i class="fa fa-undo"></i> Reset All
                   </button>
+                  <i class="fa" [ngClass]="colorSchemeCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
                 </div>
               </div>
-              <div class="card-body p-2">
+              @if (!colorSchemeCollapsed()) {
+              <div class="collapsible-body">
                 <select class="form-select" [ngModel]="layout().colorScheme"
                   [compareWith]="compareColorSchemes"
                   (ngModelChange)="updateColorScheme($event)">
@@ -212,29 +214,28 @@
                   }
                 </select>
               </div>
+              }
             </div>
-            <div class="card mb-3" [class.collapsed-card]="colorOverridesCollapsed()">
-              <div class="card-header" role="button" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())" style="cursor: pointer;width:100%">
-                <div class="d-flex justify-content-between align-items-center" style="width:100%">
-                  <div class="d-flex align-items-center">
-                    <h5 class="mb-0">Color Overrides</h5>
-                    @if (hasLayoutColorOverrides()) {
-                    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
-                    }
-                  </div>
-                  <div class="d-flex align-items-center gap-2">
-                    @if (hasLayoutColorOverrides()) {
-                    <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
-                      title="Reset layout colors to scheme defaults">
-                      <i class="fa fa-undo"></i>
-                    </button>
-                    }
-                    <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-                  </div>
+            <div class="collapsible-section" [class.collapsed]="colorOverridesCollapsed()">
+              <div class="collapsible-header" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())">
+                <div class="d-flex align-items-center">
+                  <span class="section-title">Color Overrides</span>
+                  @if (hasLayoutColorOverrides()) {
+                  <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+                  }
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  @if (hasLayoutColorOverrides()) {
+                  <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
+                    title="Reset layout colors to scheme defaults">
+                    <i class="fa fa-undo"></i>
+                  </button>
+                  }
+                  <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
                 </div>
               </div>
               @if (!colorOverridesCollapsed()) {
-              <div class="card-body p-2">
+              <div class="collapsible-body">
                 <div class="mb-2">
                   <label class="form-label small">Canvas Background @if (isLayoutColorOverridden('canvasBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor"
@@ -294,11 +295,13 @@
               </div>
               }
             </div>
-            <div class="card">
-              <div class="card-header">
-                <h5>Layout</h5>
+            <div class="collapsible-section" [class.collapsed]="layoutCollapsed()">
+              <div class="collapsible-header" (click)="layoutCollapsed.set(!layoutCollapsed())">
+                <span class="section-title">Layout</span>
+                <i class="fa" [ngClass]="layoutCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
               </div>
-              <div class="card-body p-2">
+              @if (!layoutCollapsed()) {
+              <div class="collapsible-body">
                 <div class="mb-2">
                   <label class="form-label small">Width</label>
                   <input type="number" class="form-control form-control-sm" [ngModel]="layout().width"
@@ -340,12 +343,15 @@
                     (ngModelChange)="updateWidgetPadding($event)" min="0" max="32" />
                 </div>
               </div>
+              }
             </div>
-            <div class="card">
-              <div class="card-header">
-                <h5>Font Sizes and Weights</h5>
+            <div class="collapsible-section" [class.collapsed]="fontsCollapsed()">
+              <div class="collapsible-header" (click)="fontsCollapsed.set(!fontsCollapsed())">
+                <span class="section-title">Typography</span>
+                <i class="fa" [ngClass]="fontsCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
               </div>
-              <div class="card-body p-2">
+              @if (!fontsCollapsed()) {
+              <div class="collapsible-body">
                 <div class="mb-2">
                   <label class="form-label small">Widget Title Font Size (px)</label>
                   <input type="number" class="form-control form-control-sm" [ngModel]="layout().titleFontSize"
@@ -383,6 +389,7 @@
                   </select>
                 </div>
               </div>
+              }
             </div>
           </div>
 
@@ -396,20 +403,18 @@
             @if (selectedWidget()) {
             <h6>{{ selectedWidget()!.type | titlecase }}</h6>
             <hr />
-            <div class="card mb-3" [class.collapsed-card]="widgetColorOverridesCollapsed()">
-              <div class="card-header" role="button" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())" style="cursor: pointer;width:100%">
-                <div class="d-flex justify-content-between align-items-center" style="width:100%">
-                  <div class="d-flex align-items-center">
-                    <h6 class="mb-0">Color Overrides</h6>
-                    @if (hasWidgetColorOverrides(selectedWidget())) {
-                    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+            <div class="collapsible-section" [class.collapsed]="widgetColorOverridesCollapsed()">
+              <div class="collapsible-header" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())">
+                <div class="d-flex align-items-center">
+                  <span class="section-title">Color Overrides</span>
+                  @if (hasWidgetColorOverrides(selectedWidget())) {
+                  <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
                     }
-                  </div>
-                  <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
                 </div>
+                <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
               </div>
               @if (!widgetColorOverridesCollapsed()) {
-              <div class="card-body p-2">
+              <div class="collapsible-body">
                 <div class="mb-2">
                   <label class="form-label small">Widget Background Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
                   <div class="input-group">

@@ -55,6 +55,24 @@ export class WidgetConfigComponent implements OnChanges {
   showImageUrlInput = false;
   imageUrlValue = '';
 
+  /** Tracks which named sections are collapsed. */
+  collapsedSections = signal<Set<string>>(new Set());
+
+  isSectionCollapsed(section: string): boolean {
+    return this.collapsedSections().has(section);
+  }
+
+  toggleSection(section: string): void {
+    const current = this.collapsedSections();
+    const next = new Set(current);
+    if (next.has(section)) {
+      next.delete(section);
+    } else {
+      next.add(section);
+    }
+    this.collapsedSections.set(next);
+  }
+
   formatEntityLabel(entity: any): string {
     const base = entity?.friendly_name || entity?.entity_id || 'Unknown';
     const details: string[] = [];
