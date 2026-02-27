@@ -9,7 +9,6 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService, Device } from '../../services/device.service';
-import { FirmwareService, FirmwareInfo } from '../../services/firmware.service';
 import { Dashboard } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
@@ -94,7 +93,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                 </div>
                 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Assigned Devices</label>
+                  <label class="form-label fw-semibold">Displayed On</label>
 
                   @if (isLoadingDevices()) {
                     <div class="text-center py-3">
@@ -104,116 +103,19 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                     </div>
                   } @else if (devices().length > 0) {
                     <div class="mb-2">
-                      <table class="table table-sm table-hover mb-0">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Device ID</th>
-                            <th>Firmware</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          @for (device of devices(); track device.id) {
-                            <tr>
-                              <td>{{ device.name }}</td>
-                              <td><code class="small">{{ device.deviceIdentifier }}</code></td>
-                              <td>
-                                @if (device.firmwareVersion) {
-                                  <code class="small">{{ device.firmwareVersion }}</code>
-                                  @if (firmwareInfo()?.version) {
-                                    @if (!isVersionLower(device.firmwareVersion!, firmwareInfo()!.version!)) {
-                                      <i class="fa-solid fa-circle-check text-success ms-1" title="Up to date"></i>
-                                    } @else {
-                                      <i class="fa-solid fa-circle-arrow-up text-warning ms-1" title="Update available (latest: v{{ firmwareInfo()!.version }})"></i>
-                                    }
-                                  }
-                                } @else {
-                                  <span class="text-muted small">—</span>
-                                }
-                              </td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
+                      @for (device of devices(); track device.id) {
+                        <div class="d-flex align-items-center gap-2 py-1">
+                          <i class="fa-solid fa-display text-muted"></i>
+                          <span>{{ device.name }}</span>
+                          <code class="small text-muted">{{ device.deviceIdentifier }}</code>
+                        </div>
+                      }
                     </div>
                   } @else {
                     <div class="text-muted small mb-2">
-                      <i class="fa-solid fa-info-circle"></i> No devices assigned to this dashboard
+                      <i class="fa-solid fa-info-circle"></i> Not assigned to any device yet. Go to <a routerLink="/devices">Devices</a> to assign this dashboard.
                     </div>
                   }
-
-                  <a routerLink="/devices" class="btn btn-outline-primary btn-sm w-100">
-                    <i class="fa-solid fa-microchip"></i> Manage Devices
-                  </a>
-                </div>
-
-                <!-- Firmware Updates Section -->
-                <div class="mb-3">
-                  <label class="form-label fw-semibold">Firmware Updates</label>
-                  @if (isFirmwareLoading()) {
-                    <div class="text-center py-2">
-                      <div class="spinner-border spinner-border-sm" role="status">
-                        <span class="visually-hidden">Checking firmware...</span>
-                      </div>
-                    </div>
-                  } @else if (firmwareInfo()) {
-                    <div class="card border-secondary-subtle">
-                      <div class="card-body py-2 px-3">
-                        @if (firmwareInfo()!.version) {
-                          <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="small fw-semibold">Latest Available</span>
-                            <span class="badge bg-primary">v{{ firmwareInfo()!.version }}</span>
-                          </div>
-                          @if (firmwareInfo()!.publishedAt) {
-                            <div class="small text-muted mb-1">
-                              Released: {{ firmwareInfo()!.publishedAt | date:'mediumDate' }}
-                            </div>
-                          }
-                          @if (firmwareInfo()!.hasDownload) {
-                            <div class="small text-success mb-1">
-                              <i class="fa-solid fa-circle-check"></i> Firmware binary available for OTA
-                            </div>
-                          }
-                          @if (deviceUpdateSummary(); as summary) {
-                            <div class="small mb-1">
-                              @if (summary.upToDate === summary.total) {
-                                <span class="text-success"><i class="fa-solid fa-check-double"></i> All {{ summary.total }} device(s) up to date</span>
-                              } @else {
-                                <span class="text-warning"><i class="fa-solid fa-rotate"></i> {{ summary.upToDate }}/{{ summary.total }} device(s) on v{{ summary.latest }}</span>
-                                @if (summary.outdated > 0) {
-                                  <span class="text-muted"> · {{ summary.outdated }} outdated</span>
-                                }
-                                @if (summary.unknown > 0) {
-                                  <span class="text-muted"> · {{ summary.unknown }} unknown</span>
-                                }
-                              }
-                            </div>
-                          }
-                          @if (firmwareInfo()!.releaseNotes) {
-                            <details class="mt-1">
-                              <summary class="small text-muted" style="cursor:pointer">Release Notes</summary>
-                              <div class="small text-muted mt-1" style="white-space:pre-line;max-height:120px;overflow-y:auto">
-                                {{ firmwareInfo()!.releaseNotes }}
-                              </div>
-                            </details>
-                          }
-                        } @else {
-                          <div class="small text-muted">
-                            <i class="fa-solid fa-info-circle"></i> {{ firmwareInfo()!.message || 'No firmware release info available' }}
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  } @else if (firmwareError()) {
-                    <div class="small text-danger">
-                      <i class="fa-solid fa-exclamation-circle"></i> {{ firmwareError() }}
-                    </div>
-                  }
-                  <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2"
-                    (click)="refreshFirmware()" [disabled]="isFirmwareLoading()">
-                    <i class="fa-solid fa-rotate"></i>
-                    {{ isFirmwareLoading() ? 'Checking...' : 'Check for Updates' }}
-                  </button>
                 </div>
               </div>
 
@@ -376,7 +278,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
   private readonly location = inject(Location);
-  private readonly firmwareService = inject(FirmwareService);
 
   readonly isAddonMode = this.authService.isAddonMode;
   readonly isHostMode = this.authService.isHostMode;
@@ -398,21 +299,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   
   readonly devices = signal<Device[]>([]);
   readonly isLoadingDevices = signal(false);
-
-  readonly firmwareInfo = this.firmwareService.firmwareInfo;
-  readonly isFirmwareLoading = this.firmwareService.isLoading;
-  readonly firmwareError = this.firmwareService.error;
-
-  readonly deviceUpdateSummary = computed(() => {
-    const fw = this.firmwareInfo();
-    const devs = this.devices();
-    if (!fw?.version || devs.length === 0) return null;
-    const latest = fw.version;
-    const upToDate = devs.filter(d => d.firmwareVersion && !this.isVersionLower(d.firmwareVersion, latest)).length;
-    const outdated = devs.filter(d => d.firmwareVersion && this.isVersionLower(d.firmwareVersion, latest)).length;
-    const unknown = devs.filter(d => !d.firmwareVersion).length;
-    return { total: devs.length, upToDate, outdated, unknown, latest };
-  });
 
   readonly dashboardForm = new FormGroup({
     name: new FormControl('', { validators: Validators.required, nonNullable: true }),
@@ -491,7 +377,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         }
 
         this.loadDevices();
-        this.loadFirmwareInfo();
 
         this.cdr.detectChanges();
       },
@@ -911,23 +796,6 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.toastService.error('Failed to load devices');
       }
     });
-  }
-
-  loadFirmwareInfo(): void {
-    this.firmwareService.loadLatestFirmware();
-  }
-
-  refreshFirmware(): void {
-    this.firmwareService.refreshFirmwareCheck();
-  }
-
-  isVersionLower(deviceVersion: string, latestVersion: string): boolean {
-    const parse = (v: string) => v.split('.').map(n => parseInt(n, 10) || 0);
-    const [dMaj, dMin, dPat] = parse(deviceVersion);
-    const [lMaj, lMin, lPat] = parse(latestVersion);
-    if (dMaj !== lMaj) return dMaj < lMaj;
-    if (dMin !== lMin) return dMin < lMin;
-    return dPat < lPat;
   }
 
   ngOnDestroy(): void {

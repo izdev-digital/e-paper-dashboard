@@ -193,6 +193,79 @@ import { Dashboard } from '../../models/types';
         <i class="fa-solid fa-info-circle"></i> No devices paired yet. Click "Pair New Device" to get started.
       </div>
     }
+
+    <!-- Firmware Updates Section -->
+    @if (devices().length > 0) {
+      <div class="card shadow-sm mt-4">
+        <div class="card-body">
+          <h5 class="card-title mb-3"><i class="fa-solid fa-microchip me-2"></i>Firmware Updates</h5>
+          @if (isFirmwareLoading()) {
+            <div class="text-center py-2">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Checking firmware...</span>
+              </div>
+            </div>
+          } @else if (firmwareInfo()) {
+            <div class="card border-secondary-subtle">
+              <div class="card-body py-2 px-3">
+                @if (firmwareInfo()!.version) {
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="small fw-semibold">Latest Available</span>
+                    <span class="badge bg-primary">v{{ firmwareInfo()!.version }}</span>
+                  </div>
+                  @if (firmwareInfo()!.publishedAt) {
+                    <div class="small text-muted mb-1">
+                      Released: {{ firmwareInfo()!.publishedAt | date:'mediumDate' }}
+                    </div>
+                  }
+                  @if (firmwareInfo()!.hasDownload) {
+                    <div class="small text-success mb-1">
+                      <i class="fa-solid fa-circle-check"></i> Firmware binary available for OTA
+                    </div>
+                  }
+                  @if (deviceUpdateSummary(); as summary) {
+                    <div class="small mb-1">
+                      @if (summary.upToDate === summary.total) {
+                        <span class="text-success"><i class="fa-solid fa-check-double"></i> All {{ summary.total }} device(s) up to date</span>
+                      } @else {
+                        <span class="text-warning"><i class="fa-solid fa-rotate"></i> {{ summary.upToDate }}/{{ summary.total }} device(s) on v{{ summary.latest }}</span>
+                        @if (summary.outdated > 0) {
+                          <span class="text-muted"> · {{ summary.outdated }} outdated</span>
+                        }
+                        @if (summary.unknown > 0) {
+                          <span class="text-muted"> · {{ summary.unknown }} unknown</span>
+                        }
+                      }
+                    </div>
+                  }
+                  @if (firmwareInfo()!.releaseNotes) {
+                    <details class="mt-1">
+                      <summary class="small text-muted" style="cursor:pointer">Release Notes</summary>
+                      <div class="small text-muted mt-1" style="white-space:pre-line;max-height:120px;overflow-y:auto">
+                        {{ firmwareInfo()!.releaseNotes }}
+                      </div>
+                    </details>
+                  }
+                } @else {
+                  <div class="small text-muted">
+                    <i class="fa-solid fa-info-circle"></i> {{ firmwareInfo()!.message || 'No firmware release info available' }}
+                  </div>
+                }
+              </div>
+            </div>
+          } @else if (firmwareError()) {
+            <div class="small text-danger">
+              <i class="fa-solid fa-exclamation-circle"></i> {{ firmwareError() }}
+            </div>
+          }
+          <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2"
+            (click)="refreshFirmware()" [disabled]="isFirmwareLoading()">
+            <i class="fa-solid fa-rotate"></i>
+            {{ isFirmwareLoading() ? 'Checking...' : 'Check for Updates' }}
+          </button>
+        </div>
+      </div>
+    }
   `
 })
 export class DeviceListComponent implements OnInit, OnDestroy {
@@ -214,6 +287,19 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly pairingCodeCopied = signal(false);
 
   readonly firmwareInfo = this.firmwareService.firmwareInfo;
+  readonly isFirmwareLoading = this.firmwareService.isLoading;
+  readonly firmwareError = this.firmwareService.error;
+
+  readonly deviceUpdateSummary = computed(() => {
+    const fw = this.firmwareInfo();
+    const devs = this.devices();
+    if (!fw?.version || devs.length === 0) return null;
+    const latest = fw.version;
+    const upToDate = devs.filter(d => d.firmwareVersion && !this.isVersionLower(d.firmwareVersion, latest)).length;
+    const outdated = devs.filter(d => d.firmwareVersion && this.isVersionLower(d.firmwareVersion, latest)).length;
+    const unknown = devs.filter(d => !d.firmwareVersion).length;
+    return { total: devs.length, upToDate, outdated, unknown, latest };
+  });
 
   private pairingTimer: any = null;
   private pairingExpiresAt: Date | null = null;
@@ -334,6 +420,10 @@ export class DeviceListComponent implements OnInit, OnDestroy {
       this.pairingCodeCopied.set(true);
       setTimeout(() => this.pairingCodeCopied.set(false), 2000);
     });
+  }
+
+  refreshFirmware(): void {
+    this.firmwareService.refreshFirmwareCheck();
   }
 
   isVersionLower(deviceVersion: string, latestVersion: string): boolean {
