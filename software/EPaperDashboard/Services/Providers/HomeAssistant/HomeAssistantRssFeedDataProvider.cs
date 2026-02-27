@@ -1,0 +1,145 @@
+using System.Net.WebSockets;
+using System.Text.Json;
+using CSharpFunctionalExtensions;
+
+namespace EPaperDashboard.Services.Providers.HomeAssistant;
+
+/// <summary>
+/// Home Assistant implementation of <see cref="IRssFeedDataProvider"/>.
+/// Fetches RSS feed entries via the Home Assistant WebSocket API.
+/// </summary>
+public class HomeAssistantRssFeedDataProvider(
+    HomeAssistantConnectionService connection,
+    ILogger<HomeAssistantRssFeedDataProvider> logger) : IRssFeedDataProvider
+{
+    private readonly HomeAssistantConnectionService _connection = connection;
+    private readonly ILogger<HomeAssistantRssFeedDataProvider> _logger = logger;
+
+    public async Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntriesAsync(string dashboardId, string feedEntityId)
+    {
+        var connectionInfo = _connection.GetConnectionInfo(dashboardId);
+        if (connectionInfo.IsFailure)
+            return connectionInfo.Error;
+
+        if (string.IsNullOrWhiteSpace(feedEntityId))
+            return "Feed entity ID is required";
+
+        var (hostUrl, token) = connectionInfo.Value;
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+
+            var messageId = _connection.NextMessageId();
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new
+            {
+                id = messageId,
+                type = "get_states"
+            });
+
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            _logger.LogDebug("HomeAssistant FetchRssFeedEntries raw response: {Response}", response);
+
+            var json = JsonSerializer.Deserialize<JsonElement>(response);
+            var entries = new List<RssFeedEntry>();
+
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in result.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+
+                    if (entityId == feedEntityId)
+                    {
+                        if (entity.TryGetProperty("attributes", out var attributes) &&
+                            attributes.ValueKind == JsonValueKind.Object)
+                        {
+                            var entry = ParseRssFeedEntry(attributes);
+                            if (entry != null)
+                                entries.Add(entry);
+
+                            _logger.LogDebug("Parsed RSS feed entry from event entity {EntityId}", feedEntityId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Feed event entity {EntityId} found but has no attributes", feedEntityId);
+                        }
+                        break;
+                    }
+                }
+
+                if (entries.Count == 0 && !result.EnumerateArray().Any(e => e.TryGetProperty("entity_id", out var eid) && eid.GetString() == feedEntityId))
+                {
+                    _logger.LogWarning("Feed event entity {EntityId} not found in states. Available event entities: {EventEntities}",
+                        feedEntityId,
+                        string.Join(", ", result.EnumerateArray()
+                            .Where(e => e.TryGetProperty("entity_id", out var eid) && eid.GetString()?.StartsWith("event.") == true)
+                            .Select(e => e.TryGetProperty("entity_id", out var eid) ? eid.GetString() : "unknown")
+                        ));
+                }
+            }
+            else
+            {
+                _logger.LogWarning("RSS feed entries fetch returned unsuccessful response or missing result property");
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return entries;
+        }
+        catch (WebSocketException)
+        {
+            _logger.LogError("Unable to connect to Home Assistant WebSocket for RSS feed entries");
+            return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch RSS feed entries from entity {EntityId}", feedEntityId);
+            return $"Failed to fetch RSS feed entries: {ex.Message}";
+        }
+    }
+
+    private RssFeedEntry? ParseRssFeedEntry(JsonElement attributesElement)
+    {
+        try
+        {
+            if (attributesElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var title = attributesElement.TryGetProperty("title", out var titleProp)
+                ? titleProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            var link = attributesElement.TryGetProperty("link", out var linkProp)
+                ? linkProp.GetString() ?? string.Empty
+                : string.Empty;
+
+            string? description = null;
+            if (attributesElement.TryGetProperty("description", out var descProp))
+                description = descProp.GetString();
+            else if (attributesElement.TryGetProperty("summary", out var summaryProp))
+                description = summaryProp.GetString();
+            else if (attributesElement.TryGetProperty("content", out var contentProp))
+                description = contentProp.GetString();
+
+            if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(link))
+            {
+                _logger.LogWarning("Skipping RSS entry with missing title and link");
+                return null;
+            }
+
+            return new RssFeedEntry
+            {
+                Title = title,
+                Link = link,
+                Published = null,
+                Summary = description
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse RSS feed entry from event attributes");
+            return null;
+        }
+    }
+}

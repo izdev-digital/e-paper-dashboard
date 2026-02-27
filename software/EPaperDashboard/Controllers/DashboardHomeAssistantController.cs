@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
+using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Guards;
 
 namespace EPaperDashboard.Controllers;
@@ -11,9 +12,21 @@ namespace EPaperDashboard.Controllers;
 [DashboardOwner]
 public class DashboardHomeAssistantController(
     HomeAssistantService homeAssistantService,
+    IEntityStateProvider entityStateProvider,
+    IEntityHistoryProvider entityHistoryProvider,
+    ITodoDataProvider todoDataProvider,
+    ICalendarDataProvider calendarDataProvider,
+    IWeatherForecastProvider weatherForecastProvider,
+    IRssFeedDataProvider rssFeedDataProvider,
     ILogger<DashboardHomeAssistantController> logger) : ControllerBase
 {
     private readonly HomeAssistantService _homeAssistantService = homeAssistantService;
+    private readonly IEntityStateProvider _entityStateProvider = entityStateProvider;
+    private readonly IEntityHistoryProvider _entityHistoryProvider = entityHistoryProvider;
+    private readonly ITodoDataProvider _todoDataProvider = todoDataProvider;
+    private readonly ICalendarDataProvider _calendarDataProvider = calendarDataProvider;
+    private readonly IWeatherForecastProvider _weatherForecastProvider = weatherForecastProvider;
+    private readonly IRssFeedDataProvider _rssFeedDataProvider = rssFeedDataProvider;
     private readonly ILogger<DashboardHomeAssistantController> _logger = logger;
 
     [HttpGet("dashboards")]
@@ -37,7 +50,7 @@ public class DashboardHomeAssistantController(
     [HttpPost("entity-states")]
     public async Task<IActionResult> GetEntityStates(string dashboardId, [FromBody] EntityIdsRequest request)
     {
-        var result = await _homeAssistantService.FetchEntityStates(dashboardId, request.EntityIds ?? []);
+        var result = await _entityStateProvider.FetchEntityStatesAsync(dashboardId, request.EntityIds ?? []);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });
@@ -47,7 +60,7 @@ public class DashboardHomeAssistantController(
     public async Task<IActionResult> GetEntityHistory(string dashboardId, [FromBody] EntityHistoryRequest request)
     {
         var hours = Clamp(request.Hours ?? 24, 1, 720);
-        var result = await _homeAssistantService.FetchEntityHistory(dashboardId, request.EntityIds ?? [], hours);
+        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, request.EntityIds ?? [], hours);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });
@@ -56,7 +69,7 @@ public class DashboardHomeAssistantController(
     [HttpGet("todo-items/{todoEntityId}")]
     public async Task<IActionResult> GetTodoItems(string dashboardId, string todoEntityId)
     {
-        var result = await _homeAssistantService.FetchTodoItems(dashboardId, todoEntityId);
+        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, todoEntityId);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });
@@ -66,7 +79,7 @@ public class DashboardHomeAssistantController(
     public async Task<IActionResult> GetCalendarEvents(string dashboardId, string calendarEntityId, [FromQuery] int hoursAhead = 168)
     {
         hoursAhead = Clamp(hoursAhead, 1, 720);
-        var result = await _homeAssistantService.FetchCalendarEvents(dashboardId, calendarEntityId, hoursAhead);
+        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, calendarEntityId, hoursAhead);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch calendar events: {Error}", result.Error);
@@ -80,7 +93,7 @@ public class DashboardHomeAssistantController(
     [HttpGet("weather-forecast/{weatherEntityId}")]
     public async Task<IActionResult> GetWeatherForecast(string dashboardId, string weatherEntityId, [FromQuery] string forecastType = "daily")
     {
-        var result = await _homeAssistantService.FetchWeatherForecast(dashboardId, weatherEntityId, forecastType);
+        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, weatherEntityId, forecastType);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch weather forecast: {Error}", result.Error);
@@ -94,7 +107,7 @@ public class DashboardHomeAssistantController(
     [HttpGet("rss-feed-entries/{feedEntityId}")]
     public async Task<IActionResult> GetRssFeedEntries(string dashboardId, string feedEntityId)
     {
-        var result = await _homeAssistantService.FetchRssFeedEntries(dashboardId, feedEntityId);
+        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, feedEntityId);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch RSS feed entries: {Error}", result.Error);
