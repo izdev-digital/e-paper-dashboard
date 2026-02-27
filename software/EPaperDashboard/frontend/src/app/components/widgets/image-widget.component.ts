@@ -1,11 +1,12 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, ImageConfig } from '../../models/types';
+import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 
 @Component({
   selector: 'app-widget-image',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ResolveUrlPipe],
   template: `
     <div class="image-widget-wrapper">
       @if (widget.showTitle !== false && widget.titleOverride) {
@@ -13,7 +14,7 @@ import { WidgetConfig, ColorScheme, ImageConfig } from '../../models/types';
       }
       <div class="image-widget-container">
         <img
-          [src]="cfg.imageUrl"
+          [src]="cfg.imageUrl | resolveUrl"
           alt="Image"
           [style.width.%]="(cfg.zoom ?? 1) * 100"
           [style.height.%]="(cfg.zoom ?? 1) * 100"

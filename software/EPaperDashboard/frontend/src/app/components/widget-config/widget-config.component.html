@@ -519,7 +519,7 @@
   }
   @if (widget.config.imageUrl) {
   <div class="mt-2 border rounded p-1 text-center" style="height: 120px; overflow: hidden; position: relative;">
-    <img [src]="widget.config.imageUrl" alt="Preview"
+    <img [src]="widget.config.imageUrl | resolveUrl" alt="Preview"
       [style.width.%]="(widget.config.zoom || 1) * 100"
       [style.height.%]="(widget.config.zoom || 1) * 100"
       [style.left.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetX ?? 0) + 1) * 50"
