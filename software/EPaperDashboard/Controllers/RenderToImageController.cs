@@ -64,10 +64,6 @@ public sealed class RenderToImageController(
 
 	private Maybe<Dashboard> ResolveDashboardByApiKey(string apiKey)
 	{
-		var dashboard = dashboardService.GetDashboardByApiKey(apiKey);
-		if (dashboard.HasValue)
-			return dashboard;
-
 		var device = deviceService.GetDeviceByApiKey(apiKey);
 		if (device.HasValue && device.Value.DashboardId != DashboardId.Empty)
 		{

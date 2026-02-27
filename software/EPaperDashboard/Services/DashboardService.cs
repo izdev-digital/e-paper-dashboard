@@ -18,9 +18,6 @@ public sealed class DashboardService(IDashboardRepository dashboardRepository)
     public void DeleteDashboard(DashboardId dashboardId) =>
         dashboardRepository.Delete(dashboardId);
 
-    public Maybe<Dashboard> GetDashboardByApiKey(string apiKey) =>
-        dashboardRepository.FindByApiKey(apiKey);
-
     public Maybe<Dashboard> GetDashboardById(DashboardId dashboardId) =>
         dashboardRepository.FindById(dashboardId);
 

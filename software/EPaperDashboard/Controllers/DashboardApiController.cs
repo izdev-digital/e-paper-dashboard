@@ -79,8 +79,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         {
             UserId = CurrentUserId,
             Name = request.Name,
-            Description = request.Description ?? string.Empty,
-            ApiKey = Guid.NewGuid().ToString("N")
+            Description = request.Description ?? string.Empty
         };
 
         _dashboardService.AddDashboard(dashboard);
@@ -186,7 +185,6 @@ public record DashboardResponseDto(
     string Id,
     string Name,
     string Description,
-    string ApiKey,
     string UserId,
     bool HasAccessToken,
     string? Host,
@@ -200,7 +198,6 @@ public record DashboardResponseDto(
         Id: dashboard.Id.ToString(),
         Name: dashboard.Name,
         Description: dashboard.Description,
-        ApiKey: dashboard.ApiKey,
         UserId: dashboard.UserId.ToString(),
         HasAccessToken: isAutoConnected || !string.IsNullOrWhiteSpace(dashboard.AccessToken),
         Host: dashboard.Host,

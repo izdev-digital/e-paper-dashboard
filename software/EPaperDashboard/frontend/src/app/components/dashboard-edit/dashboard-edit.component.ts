@@ -733,10 +733,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.previewObjectUrl = null;
     }
 
-    const url = `/api/render/original?width=800&height=480&format=png`;
+    const url = `/api/dashboards/${currentDashboard.id}/preview?width=800&height=480&format=png`;
 
     this.http.get(url, {
-      headers: { 'X-Api-Key': currentDashboard.apiKey },
       responseType: 'blob'
     }).subscribe({
       next: (blob) => {
