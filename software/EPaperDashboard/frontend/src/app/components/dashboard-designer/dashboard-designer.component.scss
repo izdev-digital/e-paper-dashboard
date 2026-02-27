@@ -291,7 +291,7 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   font-size: 11px;
   font-weight: 600;
   border: none;
-  border-radius: 4px 4px 0 0;
+  border-radius: 4px;
   background: #0077ff;
   color: #fff;
   cursor: pointer;
@@ -303,11 +303,14 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 
   &.active {
     background: #28a745;
-    border-radius: 4px;
   }
 
   &:hover {
-    opacity: 0.88;
+    background: #268fff;
+  }
+
+  &.active:hover {
+    background: #2fbd4e;
   }
 }
 
@@ -579,9 +582,45 @@ $h-cor-off: -10px; /* corner square offset */
   font-size: 0.9rem;
 }
 
-.card-header h5 {
-  margin: 0;
-  font-size: 1rem;
+/* Collapsible section cards – shared pattern */
+.collapsible-section {
+  border: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.125));
+  border-radius: 0.375rem;
+  margin-bottom: 0.75rem;
+  background: var(--bs-card-bg, #fff);
+
+  .collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-bottom: 1px solid transparent;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: inherit;
+      font-weight: inherit;
+    }
+  }
+
+  .collapsible-body {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--bs-border-color, rgba(0, 0, 0, 0.125));
+  }
+
+  &.collapsed {
+    .collapsible-header {
+      border-bottom: none;
+    }
+  }
 }
 
 .designer-panel-right .card>.card-body {
@@ -634,7 +673,3 @@ $h-cor-off: -10px; /* corner square offset */
   background: #f8f9fa;
 }
 
-
-
-.tab-pane .card{height:auto!important}
-.tab-pane .card.collapsed-card{display:block;border:0!important;box-shadow:none!important;background:0!important;margin:0!important;padding:0!important;.card-header{border:1px solid var(--bs-border-color);margin-bottom:.5rem}}

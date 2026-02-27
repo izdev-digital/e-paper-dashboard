@@ -83,6 +83,8 @@ export class DashboardDesignerComponent implements OnInit {
   ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
   isLoading = signal(false);
   livePreviewLoading = signal(false);
+  /** Becomes true after the first successful refreshLivePreview(). */
+  livePreviewEverFetched = signal(false);
   entityStates = signal<Record<string, HassEntityState>>({});
   availableEntities = signal<HassEntity[]>([]);
   entitiesLoading = signal(false);
@@ -90,7 +92,10 @@ export class DashboardDesignerComponent implements OnInit {
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
+  colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
+  layoutCollapsed = signal(false); // Layout section expanded by default
+  fontsCollapsed = signal(true); // Fonts section collapsed by default
   widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
   showPreviewModal = signal(false);
   previewLoading = signal(false);
@@ -883,6 +888,7 @@ export class DashboardDesignerComponent implements OnInit {
 
     if (ids.length === 0) {
       this.entityStates.set({});
+      this.livePreviewEverFetched.set(true);
       return;
     }
 
@@ -892,6 +898,7 @@ export class DashboardDesignerComponent implements OnInit {
         const map: Record<string, HassEntityState> = {};
         states.forEach(s => { map[s.entityId] = s; });
         this.entityStates.set(map);
+        this.livePreviewEverFetched.set(true);
 
         const todoEntityIds = this.layout().widgets
           .filter(w => w.type === 'todo' && (w.config as any).entityId)

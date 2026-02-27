@@ -1,33 +1,13 @@
-@if (widget.type !== 'markdown' && widget.type !== 'version') {
-<div class="mb-3">
-  <label class="form-label fw-semibold">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  @if (widget.type === 'header') {
-    <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title"
-      (ngModelChange)="onPropertyChanged()" />
-  } @else {
-    <input type="text" class="form-control" [(ngModel)]="widget.titleOverride" 
-      (ngModelChange)="onPropertyChanged()"
-      placeholder="Override widget title" />
-    <small class="form-text text-muted">Leave empty to use default title</small>
-  }
-</div>
-}
-@if (widget.type !== 'graph' && widget.config && ('entityId' in widget.config)) {
+@if (widget.type !== 'graph' && widget.type !== 'rss-feed' && widget.type !== 'weather' && widget.type !== 'calendar' && widget.type !== 'weather-forecast' && widget.type !== 'todo' && widget.config && ('entityId' in widget.config)) {
   @if (entities().length === 0) {
     <div class="alert alert-warning mb-3">
       <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
     </div>
   }
 }
-@if (entities().length > 0 && widget.config && ('entityId' in widget.config) && widget.type !== 'graph') {
+@if (entities().length > 0 && widget.config && ('entityId' in widget.config) && widget.type !== 'graph' && widget.type !== 'rss-feed' && widget.type !== 'weather' && widget.type !== 'calendar' && widget.type !== 'weather-forecast' && widget.type !== 'todo') {
 <div class="mb-3">
-  <label class="form-label">Data Source Entity</label>
+  <label class="form-label fw-semibold small">Data Source</label>
   <select class="form-select" [(ngModel)]="widget.config.entityId" (ngModelChange)="onPropertyChanged()">
     <option value="">Select entity...</option>
     @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
@@ -40,225 +20,304 @@
 
 @case ('header') {
 <div class="mb-3">
-  <label class="form-label">Icon Position</label>
-  <select class="form-select" [(ngModel)]="headerConfig.iconPosition" (ngModelChange)="onPropertyChanged()">
-    <option [ngValue]="'left'">Left (Default)</option>
-    <option [ngValue]="'right'">Right</option>
-  </select>
-</div>
-<div class="mb-3">
-  <label class="form-label">Icon Size (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="headerConfig.title" placeholder="Enter title"
     (ngModelChange)="onPropertyChanged()" />
 </div>
-<div class="mb-3">
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="headerDithering-{{widget.id}}"
-      [(ngModel)]="headerConfig.dithering"
+<hr class="my-2" />
+<div class="row g-2 mb-2">
+  <div class="col">
+    <label class="form-label small mb-1">Position</label>
+    <select class="form-select form-select-sm" [(ngModel)]="headerConfig.iconPosition" (ngModelChange)="onPropertyChanged()">
+      <option [ngValue]="'left'">Left (Default)</option>
+      <option [ngValue]="'right'">Right</option>
+    </select>
+  </div>
+  <div class="col">
+    <label class="form-label small mb-1">Size (px)</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="headerConfig.iconSize" min="16" max="128" placeholder="32"
       (ngModelChange)="onPropertyChanged()" />
-    <label class="form-check-label" for="headerDithering-{{widget.id}}">Dither icon</label>
   </div>
-  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
 </div>
-
-<!-- Layout editor settings (used when "Edit Layout" mode is active on the canvas) -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Layout Editor</label>
-  <div class="d-flex gap-3 align-items-center">
-    <div class="form-check form-switch mb-0">
-      <input class="form-check-input" type="checkbox" id="showGuides-{{widget.id}}"
-        [(ngModel)]="headerConfig.showGuides"
-        (ngModelChange)="onPropertyChanged()" />
-      <label class="form-check-label" for="showGuides-{{widget.id}}">Smart guides</label>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label mb-0 text-nowrap">Snap</label>
-      <select class="form-select form-select-sm w-auto" [(ngModel)]="headerConfig.snapStep"
-        (ngModelChange)="onPropertyChanged()">
-        <option [ngValue]="0">Off</option>
-        <option [ngValue]="1">1%</option>
-        <option [ngValue]="2">2%</option>
-        <option [ngValue]="5">5%</option>
-      </select>
-    </div>
-  </div>
-  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
+<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" id="headerDithering-{{widget.id}}"
+    [(ngModel)]="headerConfig.dithering"
+    (ngModelChange)="onPropertyChanged()" />
+  <label class="form-check-label" for="headerDithering-{{widget.id}}">Dither icon</label>
 </div>
+<small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
 
-<!-- Badges (content only – positions are set in the visual editor below) -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Badges</label>
-  <small class="form-text text-muted d-block mb-2">
-    Configure badge content here; drag to position them in the layout editor below.
-  </small>
-  <div class="list-group list-group-flush border rounded">
-    @for (badge of headerConfig.badges ?? []; track trackByBadgeLabel($index, badge); let i = $index) {
-      <div class="list-group-item px-2 py-2">
-        <div class="d-flex align-items-center gap-2">
-          <i class="fa {{ badge.icon || 'fa-tag' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-          <span class="flex-grow-1 text-truncate" style="min-width:0">
-            {{ getBadgeEntityLabel(badge) || 'No entity' }}
-          </span>
-          <button class="btn btn-sm btn-outline-danger flex-shrink-0 py-0 px-1" (click)="removeBadge(i)">
-            <i class="fa fa-trash"></i>
-          </button>
-        </div>
-        <div class="d-flex align-items-center gap-2 mt-1">
-          <i class="fa fa-icons text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-          <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
-            placeholder="Icon (e.g., fa-thermometer)"
-            [(ngModel)]="badge.icon" (ngModelChange)="onPropertyChanged()" />
-        </div>
-        <div class="d-flex align-items-center gap-2 mt-1">
-          <i class="fa fa-link text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-          <select class="form-select form-select-sm flex-grow-1" style="min-width:0;"
-            [(ngModel)]="badge.entityId" (ngModelChange)="onPropertyChanged()">
-            <option [ngValue]="undefined">No Entity</option>
-            @for (entity of entities(); track trackByEntityId($index, entity)) {
-              <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-            }
-          </select>
-        </div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Badges</label>
+<small class="form-text text-muted d-block mb-2">
+  Configure badge content here; drag to position them in the layout editor on the canvas.
+</small>
+<div class="list-group list-group-flush border rounded">
+  @for (badge of headerConfig.badges ?? []; track trackByBadgeLabel($index, badge); let i = $index) {
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="fa {{ badge.icon || 'fa-tag' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <span class="flex-grow-1 text-truncate" style="min-width:0">
+          {{ getBadgeEntityLabel(badge) || 'No entity' }}
+        </span>
+        <button class="btn btn-sm btn-outline-danger flex-shrink-0 py-0 px-1" (click)="removeBadge(i)">
+          <i class="fa fa-trash"></i>
+        </button>
       </div>
-    }
-    @if (!headerConfig.badges?.length) {
-      <div class="list-group-item px-2 py-2 text-muted small">No badges configured.</div>
-    }
-  </div>
-  <button class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="addBadge()">
-    <i class="fa fa-plus"></i> Add Badge
-  </button>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <i class="fa fa-icons text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+          placeholder="Icon (e.g., fa-thermometer)"
+          [(ngModel)]="badge.icon" (ngModelChange)="onPropertyChanged()" />
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <i class="fa fa-link text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <select class="form-select form-select-sm flex-grow-1" style="min-width:0;"
+          [(ngModel)]="badge.entityId" (ngModelChange)="onPropertyChanged()">
+          <option [ngValue]="undefined">No Entity</option>
+          @for (entity of entities(); track trackByEntityId($index, entity)) {
+            <option [ngValue]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  }
+  @if (!headerConfig.badges?.length) {
+    <div class="list-group-item px-2 py-2 text-muted small">No badges configured.</div>
+  }
 </div>
+<button class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="addBadge()">
+  <i class="fa fa-plus"></i> Add Badge
+</button>
 
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Layout Editor</label>
+<div class="d-flex gap-3 align-items-center">
+  <div class="form-check form-switch mb-0">
+    <input class="form-check-input" type="checkbox" id="showGuides-{{widget.id}}"
+      [(ngModel)]="headerConfig.showGuides"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="showGuides-{{widget.id}}">Smart guides</label>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <label class="form-label mb-0 text-nowrap">Snap</label>
+    <select class="form-select form-select-sm w-auto" [(ngModel)]="headerConfig.snapStep"
+      (ngModelChange)="onPropertyChanged()">
+      <option [ngValue]="0">Off</option>
+      <option [ngValue]="1">1%</option>
+      <option [ngValue]="2">2%</option>
+      <option [ngValue]="5">5%</option>
+    </select>
+  </div>
+</div>
+<small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
 }
 
 @case ('markdown') {
-<div class="mb-3">
-  <label class="form-label">Content</label>
-  <textarea class="form-control" rows="6" [(ngModel)]="markdownConfig.content"
-    placeholder="# Markdown content here"></textarea>
-</div>
-
+<textarea class="form-control" rows="6" [(ngModel)]="markdownConfig.content"
+  placeholder="# Markdown content here"></textarea>
 }
 
 @case ('calendar') {
 <div class="mb-3">
-  <label class="form-label">Max Events</label>
-  <input type="number" class="form-control" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20" />
-</div>
-
-<!-- Calendar Event Items: toggle visibility and configure icons -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Event Entry Fields</label>
-  <small class="form-text text-muted d-block mb-2">
-    Select which fields to show for each event entry.
-  </small>
-  <div class="list-group list-group-flush border rounded">
-    @for (item of getCalendarEventItems(); track trackByCalendarEventItem($index, item); let i = $index) {
-      <div class="list-group-item px-2 py-2">
-        <div class="d-flex align-items-center gap-2">
-          <div class="form-check form-switch mb-0 flex-shrink-0">
-            <input class="form-check-input" type="checkbox" [id]="'citem-' + widget.id + '-' + i"
-              [checked]="item.visible !== false"
-              [disabled]="isCalendarItemAlwaysVisible(item)"
-              (change)="toggleCalendarEventItemVisibility(i)" />
-          </div>
-          <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'citem-' + widget.id + '-' + i">
-            {{ getCalendarEventItemLabel(item) }}
-          </label>
-        </div>
-        @if (getDefaultCalendarEventItemIcon(item)) {
-          <div class="d-flex align-items-center gap-2 mt-1">
-            <i class="fa {{ item.icon || getDefaultCalendarEventItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-            <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
-              placeholder="{{ getDefaultCalendarEventItemIcon(item) }}"
-              [(ngModel)]="item.icon"
-              (ngModelChange)="onPropertyChanged()" />
-          </div>
-        }
-      </div>
-    }
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
   </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
 </div>
-
-<!-- Event list layout -->
+<hr class="my-2" />
 <div class="mb-3">
-  <label class="form-label fw-semibold">Event List</label>
-  <div class="d-flex gap-3 align-items-center flex-wrap">
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label mb-0 text-nowrap" for="calEventGap-{{widget.id}}">Gap</label>
-      <input type="number" class="form-control form-control-sm" style="width: 70px;"
-        id="calEventGap-{{widget.id}}" min="0" step="1"
-        [(ngModel)]="calendarConfig.eventGap"
-        (ngModelChange)="onPropertyChanged()" placeholder="0" />
-      <span class="text-muted small">px</span>
+  <label class="form-label fw-semibold small">Data Source</label>
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-0">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
     </div>
-  </div>
-  <small class="form-text text-muted">Gap between event entries.</small>
+  } @else {
+    <select class="form-select" [(ngModel)]="calendarConfig.entityId" (ngModelChange)="onPropertyChanged()">
+      <option value="">Select entity...</option>
+      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+      }
+    </select>
+  }
 </div>
-
-}
-
-@case ('weather') {
-<!-- Weather Items: toggle visibility and configure -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Visible Items</label>
-  <small class="form-text text-muted d-block mb-2">
-    Select which items to show; drag to position them in the layout editor on the canvas.
-  </small>
-  <div class="list-group list-group-flush border rounded">
-    @for (item of getWeatherNonTitleItems(); track trackByWeatherItem($index, item); let i = $index) {
-      <div class="list-group-item px-2 py-2">
-        <div class="d-flex align-items-center gap-2">
-          <div class="form-check form-switch mb-0 flex-shrink-0">
-            <input class="form-check-input" type="checkbox" [id]="'witem-' + widget.id + '-' + i"
-              [checked]="item.visible !== false"
-              (change)="toggleWeatherNonTitleItemVisibility(i)" />
-          </div>
-          <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'witem-' + widget.id + '-' + i">
-            {{ getWeatherItemLabel(item) }}
-          </label>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Event Fields</label>
+<small class="form-text text-muted d-block mb-2">
+  Select which fields to show for each event entry.
+</small>
+<div class="list-group list-group-flush border rounded">
+  @for (item of getCalendarEventItems(); track trackByCalendarEventItem($index, item); let i = $index) {
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0 flex-shrink-0">
+          <input class="form-check-input" type="checkbox" [id]="'citem-' + widget.id + '-' + i"
+            [checked]="item.visible !== false"
+            [disabled]="isCalendarItemAlwaysVisible(item)"
+            (change)="toggleCalendarEventItemVisibility(i)" />
         </div>
+        <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'citem-' + widget.id + '-' + i">
+          {{ getCalendarEventItemLabel(item) }}
+        </label>
+      </div>
+      @if (getDefaultCalendarEventItemIcon(item)) {
         <div class="d-flex align-items-center gap-2 mt-1">
-          <i class="fa {{ item.icon || getDefaultWeatherItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+          <i class="fa {{ item.icon || getDefaultCalendarEventItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
           <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
-            placeholder="{{ getDefaultWeatherItemIcon(item) }}"
+            placeholder="{{ getDefaultCalendarEventItemIcon(item) }}"
             [(ngModel)]="item.icon"
             (ngModelChange)="onPropertyChanged()" />
         </div>
-      </div>
-    }
+      }
+    </div>
+  }
+</div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Display</label>
+<div class="row g-2">
+  <div class="col">
+    <label class="form-label small mb-1">Max Events</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="calendarConfig.maxEvents" min="1" max="20"
+      (ngModelChange)="onPropertyChanged()" />
   </div>
+  <div class="col">
+    <label class="form-label small mb-1">Event Gap (px)</label>
+    <input type="number" class="form-control form-control-sm"
+      id="calEventGap-{{widget.id}}" min="0" step="1"
+      [(ngModel)]="calendarConfig.eventGap"
+      (ngModelChange)="onPropertyChanged()" placeholder="0" />
+  </div>
+</div>
+}
+
+@case ('weather') {
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Data Source</label>
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-0">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+    </div>
+  } @else {
+    <select class="form-select" [(ngModel)]="weatherConfig.entityId" (ngModelChange)="onPropertyChanged()">
+      <option value="">Select entity...</option>
+      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+      }
+    </select>
+  }
+</div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Visible Items</label>
+<small class="form-text text-muted d-block mb-2">
+  Select which items to show; drag to position them in the layout editor on the canvas.
+</small>
+<div class="list-group list-group-flush border rounded">
+  @for (item of getWeatherNonTitleItems(); track trackByWeatherItem($index, item); let i = $index) {
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0 flex-shrink-0">
+          <input class="form-check-input" type="checkbox" [id]="'witem-' + widget.id + '-' + i"
+            [checked]="item.visible !== false"
+            (change)="toggleWeatherNonTitleItemVisibility(i)" />
+        </div>
+        <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'witem-' + widget.id + '-' + i">
+          {{ getWeatherItemLabel(item) }}
+        </label>
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <i class="fa {{ item.icon || getDefaultWeatherItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+          placeholder="{{ getDefaultWeatherItemIcon(item) }}"
+          [(ngModel)]="item.icon"
+          (ngModelChange)="onPropertyChanged()" />
+      </div>
+    </div>
+  }
 </div>
 
-<!-- Layout editor settings -->
-<div class="mb-3">
-  <label class="form-label fw-semibold">Layout Editor</label>
-  <div class="d-flex gap-3 align-items-center">
-    <div class="form-check form-switch mb-0">
-      <input class="form-check-input" type="checkbox" id="wShowGuides-{{widget.id}}"
-        [(ngModel)]="weatherConfig.showGuides"
-        (ngModelChange)="onPropertyChanged()" />
-      <label class="form-check-label" for="wShowGuides-{{widget.id}}">Smart guides</label>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label mb-0 text-nowrap">Snap</label>
-      <select class="form-select form-select-sm w-auto" [(ngModel)]="weatherConfig.snapStep"
-        (ngModelChange)="onPropertyChanged()">
-        <option [ngValue]="0">Off</option>
-        <option [ngValue]="1">1%</option>
-        <option [ngValue]="2">2%</option>
-        <option [ngValue]="5">5%</option>
-      </select>
-    </div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Layout Editor</label>
+<div class="d-flex gap-3 align-items-center">
+  <div class="form-check form-switch mb-0">
+    <input class="form-check-input" type="checkbox" id="wShowGuides-{{widget.id}}"
+      [(ngModel)]="weatherConfig.showGuides"
+      (ngModelChange)="onPropertyChanged()" />
+    <label class="form-check-label" for="wShowGuides-{{widget.id}}">Smart guides</label>
   </div>
-  <small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
+  <div class="d-flex align-items-center gap-2">
+    <label class="form-label mb-0 text-nowrap">Snap</label>
+    <select class="form-select form-select-sm w-auto" [(ngModel)]="weatherConfig.snapStep"
+      (ngModelChange)="onPropertyChanged()">
+      <option [ngValue]="0">Off</option>
+      <option [ngValue]="1">1%</option>
+      <option [ngValue]="2">2%</option>
+      <option [ngValue]="5">5%</option>
+    </select>
+  </div>
 </div>
+<small class="form-text text-muted">Applied when you click <em>Edit Layout</em> on the canvas.</small>
 }
 
 @case ('weather-forecast') {
 <div class="mb-3">
-  <label class="form-label">Forecast Type</label>
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Data Source</label>
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-0">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+    </div>
+  } @else {
+    <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId" (ngModelChange)="onPropertyChanged()">
+      <option value="">Select entity...</option>
+      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+      }
+    </select>
+  }
+</div>
+<hr class="my-2" />
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Forecast Type</label>
   <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode">
     <option value="daily">Daily</option>
     <option value="hourly">Hourly</option>
@@ -268,248 +327,350 @@
     Daily: High/Low temperatures | Hourly: Temperature for each hour | Weekly: Summary for each day
   </small>
 </div>
-<div class="mb-3">
-  <label class="form-label">Max Items to Display</label>
-  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto" />
-  <small class="form-text text-muted">Leave empty for automatic sizing based on widget size</small>
-</div>
-<div class="mb-3">
-  <label class="form-label fw-semibold">Visible Fields</label>
-  <small class="form-text text-muted d-block mb-2">Choose which rows to display in each forecast column.</small>
-  <div class="list-group list-group-flush border rounded">
-    @for (field of allForecastFields; track field) {
-      <div class="list-group-item px-2 py-2">
-        <div class="d-flex align-items-center gap-2">
-          <div class="form-check form-switch mb-0 flex-shrink-0">
-            <input class="form-check-input" type="checkbox" [id]="'forecast-field-' + widget.id + '-' + field"
-              [checked]="isForecastFieldVisible(field)"
-              (change)="toggleForecastField(field)" />
-          </div>
-          <label class="form-check-label flex-grow-1 mb-0" style="min-width:0" [for]="'forecast-field-' + widget.id + '-' + field">
-            {{ getForecastFieldLabel(field) }}
-          </label>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Visible Fields</label>
+<small class="form-text text-muted d-block mb-2">Choose which rows to display in each forecast column.</small>
+<div class="list-group list-group-flush border rounded mb-3">
+  @for (field of allForecastFields; track field) {
+    <div class="list-group-item px-2 py-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="form-check form-switch mb-0 flex-shrink-0">
+          <input class="form-check-input" type="checkbox" [id]="'forecast-field-' + widget.id + '-' + field"
+            [checked]="isForecastFieldVisible(field)"
+            (change)="toggleForecastField(field)" />
         </div>
+        <label class="form-check-label flex-grow-1 mb-0" style="min-width:0" [for]="'forecast-field-' + widget.id + '-' + field">
+          {{ getForecastFieldLabel(field) }}
+        </label>
       </div>
-    }
-  </div>
+    </div>
+  }
 </div>
-<div class="mb-3">
-  <label class="form-label">Row Gap</label>
-  <input type="number" class="form-control" [(ngModel)]="weatherForecastConfig.rowGap" min="0" placeholder="0" (ngModelChange)="onPropertyChanged()" />
-  <small class="form-text text-muted">Gap between rows within each forecast column (px)</small>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Display</label>
+<div class="row g-2">
+  <div class="col">
+    <label class="form-label small mb-1">Max Items</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="weatherForecastConfig.maxItems" min="1" max="14" placeholder="Auto"
+      (ngModelChange)="onPropertyChanged()" />
+    <small class="form-text text-muted">Leave empty for auto</small>
+  </div>
+  <div class="col">
+    <label class="form-label small mb-1">Row Gap (px)</label>
+    <input type="number" class="form-control form-control-sm" [(ngModel)]="weatherForecastConfig.rowGap" min="0" placeholder="0"
+      (ngModelChange)="onPropertyChanged()" />
+  </div>
 </div>
 }
 
 @case ('graph') {
 <div class="mb-3">
-  <label class="form-label">Period</label>
-  <select class="form-select" [(ngModel)]="graphConfig.period">
-    <option value="1h">1 Hour</option>
-    <option value="6h">6 Hours</option>
-    <option value="24h">24 Hours</option>
-    <option value="7d">7 Days</option>
-    <option value="30d">30 Days</option>
-  </select>
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
 </div>
-<div class="mb-3">
-  <label class="form-label">Plot Type</label>
-  <select class="form-select" [(ngModel)]="graphConfig.plotType">
-    <option value="line">Line Chart</option>
-    <option value="bar">Bar Chart</option>
-  </select>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Data Series</label>
+<small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
+@if (graphConfig.series && graphConfig.series.length > 0) {
+  <div class="series-list">
+    @for (series of graphConfig.series; track trackByGraphSeries($index, series); let idx = $index) {
+      <div class="series-card card border mb-3">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="card-subtitle text-muted mb-0">Series {{ idx + 1 }}</h6>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeGraphSeries(idx)" title="Remove series">
+              <i class="fa fa-times-circle"></i>
+            </button>
+          </div>
+          
+          <div class="row g-2">
+            <!-- Entity Selection -->
+            <div class="col-12">
+              <label class="form-label small mb-1">Entity</label>
+              <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
+                <option value="">Select entity...</option>
+                @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
+                  <option [value]="ent.entity_id">{{ formatEntityLabel(ent) }}</option>
+                }
+              </select>
+            </div>
+            
+            <!-- Label and Color -->
+            <div class="col-8">
+              <label class="form-label small mb-1">Label</label>
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" [placeholder]="series.entityId || 'Optional label'" />
+              <small class="form-text text-muted d-block mt-1">Leave empty to use entity ID</small>
+            </div>
+            
+            <div class="col-4">
+              <label class="form-label small mb-1">Color</label>
+              <select class="form-select form-select-sm" [(ngModel)]="series.color">
+                <option [value]="null">Auto</option>
+                @for (color of colorScheme?.palette; track color) {
+                  <option [value]="color">{{ getColorName(color) }}</option>
+                }
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+}
+<button type="button" class="btn btn-primary btn-sm w-100" (click)="addGraphSeries()">
+  <i class="fa fa-plus"></i> Add Series
+</button>
+
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Chart Settings</label>
+<div class="row g-2 mb-2">
+  <div class="col">
+    <label class="form-label small mb-1">Period</label>
+    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.period">
+      <option value="1h">1 Hour</option>
+      <option value="6h">6 Hours</option>
+      <option value="24h">24 Hours</option>
+      <option value="7d">7 Days</option>
+      <option value="30d">30 Days</option>
+    </select>
+  </div>
+  <div class="col">
+    <label class="form-label small mb-1">Plot Type</label>
+    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.plotType">
+      <option value="line">Line Chart</option>
+      <option value="bar">Bar Chart</option>
+    </select>
+  </div>
 </div>
 @if (graphConfig.plotType === 'line') {
-<div class="mb-3">
-  <label class="form-label">Line Width (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
+<div>
+  <label class="form-label small mb-1">Line Width (px)</label>
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
   <small class="form-text text-muted">Default: 2px</small>
 </div>
 }
 @if (graphConfig.plotType === 'bar') {
-<div class="mb-3">
-  <label class="form-label">Bar Width</label>
-  <input type="number" class="form-control" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
+<div>
+  <label class="form-label small mb-1">Bar Width</label>
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
   <small class="form-text text-muted">Leave empty for automatic width</small>
 </div>
 }
-<div class="mb-3">
-  <label class="form-label">Data Series</label>
-  <small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
-  @if (graphConfig.series && graphConfig.series.length > 0) {
-    <div class="series-list">
-      @for (series of graphConfig.series; track trackByGraphSeries($index, series); let idx = $index) {
-        <div class="series-card card border mb-3">
-          <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h6 class="card-subtitle text-muted mb-0">Series {{ idx + 1 }}</h6>
-              <button type="button" class="btn btn-sm btn-link text-danger p-0" (click)="removeGraphSeries(idx)" title="Remove series">
-                <i class="fa fa-times-circle"></i>
-              </button>
-            </div>
-            
-            <div class="row g-2">
-              <!-- Entity Selection -->
-              <div class="col-12">
-                <label class="form-label small mb-1">Entity</label>
-                <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
-                  <option value="">Select entity...</option>
-                  @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
-                    <option [value]="ent.entity_id">{{ formatEntityLabel(ent) }}</option>
-                  }
-                </select>
-              </div>
-              
-              <!-- Label and Color -->
-              <div class="col-8">
-                <label class="form-label small mb-1">Label</label>
-                <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" [placeholder]="series.entityId || 'Optional label'" />
-                <small class="form-text text-muted d-block mt-1">Leave empty to use entity ID</small>
-              </div>
-              
-              <div class="col-4">
-                <label class="form-label small mb-1">Color</label>
-                <select class="form-select form-select-sm" [(ngModel)]="series.color">
-                  <option [value]="null">Auto</option>
-                  @for (color of colorScheme?.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                  }
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      }
-    </div>
-  }
-  <button type="button" class="btn btn-primary btn-sm w-100" (click)="addGraphSeries()">
-    <i class="fa fa-plus"></i> Add Series
-  </button>
-</div>
 }
 
 @case ('todo') {
-<!-- Todo widget uses the universal entity selector above -->
 <div class="mb-3">
-  <div class="form-check">
-    <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted">
-    <label class="form-check-label" for="showCompleted">
-      Show completed items
-    </label>
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
   </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Data Source</label>
+  @if (entities().length === 0) {
+    <div class="alert alert-warning mb-0">
+      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+    </div>
+  } @else {
+    <select class="form-select" [(ngModel)]="todoConfig.entityId" (ngModelChange)="onPropertyChanged()">
+      <option value="">Select entity...</option>
+      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+      }
+    </select>
+  }
+</div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Display</label>
+<div class="form-check form-switch mb-2">
+  <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted"
+    (ngModelChange)="onPropertyChanged()">
+  <label class="form-check-label" for="showCompleted">
+    Show completed items
+  </label>
 </div>
 <div class="mb-3">
-  <label class="form-label">Max Items</label>
-  <input type="number" class="form-control" [(ngModel)]="todoConfig.maxItems" min="1" max="50"
+  <label class="form-label small mb-1">Max Items</label>
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="todoConfig.maxItems" min="1" max="50"
     (ngModelChange)="onPropertyChanged()" placeholder="Auto" />
   <small class="form-text text-muted">Leave empty to show as many as fit in the widget</small>
 </div>
-<div class="mb-3">
-  <label class="form-label fw-semibold">Item Icons</label>
-  <div class="list-group list-group-flush border rounded">
-    <div class="list-group-item px-2 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <span class="flex-grow-1 mb-0" style="min-width:0">Pending</span>
-      </div>
-      <div class="d-flex align-items-center gap-2 mt-1">
-        <i class="fa {{ todoConfig.pendingIcon || 'fa-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
-          placeholder="fa-circle"
-          [(ngModel)]="todoConfig.pendingIcon"
-          (ngModelChange)="onPropertyChanged()" />
-      </div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Item Icons</label>
+<div class="list-group list-group-flush border rounded">
+  <div class="list-group-item px-2 py-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="flex-grow-1 mb-0" style="min-width:0">Pending</span>
     </div>
-    <div class="list-group-item px-2 py-2">
-      <div class="d-flex align-items-center gap-2">
-        <span class="flex-grow-1 mb-0" style="min-width:0">Completed</span>
-      </div>
-      <div class="d-flex align-items-center gap-2 mt-1">
-        <i class="fa {{ todoConfig.completedIcon || 'fa-check-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
-          placeholder="fa-check-circle"
-          [(ngModel)]="todoConfig.completedIcon"
-          (ngModelChange)="onPropertyChanged()" />
-      </div>
+    <div class="d-flex align-items-center gap-2 mt-1">
+      <i class="fa {{ todoConfig.pendingIcon || 'fa-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+      <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+        placeholder="fa-circle"
+        [(ngModel)]="todoConfig.pendingIcon"
+        (ngModelChange)="onPropertyChanged()" />
+    </div>
+  </div>
+  <div class="list-group-item px-2 py-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="flex-grow-1 mb-0" style="min-width:0">Completed</span>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-1">
+      <i class="fa {{ todoConfig.completedIcon || 'fa-check-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
+      <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+        placeholder="fa-check-circle"
+        [(ngModel)]="todoConfig.completedIcon"
+        (ngModelChange)="onPropertyChanged()" />
     </div>
   </div>
 </div>
 }
 
 @case ('rss-feed') {
-<!-- RSS Feed widget uses the universal entity selector above -->
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Data Source</label>
+@if (entities().length === 0) {
+  <div class="alert alert-warning mb-0">
+    <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
+  </div>
+} @else {
+  <select class="form-select" [(ngModel)]="$any(widget.config).entityId" (ngModelChange)="onPropertyChanged()">
+    <option value="">Select entity...</option>
+    @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
+    <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
+    }
+  </select>
+}
 }
 
 @case ('app-icon') {
 <div class="mb-3">
-  <label class="form-label">Size (px)</label>
-  <input type="number" class="form-control" [(ngModel)]="appIconConfig.size" min="16" max="256" />
-</div>
-<div class="mb-3">
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="appIconDithering-{{widget.id}}"
-      [(ngModel)]="appIconConfig.dithering"
-      (ngModelChange)="onPropertyChanged()" />
-    <label class="form-check-label" for="appIconDithering-{{widget.id}}">Dither icon</label>
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
   </div>
-  <small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
 </div>
+<hr class="my-2" />
+<div class="mb-2">
+  <label class="form-label small mb-1">Size (px)</label>
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="appIconConfig.size" min="16" max="256"
+    (ngModelChange)="onPropertyChanged()" />
+</div>
+<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" id="appIconDithering-{{widget.id}}"
+    [(ngModel)]="appIconConfig.dithering"
+    (ngModelChange)="onPropertyChanged()" />
+  <label class="form-check-label" for="appIconDithering-{{widget.id}}">Dither icon</label>
+</div>
+<small class="form-text text-muted">Apply dithering to map icon shades to the color palette.</small>
 }
 
 @case ('image') {
 @if (widget.config && 'imageUrl' in widget.config) {
 <div class="mb-3">
-  <label class="form-label">Image</label>
-  <div class="d-flex gap-2 mb-2">
-    <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
-      <i class="fa fa-upload"></i> From File
-    </button>
-    <button class="btn btn-sm btn-outline-secondary flex-grow-1" (click)="showImageUrlInput = !showImageUrlInput">
-      <i class="fa fa-link"></i> From URL
-    </button>
-    @if (widget.config.imageUrl) {
-    <button class="btn btn-sm btn-outline-danger" (click)="clearUploadedImage()" title="Clear image">
-      <i class="fa fa-trash"></i>
-    </button>
-    }
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
   </div>
-  <input #imageFileInput type="file" accept="image/*" class="d-none"
-    (change)="onImageFileSelected($event)" />
-  @if (showImageUrlInput) {
-  <div class="input-group input-group-sm mb-2">
-    <input type="text" class="form-control" [(ngModel)]="imageUrlValue"
-      placeholder="https://example.com/image.png" />
-    <button class="btn btn-outline-primary" [disabled]="!imageUrlValue || imageUploading"
-      (click)="uploadImageFromUrl()">
-      <i class="fa fa-download"></i> Fetch
-    </button>
-  </div>
-  }
-  @if (imageUploading) {
-  <div class="text-muted small mb-2"><i class="fa fa-spinner fa-spin"></i> Uploading...</div>
-  }
-  @if (imageUploadError) {
-  <div class="alert alert-danger py-1 px-2 small mb-2">{{ imageUploadError }}</div>
-  }
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Image Source</label>
+<div class="d-flex gap-2 mb-2">
+  <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
+    <i class="fa fa-upload"></i> From File
+  </button>
+  <button class="btn btn-sm btn-outline-secondary flex-grow-1" (click)="showImageUrlInput = !showImageUrlInput">
+    <i class="fa fa-link"></i> From URL
+  </button>
   @if (widget.config.imageUrl) {
-  <div class="mt-2 border rounded p-1 text-center" style="height: 120px; overflow: hidden; position: relative;">
-    <img [src]="widget.config.imageUrl" alt="Preview"
-      [style.width.%]="(widget.config.zoom || 1) * 100"
-      [style.height.%]="(widget.config.zoom || 1) * 100"
-      [style.left.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetX ?? 0) + 1) * 50"
-      [style.top.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetY ?? 0) + 1) * 50"
-      [style.object-fit]="(widget.config.zoom || 1) > 1 ? 'cover' : 'contain'"
-      style="position: absolute;" />
-  </div>
+  <button class="btn btn-sm btn-outline-danger" (click)="clearUploadedImage()" title="Clear image">
+    <i class="fa fa-trash"></i>
+  </button>
   }
 </div>
-<div class="mb-3">
-  <label class="form-label">Zoom ({{ (widget.config.zoom || 1) | number:'1.1-1' }}x)</label>
+<input #imageFileInput type="file" accept="image/*" class="d-none"
+  (change)="onImageFileSelected($event)" />
+@if (showImageUrlInput) {
+<div class="input-group input-group-sm mb-2">
+  <input type="text" class="form-control" [(ngModel)]="imageUrlValue"
+    placeholder="https://example.com/image.png" />
+  <button class="btn btn-outline-primary" [disabled]="!imageUrlValue || imageUploading"
+    (click)="uploadImageFromUrl()">
+    <i class="fa fa-download"></i> Fetch
+  </button>
+</div>
+}
+@if (imageUploading) {
+<div class="text-muted small mb-2"><i class="fa fa-spinner fa-spin"></i> Uploading...</div>
+}
+@if (imageUploadError) {
+<div class="alert alert-danger py-1 px-2 small mb-2">{{ imageUploadError }}</div>
+}
+@if (widget.config.imageUrl) {
+<div class="mt-2 border rounded p-1 text-center" style="height: 120px; overflow: hidden; position: relative;">
+  <img [src]="widget.config.imageUrl | resolveUrl" alt="Preview"
+    [style.width.%]="(widget.config.zoom || 1) * 100"
+    [style.height.%]="(widget.config.zoom || 1) * 100"
+    [style.left.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetX ?? 0) + 1) * 50"
+    [style.top.%]="-((widget.config.zoom || 1) - 1) * ((widget.config.offsetY ?? 0) + 1) * 50"
+    [style.object-fit]="(widget.config.zoom || 1) > 1 ? 'cover' : 'contain'"
+    style="position: absolute;" />
+</div>
+}
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Framing</label>
+<div class="mb-2">
+  <label class="form-label small mb-1">Zoom ({{ (widget.config.zoom || 1) | number:'1.1-1' }}x)</label>
   <input type="range" class="form-range" min="1" max="3" step="0.1"
     [ngModel]="widget.config.zoom || 1"
     (ngModelChange)="widget.config.zoom = $event; onPropertyChanged()" />
 </div>
 @if (widget.config.zoom && widget.config.zoom > 1) {
-<div class="mb-3">
-  <label class="form-label">Horizontal Position ({{ (widget.config.offsetX ?? 0) | number:'1.1-1' }})</label>
+<div class="mb-2">
+  <label class="form-label small mb-1">Horizontal Position ({{ (widget.config.offsetX ?? 0) | number:'1.1-1' }})</label>
   <input type="range" class="form-range" min="-1" max="1" step="0.05"
     [ngModel]="widget.config.offsetX ?? 0"
     (ngModelChange)="widget.config.offsetX = $event; onPropertyChanged()" />
@@ -517,8 +678,8 @@
     <span>Left</span><span>Center</span><span>Right</span>
   </div>
 </div>
-<div class="mb-3">
-  <label class="form-label">Vertical Position ({{ (widget.config.offsetY ?? 0) | number:'1.1-1' }})</label>
+<div class="mb-2">
+  <label class="form-label small mb-1">Vertical Position ({{ (widget.config.offsetY ?? 0) | number:'1.1-1' }})</label>
   <input type="range" class="form-range" min="-1" max="1" step="0.05"
     [ngModel]="widget.config.offsetY ?? 0"
     (ngModelChange)="widget.config.offsetY = $event; onPropertyChanged()" />
@@ -527,15 +688,15 @@
   </div>
 </div>
 }
-<div class="mb-3">
-  <div class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="imageDithering-{{widget.id}}"
-      [(ngModel)]="widget.config.dithering"
-      (ngModelChange)="onPropertyChanged()" />
-    <label class="form-check-label" for="imageDithering-{{widget.id}}">Dither image</label>
-  </div>
-  <small class="form-text text-muted">Apply dithering to map image colors to the color palette.</small>
+<hr class="my-2" />
+<label class="form-label fw-semibold small">Rendering</label>
+<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" id="imageDithering-{{widget.id}}"
+    [(ngModel)]="widget.config.dithering"
+    (ngModelChange)="onPropertyChanged()" />
+  <label class="form-check-label" for="imageDithering-{{widget.id}}">Dither image</label>
 </div>
+<small class="form-text text-muted">Apply dithering to map image colors to the color palette.</small>
 }
 }
 

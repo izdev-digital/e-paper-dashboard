@@ -44,6 +44,13 @@ import {
   ],
   template: `
     <div class="widget-preview">
+      @if (!dataFetched) {
+        <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'">
+          <i class="fa {{ getWidgetIcon() }}" [style.color]="colorScheme.iconColor || colorScheme.accent || 'currentColor'"></i>
+          <p>{{ getWidgetLabel() }}</p>
+        </div>
+      }
+      @if (dataFetched) {
       @if (widget.type === 'app-icon') {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
@@ -84,6 +91,7 @@ import {
       @if (widget.type === 'rss-feed') {
         <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-rss-feed>
       }
+      }
     </div>
   `,
   styleUrls: ['./widget-preview.component.scss']
@@ -96,12 +104,39 @@ export class WidgetPreviewComponent {
   @Input() designerSettings?: DashboardLayout;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
   @Input() dashboardId?: string;
+  /** Whether live preview data has ever been fetched. When false, show icon+title placeholders. */
+  @Input() dataFetched = true;
   /** When true, the header widget will show its internal layout editor overlay. */
   @Input() headerInternalEdit = false;
   @Output() headerLayoutChanged = new EventEmitter<HeaderConfig>();
   /** When true, the weather widget will show its internal layout editor overlay. */
   @Input() weatherInternalEdit = false;
   @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
+
+  // ─── widget type → icon / label ──────────────────────────────────────────
+  private static readonly WIDGET_META: Record<string, { icon: string; label: string }> = {
+    'header':           { icon: 'fa-heading',       label: 'Header' },
+    'markdown':         { icon: 'fa-align-left',    label: 'Markdown' },
+    'calendar':         { icon: 'fa-calendar',      label: 'Calendar' },
+    'weather':          { icon: 'fa-cloud-sun',     label: 'Weather' },
+    'weather-forecast': { icon: 'fa-cloud-sun-rain', label: 'Forecast' },
+    'graph':            { icon: 'fa-chart-line',    label: 'Graph' },
+    'todo':             { icon: 'fa-list-check',    label: 'Tasks' },
+    'rss-feed':         { icon: 'fa-rss',           label: 'RSS Feed' },
+    'app-icon':         { icon: 'fa-rocket',        label: 'App Icon' },
+    'image':            { icon: 'fa-image',         label: 'Image' },
+    'version':          { icon: 'fa-code-branch',   label: 'Version' },
+  };
+
+  getWidgetIcon(): string {
+    return WidgetPreviewComponent.WIDGET_META[this.widget.type]?.icon || 'fa-puzzle-piece';
+  }
+
+  getWidgetLabel(): string {
+    return this.widget.titleOverride
+      || WidgetPreviewComponent.WIDGET_META[this.widget.type]?.label
+      || this.widget.type;
+  }
 
   asHeaderConfig(config: any): HeaderConfig {
     return config as HeaderConfig;

@@ -28,11 +28,12 @@ import {
 import { HttpClient } from '@angular/common/http';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { AuthService } from '../../services/auth.service';
+import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 
 @Component({
   selector: 'app-widget-config',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ResolveUrlPipe],
   templateUrl: './widget-config.component.html',
   styleUrls: ['./widget-config.component.scss']
 })
