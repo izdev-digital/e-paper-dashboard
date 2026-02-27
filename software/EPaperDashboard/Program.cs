@@ -1,4 +1,6 @@
 using EPaperDashboard.Services.Rendering;
+using EPaperDashboard.Services.Providers;
+using EPaperDashboard.Services.Providers.HomeAssistant;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Data.LiteDb;
 using EPaperDashboard.Data.Repositories;
@@ -102,7 +104,15 @@ builder.Services
 	.AddSingleton<DeviceService>()
 	.AddSingleton<PairingService>()
 	.AddSingleton<HomeAssistantAuthService>()
+	.AddSingleton<HomeAssistantConnectionService>()
 	.AddSingleton<HomeAssistantService>()
+	.AddSingleton<IEntityStateProvider, HomeAssistantEntityStateProvider>()
+	.AddSingleton<ITodoDataProvider, HomeAssistantTodoDataProvider>()
+	.AddSingleton<ICalendarDataProvider, HomeAssistantCalendarDataProvider>()
+	.AddSingleton<IWeatherForecastProvider, HomeAssistantWeatherForecastProvider>()
+	.AddSingleton<IRssFeedDataProvider, HomeAssistantRssFeedDataProvider>()
+	.AddSingleton<IEntityHistoryProvider, HomeAssistantEntityHistoryProvider>()
+	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
 	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<DashboardImageRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();
