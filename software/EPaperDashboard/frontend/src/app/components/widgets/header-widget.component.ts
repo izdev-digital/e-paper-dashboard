@@ -48,6 +48,14 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
     <div #host class="header-widget" [class.hw-editing]="internalEdit"
          (mousedown)="onHostMouseDown($event)">
 
+      @if (!isDataFetched() && !internalEdit) {
+        <div class="preview-state">
+          <i class="fa fa-heading"></i>
+          <p>{{ cfg.title || 'Header' }}</p>
+        </div>
+      }
+
+      @if (isDataFetched() || internalEdit) {
       <!-- ── Guide lines (edit mode only) ─────────────────────────────── -->
       @if (internalEdit) {
         @for (g of activeGuides; track $index) {
@@ -134,6 +142,7 @@ interface Guide { orientation: 'h' | 'v'; position: number; }
           }
         </span>
       }
+      } <!-- end isDataFetched -->
 
     </div>
   `,
@@ -489,6 +498,23 @@ export class HeaderWidgetComponent implements OnInit, OnChanges, OnDestroy {
 
   isIconOnLeft(): boolean {
     return (this.cfg.iconPosition ?? 'left') === 'left';
+  }
+
+  // ─── data helpers ──────────────────────────────────────────────────────────
+  /**
+   * Checks if entity data has been fetched for the configured badges.
+   * If there are no badges with entityId, data is considered fetched.
+   */
+  isDataFetched(): boolean {
+    const badges = this.visibleBadges();
+    const entityBadges = badges.filter(b => b.entityId?.trim());
+    if (entityBadges.length === 0) return true;
+
+    // Data is fetched if at least one badge entity has state
+    return entityBadges.some(b => {
+      const state = this.getEntityState(b.entityId);
+      return state !== null && state !== undefined;
+    });
   }
 
   // ─── entity helpers ───────────────────────────────────────────────────────

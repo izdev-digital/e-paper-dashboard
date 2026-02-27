@@ -88,6 +88,7 @@
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
                     [dashboardId]="dashboardId"
                     [designerSettings]="layout()"
+                    [dataFetched]="livePreviewEverFetched()"
                     [headerInternalEdit]="internalEditingWidgetId() === widget.id"
                     (headerLayoutChanged)="onHeaderLayoutChanged($event, widget.id)"
                     [weatherInternalEdit]="internalEditingWidgetId() === widget.id"
