@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import type { TodoItem } from '../../services/home-assistant.service';
+import type { TodoItem } from '../../services/todo.service';
 import { CommonModule } from '@angular/common';
 import { AppIconWidgetComponent } from '../widgets/app-icon-widget.component';
 import { ImageWidgetComponent } from '../widgets/image-widget.component';

@@ -6,11 +6,13 @@ import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
+import { EntityStateService } from '../../services/entity-state.service';
+import { TodoService, type TodoItem } from '../../services/todo.service';
+import { CalendarService } from '../../services/calendar.service';
+import { WeatherService } from '../../services/weather.service';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
-
-import type { TodoItem } from '../../services/home-assistant.service';
 import {
   Dashboard,
   DashboardLayout,
@@ -42,6 +44,10 @@ export class DashboardDesignerComponent implements OnInit {
   private readonly dashboardService = inject(DashboardService);
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
+  private readonly entityStateService = inject(EntityStateService);
+  private readonly todoService = inject(TodoService);
+  private readonly calendarService = inject(CalendarService);
+  private readonly weatherService = inject(WeatherService);
 
   // Dashboard data
   dashboardId: string = '';
@@ -893,7 +899,7 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     this.livePreviewLoading.set(true);
-    this.homeAssistantService.getEntityStates(this.dashboardId, ids).subscribe({
+    this.entityStateService.getEntityStates(this.dashboardId, ids).subscribe({
       next: (states) => {
         const map: Record<string, HassEntityState> = {};
         states.forEach(s => { map[s.entityId] = s; });
@@ -914,7 +920,7 @@ export class DashboardDesignerComponent implements OnInit {
         let completed = 0;
         const todoMap: Record<string, TodoItem[]> = {};
         todoEntityIds.forEach(entityId => {
-          this.homeAssistantService.getTodoItems(this.dashboardId, entityId).subscribe({
+          this.todoService.getTodoItems(this.dashboardId, entityId).subscribe({
             next: (items) => {
               todoMap[entityId] = items || [];
               completed++;
@@ -955,7 +961,7 @@ export class DashboardDesignerComponent implements OnInit {
     let completed = 0;
     const calendarMap: Record<string, any[]> = {};
     calendarEntityIds.forEach(entityId => {
-      this.homeAssistantService.getCalendarEvents(this.dashboardId, entityId).subscribe({
+      this.calendarService.getCalendarEvents(this.dashboardId, entityId).subscribe({
         next: (events: any[]) => {
           calendarMap[entityId] = events || [];
           completed++;
@@ -995,7 +1001,7 @@ export class DashboardDesignerComponent implements OnInit {
         ?.config as any;
       const forecastType = this.mapForecastModeToServiceType(forecastMode?.forecastMode || 'daily');
       
-      this.homeAssistantService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
+      this.weatherService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
         next: (forecast: any) => {
           // Merge forecast data into entity state attributes
           const state = this.entityStates()[entityId];

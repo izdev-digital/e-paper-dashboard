@@ -1,7 +1,7 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, GraphSeriesConfig, DashboardLayout } from '../../models/types';
-import { HomeAssistantService } from '../../services/home-assistant.service';
+import { EntityHistoryService } from '../../services/entity-history.service';
 import { Chart, ChartConfiguration, LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler } from 'chart.js';
 
 // Register Chart.js components
@@ -51,7 +51,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   chartDataByEntity: Map<string, ChartDataPoint[]> = new Map();
   lastChartUpdate = 0;
 
-  constructor(private haService: HomeAssistantService) {
+  constructor(private haService: EntityHistoryService) {
     effect(() => {
       this.loadChartData();
     });

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import type { TodoItem } from '../../services/home-assistant.service';
+import type { TodoItem } from '../../services/todo.service';
 import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout } from '../../models/types';
 
 @Component({
