@@ -303,6 +303,23 @@
               @if (!layoutCollapsed()) {
               <div class="collapsible-body">
                 <div class="mb-2">
+                  <label class="form-label small">Orientation</label>
+                  <div class="btn-group d-flex" role="group">
+                    <button type="button" class="btn btn-sm flex-grow-1"
+                      [class.btn-secondary]="orientation() === 'Landscape'"
+                      [class.btn-outline-secondary]="orientation() !== 'Landscape'"
+                      (click)="setOrientation('Landscape')">
+                      <i class="fa-solid fa-display"></i> Landscape
+                    </button>
+                    <button type="button" class="btn btn-sm flex-grow-1"
+                      [class.btn-secondary]="orientation() === 'Portrait'"
+                      [class.btn-outline-secondary]="orientation() !== 'Portrait'"
+                      (click)="setOrientation('Portrait')">
+                      <i class="fa-solid fa-mobile-screen"></i> Portrait
+                    </button>
+                  </div>
+                </div>
+                <div class="mb-2">
                   <label class="form-label small">Width</label>
                   <input type="number" class="form-control form-control-sm" [ngModel]="layout().width"
                     (ngModelChange)="updateLayoutWidth($event)" />

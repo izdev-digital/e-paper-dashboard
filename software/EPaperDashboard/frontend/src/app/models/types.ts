@@ -18,6 +18,8 @@ export interface RegisterRequest {
   password: string;
 }
 
+export type DashboardOrientation = 'Landscape' | 'Portrait';
+
 export interface Dashboard {
   id: string;
   userId: string;
@@ -29,11 +31,13 @@ export interface Dashboard {
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
   renderingMode?: 'Custom' | 'HomeAssistant';
+  orientation?: DashboardOrientation;
 }
 
 export interface CreateDashboardRequest {
   name: string;
   description?: string;
+  orientation?: DashboardOrientation;
 }
 
 export interface UpdateDashboardRequest {
@@ -46,6 +50,7 @@ export interface UpdateDashboardRequest {
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
   renderingMode?: 'Custom' | 'HomeAssistant';
+  orientation?: DashboardOrientation;
 }
 
 

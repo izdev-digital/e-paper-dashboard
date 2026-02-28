@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DashboardService } from '../../services/dashboard.service';
+import { DashboardOrientation } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-create',
@@ -19,6 +20,19 @@ import { DashboardService } from '../../services/dashboard.service';
         <div class="mb-3">
           <label class="form-label">Description (optional)</label>
           <input type="text" class="form-control" [(ngModel)]="description" name="description">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Orientation</label>
+          <div class="btn-group d-flex" role="group">
+            <input type="radio" class="btn-check" name="orientation" id="createLandscape" value="Landscape" [(ngModel)]="orientation" />
+            <label class="btn btn-outline-secondary flex-grow-1" for="createLandscape">
+              <i class="fa-solid fa-display"></i> Landscape
+            </label>
+            <input type="radio" class="btn-check" name="orientation" id="createPortrait" value="Portrait" [(ngModel)]="orientation" />
+            <label class="btn btn-outline-secondary flex-grow-1" for="createPortrait">
+              <i class="fa-solid fa-mobile-screen"></i> Portrait
+            </label>
+          </div>
         </div>
         @if (errorMessage()) {
           <div class="alert alert-danger">{{ errorMessage() }}</div>
@@ -39,6 +53,7 @@ export class DashboardCreateComponent {
 
   name = '';
   description = '';
+  orientation: DashboardOrientation = 'Landscape';
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
 
@@ -51,7 +66,7 @@ export class DashboardCreateComponent {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.dashboardService.createDashboard({ name: this.name, description: this.description || undefined }).subscribe({
+    this.dashboardService.createDashboard({ name: this.name, description: this.description || undefined, orientation: this.orientation }).subscribe({
       next: () => {
         this.router.navigate(['/dashboards']);
       },

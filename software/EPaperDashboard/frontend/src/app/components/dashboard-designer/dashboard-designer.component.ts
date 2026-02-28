@@ -16,6 +16,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
 import {
   Dashboard,
   DashboardLayout,
+  DashboardOrientation,
   WidgetConfig,
   WidgetColorOverrides,
   WidgetType,
@@ -52,6 +53,7 @@ export class DashboardDesignerComponent implements OnInit {
   // Dashboard data
   dashboardId: string = '';
   dashboard = signal<Dashboard | null>(null);
+  orientation = signal<DashboardOrientation>('Landscape');
   layout = signal<DashboardLayout>({
     width: 800,
     height: 480,
@@ -134,8 +136,28 @@ export class DashboardDesignerComponent implements OnInit {
     this.dashboardService.getDashboard(this.dashboardId).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
+        const storedOrientation = dashboard.orientation || 'Landscape';
+
         if (dashboard.layoutConfig) {
-          this.layout.set(this.normalizeLayout(dashboard.layoutConfig));
+          // Derive orientation from actual layout dimensions for consistency.
+          // This handles cases where the stored orientation doesn't match
+          // the layout dimensions (e.g. from earlier data or external changes).
+          const w = dashboard.layoutConfig.width ?? 800;
+          const h = dashboard.layoutConfig.height ?? 480;
+          const effectiveOrientation: DashboardOrientation = h > w ? 'Portrait' : 'Landscape';
+          this.orientation.set(effectiveOrientation);
+          this.layout.set(this.normalizeLayout(dashboard.layoutConfig, effectiveOrientation));
+        } else {
+          // No existing layout - use stored orientation for initial defaults
+          this.orientation.set(storedOrientation);
+          const isPortrait = storedOrientation === 'Portrait';
+          this.layout.update(l => ({
+            ...l,
+            width: isPortrait ? 480 : 800,
+            height: isPortrait ? 800 : 480,
+            gridCols: isPortrait ? 8 : 12,
+            gridRows: isPortrait ? 12 : 8,
+          }));
         }
         this.loadAvailableEntities();
       },
@@ -491,7 +513,7 @@ export class DashboardDesignerComponent implements OnInit {
     if (!this.dashboard()) return;
 
     const layoutConfig = this.computePixelPositions(this.layout());
-    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
+    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig, orientation: this.orientation() }).subscribe({
       next: () => {
         this.toastService.show('Dashboard layout saved successfully', 'success');
       },
@@ -547,7 +569,7 @@ export class DashboardDesignerComponent implements OnInit {
     }
 
     const layoutConfig = this.computePixelPositions(this.layout());
-    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig }).subscribe({
+    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig, orientation: this.orientation() }).subscribe({
       next: () => {
         this.openRenderedPreview();
       },
@@ -675,6 +697,26 @@ export class DashboardDesignerComponent implements OnInit {
     const currentName = this.layout().colorScheme.name;
     const baseScheme = this.colorSchemes.find(cs => cs.name === currentName) || DEFAULT_COLOR_SCHEMES[0];
     this.layout.update(layout => ({ ...layout, colorScheme: { ...baseScheme } }));
+  }
+
+  setOrientation(newOrientation: DashboardOrientation): void {
+    if (newOrientation === this.orientation()) return;
+    this.orientation.set(newOrientation);
+
+    const layout = this.layout();
+    const isCurrentlyLandscape = layout.width >= layout.height;
+    const wantsLandscape = newOrientation === 'Landscape';
+
+    // Only swap if current dimensions don't match the desired orientation
+    if (isCurrentlyLandscape !== wantsLandscape) {
+      this.layout.update(l => ({
+        ...l,
+        width: l.height,
+        height: l.width,
+        gridCols: l.gridRows,
+        gridRows: l.gridCols,
+      }));
+    }
   }
 
   updateLayoutWidth(width: number): void {
@@ -942,6 +984,8 @@ export class DashboardDesignerComponent implements OnInit {
       },
       error: (err) => {
         this.livePreviewLoading.set(false);
+        const msg = err?.error?.error || err?.message || 'Failed to fetch entity data';
+        this.toastService.show(msg, 'error');
       }
     });
   }
@@ -1043,11 +1087,19 @@ export class DashboardDesignerComponent implements OnInit {
         case 'weather-forecast':
           if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
           break;
-        case 'graph':
         case 'todo':
         case 'rss-feed':
           if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
           break;
+        case 'graph': {
+          const graphCfg = widget.config as any;
+          if (Array.isArray(graphCfg?.series)) {
+            graphCfg.series.forEach((s: any) => {
+              if (s?.entityId) ids.add(s.entityId);
+            });
+          }
+          break;
+        }
         case 'header': {
           const cfg = widget.config as any;
           if (cfg?.badges?.length) {
@@ -1206,12 +1258,13 @@ export class DashboardDesignerComponent implements OnInit {
     return a?.name === b?.name;
   }
 
-  private normalizeLayout(parsedLayout: any): DashboardLayout {
+  private normalizeLayout(parsedLayout: any, orientation?: DashboardOrientation): DashboardLayout {
+    const isPortrait = orientation === 'Portrait';
     const baseLayout: DashboardLayout = {
-      width: 800,
-      height: 480,
-      gridCols: 12,
-      gridRows: 8,
+      width: isPortrait ? 480 : 800,
+      height: isPortrait ? 800 : 480,
+      gridCols: isPortrait ? 8 : 12,
+      gridRows: isPortrait ? 12 : 8,
       colorScheme: DEFAULT_COLOR_SCHEMES[0],
       widgets: [],
       canvasPadding: 16,
