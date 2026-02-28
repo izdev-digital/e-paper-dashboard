@@ -14,7 +14,8 @@ std::optional<DeviceConfig> ConfigStore::load() const
       prefs.getString(StorageKey::DashboardUrl, ""),
       prefs.getInt(StorageKey::DevicePort, 8129),
       prefs.getString(StorageKey::DashboardApiKey, ""),
-      prefs.getString(StorageKey::PairingCode, "")};
+      prefs.getString(StorageKey::PairingCode, ""),
+      prefs.getBool(StorageKey::UseHttps, false)};
   prefs.end();
 
   if (config.ssid.length() == 0 || config.dashboardUrl.length() == 0)
@@ -34,6 +35,7 @@ void ConfigStore::save(const DeviceConfig& config) const
   prefs.putInt(StorageKey::DevicePort, config.devicePort);
   prefs.putString(StorageKey::DashboardApiKey, config.dashboardApiKey);
   prefs.putString(StorageKey::PairingCode, config.pairingCode);
+  prefs.putBool(StorageKey::UseHttps, config.useHttps);
   prefs.end();
 }
 

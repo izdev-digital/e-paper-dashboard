@@ -1,6 +1,7 @@
 #pragma once
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include "types.h"
 #include "logger.h"
 
@@ -12,7 +13,7 @@ public:
   bool sendGetRequest(const String& url, const DeviceConfig& config);
   ResponseHeaders readResponseHeaders();
 
-  bool connectTo(const String& host, int port);
+  bool connectTo(const String& host, int port, bool useHttps = false);
   void send(const String& data);
   void setTimeout(int timeoutMs);
   void close();
@@ -27,4 +28,7 @@ public:
 private:
   Logger& _logger;
   WiFiClient _client;
+  WiFiClientSecure _secureClient;
+  bool _useSecure = false;
+  WiFiClient& activeClient();
 };

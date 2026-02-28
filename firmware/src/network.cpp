@@ -3,6 +3,11 @@
 
 Network::Network(Logger& logger) : _logger(logger) {}
 
+WiFiClient& Network::activeClient()
+{
+  return _useSecure ? static_cast<WiFiClient&>(_secureClient) : _client;
+}
+
 bool Network::connectToWiFi(const String& ssid, const String& password)
 {
   _logger.println("Found stored configuration!");
@@ -27,7 +32,7 @@ bool Network::connectToWiFi(const String& ssid, const String& password)
 
 bool Network::sendGetRequest(const String& url, const DeviceConfig& config)
 {
-  if (!_client.connect(config.dashboardUrl.c_str(), config.devicePort))
+  if (!connectTo(config.dashboardUrl, config.devicePort, config.useHttps))
   {
     _logger.println("Failed to connect to the remote server...");
     return false;
@@ -35,29 +40,31 @@ bool Network::sendGetRequest(const String& url, const DeviceConfig& config)
   _logger.println("Successfully connected to the remote server!");
   _logger.println("Sending request...");
 
-  _client.println("GET " + url + " HTTP/1.1");
-  _client.print("X-Api-Key: ");
-  _client.println(config.dashboardApiKey);
-  _client.print("Host: ");
-  _client.print(config.dashboardUrl);
-  _client.print(":");
-  _client.println(config.devicePort);
-  _client.print("X-Device-Firmware-Version: ");
-  _client.println(FIRMWARE_VERSION);
-  _client.print("X-Device-Id: ");
-  _client.println(WiFi.macAddress());
-  _client.println("Connection: close");
-  _client.println();
+  auto& c = activeClient();
+  c.println("GET " + url + " HTTP/1.1");
+  c.print("X-Api-Key: ");
+  c.println(config.dashboardApiKey);
+  c.print("Host: ");
+  c.print(config.dashboardUrl);
+  c.print(":");
+  c.println(config.devicePort);
+  c.print("X-Device-Firmware-Version: ");
+  c.println(FIRMWARE_VERSION);
+  c.print("X-Device-Id: ");
+  c.println(WiFi.macAddress());
+  c.println("Connection: close");
+  c.println();
   return true;
 }
 
 ResponseHeaders Network::readResponseHeaders()
 {
   _logger.println("Reading headers...");
+  auto& c = activeClient();
   ResponseHeaders headers;
-  while (_client.connected() || _client.available())
+  while (c.connected() || c.available())
   {
-    String line = _client.readStringUntil('\n');
+    String line = c.readStringUntil('\n');
     _logger.println(line);
 
     if (!headers.isSuccess)
@@ -84,52 +91,59 @@ ResponseHeaders Network::readResponseHeaders()
   return headers;
 }
 
-bool Network::connectTo(const String& host, int port)
+bool Network::connectTo(const String& host, int port, bool useHttps)
 {
+  _useSecure = useHttps;
+  if (_useSecure)
+  {
+    _secureClient.setInsecure();
+    return _secureClient.connect(host.c_str(), port);
+  }
   return _client.connect(host.c_str(), port);
 }
 
 void Network::send(const String& data)
 {
-  _client.print(data);
+  activeClient().print(data);
 }
 
 void Network::setTimeout(int timeoutMs)
 {
-  _client.setTimeout(timeoutMs);
+  activeClient().setTimeout(timeoutMs);
 }
 
 void Network::close()
 {
-  _client.stop();
+  activeClient().stop();
+  _useSecure = false;
 }
 
 bool Network::connected()
 {
-  return _client.connected();
+  return activeClient().connected();
 }
 
 int Network::available()
 {
-  return _client.available();
+  return activeClient().available();
 }
 
 size_t Network::read(uint8_t* buffer, size_t size)
 {
-  return _client.read(buffer, size);
+  return activeClient().read(buffer, size);
 }
 
 String Network::readStringUntil(char terminator)
 {
-  return _client.readStringUntil(terminator);
+  return activeClient().readStringUntil(terminator);
 }
 
 String Network::readString()
 {
-  return _client.readString();
+  return activeClient().readString();
 }
 
 WiFiClient& Network::client()
 {
-  return _client;
+  return activeClient();
 }
