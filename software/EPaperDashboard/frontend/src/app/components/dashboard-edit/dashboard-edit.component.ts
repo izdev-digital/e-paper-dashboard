@@ -9,7 +9,7 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService, Device } from '../../services/device.service';
-import { Dashboard } from '../../models/types';
+import { Dashboard, DashboardOrientation } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
@@ -193,6 +193,23 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                   </div>
                 </div>
 
+                @if (previewModeValue === 'homeassistant') {
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Orientation</label>
+                  <div class="btn-group d-flex" role="group">
+                    <input type="radio" class="btn-check" name="orientationMode" id="landscapeMode" value="Landscape" [(ngModel)]="orientationValue" [ngModelOptions]="{standalone: true}" (change)="onOrientationChange()" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="landscapeMode">
+                      <i class="fa-solid fa-display"></i> Landscape
+                    </label>
+
+                    <input type="radio" class="btn-check" name="orientationMode" id="portraitMode" value="Portrait" [(ngModel)]="orientationValue" [ngModelOptions]="{standalone: true}" (change)="onOrientationChange()" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="portraitMode">
+                      <i class="fa-solid fa-mobile-screen"></i> Portrait
+                    </label>
+                  </div>
+                </div>
+                }
+
                 @if (previewModeValue === 'ssr') {
                   <div class="mb-3">
                     <label class="form-label fw-semibold">Layout</label>
@@ -312,6 +329,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   newUpdateTime: string = '';
   previewModeValue: 'ssr' | 'homeassistant' = 'ssr';
+  orientationValue: DashboardOrientation = 'Landscape';
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
   private oauthToken: string | null = null;
@@ -371,6 +389,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
           this.previewModeValue = 'ssr';
         }
         this.previewMode.set(this.previewModeValue);
+
+        this.orientationValue = dashboard.orientation || 'Landscape';
 
         this.isLoading.set(false);
 
@@ -548,7 +568,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       host: formValue.host || undefined,
       path: formValue.path || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
-      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom'
+      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
+      orientation: this.orientationValue
     };
 
     if (formValue.accessToken?.trim().length > 0) {
@@ -624,6 +645,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   onRenderingModeChange(): void {
+    this.dashboardForm.markAsDirty();
+  }
+
+  onOrientationChange(): void {
     this.dashboardForm.markAsDirty();
   }
 
@@ -740,7 +765,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.previewObjectUrl = null;
     }
 
-    const url = `/api/dashboards/${currentDashboard.id}/preview?width=800&height=480&format=png`;
+    const previewWidth = this.orientationValue === 'Portrait' ? 480 : 800;
+    const previewHeight = this.orientationValue === 'Portrait' ? 800 : 480;
+    const url = `/api/dashboards/${currentDashboard.id}/preview?width=${previewWidth}&height=${previewHeight}&format=png`;
 
     this.http.get(url, {
       responseType: 'blob'

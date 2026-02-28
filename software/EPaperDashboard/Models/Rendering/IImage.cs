@@ -9,6 +9,8 @@ public interface IImage
 {
     IImage RotateFlip(RotateMode rotateMode, FlipMode flipMode);
 
+    IImage Rotate(RotateMode rotateMode);
+
     IImage Quantize(ReadOnlyMemory<Color> palette, IDither? dither);
 
     IImage Resize(Size size);

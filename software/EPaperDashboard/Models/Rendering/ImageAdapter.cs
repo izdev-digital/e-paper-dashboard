@@ -43,6 +43,12 @@ where TPixel : unmanaged, IPixel<TPixel>
         return this;
     }
 
+    public IImage Rotate(RotateMode rotateMode)
+    {
+        _image.Mutate(x => x.Rotate(rotateMode));
+        return this;
+    }
+
     public async Task SaveAsync(Stream outStream, IImageEncoder encoder) => await _image.SaveAsync(outStream, encoder);
 
     public async Task SaveJpegAsync(Stream outStream) => await _image.SaveAsJpegAsync(outStream);

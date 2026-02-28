@@ -1,9 +1,19 @@
+using System.Text.Json.Serialization;
+
 namespace EPaperDashboard.Models
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum RenderingMode
     {
         Custom = 0,
         HomeAssistant = 1
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum DashboardOrientation
+    {
+        Landscape = 0,
+        Portrait = 1
     }
 
     public class Dashboard
@@ -19,5 +29,6 @@ namespace EPaperDashboard.Models
         public LayoutConfig? LayoutConfig { get; set; }
         public DateTimeOffset? LastUpdateTime { get; set; }
         public RenderingMode RenderingMode { get; set; } = RenderingMode.Custom;
+        public DashboardOrientation Orientation { get; set; } = DashboardOrientation.Landscape;
     }
 }

@@ -82,6 +82,11 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             Description = request.Description ?? string.Empty
         };
 
+        if (request.Orientation != null && Enum.TryParse<DashboardOrientation>(request.Orientation, out var orientation))
+        {
+            dashboard.Orientation = orientation;
+        }
+
         _dashboardService.AddDashboard(dashboard);
 
         return Ok(DashboardResponseDto.FromDashboard(dashboard, _deploymentStrategy.IsAutoConnected));
@@ -135,6 +140,15 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             }
         }
 
+        // Handle orientation
+        if (request.Orientation != null)
+        {
+            if (Enum.TryParse<DashboardOrientation>(request.Orientation, out var orientation))
+            {
+                updatedDashboard.Orientation = orientation;
+            }
+        }
+
         _dashboardService.UpdateDashboard(updatedDashboard);
 
         return Ok(DashboardResponseDto.FromDashboard(updatedDashboard, _deploymentStrategy.IsAutoConnected));
@@ -166,7 +180,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     }
 }
 
-public record CreateDashboardRequest(string Name, string? Description);
+public record CreateDashboardRequest(string Name, string? Description, string? Orientation);
 
 public record UpdateDashboardRequest(
     string? Name,
@@ -177,7 +191,8 @@ public record UpdateDashboardRequest(
     string? Path,
     List<TimeOnly>? UpdateTimes,
     LayoutConfig? LayoutConfig,
-    string? RenderingMode
+    string? RenderingMode,
+    string? Orientation
 );
 
 // DTO that hides the actual access token from the frontend (only exposes whether one is set)
@@ -191,7 +206,8 @@ public record DashboardResponseDto(
     string? Path,
     List<TimeOnly>? UpdateTimes,
     LayoutConfig? LayoutConfig,
-    string? RenderingMode
+    string? RenderingMode,
+    string Orientation
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
@@ -204,6 +220,7 @@ public record DashboardResponseDto(
         Path: dashboard.Path,
         UpdateTimes: dashboard.UpdateTimes,
         LayoutConfig: dashboard.LayoutConfig,
-        RenderingMode: dashboard.RenderingMode.ToString()
+        RenderingMode: dashboard.RenderingMode.ToString(),
+        Orientation: dashboard.Orientation.ToString()
     );
 }
