@@ -1293,47 +1293,27 @@ public sealed class DashboardImageRenderingService
             var containerH = contentRect.Height;
 
             // The Angular component sets the img element to (zoom * 100%) of the container,
-            // then uses object-fit: contain (zoom<=1) or cover (zoom>1) to preserve aspect ratio.
+            // then uses object-fit: contain to preserve aspect ratio while keeping the
+            // entire image within the element so panning can reach all edges.
             var imgElW = containerW * (float)zoom;
             var imgElH = containerH * (float)zoom;
 
-            // Fit the source image within the virtual img element
+            // Fit the source image within the virtual img element (object-fit: contain)
             float srcAspect = (float)srcImage.Width / srcImage.Height;
             float elAspect = imgElW / imgElH;
-            bool useCover = zoom > 1.0;
 
             float drawW, drawH;
-            if (useCover)
+            if (srcAspect > elAspect)
             {
-                // object-fit: cover — image fills the element entirely, may overflow
-                if (srcAspect > elAspect)
-                {
-                    // Source is wider → constrain by height, width overflows
-                    drawH = imgElH;
-                    drawW = imgElH * srcAspect;
-                }
-                else
-                {
-                    // Source is taller → constrain by width, height overflows
-                    drawW = imgElW;
-                    drawH = imgElW / srcAspect;
-                }
+                // Source is wider → constrained by width
+                drawW = imgElW;
+                drawH = imgElW / srcAspect;
             }
             else
             {
-                // object-fit: contain — image fits entirely within the element
-                if (srcAspect > elAspect)
-                {
-                    // Source is wider → constrained by width
-                    drawW = imgElW;
-                    drawH = imgElW / srcAspect;
-                }
-                else
-                {
-                    // Source is taller → constrained by height
-                    drawH = imgElH;
-                    drawW = imgElH * srcAspect;
-                }
+                // Source is taller → constrained by height
+                drawH = imgElH;
+                drawW = imgElH * srcAspect;
             }
 
             // Center the fitted image within the virtual element

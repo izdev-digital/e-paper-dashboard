@@ -20,7 +20,7 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
           [style.height.%]="(cfg.zoom ?? 1) * 100"
           [style.left.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetX ?? 0) + 1) * 50"
           [style.top.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetY ?? 0) + 1) * 50"
-          [style.object-fit]="(cfg.zoom ?? 1) > 1 ? 'cover' : 'contain'"
+          style="object-fit: contain;"
         />
       </div>
     </div>
