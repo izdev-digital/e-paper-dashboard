@@ -1,7 +1,7 @@
 # Multi-architecture support: linux/amd64, linux/arm64
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-LABEL org.opencontainers.image.licenses="Apache-2.0" \
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later" \
   org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
   org.opencontainers.image.title="izBoard" \
   org.opencontainers.image.description="Application for managing the dashboards for e-paper display"

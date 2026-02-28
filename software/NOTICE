@@ -58,5 +58,22 @@ Licensed under the MIT License
 
 ================================================================================
 
+QRCoder (version 1.6.0)
+https://github.com/codebude/QRCoder
+Copyright (c) 2013-2023 Raffael Herrmann
+Licensed under the MIT License
+
+================================================================================
+
+Font Awesome Free (version 7.1.0)
+https://github.com/FortAwesome/Font-Awesome
+Copyright (c) Fonticons, Inc.
+Icons licensed under CC-BY-4.0, Fonts under OFL-1.1, Code under MIT License
+
+Font Awesome SVG icon path data is extracted at build time and used for
+server-side rendering of dashboard icons.
+
+================================================================================
+
 For a complete list of all dependencies and their licenses, see
 THIRD-PARTY-NOTICES.txt

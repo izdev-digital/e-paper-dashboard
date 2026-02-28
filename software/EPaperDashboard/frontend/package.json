@@ -21,6 +21,7 @@
       }
     ]
   },
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "packageManager": "npm@11.6.2",
   "dependencies": {
