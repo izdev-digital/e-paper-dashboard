@@ -2,6 +2,8 @@ import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { DomSanitizer } from '@angular/platform-browser';
+import { marked } from 'marked';
 import { DeviceService, Device } from '../../services/device.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { FirmwareService } from '../../services/firmware.service';
@@ -86,6 +88,46 @@ import { Dashboard } from '../../models/types';
         max-width: 100%;
         width: 100%;
       }
+    }
+
+    .release-notes {
+      max-height: 200px;
+      overflow-y: auto;
+      color: var(--bs-secondary-color);
+    }
+
+    .release-notes :first-child {
+      margin-top: 0;
+    }
+
+    .release-notes :last-child {
+      margin-bottom: 0;
+    }
+
+    .release-notes h1, .release-notes h2, .release-notes h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0.5rem 0 0.25rem;
+    }
+
+    .release-notes p {
+      margin: 0.25rem 0;
+    }
+
+    .release-notes ul, .release-notes ol {
+      margin: 0.25rem 0;
+      padding-left: 1.25rem;
+    }
+
+    .release-notes code {
+      font-size: 0.8rem;
+      padding: 0.1rem 0.3rem;
+      background: var(--bs-secondary-bg);
+      border-radius: 0.2rem;
+    }
+
+    .release-notes a {
+      color: var(--bs-primary);
     }
   `],
   template: `
@@ -274,9 +316,7 @@ import { Dashboard } from '../../models/types';
                   @if (firmwareInfo()!.releaseNotes) {
                     <details class="mt-1">
                       <summary class="small text-muted" style="cursor:pointer">Release Notes</summary>
-                      <div class="small text-muted mt-1" style="white-space:pre-line;max-height:120px;overflow-y:auto">
-                        {{ firmwareInfo()!.releaseNotes }}
-                      </div>
+                      <div class="release-notes small mt-1" [innerHTML]="renderMarkdown(firmwareInfo()!.releaseNotes!)"></div>
                     </details>
                   }
                 } @else {
@@ -308,6 +348,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly dialogService = inject(DialogService);
   private readonly toastService = inject(ToastService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   readonly devices = signal<Device[]>([]);
   readonly dashboards = signal<Dashboard[]>([]);
@@ -472,6 +513,10 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   refreshFirmware(): void {
     this.firmwareService.refreshFirmwareCheck();
+  }
+
+  renderMarkdown(text: string): string {
+    return marked(text) as string;
   }
 
   isVersionLower(deviceVersion: string, latestVersion: string): boolean {
