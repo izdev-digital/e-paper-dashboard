@@ -9,12 +9,13 @@ import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
+import { SearchableSelectComponent, SelectOption } from '../searchable-select/searchable-select.component';
 import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-device-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, SearchableSelectComponent],
   styles: [`
     .device-list {
       display: flex;
@@ -208,14 +209,14 @@ import { Dashboard } from '../../models/types';
             <div class="mt-2 d-flex align-items-center gap-2">
               <i class="fa-solid fa-display text-muted"></i>
               <label class="small text-muted mb-0">Dashboard:</label>
-              <select class="form-select form-select-sm dashboard-select"
-                [ngModel]="device.dashboardId || ''"
-                (ngModelChange)="assignDashboard(device, $event)">
-                <option value="">— No dashboard assigned —</option>
-                @for (dashboard of dashboards(); track dashboard.id) {
-                  <option [value]="dashboard.id">{{ dashboard.name }}</option>
-                }
-              </select>
+              <app-searchable-select
+                class="dashboard-select"
+                [options]="dashboardOptions()"
+                [value]="device.dashboardId || ''"
+                emptyLabel="— No dashboard assigned —"
+                searchPlaceholder="Search dashboards..."
+                (selectionChange)="assignDashboard(device, $event)"
+              ></app-searchable-select>
             </div>
           </div>
         }
@@ -325,6 +326,10 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly isFirmwareLoading = this.firmwareService.isLoading;
   readonly firmwareError = this.firmwareService.error;
 
+  readonly dashboardOptions = computed<SelectOption[]>(() =>
+    this.dashboards().map(d => ({ value: d.id, label: d.name }))
+  );
+
   readonly deviceUpdateSummary = computed(() => {
     const fw = this.firmwareInfo();
     const devs = this.devices();
@@ -386,7 +391,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   assignDashboard(device: Device, dashboardId: string): void {
     this.deviceService.updateDevice(device.id, {
-      dashboardId: dashboardId || null
+      dashboardId: dashboardId
     }).subscribe({
       next: (updated) => {
         this.devices.update(list =>
