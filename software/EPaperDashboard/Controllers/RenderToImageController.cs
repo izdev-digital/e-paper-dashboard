@@ -34,9 +34,15 @@ public sealed class RenderToImageController(
 		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] bool shouldDither = false) =>
-		await RenderImage(apiKey, imageSize, "bin", image => image
-			.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
-			.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal));
+		await RenderImage(apiKey, imageSize, "bin", (dashboard, image) =>
+		{
+			var result = image
+				.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
+				.RotateFlip(RotateMode.Rotate90, FlipMode.Horizontal);
+			return dashboard.Orientation == DashboardOrientation.Portrait
+				? result.Rotate(RotateMode.Rotate90)
+				: result;
+		});
 
 	[HttpGet("converted")]
 	public async Task<IActionResult> GetAsConvertedsImage(
@@ -44,7 +50,7 @@ public sealed class RenderToImageController(
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg",
 		[FromQuery] bool shouldDither = false) =>
-		await RenderImage(apiKey, imageSize, format, image =>
+		await RenderImage(apiKey, imageSize, format, (_, image) =>
 			image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)));
 
 	[HttpGet("original")]
@@ -79,7 +85,7 @@ public sealed class RenderToImageController(
 		string apiKey,
 		Size imageSize,
 		string format,
-		Func<IImage, IImage>? transform = null)
+		Func<Dashboard, IImage, IImage>? transform = null)
 	{
 		var dashboardResult = ResolveDashboardByApiKey(apiKey);
 		if (dashboardResult.HasNoValue)
@@ -103,7 +109,7 @@ public sealed class RenderToImageController(
 		Dashboard dashboard,
 		Size imageSize,
 		string format,
-		Func<IImage, IImage>? transform = null)
+		Func<Dashboard, IImage, IImage>? transform = null)
 	{
 		if (dashboard.LayoutConfig == null)
 		{
@@ -126,7 +132,7 @@ public sealed class RenderToImageController(
 				layoutConfigJson);
 
 			IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
-			var resultImage = transform?.Invoke(image) ?? image;
+			var resultImage = transform?.Invoke(dashboard, image) ?? image;
 
 			dashboard.LastUpdateTime = DateTimeOffset.UtcNow;
 			dashboardService.UpdateDashboard(dashboard);
@@ -143,7 +149,7 @@ public sealed class RenderToImageController(
 		Dashboard dashboard,
 		Size imageSize,
 		string format,
-		Func<IImage, IImage>? transform = null)
+		Func<Dashboard, IImage, IImage>? transform = null)
 	{
 		var dashboardInfo = GetDashboardInfo(dashboard, deploymentStrategy);
 		if (dashboardInfo.HasNoValue)
@@ -161,7 +167,7 @@ public sealed class RenderToImageController(
 
 		var result = await renderingService
 			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
-			.Map(image => transform?.Invoke(image) ?? image);
+			.Map(image => transform?.Invoke(dashboard, image) ?? image);
 
 		if (result.IsSuccess)
 		{
@@ -202,11 +208,11 @@ public sealed class RenderToImageController(
 		}
 
 		var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
-		
+
 		// For OAuth-generated long-lived tokens, ClientId is not used for auth
 		// Use ClientUri if configured, otherwise use the HA host URL as a placeholder
 		var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
-		
+
 		return (new Uri(hostUri, pathUri), new HassTokens(accessToken, "Bearer", hassUrl, clientId));
 	}
 
