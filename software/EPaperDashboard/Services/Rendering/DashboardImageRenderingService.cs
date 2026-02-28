@@ -193,8 +193,10 @@ public sealed class DashboardImageRenderingService
         _logger.LogInformation("SSR: Parsed {WidgetCount} widgets from layout", widgets.Count);
 
         return new LayoutConfig(
-            Width: root.TryGetProperty("width", out var width) ? width.GetInt32() : 800,
-            Height: root.TryGetProperty("height", out var height) ? height.GetInt32() : 480,
+            Width: root.TryGetProperty("width", out var width) ? width.GetInt32()
+                : throw new InvalidOperationException("Layout configuration is missing the 'width' property."),
+            Height: root.TryGetProperty("height", out var height) ? height.GetInt32()
+                : throw new InvalidOperationException("Layout configuration is missing the 'height' property."),
             GridCols: root.TryGetProperty("gridCols", out var gc) ? gc.GetInt32() : 12,
             GridRows: root.TryGetProperty("gridRows", out var gr) ? gr.GetInt32() : 8,
             ColorScheme: colorScheme,

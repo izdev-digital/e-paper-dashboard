@@ -20,7 +20,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     {
         UserId userId;
         
-        // In Home Assistant mode, skip user lookup and use virtual user ID directly
         if (IsHomeAssistantIngress)
         {
             userId = CurrentUserId;
@@ -53,7 +52,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return NotFound(new { message = "Dashboard not found." });
         }
 
-        // Verify user owns this dashboard
         if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
@@ -65,7 +63,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     [HttpPost]
     public IActionResult CreateDashboard([FromBody] CreateDashboardRequest request)
     {
-        // Verify user exists in database (skip check in Home Assistant mode)
         if (!IsHomeAssistantIngress)
         {
             var user = _userService.GetUserById(CurrentUserId);
@@ -87,6 +84,17 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             dashboard.Orientation = orientation;
         }
 
+        if (request.ScreenWidth.HasValue && request.ScreenHeight.HasValue)
+        {
+            if (!DashboardSizePreset.IsValidSize(request.ScreenWidth.Value, request.ScreenHeight.Value))
+            {
+                return BadRequest(new { message = "Invalid dashboard size. Please select a supported size." });
+            }
+            var preset = DashboardSizePreset.FindByDimensions(request.ScreenWidth.Value, request.ScreenHeight.Value)!;
+            dashboard.ScreenWidth = preset.Width;
+            dashboard.ScreenHeight = preset.Height;
+        }
+
         _dashboardService.AddDashboard(dashboard);
 
         return Ok(DashboardResponseDto.FromDashboard(dashboard, _deploymentStrategy.IsAutoConnected));
@@ -106,7 +114,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return NotFound(new { message = "Dashboard not found." });
         }
 
-        // Verify user owns this dashboard
         if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
@@ -116,7 +123,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         if (request.Name != null) updatedDashboard.Name = request.Name;
         if (request.Description != null) updatedDashboard.Description = request.Description;
         
-        // Handle token: ClearAccessToken takes precedence over AccessToken
         if (request.ClearAccessToken == true)
         {
             updatedDashboard.AccessToken = null;
@@ -131,7 +137,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
         if (request.UpdateTimes != null) updatedDashboard.UpdateTimes = request.UpdateTimes;
         if (request.LayoutConfig != null) updatedDashboard.LayoutConfig = request.LayoutConfig;
         
-        // Handle rendering mode
         if (request.RenderingMode != null)
         {
             if (Enum.TryParse<RenderingMode>(request.RenderingMode, out var renderingMode))
@@ -140,13 +145,23 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             }
         }
 
-        // Handle orientation
         if (request.Orientation != null)
         {
             if (Enum.TryParse<DashboardOrientation>(request.Orientation, out var orientation))
             {
                 updatedDashboard.Orientation = orientation;
             }
+        }
+
+        if (request.ScreenWidth.HasValue && request.ScreenHeight.HasValue)
+        {
+            if (!DashboardSizePreset.IsValidSize(request.ScreenWidth.Value, request.ScreenHeight.Value))
+            {
+                return BadRequest(new { message = "Invalid dashboard size. Please select a supported size." });
+            }
+            var preset = DashboardSizePreset.FindByDimensions(request.ScreenWidth.Value, request.ScreenHeight.Value)!;
+            updatedDashboard.ScreenWidth = preset.Width;
+            updatedDashboard.ScreenHeight = preset.Height;
         }
 
         _dashboardService.UpdateDashboard(updatedDashboard);
@@ -168,7 +183,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return NotFound(new { message = "Dashboard not found." });
         }
 
-        // Verify user owns this dashboard
         if (dashboard.Value.UserId != CurrentUserId)
         {
             return Forbid();
@@ -180,7 +194,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
     }
 }
 
-public record CreateDashboardRequest(string Name, string? Description, string? Orientation);
+public record CreateDashboardRequest(string Name, string? Description, string? Orientation, int? ScreenWidth, int? ScreenHeight);
 
 public record UpdateDashboardRequest(
     string? Name,
@@ -192,10 +206,11 @@ public record UpdateDashboardRequest(
     List<TimeOnly>? UpdateTimes,
     LayoutConfig? LayoutConfig,
     string? RenderingMode,
-    string? Orientation
+    string? Orientation,
+    int? ScreenWidth,
+    int? ScreenHeight
 );
 
-// DTO that hides the actual access token from the frontend (only exposes whether one is set)
 public record DashboardResponseDto(
     string Id,
     string Name,
@@ -207,7 +222,9 @@ public record DashboardResponseDto(
     List<TimeOnly>? UpdateTimes,
     LayoutConfig? LayoutConfig,
     string? RenderingMode,
-    string Orientation
+    string Orientation,
+    int ScreenWidth,
+    int ScreenHeight
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
@@ -221,6 +238,8 @@ public record DashboardResponseDto(
         UpdateTimes: dashboard.UpdateTimes,
         LayoutConfig: dashboard.LayoutConfig,
         RenderingMode: dashboard.RenderingMode.ToString(),
-        Orientation: dashboard.Orientation.ToString()
+        Orientation: dashboard.Orientation.ToString(),
+        ScreenWidth: dashboard.ScreenWidth,
+        ScreenHeight: dashboard.ScreenHeight
     );
 }

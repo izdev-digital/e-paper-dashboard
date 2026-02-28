@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using EPaperDashboard.Services.Rendering;
 using SixLabors.ImageSharp.Processing;
-using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using EPaperDashboard.Utilities;
 using CSharpFunctionalExtensions;
@@ -31,10 +30,9 @@ public sealed class RenderToImageController(
 {
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
-		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] bool shouldDither = false) =>
-		await RenderImage(apiKey, imageSize, "bin", (dashboard, image) =>
+		await RenderImage(apiKey, "bin", (dashboard, image) =>
 		{
 			var result = image
 				.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither))
@@ -46,19 +44,17 @@ public sealed class RenderToImageController(
 
 	[HttpGet("converted")]
 	public async Task<IActionResult> GetAsConvertedsImage(
-		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg",
 		[FromQuery] bool shouldDither = false) =>
-		await RenderImage(apiKey, imageSize, format, (_, image) =>
+		await RenderImage(apiKey, format, (_, image) =>
 			image.Quantize(Palettes.RedBlackWhite, GetDither(shouldDither)));
 
 	[HttpGet("original")]
 	public async Task<IActionResult> GetAsImage(
-		[Required][FromQuery] Size imageSize,
 		[FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey,
 		[FromQuery] string format = "jpeg") =>
-		await RenderImage(apiKey, imageSize, format);
+		await RenderImage(apiKey, format);
 
 	[HttpGet("health")]
 	public async Task<IActionResult> GetHealth([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey) =>
@@ -83,7 +79,6 @@ public sealed class RenderToImageController(
 
 	private async Task<IActionResult> RenderImage(
 		string apiKey,
-		Size imageSize,
 		string format,
 		Func<Dashboard, IImage, IImage>? transform = null)
 	{
@@ -94,6 +89,8 @@ public sealed class RenderToImageController(
 		}
 
 		var dashboard = dashboardResult.Value;
+		var (width, height) = dashboard.GetEffectiveSize();
+		var imageSize = new Size(width, height);
 
 		if (dashboard.RenderingMode == RenderingMode.Custom)
 		{

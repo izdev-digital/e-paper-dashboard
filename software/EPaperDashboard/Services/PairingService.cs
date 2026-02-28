@@ -35,13 +35,18 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     public Maybe<PairingSession> GetPairingSessionById(PairingSessionId id) =>
         pairingSessionRepository.FindById(id);
 
-    public void SetAwaitingConfirmation(PairingSessionId sessionId, string deviceIdentifier)
+    public void SetAwaitingConfirmation(PairingSessionId sessionId, string deviceIdentifier, int? screenWidth = null, int? screenHeight = null)
     {
         var session = pairingSessionRepository.FindById(sessionId);
         session.Execute(s =>
         {
             s.DeviceIdentifier = deviceIdentifier;
             s.Status = PairingStatus.AwaitingConfirmation;
+            if (screenWidth.HasValue && screenHeight.HasValue)
+            {
+                s.ScreenWidth = Math.Max(screenWidth.Value, screenHeight.Value);
+                s.ScreenHeight = Math.Min(screenWidth.Value, screenHeight.Value);
+            }
             pairingSessionRepository.Update(s);
         });
     }

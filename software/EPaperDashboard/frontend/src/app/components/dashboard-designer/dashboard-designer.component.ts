@@ -29,6 +29,9 @@ import {
   DEFAULT_WEATHER_ITEMS,
   DEFAULT_CALENDAR_EVENT_ITEMS,
   DEFAULT_FORECAST_FIELDS,
+  DEFAULT_DASHBOARD_SIZE,
+  DashboardSizePreset,
+  DASHBOARD_SIZE_PRESETS,
 } from '../../models/types';
 
 @Component({
@@ -54,9 +57,11 @@ export class DashboardDesignerComponent implements OnInit {
   dashboardId: string = '';
   dashboard = signal<Dashboard | null>(null);
   orientation = signal<DashboardOrientation>('Landscape');
+  sizePresets: DashboardSizePreset[] = DASHBOARD_SIZE_PRESETS;
+  selectedSizeIndex = 0;
   layout = signal<DashboardLayout>({
-    width: 800,
-    height: 480,
+    width: DEFAULT_DASHBOARD_SIZE.width,
+    height: DEFAULT_DASHBOARD_SIZE.height,
     gridCols: 12,
     gridRows: 8,
     colorScheme: DEFAULT_COLOR_SCHEMES[0],
@@ -137,24 +142,25 @@ export class DashboardDesignerComponent implements OnInit {
       next: (dashboard) => {
         this.dashboard.set(dashboard);
         const storedOrientation = dashboard.orientation || 'Landscape';
+        const screenW = dashboard.screenWidth || DEFAULT_DASHBOARD_SIZE.width;
+        const screenH = dashboard.screenHeight || DEFAULT_DASHBOARD_SIZE.height;
+
+        const sizeIdx = this.sizePresets.findIndex(s => s.width === screenW && s.height === screenH);
+        this.selectedSizeIndex = sizeIdx >= 0 ? sizeIdx : 0;
 
         if (dashboard.layoutConfig) {
-          // Derive orientation from actual layout dimensions for consistency.
-          // This handles cases where the stored orientation doesn't match
-          // the layout dimensions (e.g. from earlier data or external changes).
-          const w = dashboard.layoutConfig.width ?? 800;
-          const h = dashboard.layoutConfig.height ?? 480;
+          const w = dashboard.layoutConfig.width ?? screenW;
+          const h = dashboard.layoutConfig.height ?? screenH;
           const effectiveOrientation: DashboardOrientation = h > w ? 'Portrait' : 'Landscape';
           this.orientation.set(effectiveOrientation);
-          this.layout.set(this.normalizeLayout(dashboard.layoutConfig, effectiveOrientation));
+          this.layout.set(this.normalizeLayout(dashboard.layoutConfig, effectiveOrientation, screenW, screenH));
         } else {
-          // No existing layout - use stored orientation for initial defaults
           this.orientation.set(storedOrientation);
           const isPortrait = storedOrientation === 'Portrait';
           this.layout.update(l => ({
             ...l,
-            width: isPortrait ? 480 : 800,
-            height: isPortrait ? 800 : 480,
+            width: isPortrait ? screenH : screenW,
+            height: isPortrait ? screenW : screenH,
             gridCols: isPortrait ? 8 : 12,
             gridRows: isPortrait ? 12 : 8,
           }));
@@ -703,28 +709,26 @@ export class DashboardDesignerComponent implements OnInit {
     if (newOrientation === this.orientation()) return;
     this.orientation.set(newOrientation);
 
-    const layout = this.layout();
-    const isCurrentlyLandscape = layout.width >= layout.height;
-    const wantsLandscape = newOrientation === 'Landscape';
+    const size = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
+    const isPortrait = newOrientation === 'Portrait';
 
-    // Only swap if current dimensions don't match the desired orientation
-    if (isCurrentlyLandscape !== wantsLandscape) {
-      this.layout.update(l => ({
-        ...l,
-        width: l.height,
-        height: l.width,
-        gridCols: l.gridRows,
-        gridRows: l.gridCols,
-      }));
-    }
+    this.layout.update(l => ({
+      ...l,
+      width: isPortrait ? size.height : size.width,
+      height: isPortrait ? size.width : size.height,
+      gridCols: l.gridRows,
+      gridRows: l.gridCols,
+    }));
   }
 
-  updateLayoutWidth(width: number): void {
-    this.layout.update(layout => ({ ...layout, width }));
-  }
-
-  updateLayoutHeight(height: number): void {
-    this.layout.update(layout => ({ ...layout, height }));
+  onSizeChange(): void {
+    const size = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
+    const isPortrait = this.orientation() === 'Portrait';
+    this.layout.update(l => ({
+      ...l,
+      width: isPortrait ? size.height : size.width,
+      height: isPortrait ? size.width : size.height,
+    }));
   }
 
   updateLayoutGridCols(gridCols: number): void {
@@ -1258,11 +1262,13 @@ export class DashboardDesignerComponent implements OnInit {
     return a?.name === b?.name;
   }
 
-  private normalizeLayout(parsedLayout: any, orientation?: DashboardOrientation): DashboardLayout {
+  private normalizeLayout(parsedLayout: any, orientation?: DashboardOrientation, screenWidth?: number, screenHeight?: number): DashboardLayout {
     const isPortrait = orientation === 'Portrait';
+    const sw = screenWidth || DEFAULT_DASHBOARD_SIZE.width;
+    const sh = screenHeight || DEFAULT_DASHBOARD_SIZE.height;
     const baseLayout: DashboardLayout = {
-      width: isPortrait ? 480 : 800,
-      height: isPortrait ? 800 : 480,
+      width: isPortrait ? sh : sw,
+      height: isPortrait ? sw : sh,
       gridCols: isPortrait ? 8 : 12,
       gridRows: isPortrait ? 12 : 8,
       colorScheme: DEFAULT_COLOR_SCHEMES[0],

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DashboardService } from '../../services/dashboard.service';
-import { DashboardOrientation } from '../../models/types';
+import { DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFAULT_DASHBOARD_SIZE } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-create',
@@ -20,6 +20,14 @@ import { DashboardOrientation } from '../../models/types';
         <div class="mb-3">
           <label class="form-label">Description (optional)</label>
           <input type="text" class="form-control" [(ngModel)]="description" name="description">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Screen Size</label>
+          <select class="form-select" [(ngModel)]="selectedSizeIndex" name="screenSize">
+            @for (size of sizePresets; track size.label; let i = $index) {
+              <option [ngValue]="i">{{ size.label }}</option>
+            }
+          </select>
         </div>
         <div class="mb-3">
           <label class="form-label">Orientation</label>
@@ -54,8 +62,14 @@ export class DashboardCreateComponent {
   name = '';
   description = '';
   orientation: DashboardOrientation = 'Landscape';
+  sizePresets: DashboardSizePreset[] = DASHBOARD_SIZE_PRESETS;
+  selectedSizeIndex = 0;
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
+
+  get selectedSize(): DashboardSizePreset {
+    return this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
+  }
 
   onSubmit(): void {
     if (!this.name) {
@@ -66,7 +80,14 @@ export class DashboardCreateComponent {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.dashboardService.createDashboard({ name: this.name, description: this.description || undefined, orientation: this.orientation }).subscribe({
+    const size = this.selectedSize;
+    this.dashboardService.createDashboard({
+      name: this.name,
+      description: this.description || undefined,
+      orientation: this.orientation,
+      screenWidth: size.width,
+      screenHeight: size.height
+    }).subscribe({
       next: () => {
         this.router.navigate(['/dashboards']);
       },

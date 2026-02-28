@@ -320,14 +320,12 @@
                   </div>
                 </div>
                 <div class="mb-2">
-                  <label class="form-label small">Width</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().width"
-                    (ngModelChange)="updateLayoutWidth($event)" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Height</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().height"
-                    (ngModelChange)="updateLayoutHeight($event)" />
+                  <label class="form-label small">Screen Size</label>
+                  <select class="form-select form-select-sm" [(ngModel)]="selectedSizeIndex" (ngModelChange)="onSizeChange()">
+                    @for (size of sizePresets; track size.label; let i = $index) {
+                      <option [ngValue]="i">{{ size.label }}</option>
+                    }
+                  </select>
                 </div>
                 <div class="mb-2">
                   <label class="form-label small">Grid Columns</label>

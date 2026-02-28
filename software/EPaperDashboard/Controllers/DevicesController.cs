@@ -79,6 +79,15 @@ public class DevicesController(DeviceService deviceService, DashboardService das
                 {
                     return Forbid();
                 }
+                if (device.Value.ScreenWidth.HasValue && device.Value.ScreenHeight.HasValue)
+                {
+                    if (device.Value.ScreenWidth != dashboard.Value.ScreenWidth
+                        || device.Value.ScreenHeight != dashboard.Value.ScreenHeight)
+                    {
+                        return BadRequest($"Dashboard size ({dashboard.Value.ScreenWidth}×{dashboard.Value.ScreenHeight}) " +
+                            $"does not match device screen size ({device.Value.ScreenWidth}×{device.Value.ScreenHeight}).");
+                    }
+                }
                 device.Value.DashboardId = dashboardId;
             }
             else
@@ -125,7 +134,9 @@ public record DeviceResponseDto(
     string? DashboardName,
     DateTimeOffset PairedAt,
     DateTimeOffset? LastSeenAt,
-    string? FirmwareVersion)
+    string? FirmwareVersion,
+    int? ScreenWidth,
+    int? ScreenHeight)
 {
     public static DeviceResponseDto FromDevice(Device device, string? dashboardName = null) => new(
         Id: device.Id.ToString(),
@@ -135,6 +146,8 @@ public record DeviceResponseDto(
         DashboardName: dashboardName,
         PairedAt: device.PairedAt,
         LastSeenAt: device.LastSeenAt,
-        FirmwareVersion: device.FirmwareVersion
+        FirmwareVersion: device.FirmwareVersion,
+        ScreenWidth: device.ScreenWidth,
+        ScreenHeight: device.ScreenHeight
     );
 }

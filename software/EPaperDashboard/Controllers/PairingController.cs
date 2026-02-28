@@ -62,7 +62,7 @@ public class PairingController(
             return BadRequest("Pairing session is not in a valid state for this operation");
         }
 
-        _pairingService.SetAwaitingConfirmation(session.Value.Id, request.DeviceIdentifier);
+        _pairingService.SetAwaitingConfirmation(session.Value.Id, request.DeviceIdentifier, request.ScreenWidth, request.ScreenHeight);
 
         return Ok(new CompletePairingResponse
         {
@@ -123,6 +123,8 @@ public class PairingController(
 
             existingDevice.Value.ApiKey = confirmed.Value.ApiKey;
             existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
+            existingDevice.Value.ScreenWidth = confirmed.Value.ScreenWidth;
+            existingDevice.Value.ScreenHeight = confirmed.Value.ScreenHeight;
             _deviceService.UpdateDevice(existingDevice.Value);
         }
         else
@@ -133,7 +135,9 @@ public class PairingController(
                 DeviceIdentifier = confirmed.Value.DeviceIdentifier!,
                 Name = confirmed.Value.DeviceIdentifier!,
                 ApiKey = confirmed.Value.ApiKey,
-                PairedAt = DateTimeOffset.UtcNow
+                PairedAt = DateTimeOffset.UtcNow,
+                ScreenWidth = confirmed.Value.ScreenWidth,
+                ScreenHeight = confirmed.Value.ScreenHeight
             };
             _deviceService.AddDevice(device);
         }
@@ -254,7 +258,7 @@ public record CompletePairingResponse
     public string ConfirmationPin { get; init; } = string.Empty;
 }
 
-public record CompletePairingRequest(string Code, string DeviceIdentifier, string? DeviceName);
+public record CompletePairingRequest(string Code, string DeviceIdentifier, string? DeviceName, int? ScreenWidth, int? ScreenHeight);
 
 public record ConfirmPairingRequest(string Code);
 
