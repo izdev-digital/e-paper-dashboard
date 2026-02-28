@@ -169,22 +169,30 @@ export class WidgetPreviewComponent {
    */
   hasDataForWidget(): boolean {
     const type = this.widget.type;
-    const entityId = (this.widget.config as any)?.entityId as string | undefined;
+    const config = this.widget.config as any;
+    const entityId = config?.entityId as string | undefined;
 
     // Widgets with no entity dependency always render.
-    if (!['weather', 'weather-forecast', 'graph', 'todo', 'calendar', 'rss-feed'].includes(type)) {
+    if (!['header', 'weather', 'weather-forecast', 'graph', 'todo', 'calendar', 'rss-feed'].includes(type)) {
       return true;
     }
 
-    // No entity configured → widget renders its own empty state.
+    // header: ready when all badge entities that need data have state.
+    if (type === 'header') {
+      const badges = (config?.badges ?? []) as any[];
+      const entityBadges = badges.filter((b: any) => b.entityId?.trim());
+      if (entityBadges.length === 0) return true;
+      return entityBadges.some((b: any) =>
+        this.entityStates && this.entityStates[b.entityId]
+      );
+    }
+
+    // No entity configured → nothing to fetch, show placeholder.
     if (!entityId) {
-      return true;
+      return false;
     }
 
-    // todo: data is ready when the entity state exists (entity found in HA) AND the
-    // todoItemsByEntityId map contains the key. The fetch always writes an empty array
-    // on both success and error, so the key alone can't distinguish "no tasks" from
-    // "entity not found" – the entity state presence is the reliable gate.
+    // todo: entity state must exist AND todoItemsByEntityId must contain the key.
     if (type === 'todo') {
       return !!(
         this.entityStates && this.entityStates[entityId] &&
@@ -192,14 +200,34 @@ export class WidgetPreviewComponent {
       );
     }
 
-    // rss-feed: data is ready when the entity state has the RSS-specific attributes.
+    // calendar: entity state must exist AND calendarEventsByEntityId must contain the key.
+    if (type === 'calendar') {
+      return !!(
+        this.entityStates && this.entityStates[entityId] &&
+        this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId
+      );
+    }
+
+    // rss-feed: entity state must have RSS-specific attributes.
     if (type === 'rss-feed') {
       const state = this.entityStates?.[entityId];
       const attrs = state?.attributes;
       return !!(attrs && (attrs['title'] || attrs['link'] || attrs['description']));
     }
 
-    // weather, weather-forecast, graph, calendar: ready when entity state is present.
+    // weather: entity state must have temperature attribute.
+    if (type === 'weather') {
+      const state = this.entityStates?.[entityId];
+      return !!(state?.attributes && state.attributes['temperature'] != null);
+    }
+
+    // weather-forecast: entity state must have forecast attribute.
+    if (type === 'weather-forecast') {
+      const state = this.entityStates?.[entityId];
+      return !!(state?.attributes?.['forecast']);
+    }
+
+    // graph: entity state present (chart data is loaded async by the widget itself).
     return !!(this.entityStates && this.entityStates[entityId]);
   }
 

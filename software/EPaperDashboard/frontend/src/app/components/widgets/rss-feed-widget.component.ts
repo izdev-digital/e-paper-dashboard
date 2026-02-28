@@ -50,11 +50,6 @@ interface RssEntry {
                 </div>
               }
             </div>
-          } @else {
-            <div class="empty-state">
-              <i class="fa fa-rss"></i>
-              <p>No RSS entries found</p>
-            </div>
           }
         </div>
       }

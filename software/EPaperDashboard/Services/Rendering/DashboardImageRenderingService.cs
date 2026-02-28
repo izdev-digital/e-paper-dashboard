@@ -591,22 +591,6 @@ public sealed class DashboardImageRenderingService
                 yOffset += eventGap;
             }
         }
-        else
-        {
-            var emptyIconSize = Math.Min(contentRect.Width, contentRect.Height) * 0.25f;
-            var emptyIconBounds = new RectangleF(
-                contentRect.X + (contentRect.Width - emptyIconSize) / 2f,
-                contentRect.Y + contentRect.Height * 0.25f - emptyIconSize / 2f,
-                emptyIconSize, emptyIconSize);
-            DrawFaIcon(image, "fa-calendar-days", iconColor, emptyIconBounds);
-
-            var emptyTextRect = new RectangleF(
-                contentRect.X,
-                emptyIconBounds.Bottom + 4,
-                contentRect.Width,
-                textFontSize + 4);
-            DrawCenteredText(image, "No upcoming events", GetFont(textFontSize), textColor, emptyTextRect);
-        }
     }
 
     private record CalendarEventItemEntry(string Type, bool Visible, string? Icon, double X, double Y, double W, double H);
@@ -670,7 +654,6 @@ public sealed class DashboardImageRenderingService
 
         if (string.IsNullOrEmpty(entityId) || !data.EntityStates.TryGetValue(entityId, out var es))
         {
-            DrawCenteredText(image, "Weather", GetFont(titleFontSize, titleFontWeight), titleColor, contentRect);
             return;
         }
 
@@ -795,7 +778,6 @@ public sealed class DashboardImageRenderingService
             || !data.WeatherForecasts.TryGetValue(entityId, out var forecastList)
             || forecastList.Count == 0)
         {
-            DrawCenteredText(image, "Forecast", GetFont(titleFontSize, titleFontWeight), titleColor, contentRect);
             return;
         }
 
@@ -904,7 +886,6 @@ public sealed class DashboardImageRenderingService
 
         if (string.IsNullOrEmpty(entityId) || !data.TodoItems.TryGetValue(entityId, out var items))
         {
-            DrawCenteredText(image, "Tasks", GetFont(titleFontSize, titleFontWeight), titleColor, contentRect);
             return;
         }
 
@@ -1154,7 +1135,6 @@ public sealed class DashboardImageRenderingService
             || !data.RssFeedEntries.TryGetValue(entityId, out var entries)
             || entries.Count == 0)
         {
-            DrawCenteredText(image, "RSS Feed", GetFont(titleFontSize, titleFontWeight), titleColor, contentRect);
             return;
         }
 
