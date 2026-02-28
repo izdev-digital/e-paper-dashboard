@@ -1,102 +1,90 @@
 <div class="users-management-container">
-  <h1>User Management</h1>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Users</h1>
+    <button (click)="toggleAddForm()" class="btn btn-primary" [class.btn-outline-primary]="showAddForm()"
+      [disabled]="isAddingUser()">
+      <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'"></i>
+      {{ showAddForm() ? 'Cancel' : 'Add New User' }}
+    </button>
+  </div>
 
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="card-title mb-0">Users</h5>
-        <button (click)="toggleAddForm()" class="btn btn-success btn-sm" [class.btn-outline-success]="showAddForm()"
-          [disabled]="isAddingUser()">
-          {{ showAddForm() ? 'Cancel' : 'Add New User' }}
-        </button>
-      </div>
-
-      @if (showAddForm()) {
-      <div class="add-user-form mb-4 p-4 rounded">
-        <h6>Add New User</h6>
-        <form [formGroup]="addUserForm" (ngSubmit)="addUser()">
-          <div class="mb-3">
-            <label for="username" class="form-label">
-              <i class="fa-solid fa-user me-2"></i>Username
-            </label>
-            <input type="text" id="username" class="form-control" formControlName="username"
-              placeholder="Enter username (min 3 characters)" required />
-            @if (addUserForm.get('username')?.hasError('required')) {
-            <small>
-              Username is required
-            </small>
-            }
-            @if (addUserForm.get('username')?.hasError('minlength')) {
-            <small>
-              Username must be at least 3 characters
-            </small>
-            }
-          </div>
-
-          <div class="mb-3">
-            <label for="password" class="form-label">
-              <i class="fa-solid fa-lock me-2"></i>Password
-            </label>
-            <input type="password" id="password" class="form-control" formControlName="password"
-              placeholder="Enter password (min 6 characters)" required />
-            @if (addUserForm.get('password')?.hasError('required')) {
-            <small>
-              Password is required
-            </small>
-            }
-            @if (addUserForm.get('password')?.hasError('minlength')) {
-            <small>
-              Password must be at least 6 characters
-            </small>
-            }
-          </div>
-
-          <button type="submit" class="btn btn-success btn-sm" [disabled]="addUserForm.invalid || isAddingUser()">
-            <i class="fa-solid fa-plus me-2"></i>{{ isAddingUser() ? 'Adding...' : 'Add User' }}
-          </button>
-        </form>
-      </div>
-      }
-
+  @if (showAddForm()) {
+  <div class="add-user-form mb-4 p-4 rounded">
+    <h6>Add New User</h6>
+    <form [formGroup]="addUserForm" (ngSubmit)="addUser()">
       <div class="mb-3">
-        <input type="text" class="form-control search-input" placeholder="Search users by username..."
-          [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
-      </div>
-
-      @if (loading()) {
-      <div class="alert alert-info">Loading users...</div>
-      }
-
-      @if (!loading() && getFilteredUsers().length === 0) {
-      <div class="alert alert-warning">
-        No users found
-      </div>
-      }
-
-      @if (!loading() && getFilteredUsers().length > 0) {
-      <div class="users-list">
-        @for (user of getFilteredUsers(); track user.id) {
-        <div class="user-card">
-          <div class="user-card-header">
-            <div class="user-info">
-              <h5 class="user-title">{{ user.username }}</h5>
-              <span class="badge" [ngClass]="user.isSuperUser ? 'bg-primary' : 'bg-secondary'">
-                {{ user.isSuperUser ? 'Superuser' : 'User' }}
-              </span>
-            </div>
-            <div class="user-actions">
-              @if (!user.isSuperUser) {
-              <button (click)="deleteUser(user.id, user.username)" class="btn btn-danger btn-sm"
-                [disabled]="isDeletingUser()[user.id]">
-                <i class="fa-solid fa-trash me-2"></i>{{ isDeletingUser()[user.id] ? 'Deleting...' : 'Delete' }}
-              </button>
-              }
-            </div>
-          </div>
-        </div>
+        <label for="username" class="form-label">
+          <i class="fa-solid fa-user me-2"></i>Username
+        </label>
+        <input type="text" id="username" class="form-control" formControlName="username"
+          placeholder="Enter username (min 3 characters)" required />
+        @if (addUserForm.get('username')?.hasError('required')) {
+        <small>
+          Username is required
+        </small>
+        }
+        @if (addUserForm.get('username')?.hasError('minlength')) {
+        <small>
+          Username must be at least 3 characters
+        </small>
         }
       </div>
-      }
+
+      <div class="mb-3">
+        <label for="password" class="form-label">
+          <i class="fa-solid fa-lock me-2"></i>Password
+        </label>
+        <input type="password" id="password" class="form-control" formControlName="password"
+          placeholder="Enter password (min 6 characters)" required />
+        @if (addUserForm.get('password')?.hasError('required')) {
+        <small>
+          Password is required
+        </small>
+        }
+        @if (addUserForm.get('password')?.hasError('minlength')) {
+        <small>
+          Password must be at least 6 characters
+        </small>
+        }
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm" [disabled]="addUserForm.invalid || isAddingUser()">
+        <i class="fa-solid fa-plus me-2"></i>{{ isAddingUser() ? 'Adding...' : 'Add User' }}
+      </button>
+    </form>
+  </div>
+  }
+
+  @if (loading()) {
+  <div class="text-center my-5">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
     </div>
   </div>
+  } @else if (getFilteredUsers().length > 0) {
+  <div class="users-list">
+    @for (user of getFilteredUsers(); track user.id) {
+    <div class="user-item">
+      <div class="user-info">
+        <h5 class="user-name">{{ user.username }}</h5>
+        <span class="badge" [ngClass]="user.isSuperUser ? 'bg-primary' : 'bg-secondary'">
+          {{ user.isSuperUser ? 'Superuser' : 'User' }}
+        </span>
+      </div>
+      <div class="user-actions">
+        @if (!user.isSuperUser) {
+        <button (click)="deleteUser(user.id, user.username)" class="btn btn-sm btn-outline-danger"
+          [disabled]="isDeletingUser()[user.id]" title="Delete user">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+        }
+      </div>
+    </div>
+    }
+  </div>
+  } @else {
+  <div class="alert alert-info">
+    <i class="fa-solid fa-info-circle"></i> No users found.
+  </div>
+  }
 </div>
