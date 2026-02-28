@@ -57,6 +57,8 @@ export class DashboardDesignerComponent implements OnInit {
   dashboardId: string = '';
   dashboard = signal<Dashboard | null>(null);
   orientation = signal<DashboardOrientation>('Landscape');
+  sizePresets: DashboardSizePreset[] = DASHBOARD_SIZE_PRESETS;
+  selectedSizeIndex = 0;
   layout = signal<DashboardLayout>({
     width: DEFAULT_DASHBOARD_SIZE.width,
     height: DEFAULT_DASHBOARD_SIZE.height,
@@ -142,6 +144,9 @@ export class DashboardDesignerComponent implements OnInit {
         const storedOrientation = dashboard.orientation || 'Landscape';
         const screenW = dashboard.screenWidth || DEFAULT_DASHBOARD_SIZE.width;
         const screenH = dashboard.screenHeight || DEFAULT_DASHBOARD_SIZE.height;
+
+        const sizeIdx = this.sizePresets.findIndex(s => s.width === screenW && s.height === screenH);
+        this.selectedSizeIndex = sizeIdx >= 0 ? sizeIdx : 0;
 
         if (dashboard.layoutConfig) {
           const w = dashboard.layoutConfig.width ?? screenW;
@@ -704,28 +709,26 @@ export class DashboardDesignerComponent implements OnInit {
     if (newOrientation === this.orientation()) return;
     this.orientation.set(newOrientation);
 
-    const layout = this.layout();
-    const isCurrentlyLandscape = layout.width >= layout.height;
-    const wantsLandscape = newOrientation === 'Landscape';
+    const size = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
+    const isPortrait = newOrientation === 'Portrait';
 
-    // Only swap if current dimensions don't match the desired orientation
-    if (isCurrentlyLandscape !== wantsLandscape) {
-      this.layout.update(l => ({
-        ...l,
-        width: l.height,
-        height: l.width,
-        gridCols: l.gridRows,
-        gridRows: l.gridCols,
-      }));
-    }
+    this.layout.update(l => ({
+      ...l,
+      width: isPortrait ? size.height : size.width,
+      height: isPortrait ? size.width : size.height,
+      gridCols: l.gridRows,
+      gridRows: l.gridCols,
+    }));
   }
 
-  updateLayoutWidth(width: number): void {
-    this.layout.update(layout => ({ ...layout, width }));
-  }
-
-  updateLayoutHeight(height: number): void {
-    this.layout.update(layout => ({ ...layout, height }));
+  onSizeChange(): void {
+    const size = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
+    const isPortrait = this.orientation() === 'Portrait';
+    this.layout.update(l => ({
+      ...l,
+      width: isPortrait ? size.height : size.width,
+      height: isPortrait ? size.width : size.height,
+    }));
   }
 
   updateLayoutGridCols(gridCols: number): void {

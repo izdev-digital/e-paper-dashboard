@@ -463,8 +463,8 @@ export class DeviceListComponent implements OnInit, OnDestroy {
           this.toastService.success('Dashboard unassigned from device');
         }
       },
-      error: () => {
-        this.toastService.error('Failed to update device');
+      error: (err) => {
+        this.toastService.error(err.error?.message || 'Failed to update device');
       }
     });
   }
