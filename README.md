@@ -6,9 +6,9 @@
 
 <p align="center" style="margin:0 0 20px 0; font-weight:600;">Bring Home Assistant dashboards to an E-Paper display</p>
 <p align="center" style="margin:0 0 16px 0;">
-  <a href="quick-start/QUICK_START.md">Quick Start</a> ·
   <a href="software/README.md">Software</a> ·
-  <a href="firmware/README.md">Firmware</a>
+  <a href="firmware/README.md">Firmware</a> ·
+  <a href="packaging/README.md">Packaging</a>
 </p>
 
 **izBoard** displays your [Home Assistant](https://www.home-assistant.io/) dashboards on a battery-powered E-Paper device. The device automatically fetches updated dashboard images from a server on a schedule you control. The server converts your dashboards into the right format for the display. Because the device only uses power during updates, a single battery charge can last weeks or even months. See examples of the device and real dashboards below.
@@ -20,35 +20,38 @@
 </div>
 
 ## Features
-- Supports Home Assistant dashboard views
-- ESP32-based device pulls rendered images on a schedule
-- Web app to configure the device and schedule updates
-- Long battery life: days to weeks depending on update schedule
-- 7.5" black/white/red E-Paper display
+
+- Visual dashboard designer with multiple widget types
+- Home Assistant integration
+- E-Paper optimized image processing
+- Configurable update schedules with deep sleep for long battery life
+- Secure device pairing and OTA firmware updates
+- Deploy as standalone Docker or Home Assistant Add-on
+- Multi-user support with administration (standalone mode)
 
 ## How It Works
 
 izBoard has three components that work together:
 
-**1. [Firmware](firmware/)** – Runs on the ESP32 device. Connects to the server, fetches dashboard images on schedule, displays them on the E-Paper screen, and goes to sleep to save battery.
+**1. [Firmware](firmware/)** – Runs on the ESP32 device. Connects to the server, fetches dashboard images on a schedule, displays them on the E-Paper screen, and deep-sleeps to save battery. Handles OTA firmware updates, secure device pairing, and initial setup via a captive portal.
 
-**2. [Software](software/)** – Server application that renders your Home Assistant dashboards, converts them to E-Paper format, and serves them via API. Includes a web interface to manage devices and schedules.
+**2. [Software](software/)** – ASP.NET Core server application with an Angular web interface. Renders dashboards as E-Paper-optimized images, manages devices and schedules, and integrates with Home Assistant. Runs in Docker or as a Home Assistant Add-on.
 
 **3. [Packaging](packaging/)** – 3D-printable enclosure designs for the device hardware.
 
-## Quick Start
+## Getting Started
 
-1. **Deploy the software server** using Docker or the [Home Assistant Add-on](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard)
-2. **Flash the firmware** to your ESP32 device with E-Paper display
-3. **Configure** your dashboard URLs and schedules through the web interface
+1. **Deploy the server** using Docker (see [Software README](software/README.md)) or the [Home Assistant Add-on](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard)
+2. **Flash the firmware** to your ESP32 device with an E-Paper display (see [Firmware README](firmware/README.md))
+3. **Pair the device** — power on the ESP32, connect to its setup portal, and enter the pairing code from the web interface
+4. **Create a dashboard** — use the visual designer or connect a Home Assistant dashboard view
+5. **Assign the dashboard** to your device and configure the update schedule
 
-For a step-by-step setup, see the [Quick Start Guide](quick-start/QUICK_START.md).
-
-See individual component READMEs for detailed setup instructions.
+See the individual component READMEs for detailed setup instructions.
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) — see the [LICENSE](LICENSE) file for details.
 
 ### Third-Party License Notice
 
