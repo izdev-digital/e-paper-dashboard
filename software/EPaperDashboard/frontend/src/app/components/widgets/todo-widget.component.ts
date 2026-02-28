@@ -51,11 +51,6 @@ import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout
                   </div>
                 }
               </div>
-            } @else {
-              <div class="empty-state">
-                <i class="fa fa-list-check"></i>
-                <p>No tasks found</p>
-              </div>
             }
           }
         </div>

@@ -44,13 +44,13 @@ import {
   ],
   template: `
     <div class="widget-preview">
-      @if (!dataFetched) {
+      @if (!dataFetched || !hasDataForWidget()) {
         <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'">
           <i class="fa {{ getWidgetIcon() }}" [style.color]="colorScheme.iconColor || colorScheme.accent || 'currentColor'"></i>
           <p>{{ getWidgetLabel() }}</p>
         </div>
       }
-      @if (dataFetched) {
+      @if (dataFetched && hasDataForWidget()) {
       @if (widget.type === 'app-icon') {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
@@ -160,6 +160,61 @@ export class WidgetPreviewComponent {
 
   asTodoConfig(config: any): TodoConfig {
     return config as TodoConfig;
+  }
+
+  hasDataForWidget(): boolean {
+    const type = this.widget.type;
+    const config = this.widget.config as any;
+    const entityId = config?.entityId as string | undefined;
+
+    if (!['header', 'weather', 'weather-forecast', 'graph', 'todo', 'calendar', 'rss-feed'].includes(type)) {
+      return true;
+    }
+
+    if (type === 'header') {
+      const badges = (config?.badges ?? []) as any[];
+      const entityBadges = badges.filter((b: any) => b.entityId?.trim());
+      if (entityBadges.length === 0) return true;
+      return entityBadges.some((b: any) =>
+        this.entityStates && this.entityStates[b.entityId]
+      );
+    }
+
+    if (!entityId) {
+      return false;
+    }
+
+    if (type === 'todo') {
+      return !!(
+        this.entityStates && this.entityStates[entityId] &&
+        this.todoItemsByEntityId && entityId in this.todoItemsByEntityId
+      );
+    }
+
+    if (type === 'calendar') {
+      return !!(
+        this.entityStates && this.entityStates[entityId] &&
+        this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId
+      );
+    }
+
+    if (type === 'rss-feed') {
+      const state = this.entityStates?.[entityId];
+      const attrs = state?.attributes;
+      return !!(attrs && (attrs['title'] || attrs['link'] || attrs['description']));
+    }
+
+    if (type === 'weather') {
+      const state = this.entityStates?.[entityId];
+      return !!(state?.attributes && state.attributes['temperature'] != null);
+    }
+
+    if (type === 'weather-forecast') {
+      const state = this.entityStates?.[entityId];
+      return !!(state?.attributes?.['forecast']);
+    }
+
+    return !!(this.entityStates && this.entityStates[entityId]);
   }
 
   getEntityState(entityId?: string) {

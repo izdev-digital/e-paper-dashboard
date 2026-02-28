@@ -88,11 +88,6 @@ import {
               </div>
             }
             </div>
-          } @else {
-            <div class="empty-state">
-              <i class="fa fa-calendar-days"></i>
-              <p>No upcoming events</p>
-            </div>
           }
         </div>
       }
