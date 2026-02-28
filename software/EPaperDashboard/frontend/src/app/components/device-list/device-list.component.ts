@@ -10,6 +10,7 @@ import { FirmwareService } from '../../services/firmware.service';
 import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
+import { ClipboardService } from '../../services/clipboard.service';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { SearchableSelectComponent, SelectOption } from '../searchable-select/searchable-select.component';
 import { Dashboard } from '../../models/types';
@@ -170,7 +171,7 @@ import { Dashboard } from '../../models/types';
           }
 
           @if (pairingStatus() === 'awaiting_confirmation' || pairingStatus() === 'confirming') {
-            <div class="mt-2 p-3 border rounded bg-white">
+            <div class="mt-2 p-3 border rounded bg-body-tertiary">
               <div class="mb-2">
                 <strong><i class="fa-solid fa-shield-halved"></i> Confirm Pairing</strong>
               </div>
@@ -348,6 +349,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly dialogService = inject(DialogService);
   private readonly toastService = inject(ToastService);
+  private readonly clipboardService = inject(ClipboardService);
   private readonly sanitizer = inject(DomSanitizer);
 
   readonly devices = signal<Device[]>([]);
@@ -502,13 +504,15 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.stopPairingStatusPolling();
   }
 
-  copyPairingCode(): void {
+  async copyPairingCode(): Promise<void> {
     const code = this.pairingCode();
     if (!code) return;
-    navigator.clipboard.writeText(code).then(() => {
+
+    const success = await this.clipboardService.copy(code);
+    if (success) {
       this.pairingCodeCopied.set(true);
       setTimeout(() => this.pairingCodeCopied.set(false), 2000);
-    });
+    }
   }
 
   refreshFirmware(): void {
