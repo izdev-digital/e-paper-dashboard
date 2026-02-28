@@ -80,8 +80,6 @@ public class DashboardSsrController(
     [HttpGet("{id}/preview")]
     public async Task<IActionResult> PreviewDashboard(
         string id,
-        [FromQuery] int width = 800,
-        [FromQuery] int height = 480,
         [FromQuery] string format = "png")
     {
         if (!DashboardId.TryParse(id, out var dashboardId))
@@ -94,6 +92,7 @@ public class DashboardSsrController(
         if (dashboard.Value.UserId != CurrentUserId)
             return Forbid();
 
+        var (width, height) = dashboard.Value.GetEffectiveSize();
         var imageSize = new Size(width, height);
 
         if (dashboard.Value.RenderingMode == RenderingMode.Custom)

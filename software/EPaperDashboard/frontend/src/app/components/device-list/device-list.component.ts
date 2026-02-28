@@ -248,13 +248,19 @@ import { Dashboard } from '../../models/types';
                 <i class="fa-solid fa-calendar"></i>
                 <span>Paired: {{ device.pairedAt | date:'mediumDate' }}</span>
               </div>
+              @if (device.screenWidth && device.screenHeight) {
+                <div class="device-meta-item">
+                  <i class="fa-solid fa-expand"></i>
+                  <span>Screen: {{ device.screenWidth }}×{{ device.screenHeight }}</span>
+                </div>
+              }
             </div>
             <div class="mt-2 d-flex align-items-center gap-2">
               <i class="fa-solid fa-display text-muted"></i>
               <label class="small text-muted mb-0">Dashboard:</label>
               <app-searchable-select
                 class="dashboard-select"
-                [options]="dashboardOptions()"
+                [options]="compatibleDashboardOptions(device)"
                 [value]="device.dashboardId || ''"
                 emptyLabel="— No dashboard assigned —"
                 searchPlaceholder="Search dashboards..."
@@ -372,6 +378,16 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly dashboardOptions = computed<SelectOption[]>(() =>
     this.dashboards().map(d => ({ value: d.id, label: d.name }))
   );
+
+  compatibleDashboardOptions(device: Device): SelectOption[] {
+    const allDashboards = this.dashboards();
+    if (!device.screenWidth || !device.screenHeight) {
+      return allDashboards.map(d => ({ value: d.id, label: d.name }));
+    }
+    return allDashboards
+      .filter(d => d.screenWidth === device.screenWidth && d.screenHeight === device.screenHeight)
+      .map(d => ({ value: d.id, label: d.name }));
+  }
 
   readonly deviceUpdateSummary = computed(() => {
     const fw = this.firmwareInfo();

@@ -9,7 +9,7 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService, Device } from '../../services/device.service';
-import { Dashboard, DashboardOrientation } from '../../models/types';
+import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFAULT_DASHBOARD_SIZE } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
@@ -195,6 +195,15 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
 
                 @if (previewModeValue === 'homeassistant') {
                 <div class="mb-3">
+                  <label class="form-label fw-semibold">Screen Size</label>
+                  <select class="form-select" [(ngModel)]="selectedSizeIndex" [ngModelOptions]="{standalone: true}" (change)="onSizeChange()">
+                    @for (size of sizePresets; track size.label; let i = $index) {
+                      <option [ngValue]="i">{{ size.label }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="mb-3">
                   <label class="form-label fw-semibold">Orientation</label>
                   <div class="btn-group d-flex" role="group">
                     <input type="radio" class="btn-check" name="orientationMode" id="landscapeMode" value="Landscape" [(ngModel)]="orientationValue" [ngModelOptions]="{standalone: true}" (change)="onOrientationChange()" />
@@ -330,6 +339,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   newUpdateTime: string = '';
   previewModeValue: 'ssr' | 'homeassistant' = 'ssr';
   orientationValue: DashboardOrientation = 'Landscape';
+  sizePresets: DashboardSizePreset[] = DASHBOARD_SIZE_PRESETS;
+  selectedSizeIndex = 0;
   private previewObjectUrl: string | null = null;
   private oauthProcessed = false;
   private oauthToken: string | null = null;
@@ -391,6 +402,11 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         this.previewMode.set(this.previewModeValue);
 
         this.orientationValue = dashboard.orientation || 'Landscape';
+
+        const sizeIdx = this.sizePresets.findIndex(
+          s => s.width === dashboard.screenWidth && s.height === dashboard.screenHeight
+        );
+        this.selectedSizeIndex = sizeIdx >= 0 ? sizeIdx : 0;
 
         this.isLoading.set(false);
 
@@ -562,6 +578,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
     this.isSaving.set(true);
 
     const formValue = this.dashboardForm.getRawValue();
+    const selectedSize = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
     const updatePayload: any = {
       name: formValue.name || undefined,
       description: formValue.description || undefined,
@@ -569,7 +586,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       path: formValue.path || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
       renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
-      orientation: this.orientationValue
+      orientation: this.orientationValue,
+      screenWidth: selectedSize.width,
+      screenHeight: selectedSize.height
     };
 
     if (formValue.accessToken?.trim().length > 0) {
@@ -649,6 +668,10 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   onOrientationChange(): void {
+    this.dashboardForm.markAsDirty();
+  }
+
+  onSizeChange(): void {
     this.dashboardForm.markAsDirty();
   }
 
@@ -765,9 +788,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       this.previewObjectUrl = null;
     }
 
-    const previewWidth = this.orientationValue === 'Portrait' ? 480 : 800;
-    const previewHeight = this.orientationValue === 'Portrait' ? 800 : 480;
-    const url = `/api/dashboards/${currentDashboard.id}/preview?width=${previewWidth}&height=${previewHeight}&format=png`;
+    const url = `/api/dashboards/${currentDashboard.id}/preview?format=png`;
 
     this.http.get(url, {
       responseType: 'blob'

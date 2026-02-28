@@ -20,6 +20,24 @@ export interface RegisterRequest {
 
 export type DashboardOrientation = 'Landscape' | 'Portrait';
 
+export interface DashboardSizePreset {
+  width: number;
+  height: number;
+  label: string;
+}
+
+export const DASHBOARD_SIZE_PRESETS: DashboardSizePreset[] = [
+  { width: 800, height: 480, label: '7.5" E-Paper (800×480)' }
+];
+
+export const DEFAULT_DASHBOARD_SIZE = DASHBOARD_SIZE_PRESETS[0];
+
+export function isDashboardSizeValid(width: number, height: number): boolean {
+  const w = Math.max(width, height);
+  const h = Math.min(width, height);
+  return DASHBOARD_SIZE_PRESETS.some(s => s.width === w && s.height === h);
+}
+
 export interface Dashboard {
   id: string;
   userId: string;
@@ -32,12 +50,16 @@ export interface Dashboard {
   layoutConfig?: DashboardLayout;
   renderingMode?: 'Custom' | 'HomeAssistant';
   orientation?: DashboardOrientation;
+  screenWidth: number;
+  screenHeight: number;
 }
 
 export interface CreateDashboardRequest {
   name: string;
   description?: string;
   orientation?: DashboardOrientation;
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 export interface UpdateDashboardRequest {
@@ -51,6 +73,8 @@ export interface UpdateDashboardRequest {
   layoutConfig?: DashboardLayout;
   renderingMode?: 'Custom' | 'HomeAssistant';
   orientation?: DashboardOrientation;
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 

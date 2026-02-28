@@ -54,7 +54,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
   _logger.println("Connecting to the remote server...");
 
   _network.setTimeout(5000);
-  if (!_network.sendGetRequest("/api/render/binary?width=800&height=480", config))
+  if (!_network.sendGetRequest("/api/render/binary", config))
   {
     _logger.println("Failed to connect to the remote server...");
     return;
@@ -136,7 +136,7 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
   String macAddress = WiFi.macAddress();
   String deviceName = "izBoard-" + macAddress.substring(macAddress.length() - 8);
 
-  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"" + deviceName + "\"}";
+  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"" + deviceName + "\",\"screenWidth\":" + String(DisplayConst::Width) + ",\"screenHeight\":" + String(DisplayConst::Height) + "}";
 
   String postRequest = "POST /api/pairing/complete HTTP/1.1\r\n";
   postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";

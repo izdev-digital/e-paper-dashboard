@@ -30,5 +30,18 @@ namespace EPaperDashboard.Models
         public DateTimeOffset? LastUpdateTime { get; set; }
         public RenderingMode RenderingMode { get; set; } = RenderingMode.Custom;
         public DashboardOrientation Orientation { get; set; } = DashboardOrientation.Landscape;
+
+        public int ScreenWidth { get; set; } = DashboardSizePreset.Default.Width;
+
+        public int ScreenHeight { get; set; } = DashboardSizePreset.Default.Height;
+
+        public (int Width, int Height) GetEffectiveSize()
+        {
+            var w = ScreenWidth > 0 ? ScreenWidth : DashboardSizePreset.Default.Width;
+            var h = ScreenHeight > 0 ? ScreenHeight : DashboardSizePreset.Default.Height;
+            return Orientation == DashboardOrientation.Portrait
+                ? (h, w)
+                : (w, h);
+        }
     }
 }

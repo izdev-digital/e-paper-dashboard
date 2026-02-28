@@ -11,6 +11,8 @@ export interface Device {
   pairedAt: string;
   lastSeenAt?: string;
   firmwareVersion?: string;
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 export interface UpdateDeviceRequest {
