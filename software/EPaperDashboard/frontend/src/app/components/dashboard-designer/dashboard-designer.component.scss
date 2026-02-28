@@ -247,7 +247,6 @@
   width: 100%;
   overflow: auto;
   display: flex;
-  justify-content: center;
   align-items: flex-start;
   min-height: 600px;
   max-height: calc(100vh - 155px);
@@ -262,7 +261,7 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 .dashboard-canvas {
   border: 2px solid var(--bs-border-color, #ccc);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin: 20px 0;
+  margin: 20px auto;
   display: grid;
 }
 

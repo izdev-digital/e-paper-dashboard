@@ -44,13 +44,13 @@ import {
   ],
   template: `
     <div class="widget-preview">
-      @if (!dataFetched) {
+      @if (!dataFetched || !hasDataForWidget()) {
         <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'">
           <i class="fa {{ getWidgetIcon() }}" [style.color]="colorScheme.iconColor || colorScheme.accent || 'currentColor'"></i>
           <p>{{ getWidgetLabel() }}</p>
         </div>
       }
-      @if (dataFetched) {
+      @if (dataFetched && hasDataForWidget()) {
       @if (widget.type === 'app-icon') {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
@@ -160,6 +160,47 @@ export class WidgetPreviewComponent {
 
   asTodoConfig(config: any): TodoConfig {
     return config as TodoConfig;
+  }
+
+  /**
+   * Returns true if the widget has the data it needs to render meaningfully.
+   * Widgets that don't require entity data always return true.
+   * Entity-dependent widgets use the same checks as their own isDataFetched() guards.
+   */
+  hasDataForWidget(): boolean {
+    const type = this.widget.type;
+    const entityId = (this.widget.config as any)?.entityId as string | undefined;
+
+    // Widgets with no entity dependency always render.
+    if (!['weather', 'weather-forecast', 'graph', 'todo', 'calendar', 'rss-feed'].includes(type)) {
+      return true;
+    }
+
+    // No entity configured → widget renders its own empty state.
+    if (!entityId) {
+      return true;
+    }
+
+    // todo: data is ready when the entity state exists (entity found in HA) AND the
+    // todoItemsByEntityId map contains the key. The fetch always writes an empty array
+    // on both success and error, so the key alone can't distinguish "no tasks" from
+    // "entity not found" – the entity state presence is the reliable gate.
+    if (type === 'todo') {
+      return !!(
+        this.entityStates && this.entityStates[entityId] &&
+        this.todoItemsByEntityId && entityId in this.todoItemsByEntityId
+      );
+    }
+
+    // rss-feed: data is ready when the entity state has the RSS-specific attributes.
+    if (type === 'rss-feed') {
+      const state = this.entityStates?.[entityId];
+      const attrs = state?.attributes;
+      return !!(attrs && (attrs['title'] || attrs['link'] || attrs['description']));
+    }
+
+    // weather, weather-forecast, graph, calendar: ready when entity state is present.
+    return !!(this.entityStates && this.entityStates[entityId]);
   }
 
   getEntityState(entityId?: string) {
