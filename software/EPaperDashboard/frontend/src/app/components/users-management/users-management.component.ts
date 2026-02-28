@@ -1,6 +1,6 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
@@ -8,7 +8,7 @@ import { DialogService } from '../../services/dialog.service';
 @Component({
   selector: 'app-users-management',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './users-management.component.html',
   styleUrls: ['./users-management.component.scss']
 })
@@ -19,19 +19,6 @@ export class UsersManagementComponent implements OnInit {
   readonly showAddForm = signal(false);
   readonly isAddingUser = signal(false);
   readonly isDeletingUser = signal<{ [key: string]: boolean }>({});
-  readonly searchQuery = signal('');
-
-  // Computed signals
-  readonly filteredUsers = computed(() => {
-    const query = this.searchQuery();
-    const usersList = this.users();
-    if (!query) {
-      return usersList;
-    }
-    return usersList.filter(u =>
-      u.username.toLowerCase().includes(query.toLowerCase())
-    );
-  });
 
   addUserForm: FormGroup;
 
@@ -133,7 +120,7 @@ export class UsersManagementComponent implements OnInit {
   }
 
   getFilteredUsers(): any[] {
-    return this.filteredUsers();
+    return this.users();
   }
 
   toggleAddForm(): void {
