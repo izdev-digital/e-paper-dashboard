@@ -49,3 +49,7 @@ See individual component READMEs for detailed setup instructions.
 ## License
 
 This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+### Third-Party License Notice
+
+This software uses [SixLabors.ImageSharp](https://github.com/SixLabors/ImageSharp), which is subject to the [Six Labors Split License](https://www.sixlabors.com/pricing/). Commercial entities with gross annual revenue exceeding $1M USD may require a separate commercial license from Six Labors. See https://sixlabors.com/pricing/ for details.
