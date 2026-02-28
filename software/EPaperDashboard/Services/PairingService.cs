@@ -8,7 +8,6 @@ namespace EPaperDashboard.Services;
 public sealed class PairingService(IPairingSessionRepository pairingSessionRepository)
 {
     private const int CodeLength = 6;
-    private const int PinLength = 4;
     private const int ExpiryMinutes = 5;
     public const int MaxFailedAttempts = 5;
 
@@ -18,7 +17,6 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
         {
             UserId = userId,
             Code = GenerateCode(),
-            ConfirmationPin = GeneratePin(),
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(ExpiryMinutes),
             Status = PairingStatus.Pending,
@@ -32,55 +30,28 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     public Maybe<PairingSession> GetPairingSessionByCode(string code) =>
         pairingSessionRepository.FindByCode(code);
 
-    public Maybe<PairingSession> GetPairingSessionById(PairingSessionId id) =>
-        pairingSessionRepository.FindById(id);
-
-    public void SetAwaitingConfirmation(PairingSessionId sessionId, string deviceIdentifier, int? screenWidth = null, int? screenHeight = null)
+    public Maybe<PairingSession> RegisterDevice(string code, string deviceIdentifier, int? screenWidth = null, int? screenHeight = null)
     {
-        var session = pairingSessionRepository.FindById(sessionId);
-        session.Execute(s =>
+        var session = pairingSessionRepository.FindByCode(code);
+        if (session.HasNoValue)
         {
-            s.DeviceIdentifier = deviceIdentifier;
-            s.Status = PairingStatus.AwaitingConfirmation;
-            if (screenWidth.HasValue && screenHeight.HasValue)
-            {
-                s.ScreenWidth = Math.Max(screenWidth.Value, screenHeight.Value);
-                s.ScreenHeight = Math.Min(screenWidth.Value, screenHeight.Value);
-            }
-            pairingSessionRepository.Update(s);
-        });
-    }
+            return Maybe<PairingSession>.None;
+        }
 
-    public void ConfirmPairingSession(PairingSessionId sessionId)
-    {
-        var session = pairingSessionRepository.FindById(sessionId);
-        session.Execute(s =>
-        {
-            s.Status = PairingStatus.Confirmed;
-            s.ApiKey = Guid.NewGuid().ToString("N");
-            pairingSessionRepository.Update(s);
-        });
-    }
+        var s = session.Value;
+        s.DeviceIdentifier = deviceIdentifier;
+        s.ApiKey = Guid.NewGuid().ToString("N");
+        s.Status = PairingStatus.Completed;
+        s.IsCompleted = true;
 
-    public void CompletePairingSession(PairingSessionId sessionId)
-    {
-        var session = pairingSessionRepository.FindById(sessionId);
-        session.Execute(s =>
+        if (screenWidth.HasValue && screenHeight.HasValue)
         {
-            s.IsCompleted = true;
-            s.Status = PairingStatus.Completed;
-            pairingSessionRepository.Update(s);
-        });
-    }
+            s.ScreenWidth = Math.Max(screenWidth.Value, screenHeight.Value);
+            s.ScreenHeight = Math.Min(screenWidth.Value, screenHeight.Value);
+        }
 
-    public void IncrementFailedAttempts(PairingSessionId sessionId)
-    {
-        var session = pairingSessionRepository.FindById(sessionId);
-        session.Execute(s =>
-        {
-            s.FailedAttempts++;
-            pairingSessionRepository.Update(s);
-        });
+        pairingSessionRepository.Update(s);
+        return s;
     }
 
     public void CleanupExpiredSessions() =>
@@ -100,17 +71,5 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
         }
 
         return new string(code);
-    }
-
-    private static string GeneratePin()
-    {
-        var pin = new char[PinLength];
-
-        for (int i = 0; i < PinLength; i++)
-        {
-            pin[i] = (char)('0' + RandomNumberGenerator.GetInt32(10));
-        }
-
-        return new string(pin);
     }
 }

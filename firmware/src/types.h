@@ -9,6 +9,7 @@ struct DeviceConfig {
   int devicePort;
   String dashboardApiKey;
   String pairingCode;
+  bool useHttps;
 };
 
 struct ResponseHeaders {

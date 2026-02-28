@@ -42,6 +42,7 @@ namespace StorageKey {
   constexpr const char* DevicePort = "devport";
   constexpr const char* DashboardApiKey = "apikey";
   constexpr const char* PairingCode = "paircode";
+  constexpr const char* UseHttps = "usehttps";
   constexpr const char* OtaFailVersion = "otafailv";
   constexpr const char* OtaFailCount = "otafailc";
 }

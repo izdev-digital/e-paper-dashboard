@@ -64,6 +64,7 @@ void SetupPortal::run()
             .flex-grow-1 { flex-grow: 1; }
             .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #fff; border-right-color: transparent; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: .5rem; }
             .icon { display: block; margin: 0 auto 1rem; width: 64px; height: 64px; }
+            .form-text { display: block; margin-top: .25rem; font-size: .875em; color: #6c757d; }
             @keyframes spin { to { transform: rotate(360deg); } }
         </style>
     </head>
@@ -96,17 +97,13 @@ void SetupPortal::run()
                 </div>
 
                 <div class="card mb-3">
-                    <div class="card-header">Dashboard Provider</div>
+                    <div class="card-header">Dashboard</div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="dashboard_url" class="form-label">Server Address</label>
-                            <input type="text" class="form-control" name="dashboard_url" id="dashboard_url"
-                                placeholder="e.g. 192.168.1.100 or homeassistant.local">
-                        </div>
-                        <div class="mb-3">
-                            <label for="device_port" class="form-label">Device Port</label>
-                            <input type="text" class="form-control" name="device_port" id="device_port"
-                                placeholder="Enter device port ..." value="8129">
+                            <label for="server_url" class="form-label">Server URL</label>
+                            <input type="text" class="form-control" name="server_url" id="server_url"
+                                placeholder="e.g. http://192.168.1.100:8129 or https://my.server.com">
+                            <div class="form-text">Full URL including protocol and port</div>
                         </div>
                         <div class="mb-3">
                             <label for="pairing_code" class="form-label">Pairing Code</label>
@@ -184,18 +181,15 @@ void SetupPortal::run()
 
   const int STATE_IDLE = 0;
   const int STATE_CONNECTING_WIFI = 1;
-  const int STATE_PAIRING = 2;
-  const int STATE_AWAITING_CONFIRMATION = 3;
-  const int STATE_SUCCESS = 4;
-  const int STATE_FAILED = 5;
+  const int STATE_REGISTERING = 2;
+  const int STATE_SUCCESS = 3;
+  const int STATE_FAILED = 4;
 
   int pairingState = STATE_IDLE;
   String pairingError;
   DeviceConfig pendingConfig;
   int wifiRetries = 0;
   unsigned long successTimestamp = 0;
-  unsigned long lastPollTimestamp = 0;
-  int pollRetries = 0;
 
   const char *progressHtml = R"rawliteral(
     <!DOCTYPE html>
@@ -221,7 +215,7 @@ void SetupPortal::run()
         <div class="container mt-5">
             <h2 class="text-center">izBoard Setup</h2>
             <div class="card">
-                <div class="card-header">Pairing Progress</div>
+                <div class="card-header">Registration Progress</div>
                 <div class="card-body text-center" id="content">
                     <div><span class="spinner"></span> Connecting to WiFi...</div>
                 </div>
@@ -233,15 +227,13 @@ void SetupPortal::run()
                     var el = document.getElementById('content');
                     if (d.state === 'connecting_wifi') {
                         el.innerHTML = '<div><span class="spinner"></span> Connecting to WiFi...</div>';
-                    } else if (d.state === 'pairing') {
-                        el.innerHTML = '<div><span class="spinner"></span> Submitting pairing code...</div>';
-                    } else if (d.state === 'awaiting_confirmation') {
-                        el.innerHTML = '<div><span class="spinner"></span> Waiting for confirmation in dashboard...<br><br><strong>Check your device screen for the PIN.</strong></div>';
+                    } else if (d.state === 'registering') {
+                        el.innerHTML = '<div><span class="spinner"></span> Registering with server...</div>';
                     } else if (d.state === 'success') {
-                        el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Paired successfully! Rebooting...</div>';
+                        el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Registered successfully! Rebooting...</div>';
                         return;
                     } else if (d.state === 'failed') {
-                        el.innerHTML = '<div style="color:#dc3545;font-weight:500">&#10007; ' + (d.error || 'Pairing failed') + '</div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        el.innerHTML = '<div style="color:#dc3545;font-weight:500">&#10007; ' + (d.error || 'Registration failed') + '</div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
                         return;
                     }
                     setTimeout(poll, 1500);
@@ -258,40 +250,67 @@ void SetupPortal::run()
             {
     const String ssidParam{ "ssid" };
     const String passParam{ "password" };
-    const String urlParam{ "dashboard_url" };
-    const String devicePortParam{ "device_port" };
+    const String urlParam{ "server_url" };
     const String pairingCodeParam{ "pairing_code" };
 
     if (!server.hasArg(ssidParam) || !server.hasArg(passParam) || !server.hasArg(urlParam) ||
-        !server.hasArg(devicePortParam) || !server.hasArg(pairingCodeParam)) {
+        !server.hasArg(pairingCodeParam)) {
       server.send(400, "text/html", htmlForm);
       return;
     }
 
     const String ssid{ server.arg(ssidParam) };
     const String pass{ server.arg(passParam) };
-    String url{ server.arg(urlParam) };
-    const int devicePort{ server.arg(devicePortParam).toInt() };
+    String rawUrl{ server.arg(urlParam) };
     const String pairingCode{ server.arg(pairingCodeParam) };
 
-    int schemaEnd = url.indexOf("://");
-    if (schemaEnd > 0)
+    // Parse server URL: supports http://host:port, https://host:port, host:port, host
+    bool useHttps = false;
+    String host;
+    int port;
+
+    rawUrl.trim();
+    if (rawUrl.startsWith("https://"))
     {
-      url = url.substring(schemaEnd + 3);
+      useHttps = true;
+      rawUrl = rawUrl.substring(8);
     }
-    int slashIdx = url.indexOf('/');
-    if (slashIdx > 0)
+    else if (rawUrl.startsWith("http://"))
     {
-      url = url.substring(0, slashIdx);
-    }
-    int colonIdx = url.indexOf(':');
-    if (colonIdx > 0)
-    {
-      url = url.substring(0, colonIdx);
+      rawUrl = rawUrl.substring(7);
     }
 
-    pendingConfig = { ssid, pass, url, devicePort, "", pairingCode };
+    int slashIdx = rawUrl.indexOf('/');
+    if (slashIdx > 0)
+    {
+      rawUrl = rawUrl.substring(0, slashIdx);
+    }
+
+    int colonIdx = rawUrl.indexOf(':');
+    if (colonIdx > 0)
+    {
+      host = rawUrl.substring(0, colonIdx);
+      port = rawUrl.substring(colonIdx + 1).toInt();
+    }
+    else
+    {
+      host = rawUrl;
+      port = useHttps ? 443 : 80;
+    }
+
+    if (host.length() == 0 || port <= 0)
+    {
+      server.send(400, "text/html", htmlForm);
+      return;
+    }
+
+    pendingConfig = { ssid, pass, host, port, "", pairingCode, useHttps };
     _logger.println("Received configuration, starting WiFi connection...");
+    _logger.print("Server: ");
+    _logger.print(useHttps ? "https://" : "http://");
+    _logger.print(host);
+    _logger.print(":");
+    _logger.println(port);
 
     wifiRetries = 0;
     pairingState = STATE_CONNECTING_WIFI;
@@ -303,12 +322,11 @@ void SetupPortal::run()
 
   server.on("/pairing-status", HTTP_GET, [&server,
       &pairingState, &pairingError,
-      STATE_IDLE, STATE_CONNECTING_WIFI, STATE_PAIRING, STATE_AWAITING_CONFIRMATION, STATE_SUCCESS, STATE_FAILED]()
+      STATE_IDLE, STATE_CONNECTING_WIFI, STATE_REGISTERING, STATE_SUCCESS, STATE_FAILED]()
             {
     String state;
     if (pairingState == STATE_CONNECTING_WIFI) state = "connecting_wifi";
-    else if (pairingState == STATE_PAIRING) state = "pairing";
-    else if (pairingState == STATE_AWAITING_CONFIRMATION) state = "awaiting_confirmation";
+    else if (pairingState == STATE_REGISTERING) state = "registering";
     else if (pairingState == STATE_SUCCESS) state = "success";
     else if (pairingState == STATE_FAILED) state = "failed";
     else state = "idle";
@@ -342,8 +360,6 @@ void SetupPortal::run()
   _logger.println("HTTP server started");
 
   constexpr int maxWifiRetries = 40; // 20 seconds at 500ms intervals
-  constexpr int maxPollRetries = 120; // ~4 minutes at 2s intervals
-  constexpr unsigned long pollIntervalMs = 2000;
 
   while (true)
   {
@@ -357,24 +373,25 @@ void SetupPortal::run()
         _logger.println("WiFi connected in AP+STA mode");
         _logger.print("STA IP: ");
         _logger.println(WiFi.localIP());
-        _logger.println("Submitting pairing code...");
-        pairingState = STATE_PAIRING;
+        _logger.println("Registering with server...");
+        pairingState = STATE_REGISTERING;
 
-        String confirmationPin;
-        if (_deviceApi.pairWithDashboard(pendingConfig.pairingCode,
-                pendingConfig.dashboardUrl, pendingConfig.devicePort, confirmationPin))
+        String apiKey;
+        if (_deviceApi.registerWithDashboard(pendingConfig.pairingCode,
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps, apiKey))
         {
-          _logger.println("Pairing code accepted, showing PIN on display: " + confirmationPin);
-          _display.showConfirmationPin(confirmationPin);
-          pairingState = STATE_AWAITING_CONFIRMATION;
-          lastPollTimestamp = millis();
-          pollRetries = 0;
+          pendingConfig.dashboardApiKey = apiKey;
+          pendingConfig.pairingCode = "";
+          _configStore.save(pendingConfig);
+          _logger.println("Registration successful, API key received!");
+          pairingState = STATE_SUCCESS;
+          successTimestamp = millis();
         }
         else
         {
-          _logger.println("Pairing code submission failed");
+          _logger.println("Registration failed");
           pairingState = STATE_FAILED;
-          pairingError = "Pairing failed - check the pairing code";
+          pairingError = "Registration failed - check the server URL and pairing code";
           WiFi.mode(WIFI_AP);
           WiFi.softAP(apName.c_str());
           _display.showWelcomePage(apIP, macAddress, apName);
@@ -387,37 +404,6 @@ void SetupPortal::run()
         pairingError = "WiFi connection failed";
         WiFi.mode(WIFI_AP);
         WiFi.softAP(apName.c_str());
-      }
-    }
-    else if (pairingState == STATE_AWAITING_CONFIRMATION)
-    {
-      if (millis() - lastPollTimestamp >= pollIntervalMs)
-      {
-        lastPollTimestamp = millis();
-        pollRetries++;
-
-        String apiKey;
-        if (_deviceApi.pollForApiKey(pendingConfig.pairingCode,
-                pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
-        {
-          pendingConfig.dashboardApiKey = apiKey;
-          pendingConfig.pairingCode = "";
-          _configStore.save(pendingConfig);
-          _logger.println("Pairing confirmed and API key received!");
-          pairingState = STATE_SUCCESS;
-          successTimestamp = millis();
-          WiFi.mode(WIFI_AP);
-          WiFi.softAP(apName.c_str());
-        }
-        else if (pollRetries >= maxPollRetries)
-        {
-          _logger.println("Pairing confirmation timed out");
-          pairingState = STATE_FAILED;
-          pairingError = "Timed out waiting for confirmation in dashboard";
-          WiFi.mode(WIFI_AP);
-          WiFi.softAP(apName.c_str());
-          _display.showWelcomePage(apIP, macAddress, apName);
-        }
       }
     }
     else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 3000)

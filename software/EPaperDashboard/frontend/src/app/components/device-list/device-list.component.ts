@@ -163,41 +163,11 @@ import { Dashboard } from '../../models/types';
             </button>
           </div>
 
-          @if (pairingStatus() === 'pending') {
-            <div class="text-muted small">
-              <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
-              <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device web interface</div>
-            </div>
-          }
-
-          @if (pairingStatus() === 'awaiting_confirmation' || pairingStatus() === 'confirming') {
-            <div class="mt-2 p-3 border rounded bg-body-tertiary">
-              <div class="mb-2">
-                <strong><i class="fa-solid fa-shield-halved"></i> Confirm Pairing</strong>
-              </div>
-              @if (pairingDeviceIdentifier()) {
-                <div class="mb-2 small">
-                  <i class="fa-solid fa-fingerprint"></i> Device: <code>{{ pairingDeviceIdentifier() }}</code>
-                </div>
-              }
-              <div class="mb-2 small text-muted">
-                Verify this PIN matches the one shown on your device screen:
-              </div>
-              <div class="fs-2 font-monospace fw-bold text-danger text-center my-3">{{ pairingConfirmationPin() }}</div>
-              <button class="btn btn-success w-100"
-                (click)="confirmPairing()"
-                [disabled]="pairingStatus() === 'confirming'">
-                <i class="fa-solid" [ngClass]="pairingStatus() === 'confirming' ? 'fa-spinner fa-spin' : 'fa-check'"></i>
-                {{ pairingStatus() === 'confirming' ? 'Confirming...' : 'PINs Match - Confirm Pairing' }}
-              </button>
-            </div>
-          }
-
-          @if (pairingStatus() === 'pending') {
-            <div class="text-muted small">
-              <i class="fa-solid fa-spinner fa-spin"></i> Waiting for device to submit pairing code...
-            </div>
-          }
+          <div class="text-muted small">
+            <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
+            <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device setup page along with the server URL</div>
+            <div class="mt-1"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for device to register...</div>
+          </div>
         </div>
       </div>
     }
@@ -364,9 +334,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   readonly isPairingActive = signal(false);
   readonly pairingCode = signal('');
-  readonly pairingConfirmationPin = signal('');
-  readonly pairingDeviceIdentifier = signal('');
-  readonly pairingStatus = signal<'pending' | 'awaiting_confirmation' | 'confirming' | 'confirmed'>('pending');
+  readonly pairingStatus = signal<'pending' | 'completed'>('pending');
   readonly pairingTimeRemaining = signal(0);
   readonly isStartingPairing = signal(false);
   readonly pairingCodeCopied = signal(false);
@@ -494,7 +462,6 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.deviceService.startPairing().subscribe({
       next: (response) => {
         this.pairingCode.set(response.code);
-        this.pairingConfirmationPin.set(response.confirmationPin);
         this.pairingStatus.set('pending');
         this.pairingExpiresAt = new Date(response.expiresAt);
         this.isPairingActive.set(true);
@@ -512,8 +479,6 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   cancelPairing(): void {
     this.isPairingActive.set(false);
     this.pairingCode.set('');
-    this.pairingConfirmationPin.set('');
-    this.pairingDeviceIdentifier.set('');
     this.pairingStatus.set('pending');
     this.pairingCodeCopied.set(false);
     this.stopPairingTimer();
@@ -573,10 +538,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
       if (!code) return;
       this.deviceService.getPairingStatus(code).subscribe({
         next: (response) => {
-          if (response.status === 'awaiting_confirmation' && this.pairingStatus() === 'pending') {
-            this.pairingDeviceIdentifier.set(response.deviceIdentifier || '');
-            this.pairingStatus.set('awaiting_confirmation');
-          } else if (response.status === 'confirmed' || response.status === 'completed') {
+          if (response.status === 'confirmed' || response.status === 'completed') {
             this.stopPairingStatusPolling();
             this.cancelPairing();
             this.loadDevices();
@@ -592,25 +554,6 @@ export class DeviceListComponent implements OnInit, OnDestroy {
       clearInterval(this.pairingStatusTimer);
       this.pairingStatusTimer = null;
     }
-  }
-
-  confirmPairing(): void {
-    const code = this.pairingCode();
-    if (!code) return;
-    this.pairingStatus.set('confirming');
-    this.deviceService.confirmPairing(code).subscribe({
-      next: () => {
-        this.pairingStatus.set('confirmed');
-        this.stopPairingStatusPolling();
-        this.cancelPairing();
-        this.loadDevices();
-        this.toastService.success('Device paired successfully!');
-      },
-      error: () => {
-        this.pairingStatus.set('awaiting_confirmation');
-        this.toastService.error('Failed to confirm pairing');
-      }
-    });
   }
 
   private updatePairingTimeRemaining(): void {
