@@ -121,7 +121,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
   _network.close();
 }
 
-bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, String& apiKey)
+bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, String& confirmationPin)
 {
   _logger.println("Starting pairing process...");
 
@@ -133,7 +133,91 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
     return false;
   }
 
-  _logger.println("Connected to pairing server, polling for API key...");
+  String macAddress = WiFi.macAddress();
+  String deviceName = "izBoard-" + macAddress.substring(macAddress.length() - 8);
+
+  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"" + deviceName + "\"}";
+
+  String postRequest = "POST /api/pairing/complete HTTP/1.1\r\n";
+  postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
+  postRequest += "Content-Type: application/json\r\n";
+  postRequest += "Content-Length: " + String(jsonBody.length()) + "\r\n";
+  postRequest += "Connection: close\r\n\r\n";
+  postRequest += jsonBody;
+
+  _network.send(postRequest);
+
+  bool statusOk = false;
+  while (_network.connected() || _network.available())
+  {
+    String line = _network.readStringUntil('\n');
+    _logger.println(line);
+
+    if (!statusOk)
+    {
+      statusOk = line.startsWith("HTTP/1.1 200");
+    }
+
+    if (line == "\r")
+    {
+      break;
+    }
+  }
+
+  if (!statusOk)
+  {
+    _logger.println("Pairing complete request failed");
+    _network.close();
+    return false;
+  }
+
+  String response = "";
+  while (_network.connected() || _network.available())
+  {
+    String line = _network.readStringUntil('\n');
+    line.trim();
+    if (line.startsWith("{"))
+    {
+      response = line;
+      break;
+    }
+  }
+  _network.close();
+
+  _logger.println("Response: " + response);
+
+  int pinStart = response.indexOf("\"confirmationPin\":\"");
+  if (pinStart == -1)
+  {
+    _logger.println("Confirmation PIN not found in response");
+    return false;
+  }
+
+  pinStart += 19;
+  int pinEnd = response.indexOf("\"", pinStart);
+  if (pinEnd == -1)
+  {
+    _logger.println("Confirmation PIN end not found");
+    return false;
+  }
+
+  confirmationPin = response.substring(pinStart, pinEnd);
+  _logger.println("Received confirmation PIN: " + confirmationPin);
+
+  return true;
+}
+
+bool DeviceApi::pollForApiKey(const String& pairingCode, const String& dashboardUrl, int devicePort, String& apiKey)
+{
+  _logger.println("Polling for API key...");
+
+  _network.setTimeout(5000);
+
+  if (!_network.connectTo(dashboardUrl, devicePort))
+  {
+    _logger.println("Failed to connect for polling");
+    return false;
+  }
 
   String request = "GET /api/pairing/poll?code=" + pairingCode + " HTTP/1.1\r\n";
   request += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
@@ -160,7 +244,7 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
 
   if (!statusOk)
   {
-    _logger.println("Pairing request failed");
+    _logger.println("Poll request failed");
     _network.close();
     return false;
   }
@@ -178,7 +262,13 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
   }
   _network.close();
 
-  _logger.println("Response: " + response);
+  _logger.println("Poll response: " + response);
+
+  if (response.indexOf("\"status\":\"paired\"") == -1)
+  {
+    _logger.println("Not yet confirmed by user");
+    return false;
+  }
 
   int apiKeyStart = response.indexOf("\"apiKey\":\"");
   if (apiKeyStart == -1)
@@ -198,52 +288,5 @@ bool DeviceApi::pairWithDashboard(const String& pairingCode, const String& dashb
   apiKey = response.substring(apiKeyStart, apiKeyEnd);
   _logger.println("Received API key: " + apiKey);
 
-  String macAddress = WiFi.macAddress();
-
-  _logger.println("Completing pairing with device identifier...");
-
-  if (!_network.connectTo(dashboardUrl, devicePort))
-  {
-    _logger.println("Failed to connect for pairing completion");
-    return false;
-  }
-
-  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"izBoard-" + macAddress.substring(macAddress.length() - 8) + "\"}";
-
-  String postRequest = "POST /api/pairing/complete HTTP/1.1\r\n";
-  postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
-  postRequest += "Content-Type: application/json\r\n";
-  postRequest += "Content-Length: " + String(jsonBody.length()) + "\r\n";
-  postRequest += "Connection: close\r\n\r\n";
-  postRequest += jsonBody;
-
-  _network.send(postRequest);
-
-  statusOk = false;
-  while (_network.connected() || _network.available())
-  {
-    String line = _network.readStringUntil('\n');
-    _logger.println(line);
-
-    if (!statusOk)
-    {
-      statusOk = line.startsWith("HTTP/1.1 200");
-    }
-
-    if (line == "\r")
-    {
-      break;
-    }
-  }
-
-  _network.close();
-
-  if (!statusOk)
-  {
-    _logger.println("Pairing completion failed");
-    return false;
-  }
-
-  _logger.println("Pairing completed successfully");
   return true;
 }

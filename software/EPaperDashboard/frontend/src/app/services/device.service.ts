@@ -20,7 +20,13 @@ export interface UpdateDeviceRequest {
 
 export interface StartPairingResponse {
   code: string;
+  confirmationPin: string;
   expiresAt: string;
+}
+
+export interface PairingStatusResponse {
+  status: string;
+  deviceIdentifier?: string;
 }
 
 @Injectable({
@@ -48,5 +54,13 @@ export class DeviceService {
 
   startPairing(): Observable<StartPairingResponse> {
     return this.http.post<StartPairingResponse>(`${this.baseUrl}/pairing/start`, {});
+  }
+
+  getPairingStatus(code: string): Observable<PairingStatusResponse> {
+    return this.http.get<PairingStatusResponse>(`${this.baseUrl}/pairing/status`, { params: { code } });
+  }
+
+  confirmPairing(code: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/pairing/confirm`, { code });
   }
 }

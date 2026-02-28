@@ -8,7 +8,9 @@ namespace EPaperDashboard.Services;
 public sealed class PairingService(IPairingSessionRepository pairingSessionRepository)
 {
     private const int CodeLength = 6;
+    private const int PinLength = 4;
     private const int ExpiryMinutes = 5;
+    public const int MaxFailedAttempts = 5;
 
     public PairingSession CreatePairingSession(UserId userId)
     {
@@ -16,9 +18,10 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
         {
             UserId = userId,
             Code = GenerateCode(),
-            ApiKey = Guid.NewGuid().ToString("N"),
+            ConfirmationPin = GeneratePin(),
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(ExpiryMinutes),
+            Status = PairingStatus.Pending,
             IsCompleted = false
         };
 
@@ -29,13 +32,48 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     public Maybe<PairingSession> GetPairingSessionByCode(string code) =>
         pairingSessionRepository.FindByCode(code);
 
-    public void CompletePairingSession(PairingSessionId sessionId, string deviceIdentifier)
+    public Maybe<PairingSession> GetPairingSessionById(PairingSessionId id) =>
+        pairingSessionRepository.FindById(id);
+
+    public void SetAwaitingConfirmation(PairingSessionId sessionId, string deviceIdentifier)
+    {
+        var session = pairingSessionRepository.FindById(sessionId);
+        session.Execute(s =>
+        {
+            s.DeviceIdentifier = deviceIdentifier;
+            s.Status = PairingStatus.AwaitingConfirmation;
+            pairingSessionRepository.Update(s);
+        });
+    }
+
+    public void ConfirmPairingSession(PairingSessionId sessionId)
+    {
+        var session = pairingSessionRepository.FindById(sessionId);
+        session.Execute(s =>
+        {
+            s.Status = PairingStatus.Confirmed;
+            s.ApiKey = Guid.NewGuid().ToString("N");
+            pairingSessionRepository.Update(s);
+        });
+    }
+
+    public void CompletePairingSession(PairingSessionId sessionId)
     {
         var session = pairingSessionRepository.FindById(sessionId);
         session.Execute(s =>
         {
             s.IsCompleted = true;
-            s.DeviceIdentifier = deviceIdentifier;
+            s.Status = PairingStatus.Completed;
+            pairingSessionRepository.Update(s);
+        });
+    }
+
+    public void IncrementFailedAttempts(PairingSessionId sessionId)
+    {
+        var session = pairingSessionRepository.FindById(sessionId);
+        session.Execute(s =>
+        {
+            s.FailedAttempts++;
             pairingSessionRepository.Update(s);
         });
     }
@@ -57,5 +95,17 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
         }
 
         return new string(code);
+    }
+
+    private static string GeneratePin()
+    {
+        var pin = new char[PinLength];
+
+        for (int i = 0; i < PinLength; i++)
+        {
+            pin[i] = (char)('0' + RandomNumberGenerator.GetInt32(10));
+        }
+
+        return new string(pin);
     }
 }

@@ -118,10 +118,42 @@ import { Dashboard } from '../../models/types';
               <i class="fa-solid fa-times"></i> Cancel
             </button>
           </div>
-          <div class="text-muted small">
-            <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
-            <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device web interface</div>
-          </div>
+
+          @if (pairingStatus() === 'pending') {
+            <div class="text-muted small">
+              <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
+              <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device web interface</div>
+            </div>
+          }
+
+          @if (pairingStatus() === 'awaiting_confirmation' || pairingStatus() === 'confirming') {
+            <div class="mt-2 p-3 border rounded bg-white">
+              <div class="mb-2">
+                <strong><i class="fa-solid fa-shield-halved"></i> Confirm Pairing</strong>
+              </div>
+              @if (pairingDeviceIdentifier()) {
+                <div class="mb-2 small">
+                  <i class="fa-solid fa-fingerprint"></i> Device: <code>{{ pairingDeviceIdentifier() }}</code>
+                </div>
+              }
+              <div class="mb-2 small text-muted">
+                Verify this PIN matches the one shown on your device screen:
+              </div>
+              <div class="fs-2 font-monospace fw-bold text-danger text-center my-3">{{ pairingConfirmationPin() }}</div>
+              <button class="btn btn-success w-100"
+                (click)="confirmPairing()"
+                [disabled]="pairingStatus() === 'confirming'">
+                <i class="fa-solid" [ngClass]="pairingStatus() === 'confirming' ? 'fa-spinner fa-spin' : 'fa-check'"></i>
+                {{ pairingStatus() === 'confirming' ? 'Confirming...' : 'PINs Match - Confirm Pairing' }}
+              </button>
+            </div>
+          }
+
+          @if (pairingStatus() === 'pending') {
+            <div class="text-muted small">
+              <i class="fa-solid fa-spinner fa-spin"></i> Waiting for device to submit pairing code...
+            </div>
+          }
         </div>
       </div>
     }
@@ -282,6 +314,9 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   readonly isPairingActive = signal(false);
   readonly pairingCode = signal('');
+  readonly pairingConfirmationPin = signal('');
+  readonly pairingDeviceIdentifier = signal('');
+  readonly pairingStatus = signal<'pending' | 'awaiting_confirmation' | 'confirming' | 'confirmed'>('pending');
   readonly pairingTimeRemaining = signal(0);
   readonly isStartingPairing = signal(false);
   readonly pairingCodeCopied = signal(false);
@@ -302,6 +337,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   });
 
   private pairingTimer: any = null;
+  private pairingStatusTimer: any = null;
   private pairingExpiresAt: Date | null = null;
 
   ngOnInit(): void {
@@ -394,10 +430,13 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.deviceService.startPairing().subscribe({
       next: (response) => {
         this.pairingCode.set(response.code);
+        this.pairingConfirmationPin.set(response.confirmationPin);
+        this.pairingStatus.set('pending');
         this.pairingExpiresAt = new Date(response.expiresAt);
         this.isPairingActive.set(true);
         this.isStartingPairing.set(false);
         this.startPairingTimer();
+        this.startPairingStatusPolling();
       },
       error: () => {
         this.isStartingPairing.set(false);
@@ -409,8 +448,12 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   cancelPairing(): void {
     this.isPairingActive.set(false);
     this.pairingCode.set('');
+    this.pairingConfirmationPin.set('');
+    this.pairingDeviceIdentifier.set('');
+    this.pairingStatus.set('pending');
     this.pairingCodeCopied.set(false);
     this.stopPairingTimer();
+    this.stopPairingStatusPolling();
   }
 
   copyPairingCode(): void {
@@ -454,6 +497,52 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     }
   }
 
+  private startPairingStatusPolling(): void {
+    this.pairingStatusTimer = setInterval(() => {
+      const code = this.pairingCode();
+      if (!code) return;
+      this.deviceService.getPairingStatus(code).subscribe({
+        next: (response) => {
+          if (response.status === 'awaiting_confirmation' && this.pairingStatus() === 'pending') {
+            this.pairingDeviceIdentifier.set(response.deviceIdentifier || '');
+            this.pairingStatus.set('awaiting_confirmation');
+          } else if (response.status === 'confirmed' || response.status === 'completed') {
+            this.stopPairingStatusPolling();
+            this.cancelPairing();
+            this.loadDevices();
+            this.toastService.success('Device paired successfully!');
+          }
+        }
+      });
+    }, 2000);
+  }
+
+  private stopPairingStatusPolling(): void {
+    if (this.pairingStatusTimer) {
+      clearInterval(this.pairingStatusTimer);
+      this.pairingStatusTimer = null;
+    }
+  }
+
+  confirmPairing(): void {
+    const code = this.pairingCode();
+    if (!code) return;
+    this.pairingStatus.set('confirming');
+    this.deviceService.confirmPairing(code).subscribe({
+      next: () => {
+        this.pairingStatus.set('confirmed');
+        this.stopPairingStatusPolling();
+        this.cancelPairing();
+        this.loadDevices();
+        this.toastService.success('Device paired successfully!');
+      },
+      error: () => {
+        this.pairingStatus.set('awaiting_confirmation');
+        this.toastService.error('Failed to confirm pairing');
+      }
+    });
+  }
+
   private updatePairingTimeRemaining(): void {
     if (!this.pairingExpiresAt) {
       this.pairingTimeRemaining.set(0);
@@ -466,5 +555,6 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopPairingTimer();
+    this.stopPairingStatusPolling();
   }
 }
