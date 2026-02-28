@@ -19,53 +19,15 @@ public class PairingController(
 
     [HttpPost("start")]
     [Authorize]
-    [DashboardOwnerFromBody]
-    public IActionResult StartPairing([FromBody] StartPairingRequest request)
+    public IActionResult StartPairing()
     {
-        var dashboard = _dashboardService.GetDashboardById(request.DashboardId);
-        if (dashboard.HasNoValue)
-        {
-            return NotFound("Dashboard not found");
-        }
-
-        var session = _pairingService.CreatePairingSession(request.DashboardId, dashboard.Value.ApiKey);
+        var session = _pairingService.CreatePairingSession(CurrentUserId);
 
         return Ok(new StartPairingResponse
         {
             Code = session.Code,
+            ConfirmationPin = session.ConfirmationPin,
             ExpiresAt = session.ExpiresAt
-        });
-    }
-
-    [HttpGet("poll")]
-    [AllowAnonymous]
-    [DeviceAccessible(RequireActivePairing = true)]
-    public IActionResult PollPairing([FromQuery] string code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return BadRequest("Code is required");
-        }
-
-        var session = _pairingService.GetPairingSessionByCode(code);
-        if (session.HasNoValue)
-        {
-            return NotFound("Invalid pairing code");
-        }
-
-        if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
-        {
-            return BadRequest("Pairing code expired");
-        }
-
-        if (session.Value.IsCompleted)
-        {
-            return BadRequest("Pairing already completed");
-        }
-
-        return Ok(new PollPairingResponse
-        {
-            ApiKey = session.Value.ApiKey
         });
     }
 
@@ -85,6 +47,122 @@ public class PairingController(
             return NotFound("Invalid pairing code");
         }
 
+        if (session.Value.FailedAttempts >= PairingService.MaxFailedAttempts)
+        {
+            return StatusCode(429, "Too many failed attempts. Start a new pairing session.");
+        }
+
+        if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            return BadRequest("Pairing code expired");
+        }
+
+        if (session.Value.Status != PairingStatus.Pending)
+        {
+            return BadRequest("Pairing session is not in a valid state for this operation");
+        }
+
+        _pairingService.SetAwaitingConfirmation(session.Value.Id, request.DeviceIdentifier);
+
+        return Ok(new CompletePairingResponse
+        {
+            ConfirmationPin = session.Value.ConfirmationPin
+        });
+    }
+
+    [HttpPost("confirm")]
+    [Authorize]
+    public IActionResult ConfirmPairing([FromBody] ConfirmPairingRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Code))
+        {
+            return BadRequest("Code is required");
+        }
+
+        var session = _pairingService.GetPairingSessionByCode(request.Code);
+        if (session.HasNoValue)
+        {
+            return NotFound("Invalid pairing code");
+        }
+
+        if (session.Value.UserId != CurrentUserId)
+        {
+            return Forbid();
+        }
+
+        if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            return BadRequest("Pairing code expired");
+        }
+
+        if (session.Value.Status != PairingStatus.AwaitingConfirmation)
+        {
+            return BadRequest("Pairing session is not awaiting confirmation");
+        }
+
+        if (string.IsNullOrWhiteSpace(session.Value.DeviceIdentifier))
+        {
+            return BadRequest("No device has submitted this pairing code yet");
+        }
+
+        _pairingService.ConfirmPairingSession(session.Value.Id);
+
+        var confirmed = _pairingService.GetPairingSessionById(session.Value.Id);
+        if (confirmed.HasNoValue)
+        {
+            return StatusCode(500, "Failed to confirm pairing session");
+        }
+
+        var existingDevice = _deviceService.GetDeviceByIdentifier(confirmed.Value.DeviceIdentifier!);
+        if (existingDevice.HasValue)
+        {
+            if (existingDevice.Value.UserId != confirmed.Value.UserId)
+            {
+                return Conflict("This device is already paired with a different user. It must be removed from that account first.");
+            }
+
+            existingDevice.Value.ApiKey = confirmed.Value.ApiKey;
+            existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
+            _deviceService.UpdateDevice(existingDevice.Value);
+        }
+        else
+        {
+            var device = new Models.Device
+            {
+                UserId = confirmed.Value.UserId,
+                DeviceIdentifier = confirmed.Value.DeviceIdentifier!,
+                Name = confirmed.Value.DeviceIdentifier!,
+                ApiKey = confirmed.Value.ApiKey,
+                PairedAt = DateTimeOffset.UtcNow
+            };
+            _deviceService.AddDevice(device);
+        }
+
+        return Ok();
+    }
+
+    [HttpGet("poll")]
+    [AllowAnonymous]
+    [DeviceAccessible(RequireActivePairing = true)]
+    public IActionResult PollPairing([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest("Code is required");
+        }
+
+        var session = _pairingService.GetPairingSessionByCode(code);
+        if (session.HasNoValue)
+        {
+            _pairingService.IncrementFailedAttempts(session.Value.Id);
+            return NotFound("Invalid pairing code");
+        }
+
+        if (session.Value.FailedAttempts >= PairingService.MaxFailedAttempts)
+        {
+            return StatusCode(429, "Too many failed attempts");
+        }
+
         if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
         {
             return BadRequest("Pairing code expired");
@@ -95,42 +173,93 @@ public class PairingController(
             return BadRequest("Pairing already completed");
         }
 
-        var existingDevice = _deviceService.GetDeviceByIdentifier(request.DeviceIdentifier);
-        if (existingDevice.HasValue)
+        if (session.Value.Status == PairingStatus.Confirmed)
         {
-            existingDevice.Value.DashboardId = session.Value.DashboardId;
-            existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
-            existingDevice.Value.Name = request.DeviceName ?? request.DeviceIdentifier;
-            _deviceService.UpdateDevice(existingDevice.Value);
-        }
-        else
-        {
-            var device = new Models.Device
+            _pairingService.CompletePairingSession(session.Value.Id);
+
+            return Ok(new PollPairingResponse
             {
-                DashboardId = session.Value.DashboardId,
-                DeviceIdentifier = request.DeviceIdentifier,
-                Name = request.DeviceName ?? request.DeviceIdentifier,
-                PairedAt = DateTimeOffset.UtcNow
-            };
-            _deviceService.AddDevice(device);
+                Status = "paired",
+                ApiKey = session.Value.ApiKey
+            });
         }
 
-        _pairingService.CompletePairingSession(session.Value.Id, request.DeviceIdentifier);
+        var statusString = session.Value.Status switch
+        {
+            PairingStatus.Pending => "pending",
+            PairingStatus.AwaitingConfirmation => "awaiting_confirmation",
+            _ => "pending"
+        };
 
-        return Ok();
+        return Ok(new PollPairingResponse
+        {
+            Status = statusString
+        });
+    }
+
+    [HttpGet("status")]
+    [Authorize]
+    public IActionResult GetPairingStatus([FromQuery] string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest("Code is required");
+        }
+
+        var session = _pairingService.GetPairingSessionByCode(code);
+        if (session.HasNoValue)
+        {
+            return NotFound("Invalid pairing code");
+        }
+
+        if (session.Value.UserId != CurrentUserId)
+        {
+            return Forbid();
+        }
+
+        var statusString = session.Value.Status switch
+        {
+            PairingStatus.Pending => "pending",
+            PairingStatus.AwaitingConfirmation => "awaiting_confirmation",
+            PairingStatus.Confirmed => "confirmed",
+            PairingStatus.Completed => "completed",
+            _ => "unknown"
+        };
+
+        return Ok(new PairingStatusResponse
+        {
+            Status = statusString,
+            DeviceIdentifier = session.Value.DeviceIdentifier
+        });
     }
 }
 
-public record StartPairingRequest(DashboardId DashboardId);
 public record StartPairingResponse
 {
     public string Code { get; init; } = string.Empty;
+    public string ConfirmationPin { get; init; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; init; }
 }
 
 public record PollPairingResponse
 {
-    public string ApiKey { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ApiKey { get; init; }
+}
+
+public record CompletePairingResponse
+{
+    public string ConfirmationPin { get; init; } = string.Empty;
 }
 
 public record CompletePairingRequest(string Code, string DeviceIdentifier, string? DeviceName);
+
+public record ConfirmPairingRequest(string Code);
+
+public record PairingStatusResponse
+{
+    public string Status { get; init; } = string.Empty;
+    public string? DeviceIdentifier { get; init; }
+}

@@ -23,7 +23,6 @@ export interface Dashboard {
   userId: string;
   name: string;
   description: string;
-  apiKey: string;
   hasAccessToken: boolean;
   host?: string;
   path?: string;

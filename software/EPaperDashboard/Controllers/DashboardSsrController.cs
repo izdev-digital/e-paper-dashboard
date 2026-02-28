@@ -6,6 +6,8 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
+using EPaperDashboard.Utilities;
+using CSharpFunctionalExtensions;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Bmp;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -22,7 +24,9 @@ namespace EPaperDashboard.Controllers;
 [Authorize]
 public class DashboardSsrController(
     DashboardService dashboardService,
-    DashboardImageRenderingService dashboardImageRenderingService) : BaseApiController
+    DashboardImageRenderingService dashboardImageRenderingService,
+    IPageToImageRenderingService renderingService,
+    IDeploymentStrategy deploymentStrategy) : BaseApiController
 {
     /// <summary>
     /// Returns the dashboard rendered directly to an image using ImageSharp.
@@ -67,6 +71,119 @@ public class DashboardSsrController(
         {
             return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Renders a preview of the dashboard. Supports both Custom (ImageSharp) and
+    /// HomeAssistant (Playwright) rendering modes. Protected by cookie auth.
+    /// </summary>
+    [HttpGet("{id}/preview")]
+    public async Task<IActionResult> PreviewDashboard(
+        string id,
+        [FromQuery] int width = 800,
+        [FromQuery] int height = 480,
+        [FromQuery] string format = "png")
+    {
+        if (!DashboardId.TryParse(id, out var dashboardId))
+            return BadRequest("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
+        if (dashboard.HasNoValue)
+            return NotFound("Dashboard not found");
+
+        if (dashboard.Value.UserId != CurrentUserId)
+            return Forbid();
+
+        var imageSize = new Size(width, height);
+
+        if (dashboard.Value.RenderingMode == RenderingMode.Custom)
+        {
+            return await RenderCustomPreview(dashboard.Value, imageSize, format);
+        }
+        else
+        {
+            return await RenderHomeAssistantPreview(dashboard.Value, imageSize, format);
+        }
+    }
+
+    private async Task<IActionResult> RenderCustomPreview(Dashboard dashboard, Size imageSize, string format)
+    {
+        if (dashboard.LayoutConfig == null)
+            return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
+
+        try
+        {
+            var serializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            };
+            var layoutConfigJson = JsonSerializer.Serialize(dashboard.LayoutConfig, serializerOptions);
+
+            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
+                dashboard.Id.ToString(),
+                layoutConfigJson);
+
+            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+
+            var (contentType, encoder) = GetEncoder(format);
+            return await ConvertToResult(image, encoder, contentType);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
+        }
+    }
+
+    private async Task<IActionResult> RenderHomeAssistantPreview(Dashboard dashboard, Size imageSize, string format)
+    {
+        var dashboardInfo = GetDashboardInfo(dashboard);
+        if (dashboardInfo.HasNoValue)
+        {
+            var hint = deploymentStrategy.IsAutoConnected
+                ? "Dashboard configuration incomplete. The 'Home Assistant Dashboard' rendering mode requires " +
+                  "a Long-Lived Access Token. Create one in Home Assistant (Profile → Long-Lived Access Tokens) " +
+                  "and set it on the dashboard."
+                : "Dashboard configuration incomplete. Ensure Host, Path, and Access Token are set.";
+            return NotFound(hint);
+        }
+
+        var (contentType, encoder) = GetEncoder(format);
+        var authStrategy = new HassAuthStrategy(dashboardInfo.Value.Tokens);
+
+        var result = await renderingService
+            .RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy);
+
+        return await result.Match(
+            image => ConvertToResult(image, encoder, contentType),
+            error => Task.FromResult<IActionResult>(BadRequest(error)));
+    }
+
+    private Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard)
+    {
+        var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
+
+        var host = dashboard.Host;
+        if (string.IsNullOrWhiteSpace(host) && deploymentStrategy.Mode != DeploymentMode.Standalone)
+        {
+            host = deploymentStrategy.Mode == DeploymentMode.Addon
+                ? Constants.HomeAssistantInternalUrl
+                : strategyHost;
+        }
+
+        var accessToken = dashboard.AccessToken;
+
+        if (string.IsNullOrWhiteSpace(accessToken)
+            || !Uri.TryCreate(host, UriKind.Absolute, out var hostUri)
+            || !Uri.TryCreate(dashboard.Path, UriKind.Relative, out var pathUri))
+        {
+            return Maybe.None;
+        }
+
+        var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
+        var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
+
+        return (new Uri(hostUri, pathUri), new HassTokens(accessToken, "Bearer", hassUrl, clientId));
     }
 
     private async Task<IActionResult> ConvertToResult(IImage image, IImageEncoder encoder, string contentType)

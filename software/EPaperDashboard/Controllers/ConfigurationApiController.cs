@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Services;
+using EPaperDashboard.Models;
 using CSharpFunctionalExtensions;
 using System.Text;
 using EPaperDashboard.Guards;
@@ -12,9 +13,10 @@ namespace EPaperDashboard.Controllers;
 [Route("api/configuration")]
 [Authorize(Policy = "ApiKeyPolicy")]
 [DeviceAccessible]
-public class ConfigurationApiController(DashboardService dashboardService) : ControllerBase
+public class ConfigurationApiController(DashboardService dashboardService, DeviceService deviceService) : ControllerBase
 {
     private readonly DashboardService _dashboardService = dashboardService;
+    private readonly DeviceService _deviceService = deviceService;
 
     private const int GracefulPeriodSeconds = 120;
 
@@ -22,8 +24,7 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
     public IActionResult GetNextUpdateWait([FromHeader(Name = HttpHeaderNames.ApiKeyHeaderName)] string apiKey)
     {
         var now = DateTime.Now;
-        return _dashboardService
-            .GetDashboardByApiKey(apiKey)
+        return ResolveDashboardByApiKey(apiKey)
             .Bind(d => GetNextUpdateTime(now, d.UpdateTimes))
             .Match(
                 nextUpdate => Content(((long)(nextUpdate - now).TotalSeconds).ToString(), "text/plain", Encoding.UTF8),
@@ -48,5 +49,16 @@ public class ConfigurationApiController(DashboardService dashboardService) : Con
                 .Where(dt => dt > gracefulCutoff)
                 .TryFirst();
         }
+    }
+
+    private Maybe<Dashboard> ResolveDashboardByApiKey(string apiKey)
+    {
+        var device = _deviceService.GetDeviceByApiKey(apiKey);
+        if (device.HasValue && device.Value.DashboardId != DashboardId.Empty)
+        {
+            return _dashboardService.GetDashboardById(device.Value.DashboardId);
+        }
+
+        return Maybe.None;
     }
 }

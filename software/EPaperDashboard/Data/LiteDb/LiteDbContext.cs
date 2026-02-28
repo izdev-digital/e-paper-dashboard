@@ -17,19 +17,21 @@ internal sealed class LiteDbContext : IDisposable
     {
         var mapper = new BsonMapper();
 
-        // Register strongly-typed ID types — stored as ObjectId values in the database
+        // Register strongly-typed ID types — stored as ObjectId values in the database.
+        // Empty IDs are stored as ObjectId.Empty. The MigrateNullObjectIds method below
+        // fixes any existing null/BsonNull values from older schema versions.
         mapper.RegisterType<UserId>(
-            serialize: id => new BsonValue(new ObjectId(id.Value)),
-            deserialize: bson => new UserId(bson.AsObjectId.ToString()));
+            serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
+            deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? UserId.Empty : new UserId(bson.AsObjectId.ToString()));
         mapper.RegisterType<DashboardId>(
-            serialize: id => new BsonValue(new ObjectId(id.Value)),
-            deserialize: bson => new DashboardId(bson.AsObjectId.ToString()));
+            serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
+            deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? DashboardId.Empty : new DashboardId(bson.AsObjectId.ToString()));
         mapper.RegisterType<DeviceId>(
-            serialize: id => new BsonValue(new ObjectId(id.Value)),
-            deserialize: bson => new DeviceId(bson.AsObjectId.ToString()));
+            serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
+            deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? DeviceId.Empty : new DeviceId(bson.AsObjectId.ToString()));
         mapper.RegisterType<PairingSessionId>(
-            serialize: id => new BsonValue(new ObjectId(id.Value)),
-            deserialize: bson => new PairingSessionId(bson.AsObjectId.ToString()));
+            serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
+            deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? PairingSessionId.Empty : new PairingSessionId(bson.AsObjectId.ToString()));
 
         // Register custom serialization for JsonElement (must be after ID types)
         mapper.RegisterType(
@@ -45,6 +47,11 @@ internal sealed class LiteDbContext : IDisposable
 
         _db = new(connectionString, mapper);
         _db.Checkpoint();
+
+        // Fix existing documents that have BsonNull for typed ID fields.
+        // LiteDB returns null for BsonNull before calling RegisterType deserializers,
+        // which causes NRE when setting struct (value-type) properties via reflection.
+        MigrateNullObjectIds();
     }
 
     internal ILiteCollection<User> Users => _db.GetCollection<User>("users");
@@ -53,6 +60,45 @@ internal sealed class LiteDbContext : IDisposable
     internal ILiteCollection<PairingSession> PairingSessions => _db.GetCollection<PairingSession>("pairingSessions");
 
     public void Dispose() => _db.Dispose();
+
+    /// <summary>
+    /// Replaces BsonNull values in typed-ID fields with ObjectId.Empty across all collections.
+    /// This handles documents created before the ObjectId.Empty convention was established,
+    /// or documents from older schema versions that are missing newly-added fields.
+    /// </summary>
+    private void MigrateNullObjectIds()
+    {
+        // Map: collection name → list of field names that hold typed ObjectId values
+        var collectionFields = new Dictionary<string, string[]>
+        {
+            ["users"] = ["_id"],
+            ["dashboards"] = ["_id", "UserId"],
+            ["devices"] = ["_id", "UserId", "DashboardId"],
+            ["pairingSessions"] = ["_id", "UserId"],
+        };
+
+        foreach (var (collectionName, fields) in collectionFields)
+        {
+            var col = _db.GetCollection(collectionName);
+            var docs = col.FindAll().ToList();
+            foreach (var doc in docs)
+            {
+                var modified = false;
+                foreach (var field in fields)
+                {
+                    if (!doc.ContainsKey(field) || doc[field].IsNull)
+                    {
+                        doc[field] = new BsonValue(ObjectId.Empty);
+                        modified = true;
+                    }
+                }
+                if (modified)
+                {
+                    col.Update(doc);
+                }
+            }
+        }
+    }
 
     private static BsonValue JsonElementToBsonValue(SystemTextJson.JsonElement element)
     {

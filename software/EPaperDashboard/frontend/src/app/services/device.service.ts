@@ -4,17 +4,29 @@ import { Observable } from 'rxjs';
 
 export interface Device {
   id: string;
-  dashboardId: string;
   deviceIdentifier: string;
   name: string;
+  dashboardId?: string;
+  dashboardName?: string;
   pairedAt: string;
   lastSeenAt?: string;
   firmwareVersion?: string;
 }
 
+export interface UpdateDeviceRequest {
+  name?: string;
+  dashboardId?: string | null;
+}
+
 export interface StartPairingResponse {
   code: string;
+  confirmationPin: string;
   expiresAt: string;
+}
+
+export interface PairingStatusResponse {
+  status: string;
+  deviceIdentifier?: string;
 }
 
 @Injectable({
@@ -24,15 +36,31 @@ export class DeviceService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/api';
 
+  getDevices(): Observable<Device[]> {
+    return this.http.get<Device[]>(`${this.baseUrl}/devices`);
+  }
+
   getDevicesForDashboard(dashboardId: string): Observable<Device[]> {
     return this.http.get<Device[]>(`${this.baseUrl}/devices/dashboard/${dashboardId}`);
+  }
+
+  updateDevice(deviceId: string, request: UpdateDeviceRequest): Observable<Device> {
+    return this.http.put<Device>(`${this.baseUrl}/devices/${deviceId}`, request);
   }
 
   deleteDevice(deviceId: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/devices/${deviceId}`);
   }
 
-  startPairing(dashboardId: string): Observable<StartPairingResponse> {
-    return this.http.post<StartPairingResponse>(`${this.baseUrl}/pairing/start`, { dashboardId });
+  startPairing(): Observable<StartPairingResponse> {
+    return this.http.post<StartPairingResponse>(`${this.baseUrl}/pairing/start`, {});
+  }
+
+  getPairingStatus(code: string): Observable<PairingStatusResponse> {
+    return this.http.get<PairingStatusResponse>(`${this.baseUrl}/pairing/status`, { params: { code } });
+  }
+
+  confirmPairing(code: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/pairing/confirm`, { code });
   }
 }

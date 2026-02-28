@@ -10,9 +10,6 @@ internal sealed class LiteDbDashboardRepository(LiteDbContext context) : IDashbo
     public Maybe<Dashboard> FindById(DashboardId id) =>
         context.Dashboards.FindById(new ObjectId(id.Value));
 
-    public Maybe<Dashboard> FindByApiKey(string apiKey) =>
-        context.Dashboards.FindOne(d => d.ApiKey == apiKey);
-
     public List<Dashboard> FindByUserId(UserId userId) =>
         context.Dashboards.Find(d => d.UserId == userId).ToList();
 

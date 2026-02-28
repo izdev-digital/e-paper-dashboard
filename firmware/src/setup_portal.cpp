@@ -185,14 +185,17 @@ void SetupPortal::run()
   const int STATE_IDLE = 0;
   const int STATE_CONNECTING_WIFI = 1;
   const int STATE_PAIRING = 2;
-  const int STATE_SUCCESS = 3;
-  const int STATE_FAILED = 4;
+  const int STATE_AWAITING_CONFIRMATION = 3;
+  const int STATE_SUCCESS = 4;
+  const int STATE_FAILED = 5;
 
   int pairingState = STATE_IDLE;
   String pairingError;
   DeviceConfig pendingConfig;
   int wifiRetries = 0;
   unsigned long successTimestamp = 0;
+  unsigned long lastPollTimestamp = 0;
+  int pollRetries = 0;
 
   const char *progressHtml = R"rawliteral(
     <!DOCTYPE html>
@@ -231,7 +234,9 @@ void SetupPortal::run()
                     if (d.state === 'connecting_wifi') {
                         el.innerHTML = '<div><span class="spinner"></span> Connecting to WiFi...</div>';
                     } else if (d.state === 'pairing') {
-                        el.innerHTML = '<div><span class="spinner"></span> Pairing with dashboard...</div>';
+                        el.innerHTML = '<div><span class="spinner"></span> Submitting pairing code...</div>';
+                    } else if (d.state === 'awaiting_confirmation') {
+                        el.innerHTML = '<div><span class="spinner"></span> Waiting for confirmation in dashboard...<br><br><strong>Check your device screen for the PIN.</strong></div>';
                     } else if (d.state === 'success') {
                         el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Paired successfully! Rebooting...</div>';
                         return;
@@ -298,11 +303,12 @@ void SetupPortal::run()
 
   server.on("/pairing-status", HTTP_GET, [&server,
       &pairingState, &pairingError,
-      STATE_IDLE, STATE_CONNECTING_WIFI, STATE_PAIRING, STATE_SUCCESS, STATE_FAILED]()
+      STATE_IDLE, STATE_CONNECTING_WIFI, STATE_PAIRING, STATE_AWAITING_CONFIRMATION, STATE_SUCCESS, STATE_FAILED]()
             {
     String state;
     if (pairingState == STATE_CONNECTING_WIFI) state = "connecting_wifi";
     else if (pairingState == STATE_PAIRING) state = "pairing";
+    else if (pairingState == STATE_AWAITING_CONFIRMATION) state = "awaiting_confirmation";
     else if (pairingState == STATE_SUCCESS) state = "success";
     else if (pairingState == STATE_FAILED) state = "failed";
     else state = "idle";
@@ -336,6 +342,8 @@ void SetupPortal::run()
   _logger.println("HTTP server started");
 
   constexpr int maxWifiRetries = 40; // 20 seconds at 500ms intervals
+  constexpr int maxPollRetries = 120; // ~4 minutes at 2s intervals
+  constexpr unsigned long pollIntervalMs = 2000;
 
   while (true)
   {
@@ -349,29 +357,28 @@ void SetupPortal::run()
         _logger.println("WiFi connected in AP+STA mode");
         _logger.print("STA IP: ");
         _logger.println(WiFi.localIP());
-        _logger.println("Starting pairing...");
+        _logger.println("Submitting pairing code...");
         pairingState = STATE_PAIRING;
 
-        String apiKey;
+        String confirmationPin;
         if (_deviceApi.pairWithDashboard(pendingConfig.pairingCode,
-                pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, confirmationPin))
         {
-          pendingConfig.dashboardApiKey = apiKey;
-          pendingConfig.pairingCode = "";
-          _configStore.save(pendingConfig);
-          _logger.println("Pairing successful!");
-          pairingState = STATE_SUCCESS;
-          successTimestamp = millis();
+          _logger.println("Pairing code accepted, showing PIN on display: " + confirmationPin);
+          _display.showConfirmationPin(confirmationPin);
+          pairingState = STATE_AWAITING_CONFIRMATION;
+          lastPollTimestamp = millis();
+          pollRetries = 0;
         }
         else
         {
-          _logger.println("Pairing failed");
+          _logger.println("Pairing code submission failed");
           pairingState = STATE_FAILED;
           pairingError = "Pairing failed - check the pairing code";
+          WiFi.mode(WIFI_AP);
+          WiFi.softAP(apName.c_str());
+          _display.showWelcomePage(apIP, macAddress, apName);
         }
-
-        WiFi.mode(WIFI_AP);
-        WiFi.softAP(apName.c_str());
       }
       else if (++wifiRetries >= maxWifiRetries)
       {
@@ -380,6 +387,37 @@ void SetupPortal::run()
         pairingError = "WiFi connection failed";
         WiFi.mode(WIFI_AP);
         WiFi.softAP(apName.c_str());
+      }
+    }
+    else if (pairingState == STATE_AWAITING_CONFIRMATION)
+    {
+      if (millis() - lastPollTimestamp >= pollIntervalMs)
+      {
+        lastPollTimestamp = millis();
+        pollRetries++;
+
+        String apiKey;
+        if (_deviceApi.pollForApiKey(pendingConfig.pairingCode,
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, apiKey))
+        {
+          pendingConfig.dashboardApiKey = apiKey;
+          pendingConfig.pairingCode = "";
+          _configStore.save(pendingConfig);
+          _logger.println("Pairing confirmed and API key received!");
+          pairingState = STATE_SUCCESS;
+          successTimestamp = millis();
+          WiFi.mode(WIFI_AP);
+          WiFi.softAP(apName.c_str());
+        }
+        else if (pollRetries >= maxPollRetries)
+        {
+          _logger.println("Pairing confirmation timed out");
+          pairingState = STATE_FAILED;
+          pairingError = "Timed out waiting for confirmation in dashboard";
+          WiFi.mode(WIFI_AP);
+          WiFi.softAP(apName.c_str());
+          _display.showWelcomePage(apIP, macAddress, apName);
+        }
       }
     }
     else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 3000)

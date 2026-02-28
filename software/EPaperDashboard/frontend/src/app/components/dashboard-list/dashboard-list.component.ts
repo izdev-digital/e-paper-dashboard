@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -33,15 +33,6 @@ import { Dashboard } from '../../models/types';
         @for (dashboard of dashboards(); track dashboard.id) {
           <div class="dashboard-item">
             <h5 class="dashboard-title">{{ dashboard.name }}</h5>
-            <div class="api-key-row">
-              <code class="api-key-value">{{ getApiKeyDisplay(dashboard.apiKey, dashboard.id) }}</code>
-              <button class="icon-btn" title="Reveal API Key" (click)="toggleReveal(dashboard.id)">
-                <i class="fa-regular" [ngClass]="revealedKeys()[dashboard.id] ? 'fa-eye-slash' : 'fa-eye'"></i>
-              </button>
-              <button class="icon-btn" title="Copy API Key" (click)="copyApiKey(dashboard.apiKey)">
-                <i class="fa-regular fa-clipboard"></i>
-              </button>
-            </div>
             <div class="dashboard-actions">
               <button type="button" class="btn btn-sm btn-outline-primary" (click)="editDashboard(dashboard.id)">
                 <i class="fa-solid fa-pen-to-square"></i>
@@ -71,7 +62,7 @@ import { Dashboard } from '../../models/types';
 
     .dashboard-item {
       display: grid;
-      grid-template-columns: auto 1fr 320px 80px;
+      grid-template-columns: 1fr auto;
       align-items: center;
       gap: 1rem;
       padding: 0.75rem 1rem;
@@ -98,64 +89,9 @@ import { Dashboard } from '../../models/types';
       grid-column: 1;
     }
 
-    .api-key-row {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0.375rem 0.5rem;
-      background: var(--bs-secondary-bg);
-      border: 1px solid var(--bs-border-color);
-      border-radius: 0.25rem;
-      font-size: 0.8rem;
-      grid-column: 3;
-      min-width: 0;
-    }
-
-    .api-key-value {
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      color: var(--bs-body-color);
-      background: transparent;
-      border: none;
-      padding: 0;
-      margin: 0;
-      user-select: all;
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .icon-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      padding: 0;
-      background: transparent;
-      border: none;
-      color: var(--bs-secondary-color);
-      cursor: pointer;
-      border-radius: 0.25rem;
-      transition: all 0.15s ease;
-      font-size: 0.75rem;
-      flex-shrink: 0;
-    }
-
-    .icon-btn:hover {
-      background: var(--bs-tertiary-bg);
-      color: var(--bs-body-color);
-    }
-
-    .icon-btn:active {
-      transform: scale(0.95);
-    }
-
     .dashboard-actions {
       display: flex;
       gap: 0.375rem;
-      grid-column: 4;
       justify-self: end;
     }
 
@@ -171,13 +107,13 @@ import { Dashboard } from '../../models/types';
 
     @media (max-width: 1200px) {
       .dashboard-item {
-        grid-template-columns: auto 1fr 280px 80px;
+        grid-template-columns: 1fr auto;
       }
     }
 
     @media (max-width: 1024px) {
       .dashboard-item {
-        grid-template-columns: auto 1fr 260px 80px;
+        grid-template-columns: 1fr auto;
       }
 
       .dashboard-title {
@@ -194,11 +130,6 @@ import { Dashboard } from '../../models/types';
       .dashboard-title {
         grid-column: 1;
         white-space: normal;
-      }
-
-      .api-key-row {
-        grid-column: 1;
-        width: 100%;
       }
 
       .dashboard-actions {
@@ -224,7 +155,6 @@ export class DashboardListComponent implements OnInit {
   readonly dashboards = signal<Dashboard[]>([]);
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
-  readonly revealedKeys = signal<Record<string, boolean>>({});
 
   ngOnInit(): void {
     // With signals, we can synchronously check auth state
@@ -254,53 +184,6 @@ export class DashboardListComponent implements OnInit {
         this.isLoading.set(false);
       }
     });
-  }
-
-  toggleReveal(id: string): void {
-    this.revealedKeys.update(m => ({ ...m, [id]: !m[id] }));
-  }
-
-  getApiKeyDisplay(apiKey: string, id: string): string {
-    const revealed = this.revealedKeys()[id];
-    if (revealed) return apiKey || '';
-    if (!apiKey) return '';
-    return apiKey.length > 8 ? `${apiKey.slice(0, 6)}••••` : apiKey.replace(/.(?=.{2})/g, '•');
-  }
-
-  async copyApiKey(apiKey: string): Promise<void> {
-    const tryClipboardApi = async () => {
-      if (!navigator.clipboard || !window.isSecureContext) {
-        throw new Error('Clipboard API not available');
-      }
-      await navigator.clipboard.writeText(apiKey);
-    };
-
-    try {
-      await tryClipboardApi();
-      this.toastService.success('API key copied to clipboard');
-      return;
-    } catch (err) {
-    }
-
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = apiKey;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.left = '-9999px';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const copied = document.execCommand('copy');
-      document.body.removeChild(textarea);
-
-      if (!copied) {
-        throw new Error('execCommand copy failed');
-      }
-
-      this.toastService.success('API key copied to clipboard');
-    } catch (fallbackErr) {
-      this.toastService.error('Unable to copy API key');
-    }
   }
 
   editDashboard(id: string): void {
