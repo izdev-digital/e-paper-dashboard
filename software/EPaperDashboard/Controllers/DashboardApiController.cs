@@ -192,18 +192,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         return Ok(new { message = "Dashboard deleted successfully." });
     }
-
-    [HttpGet("available-sizes")]
-    public IActionResult GetAvailableSizes()
-    {
-        var sizes = DashboardSizePreset.All.Select(s => new
-        {
-            s.Width,
-            s.Height,
-            s.Label
-        });
-        return Ok(sizes);
-    }
 }
 
 public record CreateDashboardRequest(string Name, string? Description, string? Orientation, int? ScreenWidth, int? ScreenHeight);
