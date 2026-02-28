@@ -162,22 +162,15 @@ export class WidgetPreviewComponent {
     return config as TodoConfig;
   }
 
-  /**
-   * Returns true if the widget has the data it needs to render meaningfully.
-   * Widgets that don't require entity data always return true.
-   * Entity-dependent widgets use the same checks as their own isDataFetched() guards.
-   */
   hasDataForWidget(): boolean {
     const type = this.widget.type;
     const config = this.widget.config as any;
     const entityId = config?.entityId as string | undefined;
 
-    // Widgets with no entity dependency always render.
     if (!['header', 'weather', 'weather-forecast', 'graph', 'todo', 'calendar', 'rss-feed'].includes(type)) {
       return true;
     }
 
-    // header: ready when all badge entities that need data have state.
     if (type === 'header') {
       const badges = (config?.badges ?? []) as any[];
       const entityBadges = badges.filter((b: any) => b.entityId?.trim());
@@ -187,12 +180,10 @@ export class WidgetPreviewComponent {
       );
     }
 
-    // No entity configured → nothing to fetch, show placeholder.
     if (!entityId) {
       return false;
     }
 
-    // todo: entity state must exist AND todoItemsByEntityId must contain the key.
     if (type === 'todo') {
       return !!(
         this.entityStates && this.entityStates[entityId] &&
@@ -200,7 +191,6 @@ export class WidgetPreviewComponent {
       );
     }
 
-    // calendar: entity state must exist AND calendarEventsByEntityId must contain the key.
     if (type === 'calendar') {
       return !!(
         this.entityStates && this.entityStates[entityId] &&
@@ -208,26 +198,22 @@ export class WidgetPreviewComponent {
       );
     }
 
-    // rss-feed: entity state must have RSS-specific attributes.
     if (type === 'rss-feed') {
       const state = this.entityStates?.[entityId];
       const attrs = state?.attributes;
       return !!(attrs && (attrs['title'] || attrs['link'] || attrs['description']));
     }
 
-    // weather: entity state must have temperature attribute.
     if (type === 'weather') {
       const state = this.entityStates?.[entityId];
       return !!(state?.attributes && state.attributes['temperature'] != null);
     }
 
-    // weather-forecast: entity state must have forecast attribute.
     if (type === 'weather-forecast') {
       const state = this.entityStates?.[entityId];
       return !!(state?.attributes?.['forecast']);
     }
 
-    // graph: entity state present (chart data is loaded async by the widget itself).
     return !!(this.entityStates && this.entityStates[entityId]);
   }
 
