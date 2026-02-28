@@ -138,7 +138,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                   @if (isAddonMode()) {
                     <small class="form-text text-muted d-block mb-2">
                       <i class="fa-solid fa-info-circle"></i> The "Home Assistant Dashboard" mode requires an Access Token.
-                      Click <strong>Fetch</strong> to authenticate, or paste a Long-Lived Access Token manually.
+                      Paste a <strong>Long-Lived Access Token</strong> below.
                     </small>
                   }
                   <div class="input-group">
@@ -146,17 +146,19 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
                       type="password" 
                       class="form-control" 
                       formControlName="accessToken"
-                      placeholder="Paste token or click Fetch Token..." 
+                      [placeholder]="isAddonMode() ? 'Paste a Long-Lived Access Token...' : 'Paste token or click Fetch Token...'" 
                     />
-                    <button 
-                      type="button" 
-                      class="btn btn-outline-primary" 
-                      (click)="authenticateWithHomeAssistant()"
-                      [disabled]="isAuthenticating()"
-                      title="Authenticate via Home Assistant"
-                    >
-                      <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
-                    </button>
+                    @if (!isAddonMode()) {
+                      <button 
+                        type="button" 
+                        class="btn btn-outline-primary" 
+                        (click)="authenticateWithHomeAssistant()"
+                        [disabled]="isAuthenticating()"
+                        title="Authenticate via Home Assistant"
+                      >
+                        <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
+                      </button>
+                    }
                     @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
                       <button 
                         type="button" 
@@ -448,6 +450,11 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   authenticateWithHomeAssistant(): void {
+    if (this.isAddonMode()) {
+      this.toastService.error('Token fetching is not available in add-on mode. Please paste a Long-Lived Access Token manually.');
+      return;
+    }
+
     const currentDashboard = this.dashboard();
     if (!currentDashboard) {
       return;
