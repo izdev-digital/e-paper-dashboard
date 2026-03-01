@@ -11,7 +11,7 @@ public:
 
   DeviceStatus fetchDeviceStatus(const DeviceConfig& config);
   void fetchAndDisplayImage(const DeviceConfig& config, DisplayManager& display);
-  bool registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey);
+  bool registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey, String& errorOut);
 
 private:
   Logger& _logger;

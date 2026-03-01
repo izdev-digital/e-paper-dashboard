@@ -377,8 +377,9 @@ void SetupPortal::run()
         pairingState = STATE_REGISTERING;
 
         String apiKey;
+        String registrationError;
         if (_deviceApi.registerWithDashboard(pendingConfig.pairingCode,
-                pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps, apiKey))
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps, apiKey, registrationError))
         {
           pendingConfig.dashboardApiKey = apiKey;
           pendingConfig.pairingCode = "";
@@ -391,7 +392,7 @@ void SetupPortal::run()
         {
           _logger.println("Registration failed");
           pairingState = STATE_FAILED;
-          pairingError = "Registration failed - check the server URL and pairing code";
+          pairingError = registrationError.length() > 0 ? registrationError : "Registration failed";
           WiFi.mode(WIFI_AP);
           WiFi.softAP(apName.c_str());
           _display.showWelcomePage(apIP, macAddress, apName);
