@@ -538,7 +538,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
       if (!code) return;
       this.deviceService.getPairingStatus(code).subscribe({
         next: (response) => {
-          if (response.status === 'confirmed' || response.status === 'completed') {
+          if (response.status === 'completed') {
             this.stopPairingStatusPolling();
             this.cancelPairing();
             this.loadDevices();

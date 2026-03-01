@@ -13,7 +13,6 @@ public class PairingSession
     public string Code { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public PairingStatus Status { get; set; } = PairingStatus.Pending;
-    public int FailedAttempts { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public bool IsCompleted { get; set; }

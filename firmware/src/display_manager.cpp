@@ -182,3 +182,55 @@ void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, con
 
   _logger.println("Welcome page displayed");
 }
+
+void DisplayManager::showSuccess(const String& title, const String& message, const String& hint)
+{
+  _logger.println("Displaying success page...");
+
+  _display.setRotation(0);
+  _display.setFullWindow();
+  _display.firstPage();
+  do
+  {
+    _display.fillScreen(GxEPD_WHITE);
+
+    drawIcon((DisplayConst::Width - 80) / 2, 30, 80);
+
+    _display.setFont(&FreeSansBold18pt7b);
+    _display.setTextColor(GxEPD_BLACK);
+    int16_t tbx, tby;
+    uint16_t tbw, tbh;
+    _display.getTextBounds(title.c_str(), 0, 0, &tbx, &tby, &tbw, &tbh);
+    _display.setCursor((DisplayConst::Width - tbw) / 2, 160);
+    _display.print(title);
+
+    _display.setFont(&FreeSans12pt7b);
+    _display.setTextColor(GxEPD_BLACK);
+
+    int yPos = 220;
+    int lineStart = 0;
+    for (int i = 0; i <= (int)message.length(); i++)
+    {
+      if (i == (int)message.length() || message[i] == '\n')
+      {
+        String line = message.substring(lineStart, i);
+        _display.getTextBounds(line.c_str(), 0, 0, &tbx, &tby, &tbw, &tbh);
+        _display.setCursor((DisplayConst::Width - tbw) / 2, yPos);
+        _display.print(line);
+        yPos += 35;
+        lineStart = i + 1;
+      }
+    }
+
+    if (hint.length() > 0)
+    {
+      yPos += 15;
+      _display.getTextBounds(hint.c_str(), 0, 0, &tbx, &tby, &tbw, &tbh);
+      _display.setCursor((DisplayConst::Width - tbw) / 2, yPos);
+      _display.print(hint);
+    }
+
+  } while (_display.nextPage());
+
+  _logger.println("Success page displayed");
+}

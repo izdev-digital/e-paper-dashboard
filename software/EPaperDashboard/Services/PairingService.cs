@@ -9,7 +9,6 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
 {
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
-    public const int MaxFailedAttempts = 5;
 
     public PairingSession CreatePairingSession(UserId userId)
     {

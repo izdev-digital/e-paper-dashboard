@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
+#include <ArduinoJson.h>
 
 SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display,
                          Network& network, DeviceApi& deviceApi)
@@ -222,8 +223,10 @@ void SetupPortal::run()
             </div>
         </div>
         <script>
+            var failCount = 0;
             function poll() {
                 fetch('/pairing-status').then(function(r) { return r.json(); }).then(function(d) {
+                    failCount = 0;
                     var el = document.getElementById('content');
                     if (d.state === 'connecting_wifi') {
                         el.innerHTML = '<div><span class="spinner"></span> Connecting to WiFi...</div>';
@@ -233,11 +236,19 @@ void SetupPortal::run()
                         el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Registered successfully! Rebooting...</div>';
                         return;
                     } else if (d.state === 'failed') {
-                        el.innerHTML = '<div style="color:#dc3545;font-weight:500">&#10007; ' + (d.error || 'Registration failed') + '</div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        el.innerHTML = '<div style="color:#dc3545;font-weight:500" id="errMsg"></div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        document.getElementById('errMsg').textContent = '\u2717 ' + (d.error || 'Registration failed');
                         return;
                     }
                     setTimeout(poll, 1500);
-                }).catch(function() { setTimeout(poll, 2000); });
+                }).catch(function() {
+                    failCount++;
+                    var el = document.getElementById('content');
+                    if (failCount >= 5) {
+                        el.innerHTML = '<div><span class="spinner"></span> WiFi channel switch in progress — your device may have disconnected from izBoard AP.</div><div style="margin-top:.75rem;color:#6c757d">Reconnect to the izBoard WiFi network to see the result, or wait for the e-paper screen to update.</div>';
+                    }
+                    setTimeout(poll, 2000);
+                });
             }
             setTimeout(poll, 1000);
         </script>
@@ -331,12 +342,14 @@ void SetupPortal::run()
     else if (pairingState == STATE_FAILED) state = "failed";
     else state = "idle";
 
-    String json = "{\"state\":\"" + state + "\"";
+    JsonDocument doc;
+    doc["state"] = state;
     if (pairingState == STATE_FAILED)
     {
-      json += ",\"error\":\"" + pairingError + "\"";
+      doc["error"] = pairingError;
     }
-    json += "}";
+    String json;
+    serializeJson(doc, json);
     server.send(200, "application/json", json); });
 
   auto redirectToRoot = [&server]()
@@ -377,24 +390,28 @@ void SetupPortal::run()
         pairingState = STATE_REGISTERING;
 
         String apiKey;
+        String registrationError;
         if (_deviceApi.registerWithDashboard(pendingConfig.pairingCode,
-                pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps, apiKey))
+                pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps, apiKey, registrationError))
         {
           pendingConfig.dashboardApiKey = apiKey;
           pendingConfig.pairingCode = "";
           _configStore.save(pendingConfig);
           _logger.println("Registration successful, API key received!");
           pairingState = STATE_SUCCESS;
+          _display.showSuccess(
+              "Paired Successfully",
+              "The device will fetch and display\nassigned dashboards automatically.",
+              "Press the button to refresh manually.");
           successTimestamp = millis();
         }
         else
         {
           _logger.println("Registration failed");
           pairingState = STATE_FAILED;
-          pairingError = "Registration failed - check the server URL and pairing code";
+          pairingError = registrationError.length() > 0 ? registrationError : "Registration failed";
           WiFi.mode(WIFI_AP);
           WiFi.softAP(apName.c_str());
-          _display.showWelcomePage(apIP, macAddress, apName);
         }
       }
       else if (++wifiRetries >= maxWifiRetries)
@@ -406,7 +423,7 @@ void SetupPortal::run()
         WiFi.softAP(apName.c_str());
       }
     }
-    else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 3000)
+    else if (pairingState == STATE_SUCCESS && millis() - successTimestamp > 8000)
     {
       ESP.restart();
     }

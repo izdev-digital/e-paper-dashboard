@@ -44,11 +44,6 @@ public class PairingController(
             return NotFound("Invalid pairing code");
         }
 
-        if (session.Value.FailedAttempts >= PairingService.MaxFailedAttempts)
-        {
-            return StatusCode(429, "Too many failed attempts. Start a new pairing session.");
-        }
-
         if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
         {
             return BadRequest("Pairing code expired");
@@ -59,6 +54,8 @@ public class PairingController(
             return BadRequest("Pairing session is not in a valid state");
         }
 
+        var existingDevice = _deviceService.GetDeviceByIdentifier(request.DeviceIdentifier);
+
         var registered = _pairingService.RegisterDevice(
             request.Code, request.DeviceIdentifier, request.ScreenWidth, request.ScreenHeight);
 
@@ -67,18 +64,24 @@ public class PairingController(
             return StatusCode(500, "Failed to register device");
         }
 
-        var existingDevice = _deviceService.GetDeviceByIdentifier(registered.Value.DeviceIdentifier!);
         if (existingDevice.HasValue)
         {
-            if (existingDevice.Value.UserId != registered.Value.UserId)
-            {
-                return Conflict("This device is already paired with a different user. It must be removed from that account first.");
-            }
+            var isNewOwner = existingDevice.Value.UserId != registered.Value.UserId;
 
+            existingDevice.Value.UserId = registered.Value.UserId;
             existingDevice.Value.ApiKey = registered.Value.ApiKey;
             existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
             existingDevice.Value.ScreenWidth = registered.Value.ScreenWidth;
             existingDevice.Value.ScreenHeight = registered.Value.ScreenHeight;
+
+            if (isNewOwner)
+            {
+                existingDevice.Value.DashboardId = DashboardId.Empty;
+                existingDevice.Value.Name = request.DeviceName ?? registered.Value.DeviceIdentifier!;
+                existingDevice.Value.LastSeenAt = null;
+                existingDevice.Value.FirmwareVersion = null;
+            }
+
             _deviceService.UpdateDevice(existingDevice.Value);
         }
         else

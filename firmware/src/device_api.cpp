@@ -1,5 +1,6 @@
 #include "device_api.h"
 #include "constants.h"
+#include <ArduinoJson.h>
 
 DeviceApi::DeviceApi(Logger& logger, Network& network) : _logger(logger), _network(network) {}
 
@@ -121,7 +122,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
   _network.close();
 }
 
-bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey)
+bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey, String& errorOut)
 {
   _logger.println("Starting device registration...");
 
@@ -130,13 +131,22 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& d
   if (!_network.connectTo(dashboardUrl, devicePort, useHttps))
   {
     _logger.println("Failed to connect to server for registration");
+    errorOut = "Could not connect to server";
     return false;
   }
 
   String macAddress = WiFi.macAddress();
   String deviceName = "izBoard-" + macAddress.substring(macAddress.length() - 8);
 
-  String jsonBody = "{\"code\":\"" + pairingCode + "\",\"deviceIdentifier\":\"" + macAddress + "\",\"deviceName\":\"" + deviceName + "\",\"screenWidth\":" + String(DisplayConst::Width) + ",\"screenHeight\":" + String(DisplayConst::Height) + "}";
+  JsonDocument requestDoc;
+  requestDoc["code"] = pairingCode;
+  requestDoc["deviceIdentifier"] = macAddress;
+  requestDoc["deviceName"] = deviceName;
+  requestDoc["screenWidth"] = DisplayConst::Width;
+  requestDoc["screenHeight"] = DisplayConst::Height;
+
+  String jsonBody;
+  serializeJson(requestDoc, jsonBody);
 
   String postRequest = "POST /api/pairing/register HTTP/1.1\r\n";
   postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
@@ -147,15 +157,19 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& d
 
   _network.send(postRequest);
 
-  bool statusOk = false;
+  int httpStatus = 0;
   while (_network.connected() || _network.available())
   {
     String line = _network.readStringUntil('\n');
     _logger.println(line);
 
-    if (!statusOk)
+    if (httpStatus == 0 && line.startsWith("HTTP/"))
     {
-      statusOk = line.startsWith("HTTP/1.1 200");
+      int spaceIdx = line.indexOf(' ');
+      if (spaceIdx > 0)
+      {
+        httpStatus = line.substring(spaceIdx + 1).toInt();
+      }
     }
 
     if (line == "\r")
@@ -164,44 +178,68 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& d
     }
   }
 
-  if (!statusOk)
-  {
-    _logger.println("Registration request failed");
-    _network.close();
-    return false;
-  }
-
-  String response = "";
+  String raw = "";
   while (_network.connected() || _network.available())
   {
-    String line = _network.readStringUntil('\n');
-    line.trim();
-    if (line.startsWith("{"))
+    if (_network.available())
     {
-      response = line;
-      break;
+      raw += (char)_network.client().read();
+    }
+    else
+    {
+      delay(5);
     }
   }
+
   _network.close();
 
+  int jsonStart = raw.indexOf('{');
+  int jsonEnd = raw.lastIndexOf('}');
+  String response = (jsonStart >= 0 && jsonEnd > jsonStart)
+                        ? raw.substring(jsonStart, jsonEnd + 1)
+                        : "";
+
+  _logger.print("HTTP status: ");
+  _logger.println(httpStatus);
   _logger.println("Response: " + response);
 
-  int apiKeyStart = response.indexOf("\"apiKey\":\"");
-  if (apiKeyStart == -1)
+  if (httpStatus != 200)
+  {
+    raw.trim();
+    if (response.length() > 0)
+    {
+      errorOut = response;
+    }
+    else if (raw.length() > 0)
+    {
+      errorOut = raw;
+    }
+    else
+    {
+      errorOut = "Server returned HTTP " + String(httpStatus);
+    }
+    return false;
+  }
+
+  JsonDocument responseDoc;
+  DeserializationError error = deserializeJson(responseDoc, response);
+  if (error)
+  {
+    _logger.print("JSON parse error: ");
+    _logger.println(error.c_str());
+    errorOut = "Invalid response from server";
+    return false;
+  }
+
+  const char* key = responseDoc["apiKey"];
+  if (!key)
   {
     _logger.println("API key not found in response");
+    errorOut = "Server response missing API key";
     return false;
   }
 
-  apiKeyStart += 10;
-  int apiKeyEnd = response.indexOf("\"", apiKeyStart);
-  if (apiKeyEnd == -1)
-  {
-    _logger.println("API key end not found");
-    return false;
-  }
-
-  apiKey = response.substring(apiKeyStart, apiKeyEnd);
+  apiKey = key;
   _logger.println("Received API key: " + apiKey);
 
   return true;

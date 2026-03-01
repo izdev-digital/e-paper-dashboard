@@ -45,6 +45,7 @@ public:
   void refresh();
   void powerOff();
   void showWelcomePage(const IPAddress& ip, const String& mac, const String& apName);
+  void showSuccess(const String& title, const String& message, const String& hint = "");
 
 private:
   void drawIcon(int16_t ox, int16_t oy, int16_t size);
