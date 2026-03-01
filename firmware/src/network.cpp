@@ -67,9 +67,14 @@ ResponseHeaders Network::readResponseHeaders()
     String line = c.readStringUntil('\n');
     _logger.println(line);
 
-    if (!headers.isSuccess)
+    if (!headers.isSuccess && line.startsWith("HTTP/"))
     {
-      headers.isSuccess = line.startsWith("HTTP/1.1 200");
+      int spaceIdx = line.indexOf(' ');
+      if (spaceIdx > 0)
+      {
+        int statusCode = line.substring(spaceIdx + 1).toInt();
+        headers.isSuccess = (statusCode == 200);
+      }
     }
 
     if (line.startsWith("X-Firmware-Version:"))

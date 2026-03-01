@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
+#include <ArduinoJson.h>
 
 SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display,
                          Network& network, DeviceApi& deviceApi)
@@ -235,7 +236,8 @@ void SetupPortal::run()
                         el.innerHTML = '<div style="color:#198754;font-weight:500">&#10003; Registered successfully! Rebooting...</div>';
                         return;
                     } else if (d.state === 'failed') {
-                        el.innerHTML = '<div style="color:#dc3545;font-weight:500">&#10007; ' + (d.error || 'Registration failed') + '</div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        el.innerHTML = '<div style="color:#dc3545;font-weight:500" id="errMsg"></div><a href="/" class="btn" style="margin-top:1rem">Try Again</a>';
+                        document.getElementById('errMsg').textContent = '\u2717 ' + (d.error || 'Registration failed');
                         return;
                     }
                     setTimeout(poll, 1500);
@@ -340,12 +342,14 @@ void SetupPortal::run()
     else if (pairingState == STATE_FAILED) state = "failed";
     else state = "idle";
 
-    String json = "{\"state\":\"" + state + "\"";
+    JsonDocument doc;
+    doc["state"] = state;
     if (pairingState == STATE_FAILED)
     {
-      json += ",\"error\":\"" + pairingError + "\"";
+      doc["error"] = pairingError;
     }
-    json += "}";
+    String json;
+    serializeJson(doc, json);
     server.send(200, "application/json", json); });
 
   auto redirectToRoot = [&server]()

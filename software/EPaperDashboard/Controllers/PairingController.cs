@@ -44,11 +44,6 @@ public class PairingController(
             return NotFound("Invalid pairing code");
         }
 
-        if (session.Value.FailedAttempts >= PairingService.MaxFailedAttempts)
-        {
-            return StatusCode(429, "Too many failed attempts. Start a new pairing session.");
-        }
-
         if (session.Value.ExpiresAt < DateTimeOffset.UtcNow)
         {
             return BadRequest("Pairing code expired");
