@@ -2,6 +2,7 @@ using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
 using EPaperDashboard.Utilities;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Logging;
 
 namespace EPaperDashboard.Services.Llm;
 
@@ -16,7 +17,8 @@ public sealed class LlmProviderFactory(
     IUserLlmConfigRepository configRepository,
     HomeAssistantConnectionService haConnectionService,
     IHttpClientFactory httpClientFactory,
-    IDataProtectionProvider dataProtectionProvider) : ILlmProviderFactory
+    IDataProtectionProvider dataProtectionProvider,
+    ILogger<LlmProviderFactory> logger) : ILlmProviderFactory
 {
     private readonly IDataProtector _dataProtector =
         dataProtectionProvider.CreateProtector("EPaperDashboard.LlmApiKey");
@@ -52,7 +54,8 @@ public sealed class LlmProviderFactory(
             }
             catch
             {
-                // Decryption failed — treat as no key set
+                // Decryption failed (e.g., data protection key rotation) — treat as no key set
+                logger.LogWarning("Failed to decrypt stored API key for user {UserId}. The key may need to be re-entered.", userId);
             }
         }
 
@@ -65,7 +68,8 @@ public sealed class LlmProviderFactory(
             ProviderType = config.ProviderType,
             BaseUrl = config.BaseUrl,
             Model = config.Model,
-            EncryptedApiKey = decryptedApiKey,
+            EncryptedApiKey = config.EncryptedApiKey,
+            PlainApiKey = decryptedApiKey,
             Temperature = config.Temperature,
             TimeoutSeconds = config.TimeoutSeconds
         };

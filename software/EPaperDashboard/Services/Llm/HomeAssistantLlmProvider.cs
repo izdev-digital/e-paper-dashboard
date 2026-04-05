@@ -12,6 +12,8 @@ public sealed class HomeAssistantLlmProvider(
     HomeAssistantConnectionService connectionService,
     string dashboardId) : ILlmProvider
 {
+    public int TimeoutSeconds => 60;
+
     public async Task<Result<string, string>> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
         try

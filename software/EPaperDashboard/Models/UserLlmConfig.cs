@@ -20,4 +20,11 @@ public class UserLlmConfig
 
     public double Temperature { get; set; } = 0.1;
     public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Transient decrypted API key for use by providers at runtime.
+    /// Never persisted to the database.
+    /// </summary>
+    [LiteDB.BsonIgnore]
+    public string? PlainApiKey { get; set; }
 }

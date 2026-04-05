@@ -8,6 +8,8 @@ namespace EPaperDashboard.Services.Llm;
 /// </summary>
 public sealed class NoOpLlmProvider : ILlmProvider
 {
+    public int TimeoutSeconds => 0;
+
     public Task<Result<string, string>> GenerateAsync(string prompt, CancellationToken cancellationToken = default) =>
         Task.FromResult(Result.Failure<string, string>("AI provider is not configured."));
 

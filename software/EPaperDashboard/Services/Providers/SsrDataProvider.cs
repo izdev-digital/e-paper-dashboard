@@ -201,7 +201,8 @@ public sealed class SsrDataProvider(
 
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var timeoutSeconds = Math.Max(provider.TimeoutSeconds, 10);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
                 var result = await provider.GenerateAsync(fullPrompt, cts.Token);
                 if (result.IsSuccess)
                 {
@@ -227,8 +228,9 @@ public sealed class SsrDataProvider(
     private static string SanitizeForPrompt(string? value)
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
-        // Strip characters that could interfere with prompt injection
-        var sanitized = System.Text.RegularExpressions.Regex.Replace(value, @"[^\w\s\.\-,:°%/]", " ");
+        // Allow only alphanumeric characters, spaces, and basic safe punctuation.
+        // This prevents prompt injection via entity IDs or state values.
+        var sanitized = System.Text.RegularExpressions.Regex.Replace(value, @"[^\w\s\.\-,:]", " ");
         return sanitized.Length > 200 ? sanitized[..200] : sanitized;
     }
     // =============================================

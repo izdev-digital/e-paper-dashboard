@@ -40,10 +40,21 @@ export class AiSettingsComponent implements OnInit {
     try {
       const url = new URL(this.baseUrl);
       const host = url.hostname;
-      return !['localhost', '127.0.0.1', '::1'].includes(host)
-        && !host.startsWith('192.168.')
-        && !host.startsWith('10.')
-        && !host.match(/^172\.(1[6-9]|2\d|3[01])\./);
+      // Allow known loopback and private ranges
+      if (host === 'localhost') return false;
+      // IPv6 loopback
+      if (host === '::1' || host === '[::1]') return false;
+      // 127.0.0.0/8 loopback
+      if (/^127\./.test(host)) return false;
+      // 10.0.0.0/8
+      if (/^10\./.test(host)) return false;
+      // 172.16.0.0/12 (172.16–172.31)
+      if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+      // 192.168.0.0/16
+      if (/^192\.168\./.test(host)) return false;
+      // 169.254.0.0/16 link-local
+      if (/^169\.254\./.test(host)) return false;
+      return true;
     } catch {
       return false;
     }

@@ -128,21 +128,21 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   getAiTextEntityIds(): string[] {
-    return (this.aiTextConfig as any)?.entityIds ?? [];
+    return this.aiTextConfig?.entityIds ?? [];
   }
 
   addAiTextEntityId(entityId: string): void {
     if (!entityId) return;
     const ids = this.getAiTextEntityIds();
     if (!ids.includes(entityId)) {
-      (this.widget.config as any).entityIds = [...ids, entityId];
+      this.aiTextConfig.entityIds = [...ids, entityId];
       this.onPropertyChanged();
     }
   }
 
   removeAiTextEntityId(entityId: string): void {
     const ids = this.getAiTextEntityIds();
-    (this.widget.config as any).entityIds = ids.filter((id: string) => id !== entityId);
+    this.aiTextConfig.entityIds = ids.filter((id: string) => id !== entityId);
     this.onPropertyChanged();
   }
 

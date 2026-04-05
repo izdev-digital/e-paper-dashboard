@@ -18,4 +18,9 @@ public interface ILlmProvider
     /// Returns a failure result with an error message if connectivity fails.
     /// </summary>
     Task<Result<bool, string>> TestConnectionAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The configured timeout in seconds for generate requests.
+    /// </summary>
+    int TimeoutSeconds { get; }
 }

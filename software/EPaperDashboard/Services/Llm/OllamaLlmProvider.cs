@@ -11,6 +11,8 @@ namespace EPaperDashboard.Services.Llm;
 /// </summary>
 public sealed class OllamaLlmProvider(IHttpClientFactory httpClientFactory, UserLlmConfig config) : ILlmProvider
 {
+    public int TimeoutSeconds => config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 60;
+
     public async Task<Result<string, string>> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
         try

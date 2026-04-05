@@ -13,6 +13,8 @@ namespace EPaperDashboard.Services.Llm;
 /// </summary>
 public sealed class OpenAiCompatibleLlmProvider(IHttpClientFactory httpClientFactory, UserLlmConfig config) : ILlmProvider
 {
+    public int TimeoutSeconds => config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 60;
+
     public async Task<Result<string, string>> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
         try
@@ -20,9 +22,9 @@ public sealed class OpenAiCompatibleLlmProvider(IHttpClientFactory httpClientFac
             using var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(config.TimeoutSeconds > 0 ? config.TimeoutSeconds : 60);
 
-            if (!string.IsNullOrWhiteSpace(config.EncryptedApiKey))
+            if (!string.IsNullOrWhiteSpace(config.PlainApiKey))
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.EncryptedApiKey);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.PlainApiKey);
             }
 
             var baseUrl = config.BaseUrl.TrimEnd('/');
@@ -62,9 +64,9 @@ public sealed class OpenAiCompatibleLlmProvider(IHttpClientFactory httpClientFac
             using var client = httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(10);
 
-            if (!string.IsNullOrWhiteSpace(config.EncryptedApiKey))
+            if (!string.IsNullOrWhiteSpace(config.PlainApiKey))
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.EncryptedApiKey);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.PlainApiKey);
             }
 
             var baseUrl = config.BaseUrl.TrimEnd('/');
