@@ -700,4 +700,43 @@
   <i class="fa fa-info-circle"></i> This widget displays the software version. No configuration needed.
 </div>
 }
+
+@case ('ai-text') {
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Prompt</label>
+  <textarea class="form-control form-control-sm" rows="3" [(ngModel)]="aiTextConfig.prompt"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="e.g. Summarize my home's energy usage today"></textarea>
+  <small class="form-text text-muted">The prompt sent to the LLM at render time.</small>
+</div>
+
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Max Length (characters)</label>
+  <input type="number" class="form-control form-control-sm" min="0" max="2000"
+    [ngModel]="aiTextConfig.maxLength ?? 0"
+    (ngModelChange)="aiTextConfig.maxLength = +$event || undefined; onPropertyChanged()"
+    placeholder="Leave 0 for no limit" />
+</div>
+
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Entity Context (optional)</label>
+  <small class="form-text d-block text-muted mb-1">Select entities whose state will be included as context for the LLM.</small>
+  @for (entityId of getAiTextEntityIds(); track entityId) {
+  <div class="d-flex align-items-center gap-2 mb-1">
+    <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ entityId }}</span>
+    <button class="btn btn-sm btn-outline-danger p-0 px-1" (click)="removeAiTextEntityId(entityId)" title="Remove">
+      <i class="fa fa-xmark"></i>
+    </button>
+  </div>
+  }
+  @if (availableEntities.length > 0) {
+  <select class="form-select form-select-sm mt-1" (change)="addAiTextEntityId($any($event.target).value); $any($event.target).value = ''">
+    <option value="">Add entity…</option>
+    @for (entity of availableEntities; track entity.entityId) {
+    <option [value]="entity.entityId">{{ formatEntityLabel(entity) }}</option>
+    }
+  </select>
+  }
+</div>
+}
 }

@@ -1,6 +1,7 @@
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Providers.HomeAssistant;
+using EPaperDashboard.Services.Llm;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Data.LiteDb;
 using EPaperDashboard.Data.Repositories;
@@ -99,6 +100,7 @@ builder.Services
 	.AddSingleton<IDashboardRepository, LiteDbDashboardRepository>()
 	.AddSingleton<IDeviceRepository, LiteDbDeviceRepository>()
 	.AddSingleton<IPairingSessionRepository, LiteDbPairingSessionRepository>()
+	.AddSingleton<IUserLlmConfigRepository, LiteDbUserLlmConfigRepository>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
 	.AddSingleton<DeviceService>()
@@ -113,6 +115,7 @@ builder.Services
 	.AddSingleton<IRssFeedDataProvider, HomeAssistantRssFeedDataProvider>()
 	.AddSingleton<IEntityHistoryProvider, HomeAssistantEntityHistoryProvider>()
 	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
+	.AddSingleton<ILlmProviderFactory, LlmProviderFactory>()
 	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<DashboardImageRenderingService>()
 	.AddHostedService<DashboardScheduleMonitorService>();

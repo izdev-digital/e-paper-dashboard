@@ -23,6 +23,7 @@ import {
   TodoConfig,
   AppIconConfig,
   RssFeedConfig,
+  AiTextConfig,
   ColorScheme
 } from '../../models/types';
 import { HttpClient } from '@angular/common/http';
@@ -120,6 +121,29 @@ export class WidgetConfigComponent implements OnChanges {
 
   get rssFeedConfig(): RssFeedConfig {
     return this.widget.config as RssFeedConfig;
+  }
+
+  get aiTextConfig(): AiTextConfig {
+    return this.widget.config as AiTextConfig;
+  }
+
+  getAiTextEntityIds(): string[] {
+    return (this.aiTextConfig as any)?.entityIds ?? [];
+  }
+
+  addAiTextEntityId(entityId: string): void {
+    if (!entityId) return;
+    const ids = this.getAiTextEntityIds();
+    if (!ids.includes(entityId)) {
+      (this.widget.config as any).entityIds = [...ids, entityId];
+      this.onPropertyChanged();
+    }
+  }
+
+  removeAiTextEntityId(entityId: string): void {
+    const ids = this.getAiTextEntityIds();
+    (this.widget.config as any).entityIds = ids.filter((id: string) => id !== entityId);
+    this.onPropertyChanged();
   }
 
   onPropertyChanged(): void {

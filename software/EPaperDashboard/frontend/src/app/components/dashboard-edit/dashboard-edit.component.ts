@@ -190,6 +190,9 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
 
                     <input type="radio" class="btn-check" name="previewMode" id="haMode" value="homeassistant" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
                     <label class="btn btn-outline-secondary flex-grow-1" for="haMode">Home Assistant Dashboard</label>
+
+                    <input type="radio" class="btn-check" name="previewMode" id="aiMode" value="aigenerated" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
+                    <label class="btn btn-outline-secondary flex-grow-1" for="aiMode"><i class="fa fa-robot me-1"></i>AI Generated</label>
                   </div>
                 </div>
 
@@ -323,7 +326,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   readonly previewError = signal('');
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
-  readonly previewMode = signal<'ssr' | 'homeassistant'>('ssr');
+  readonly previewMode = signal<'ssr' | 'homeassistant' | 'aigenerated'>('ssr');
   
   readonly devices = signal<Device[]>([]);
   readonly isLoadingDevices = signal(false);
@@ -337,7 +340,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   });
 
   newUpdateTime: string = '';
-  previewModeValue: 'ssr' | 'homeassistant' = 'ssr';
+  previewModeValue: 'ssr' | 'homeassistant' | 'aigenerated' = 'ssr';
   orientationValue: DashboardOrientation = 'Landscape';
   sizePresets: DashboardSizePreset[] = DASHBOARD_SIZE_PRESETS;
   selectedSizeIndex = 0;
@@ -396,6 +399,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
         if (dashboard.renderingMode === 'HomeAssistant') {
           this.previewModeValue = 'homeassistant';
+        } else if (dashboard.renderingMode === 'AiGenerated') {
+          this.previewModeValue = 'aigenerated';
         } else {
           this.previewModeValue = 'ssr';
         }
@@ -585,7 +590,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       host: formValue.host || undefined,
       path: formValue.path || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
-      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
+      renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : this.previewModeValue === 'aigenerated' ? 'AiGenerated' : 'Custom',
       orientation: this.orientationValue,
       screenWidth: selectedSize.width,
       screenHeight: selectedSize.height

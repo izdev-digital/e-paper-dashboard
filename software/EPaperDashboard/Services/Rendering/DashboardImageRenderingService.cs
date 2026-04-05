@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Utilities;
+using UserId = EPaperDashboard.Models.UserId;
 using QRCoder;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
@@ -50,10 +51,10 @@ public sealed class DashboardImageRenderingService
     /// <summary>
     /// Renders the dashboard to an ImageSharp image using stored configuration and live HA data.
     /// </summary>
-    public async Task<Image<Rgba32>> RenderDashboardImageAsync(string dashboardId, string layoutConfigJson)
+    public async Task<Image<Rgba32>> RenderDashboardImageAsync(string dashboardId, string layoutConfigJson, UserId userId = default)
     {
         var layout = ParseLayout(layoutConfigJson);
-        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout);
+        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, userId);
         return RenderToImage(layout, data);
     }
 
@@ -330,6 +331,9 @@ public sealed class DashboardImageRenderingService
                     break;
                 case "graph":
                     RenderGraphWidget(image, widget, layout, data, contentRect);
+                    break;
+                case "ai-text":
+                    RenderAiTextWidget(image, widget, layout, data, contentRect);
                     break;
                 default:
                     RenderPlaceholder(image, widget, layout, contentRect, widget.Type);
@@ -1519,6 +1523,48 @@ public sealed class DashboardImageRenderingService
         var textColor = ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
         var fontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
         DrawCenteredText(image, label, GetFont(fontSize), textColor, contentRect);
+    }
+
+    // =============================================
+    // AI-TEXT WIDGET
+    // =============================================
+
+    private void RenderAiTextWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    {
+        var textColor = ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
+        var fontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
+
+        // Try to get the LLM-generated text from SsrData
+        if (!data.AiTextResults.TryGetValue(widget.Id, out var aiText) || string.IsNullOrWhiteSpace(aiText))
+        {
+            // No text available — render a placeholder indicating AI is unavailable
+            var fallback = widget.TitleOverride ?? "AI unavailable";
+            DrawCenteredText(image, fallback, GetFont(fontSize), textColor, contentRect);
+            return;
+        }
+
+        // Render the AI-generated text with word wrap
+        DrawWrappedText(image, aiText, GetFont(fontSize), textColor, contentRect);
+    }
+
+    private void DrawWrappedText(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds)
+    {
+        if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0)
+            return;
+
+        image.Mutate(ctx =>
+        {
+            ctx.DrawText(
+                new RichTextOptions(font)
+                {
+                    Origin = new PointF(bounds.X, bounds.Y),
+                    WrappingLength = bounds.Width,
+                    WordBreaking = WordBreaking.Standard,
+                    TextAlignment = TextAlignment.Start,
+                },
+                text,
+                color);
+        });
     }
 
     // =============================================

@@ -32,6 +32,9 @@ internal sealed class LiteDbContext : IDisposable
         mapper.RegisterType<PairingSessionId>(
             serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
             deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? PairingSessionId.Empty : new PairingSessionId(bson.AsObjectId.ToString()));
+        mapper.RegisterType<UserLlmConfigId>(
+            serialize: id => new BsonValue(string.IsNullOrEmpty(id.Value) ? ObjectId.Empty : new ObjectId(id.Value)),
+            deserialize: bson => bson == null || bson.IsNull || bson.AsObjectId == ObjectId.Empty ? UserLlmConfigId.Empty : new UserLlmConfigId(bson.AsObjectId.ToString()));
 
         // Register custom serialization for JsonElement (must be after ID types)
         mapper.RegisterType(
@@ -58,6 +61,7 @@ internal sealed class LiteDbContext : IDisposable
     internal ILiteCollection<Dashboard> Dashboards => _db.GetCollection<Dashboard>("dashboards");
     internal ILiteCollection<Device> Devices => _db.GetCollection<Device>("devices");
     internal ILiteCollection<PairingSession> PairingSessions => _db.GetCollection<PairingSession>("pairingSessions");
+    internal ILiteCollection<UserLlmConfig> UserLlmConfigs => _db.GetCollection<UserLlmConfig>("userLlmConfigs");
 
     public void Dispose() => _db.Dispose();
 
@@ -75,6 +79,7 @@ internal sealed class LiteDbContext : IDisposable
             ["dashboards"] = ["_id", "UserId"],
             ["devices"] = ["_id", "UserId", "DashboardId"],
             ["pairingSessions"] = ["_id", "UserId"],
+            ["userLlmConfigs"] = ["_id", "UserId"],
         };
 
         foreach (var (collectionName, fields) in collectionFields)

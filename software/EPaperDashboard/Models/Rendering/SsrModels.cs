@@ -70,4 +70,9 @@ public class SsrData
     public Dictionary<string, List<object?>> WeatherForecasts { get; set; } = new();
     public Dictionary<string, List<RssFeedEntry>> RssFeedEntries { get; set; } = new();
     public Dictionary<string, List<HistoryState>> HistoryData { get; set; } = new();
+
+    /// <summary>
+    /// LLM-generated text for ai-text widgets, keyed by widget ID.
+    /// </summary>
+    public Dictionary<string, string> AiTextResults { get; set; } = new();
 }

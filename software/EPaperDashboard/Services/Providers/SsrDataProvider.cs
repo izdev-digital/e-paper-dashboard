@@ -1,5 +1,7 @@
 using System.Text.Json;
 using EPaperDashboard.Models.Rendering;
+using EPaperDashboard.Services.Llm;
+using UserId = EPaperDashboard.Models.UserId;
 
 namespace EPaperDashboard.Services.Providers;
 
@@ -14,6 +16,7 @@ public sealed class SsrDataProvider(
     IWeatherForecastProvider weatherForecastProvider,
     IRssFeedDataProvider rssFeedDataProvider,
     IEntityHistoryProvider entityHistoryProvider,
+    ILlmProviderFactory llmProviderFactory,
     ILogger<SsrDataProvider> logger) : ISsrDataProvider
 {
     private readonly IEntityStateProvider _entityStateProvider = entityStateProvider;
@@ -22,9 +25,10 @@ public sealed class SsrDataProvider(
     private readonly IWeatherForecastProvider _weatherForecastProvider = weatherForecastProvider;
     private readonly IRssFeedDataProvider _rssFeedDataProvider = rssFeedDataProvider;
     private readonly IEntityHistoryProvider _entityHistoryProvider = entityHistoryProvider;
+    private readonly ILlmProviderFactory _llmProviderFactory = llmProviderFactory;
     private readonly ILogger<SsrDataProvider> _logger = logger;
 
-    public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout)
+    public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout, UserId userId = default)
     {
         var data = new SsrData();
 
@@ -139,11 +143,94 @@ public sealed class SsrDataProvider(
             }
         }
 
+        // Fetch AI-generated text for ai-text widgets
+        await FetchAiTextDataAsync(dashboardId, layout, data, userId);
+
         return data;
     }
 
     // =============================================
-    // HELPERS
+    // AI-TEXT HELPERS
+    // =============================================
+
+    private async Task FetchAiTextDataAsync(string dashboardId, LayoutConfig layout, SsrData data, UserId userId)
+    {
+        var aiWidgets = layout.Widgets.Where(w => w.Type == "ai-text").ToList();
+        if (aiWidgets.Count == 0) return;
+
+        var provider = _llmProviderFactory.GetProvider(userId, dashboardId);
+        if (provider is NoOpLlmProvider)
+        {
+            // LLM not configured — store fallback text per widget
+            foreach (var widget in aiWidgets)
+            {
+                data.AiTextResults[widget.Id] = string.Empty;
+            }
+            return;
+        }
+
+        foreach (var widget in aiWidgets)
+        {
+            var prompt = GetStringProp(widget.Config, "prompt");
+            if (string.IsNullOrWhiteSpace(prompt)) continue;
+
+            var maxLength = widget.Config.TryGetProperty("maxLength", out var mlEl)
+                && mlEl.TryGetInt32(out var ml) ? ml : 0;
+
+            // Build context from entity states if entityIds are configured
+            var contextBuilder = new System.Text.StringBuilder();
+            if (widget.Config.TryGetProperty("entityIds", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var idEl in idsEl.EnumerateArray())
+                {
+                    var entityId = idEl.GetString();
+                    if (string.IsNullOrEmpty(entityId)) continue;
+                    if (data.EntityStates.TryGetValue(entityId, out var state))
+                    {
+                        // Sanitize entity state data before including in prompt
+                        var safeName = SanitizeForPrompt(entityId);
+                        var safeState = SanitizeForPrompt(state.State);
+                        contextBuilder.AppendLine($"- {safeName}: {safeState}");
+                    }
+                }
+            }
+
+            var fullPrompt = contextBuilder.Length > 0
+                ? $"{prompt}\n\nContext:\n{contextBuilder}"
+                : prompt;
+
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                var result = await provider.GenerateAsync(fullPrompt, cts.Token);
+                if (result.IsSuccess)
+                {
+                    var text = result.Value;
+                    if (maxLength > 0 && text.Length > maxLength)
+                        text = text[..maxLength];
+                    data.AiTextResults[widget.Id] = text;
+                }
+                else
+                {
+                    _logger.LogWarning("SSR: AI text generation failed for widget {WidgetId}: {Error}", widget.Id, result.Error);
+                    data.AiTextResults[widget.Id] = string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SSR: AI text generation threw for widget {WidgetId}", widget.Id);
+                data.AiTextResults[widget.Id] = string.Empty;
+            }
+        }
+    }
+
+    private static string SanitizeForPrompt(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        // Strip characters that could interfere with prompt injection
+        var sanitized = System.Text.RegularExpressions.Regex.Replace(value, @"[^\w\s\.\-,:°%/]", " ");
+        return sanitized.Length > 200 ? sanitized[..200] : sanitized;
+    }
     // =============================================
 
     internal static string? GetStringProp(JsonElement el, string prop) =>
@@ -177,6 +264,17 @@ public sealed class SsrDataProvider(
                     {
                         foreach (var badge in badges.EnumerateArray())
                             AddId(badge, "entityId", ids);
+                    }
+                    break;
+                case "ai-text":
+                    if (widget.Config.TryGetProperty("entityIds", out var entityIdsEl)
+                        && entityIdsEl.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var idEl in entityIdsEl.EnumerateArray())
+                        {
+                            var val = idEl.GetString();
+                            if (!string.IsNullOrEmpty(val)) ids.Add(val);
+                        }
                     }
                     break;
             }

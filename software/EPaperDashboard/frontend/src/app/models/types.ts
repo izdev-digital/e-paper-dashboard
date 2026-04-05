@@ -48,7 +48,7 @@ export interface Dashboard {
   path?: string;
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
-  renderingMode?: 'Custom' | 'HomeAssistant';
+  renderingMode?: 'Custom' | 'HomeAssistant' | 'AiGenerated';
   orientation?: DashboardOrientation;
   screenWidth: number;
   screenHeight: number;
@@ -71,7 +71,7 @@ export interface UpdateDashboardRequest {
   path?: string;
   updateTimes?: string[];
   layoutConfig?: DashboardLayout;
-  renderingMode?: 'Custom' | 'HomeAssistant';
+  renderingMode?: 'Custom' | 'HomeAssistant' | 'AiGenerated';
   orientation?: DashboardOrientation;
   screenWidth?: number;
   screenHeight?: number;
@@ -90,7 +90,8 @@ export type WidgetType =
   | 'app-icon'
   | 'image'
   | 'version'
-  | 'rss-feed';
+  | 'rss-feed'
+  | 'ai-text';
 
 export interface WidgetPosition {
   x: number;
@@ -146,7 +147,8 @@ export interface WidgetConfig {
   | AppIconConfig
   | ImageConfig
   | VersionConfig
-  | RssFeedConfig;
+  | RssFeedConfig
+  | AiTextConfig;
   colorOverrides?: WidgetColorOverrides;
   titleOverride?: string;
   showTitle?: boolean;
@@ -322,6 +324,12 @@ export interface TodoConfig {
 export interface RssFeedConfig {
   entityId: string;
   title?: string;
+}
+
+export interface AiTextConfig {
+  prompt: string;
+  entityIds?: string[];
+  maxLength?: number;
 }
 
 export interface DashboardLayout {

@@ -6,7 +6,8 @@ namespace EPaperDashboard.Models
     public enum RenderingMode
     {
         Custom = 0,
-        HomeAssistant = 1
+        HomeAssistant = 1,
+        AiGenerated = 2
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]

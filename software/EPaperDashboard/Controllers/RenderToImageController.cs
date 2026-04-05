@@ -126,7 +126,8 @@ public sealed class RenderToImageController(
 
 			var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
 				dashboard.Id.ToString(),
-				layoutConfigJson);
+				layoutConfigJson,
+				dashboard.UserId);
 
 			IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 			var resultImage = transform?.Invoke(dashboard, image) ?? image;

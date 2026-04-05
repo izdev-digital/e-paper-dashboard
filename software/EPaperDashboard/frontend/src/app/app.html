@@ -52,6 +52,7 @@
               </a>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
                 <li><a class="dropdown-item" routerLink="/users/profile">Profile</a></li>
+                <li><a class="dropdown-item" routerLink="/users/ai-settings">AI Settings</a></li>
                 <li>
                   <hr class="dropdown-divider">
                 </li>
@@ -109,6 +110,12 @@
                 <a routerLink="/users/profile" class="mobile-footer-link">
                   <i class="fa-regular fa-user" aria-hidden="true"></i>
                   <span>{{ user.nickname || user.username }}</span>
+                </a>
+              </li>
+              <li class="mobile-footer-item">
+                <a routerLink="/users/ai-settings" class="mobile-footer-link">
+                  <i class="fa-solid fa-robot" aria-hidden="true"></i>
+                  <span>AI Settings</span>
                 </a>
               </li>
               <li class="mobile-footer-item">

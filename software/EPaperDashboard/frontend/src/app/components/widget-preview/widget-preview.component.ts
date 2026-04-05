@@ -12,6 +12,7 @@ import { TodoWidgetComponent } from '../widgets/todo-widget.component';
 import { CalendarWidgetComponent } from '../widgets/calendar-widget.component';
 import { VersionWidgetComponent } from '../widgets/version-widget.component';
 import { RssFeedWidgetComponent } from '../widgets/rss-feed-widget.component';
+import { AiTextWidgetComponent } from '../widgets/ai-text-widget.component';
 import {
   WidgetConfig,
   ColorScheme,
@@ -40,7 +41,8 @@ import {
     TodoWidgetComponent,
     CalendarWidgetComponent,
     VersionWidgetComponent,
-    RssFeedWidgetComponent
+    RssFeedWidgetComponent,
+    AiTextWidgetComponent
   ],
   template: `
     <div class="widget-preview">
@@ -91,6 +93,9 @@ import {
       @if (widget.type === 'rss-feed') {
         <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-rss-feed>
       }
+      @if (widget.type === 'ai-text') {
+        <app-widget-ai-text [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-ai-text>
+      }
       }
     </div>
   `,
@@ -126,6 +131,7 @@ export class WidgetPreviewComponent {
     'app-icon':         { icon: 'fa-rocket',        label: 'App Icon' },
     'image':            { icon: 'fa-image',         label: 'Image' },
     'version':          { icon: 'fa-code-branch',   label: 'Version' },
+    'ai-text':          { icon: 'fa-robot',         label: 'AI Text' },
   };
 
   getWidgetIcon(): string {

@@ -1,0 +1,126 @@
+<div class="container py-4">
+  <h2 class="mb-4">AI Settings</h2>
+
+  @if (isLoading()) {
+  <div class="d-flex justify-content-center py-5">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading…</span>
+    </div>
+  </div>
+  } @else {
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <!-- Enable toggle -->
+      <div class="mb-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="aiEnabled"
+            [(ngModel)]="enabled" />
+          <label class="form-check-label fw-semibold" for="aiEnabled">Enable AI features</label>
+        </div>
+        <small class="text-muted">When enabled, the AI text widget and AI-generated dashboard mode become available.</small>
+      </div>
+
+      @if (enabled) {
+      <!-- Provider type -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="providerType">Provider</label>
+        <select class="form-select" id="providerType" [(ngModel)]="providerType">
+          <option value="none" disabled>Select a provider…</option>
+          @for (p of providerTypes; track p.value) {
+          <option [value]="p.value">{{ p.label }}</option>
+          }
+        </select>
+      </div>
+
+      @if (providerType !== 'none') {
+      <!-- Base URL -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="baseUrl">
+          @if (providerType === 'ollama') { Ollama URL } @else { API Base URL }
+        </label>
+        <input type="url" class="form-control" id="baseUrl" [(ngModel)]="baseUrl"
+          [placeholder]="providerType === 'ollama' ? 'http://localhost:11434' : 'http://localhost:8080'" />
+        @if (isNonLocalUrl) {
+        <div class="alert alert-warning mt-2 py-2 px-3 small">
+          <i class="fa fa-triangle-exclamation me-1"></i>
+          <strong>Warning:</strong> This URL points to a non-local address. Sensor data included in prompts will leave your local network.
+        </div>
+        }
+      </div>
+
+      <!-- Model -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="model">Model</label>
+        <input type="text" class="form-control" id="model" [(ngModel)]="model"
+          [placeholder]="providerType === 'ollama' ? 'llama3.2' : 'gpt-4o-mini'" />
+      </div>
+
+      <!-- API Key -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="apiKey">
+          API Key
+          @if (hasExistingApiKey) { <span class="badge bg-success-subtle text-success-emphasis ms-1">Stored</span> }
+        </label>
+        <input type="password" class="form-control" id="apiKey" [(ngModel)]="apiKey"
+          placeholder="Leave blank to keep existing key" autocomplete="new-password" />
+        @if (hasExistingApiKey) {
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="clearApiKey" [(ngModel)]="clearApiKey" />
+          <label class="form-check-label small text-danger" for="clearApiKey">Remove stored API key</label>
+        </div>
+        }
+        @if (providerType === 'ollama') {
+        <small class="text-muted">Ollama typically does not require an API key.</small>
+        }
+      </div>
+
+      <!-- Temperature -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Temperature ({{ temperature | number:'1.1-1' }})</label>
+        <input type="range" class="form-range" min="0" max="2" step="0.05"
+          [(ngModel)]="temperature" />
+        <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+          <span>Deterministic</span><span>Balanced</span><span>Creative</span>
+        </div>
+      </div>
+
+      <!-- Timeout -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="timeout">Request Timeout (seconds)</label>
+        <input type="number" class="form-control" id="timeout" [(ngModel)]="timeoutSeconds" min="1" max="300" />
+      </div>
+      }
+      }
+
+      <!-- Actions -->
+      <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" (click)="save()" [disabled]="isSaving()">
+          @if (isSaving()) {
+          <span class="spinner-border spinner-border-sm me-1"></span>
+          } Save
+        </button>
+
+        @if (enabled && providerType !== 'none') {
+        <button class="btn btn-outline-secondary" (click)="testConnection()" [disabled]="isTesting() || isSaving()">
+          @if (isTesting()) {
+          <span class="spinner-border spinner-border-sm me-1"></span>
+          } Test Connection
+        </button>
+        }
+      </div>
+
+      <!-- Test result -->
+      @if (testResult(); as result) {
+      <div class="mt-3 alert py-2 px-3 small"
+        [class.alert-success]="result.success"
+        [class.alert-danger]="!result.success">
+        <i class="fa me-1" [class.fa-circle-check]="result.success" [class.fa-circle-xmark]="!result.success"></i>
+        {{ result.message }}
+      </div>
+      }
+
+    </div>
+  </div>
+  }
+</div>
