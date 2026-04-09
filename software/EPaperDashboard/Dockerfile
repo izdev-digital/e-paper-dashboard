@@ -52,8 +52,7 @@ ARG VERSION=1.0.0
 
 # Install Node.js for Angular build
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-  apt-get install -y nodejs && \
-  npm install -g npm@latest
+  apt-get install -y nodejs
 
 WORKDIR /src
 COPY . .

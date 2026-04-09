@@ -588,7 +588,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
       orientation: this.orientationValue,
       screenWidth: selectedSize.width,
-      screenHeight: selectedSize.height
+      screenHeight: selectedSize.height,
     };
 
     if (formValue.accessToken?.trim().length > 0) {

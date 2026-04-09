@@ -1,0 +1,112 @@
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <h2 class="mb-0"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>AI Configuration</h2>
+    </div>
+
+    <p class="text-muted">Configure the AI provider used to generate dashboard content. This setting applies to all your dashboards.</p>
+
+    @if (isLoading()) {
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    } @else {
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form (ngSubmit)="save()">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Connection Mode</label>
+              <select class="form-select"
+                [ngModel]="aiConfig().connectionMode"
+                (ngModelChange)="onConnectionModeChange($event)"
+                [ngModelOptions]="{standalone: true}">
+                <option value="None">None (AI disabled)</option>
+                <option value="Direct">Direct (OpenAI-compatible API)</option>
+                <option value="HomeAssistant">Home Assistant Conversation Agent</option>
+              </select>
+              <small class="form-text text-muted">Choose how to connect to an AI model</small>
+            </div>
+
+            @if (aiConfig().connectionMode === 'Direct') {
+              <hr>
+              <h5 class="mb-3">Direct API Settings</h5>
+              <div class="mb-3">
+                <label class="form-label">API Endpoint</label>
+                <input type="text" class="form-control"
+                  [value]="aiConfig().directEndpoint || ''"
+                  (input)="updateField('directEndpoint', $any($event.target).value)"
+                  placeholder="https://api.openai.com" />
+                <small class="form-text text-muted">OpenAI, Ollama, LM Studio, or any compatible endpoint</small>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">API Key</label>
+                <input type="password" class="form-control"
+                  [value]="aiConfig().directApiKey || ''"
+                  (input)="updateField('directApiKey', $any($event.target).value)"
+                  placeholder="sk-..." />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Model</label>
+                <input type="text" class="form-control"
+                  [value]="aiConfig().directModel || ''"
+                  (input)="updateField('directModel', $any($event.target).value)"
+                  placeholder="gpt-4o-mini" />
+              </div>
+            }
+
+            @if (aiConfig().connectionMode === 'HomeAssistant') {
+              <hr>
+              <h5 class="mb-3">Home Assistant Settings</h5>
+              <div class="mb-3">
+                <label class="form-label">Conversation Agent</label>
+                @if (isLoadingAgents()) {
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="text-muted">Loading agents...</span>
+                  </div>
+                } @else {
+                  <select class="form-select"
+                    [ngModel]="aiConfig().homeAssistantAgentId || ''"
+                    (ngModelChange)="updateField('homeAssistantAgentId', $event)"
+                    [ngModelOptions]="{standalone: true}">
+                    <option value="">Default conversation agent</option>
+                    @for (agent of conversationAgents(); track agent.id) {
+                      <option [value]="agent.id">{{ agent.name }}</option>
+                    }
+                  </select>
+                  @if (conversationAgents().length === 0) {
+                    <small class="form-text text-muted">No agents found. Make sure a dashboard is connected to Home Assistant.</small>
+                  } @else {
+                    <small class="form-text text-muted">Select a conversation agent or leave as default</small>
+                  }
+                }
+              </div>
+            }
+
+            @if (aiConfig().connectionMode !== 'None') {
+              <hr>
+              <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+                @if (isSaving()) {
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                }
+                Save AI Configuration
+              </button>
+            }
+          </form>
+        </div>
+      </div>
+
+      @if (aiConfig().connectionMode !== 'None') {
+        <div class="mt-4">
+          <h5>Next Steps</h5>
+          <p class="text-muted">
+            Once your AI connection is configured, open the <strong>Dashboard Designer</strong> for any Custom dashboard
+            and switch to the <strong>AI</strong> tab to enable AI generation, write prompts, and select data sources.
+          </p>
+        </div>
+      }
+    }
+  </div>
+</div>

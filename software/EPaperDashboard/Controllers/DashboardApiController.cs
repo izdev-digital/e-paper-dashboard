@@ -164,6 +164,11 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             updatedDashboard.ScreenHeight = preset.Height;
         }
 
+        if (request.IsAiEnabled.HasValue) updatedDashboard.IsAiEnabled = request.IsAiEnabled.Value;
+        if (request.AiPrompt != null) updatedDashboard.AiPrompt = request.AiPrompt;
+        if (request.AiDataSourceEntityIds != null) updatedDashboard.AiDataSourceEntityIds = request.AiDataSourceEntityIds;
+        if (request.AiLeadTimeMinutes.HasValue) updatedDashboard.AiLeadTimeMinutes = request.AiLeadTimeMinutes.Value;
+
         _dashboardService.UpdateDashboard(updatedDashboard);
 
         return Ok(DashboardResponseDto.FromDashboard(updatedDashboard, _deploymentStrategy.IsAutoConnected));
@@ -208,7 +213,11 @@ public record UpdateDashboardRequest(
     string? RenderingMode,
     string? Orientation,
     int? ScreenWidth,
-    int? ScreenHeight
+    int? ScreenHeight,
+    bool? IsAiEnabled,
+    string? AiPrompt,
+    List<string>? AiDataSourceEntityIds,
+    int? AiLeadTimeMinutes
 );
 
 public record DashboardResponseDto(
@@ -224,7 +233,12 @@ public record DashboardResponseDto(
     string? RenderingMode,
     string Orientation,
     int ScreenWidth,
-    int ScreenHeight
+    int ScreenHeight,
+    bool IsAiEnabled,
+    string? AiPrompt,
+    List<string>? AiDataSourceEntityIds,
+    int AiLeadTimeMinutes,
+    DateTimeOffset? LastAiGenerationTime
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
@@ -240,6 +254,11 @@ public record DashboardResponseDto(
         RenderingMode: dashboard.RenderingMode.ToString(),
         Orientation: dashboard.Orientation.ToString(),
         ScreenWidth: dashboard.ScreenWidth,
-        ScreenHeight: dashboard.ScreenHeight
+        ScreenHeight: dashboard.ScreenHeight,
+        IsAiEnabled: dashboard.IsAiEnabled,
+        AiPrompt: dashboard.AiPrompt,
+        AiDataSourceEntityIds: dashboard.AiDataSourceEntityIds,
+        AiLeadTimeMinutes: dashboard.AiLeadTimeMinutes,
+        LastAiGenerationTime: dashboard.LastAiGenerationTime
     );
 }

@@ -52,6 +52,11 @@ export interface Dashboard {
   orientation?: DashboardOrientation;
   screenWidth: number;
   screenHeight: number;
+  isAiEnabled?: boolean;
+  aiPrompt?: string;
+  aiDataSourceEntityIds?: string[];
+  aiLeadTimeMinutes?: number;
+  lastAiGenerationTime?: string;
 }
 
 export interface CreateDashboardRequest {
@@ -75,6 +80,10 @@ export interface UpdateDashboardRequest {
   orientation?: DashboardOrientation;
   screenWidth?: number;
   screenHeight?: number;
+  isAiEnabled?: boolean;
+  aiPrompt?: string;
+  aiDataSourceEntityIds?: string[];
+  aiLeadTimeMinutes?: number;
 }
 
 
@@ -454,3 +463,26 @@ export const DEFAULT_COLOR_SCHEMES: ColorScheme[] = [
     text: '#ffffff'
   }
 ];
+
+// AI Configuration Types
+export type AiConnectionMode = 'None' | 'HomeAssistant' | 'Direct';
+
+export interface AiConfig {
+  connectionMode: AiConnectionMode;
+  directEndpoint?: string;
+  directApiKey?: string;
+  directModel?: string;
+  homeAssistantAgentId?: string;
+}
+
+export interface AiGenerationResult {
+  widgets: WidgetConfig[];
+  generatedAt?: string;
+  isAiEnabled?: boolean;
+  prompt?: string;
+}
+
+export interface ConversationAgent {
+  id: string;
+  name: string;
+}

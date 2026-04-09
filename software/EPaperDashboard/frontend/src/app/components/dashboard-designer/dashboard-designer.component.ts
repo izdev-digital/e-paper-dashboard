@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
@@ -10,6 +10,7 @@ import { EntityStateService } from '../../services/entity-state.service';
 import { TodoService, type TodoItem } from '../../services/todo.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
+import { AiService } from '../../services/ai.service';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
@@ -32,12 +33,13 @@ import {
   DEFAULT_DASHBOARD_SIZE,
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
+  AiConfig,
 } from '../../models/types';
 
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
@@ -52,6 +54,7 @@ export class DashboardDesignerComponent implements OnInit {
   private readonly todoService = inject(TodoService);
   private readonly calendarService = inject(CalendarService);
   private readonly weatherService = inject(WeatherService);
+  private readonly aiService = inject(AiService);
 
   // Dashboard data
   dashboardId: string = '';
@@ -109,6 +112,7 @@ export class DashboardDesignerComponent implements OnInit {
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
   layoutCollapsed = signal(false); // Layout section expanded by default
   fontsCollapsed = signal(true); // Fonts section collapsed by default
+  aiSectionCollapsed = signal(false); // AI section expanded by default when AI enabled
   widgetColorOverridesCollapsed = signal(true); // Widget color overrides collapsed by default
   showPreviewModal = signal(false);
   previewLoading = signal(false);
@@ -116,6 +120,19 @@ export class DashboardDesignerComponent implements OnInit {
   previewImageUrl = signal('');
   /** ID of the widget whose internal layout editor is currently active (header or weather). */
   internalEditingWidgetId = signal<string | null>(null);
+
+  // AI state
+  isGeneratingAi = signal(false);
+  aiGeneratedWidgets = signal<WidgetConfig[]>([]);
+  aiLastGenerated = signal<string | null>(null);
+
+  // AI settings (editable in the AI tab)
+  aiEnabled = signal(false);
+  aiPrompt = signal('');
+  aiDataSourceEntityIds = signal<string[]>([]);
+  aiLeadTimeMinutes = signal(5);
+  newAiEntityId = signal('');
+  aiConfigMode = signal<string>('None');
 
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
@@ -166,6 +183,19 @@ export class DashboardDesignerComponent implements OnInit {
           }));
         }
         this.loadAvailableEntities();
+        this.loadAiGeneratedWidgets();
+
+        // Initialize AI settings from dashboard
+        this.aiEnabled.set(dashboard.isAiEnabled ?? false);
+        this.aiPrompt.set(dashboard.aiPrompt ?? '');
+        this.aiDataSourceEntityIds.set(dashboard.aiDataSourceEntityIds ?? []);
+        this.aiLeadTimeMinutes.set(dashboard.aiLeadTimeMinutes ?? 5);
+
+        // Load AI config mode
+        this.aiService.getConfig().subscribe({
+          next: (config) => this.aiConfigMode.set(config.connectionMode ?? 'None'),
+          error: () => this.aiConfigMode.set('None')
+        });
       },
       error: (err) => {
         this.toastService.show('Failed to load dashboard', 'error');
@@ -197,6 +227,56 @@ export class DashboardDesignerComponent implements OnInit {
   onWidgetSelect(widget: WidgetConfig): void {
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
+  }
+
+  loadAiGeneratedWidgets(): void {
+    const d = this.dashboard();
+    if (!d?.isAiEnabled) return;
+
+    this.aiService.getGeneratedWidgets(this.dashboardId).subscribe({
+      next: (result) => {
+        this.aiGeneratedWidgets.set(result.widgets || []);
+        this.aiLastGenerated.set(
+          result.generatedAt ? new Date(result.generatedAt).toLocaleString() : null
+        );
+      },
+      error: () => {}
+    });
+  }
+
+  generateAiContent(): void {
+    this.isGeneratingAi.set(true);
+
+    // Save AI settings first to ensure the backend has the latest state
+    const payload = {
+      isAiEnabled: this.aiEnabled(),
+      aiPrompt: this.aiPrompt(),
+      aiDataSourceEntityIds: this.aiDataSourceEntityIds(),
+      aiLeadTimeMinutes: this.aiLeadTimeMinutes(),
+    };
+    this.dashboardService.updateDashboard(this.dashboardId, payload).subscribe({
+      next: () => {
+        this.dashboard.update(d => d ? { ...d, ...payload } : d);
+        this.aiService.generateDashboard(this.dashboardId).subscribe({
+          next: (result) => {
+            this.aiGeneratedWidgets.set(result.widgets || []);
+            this.aiLastGenerated.set(
+              result.generatedAt ? new Date(result.generatedAt).toLocaleString() : null
+            );
+            this.toastService.success(`AI generated ${result.widgets?.length ?? 0} widgets`);
+            this.isGeneratingAi.set(false);
+          },
+          error: (err) => {
+            this.toastService.error(err.error?.message || err.error || 'AI generation failed');
+            this.isGeneratingAi.set(false);
+          }
+        });
+      },
+      error: (err) => {
+        this.toastService.error(err.error?.message || 'Failed to save AI settings before generation');
+        this.isGeneratingAi.set(false);
+      }
+    });
   }
 
   deleteWidget(widget: WidgetConfig): void {
@@ -519,16 +599,31 @@ export class DashboardDesignerComponent implements OnInit {
     if (!this.dashboard()) return;
 
     const layoutConfig = this.computePixelPositions(this.layout());
-    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig, orientation: this.orientation() }).subscribe({
+    const payload: any = { layoutConfig, orientation: this.orientation() };
+
+    // Include AI settings in every save
+    payload.isAiEnabled = this.aiEnabled();
+    payload.aiPrompt = this.aiPrompt();
+    payload.aiDataSourceEntityIds = this.aiDataSourceEntityIds();
+    payload.aiLeadTimeMinutes = this.aiLeadTimeMinutes();
+
+    this.dashboardService.updateDashboard(this.dashboardId, payload).subscribe({
       next: () => {
-        this.toastService.show('Dashboard layout saved successfully', 'success');
+        this.dashboard.update(d => d ? {
+          ...d,
+          isAiEnabled: payload.isAiEnabled,
+          aiPrompt: payload.aiPrompt,
+          aiDataSourceEntityIds: payload.aiDataSourceEntityIds,
+          aiLeadTimeMinutes: payload.aiLeadTimeMinutes,
+        } : d);
+        this.toastService.show('Dashboard saved successfully', 'success');
       },
       error: (err) => {
         if (err.status === 401 || err.status === 403) {
           this.toastService.show('Authentication error. Please log in again.', 'error');
           this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
         } else {
-          this.toastService.show('Failed to save dashboard layout', 'error');
+          this.toastService.show('Failed to save dashboard', 'error');
         }
       }
     });
@@ -934,6 +1029,11 @@ export class DashboardDesignerComponent implements OnInit {
   refreshLivePreview(): void {
     if (!this.dashboardId) {
       return;
+    }
+
+    // If AI is enabled, also trigger AI generation in parallel
+    if (this.aiEnabled() && this.aiConfigMode() !== 'None') {
+      this.generateAiContent();
     }
 
     const ids = this.collectEntityIds();
@@ -1342,6 +1442,37 @@ export class DashboardDesignerComponent implements OnInit {
       titleOverride: widget?.titleOverride
     } as WidgetConfig;
   }
+
+  // AI settings methods
+  onAiEnabledChange(enabled: boolean): void {
+    this.aiEnabled.set(enabled);
+    if (!enabled) {
+      this.aiGeneratedWidgets.set([]);
+      this.aiLastGenerated.set(null);
+    }
+  }
+
+  onAiPromptChange(value: string): void {
+    this.aiPrompt.set(value);
+  }
+
+  addAiEntity(): void {
+    const id = this.newAiEntityId().trim();
+    if (id && !this.aiDataSourceEntityIds().includes(id)) {
+      this.aiDataSourceEntityIds.update(ids => [...ids, id]);
+      this.newAiEntityId.set('');
+    }
+  }
+
+  removeAiEntity(index: number): void {
+    this.aiDataSourceEntityIds.update(ids => ids.filter((_, i) => i !== index));
+  }
+
+  onAiLeadTimeChange(value: string): void {
+    this.aiLeadTimeMinutes.set(parseInt(value, 10) || 5);
+  }
+
+
 
   private getDefaultConfig(type: WidgetType): any {
     switch (type) {

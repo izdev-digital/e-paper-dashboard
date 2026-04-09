@@ -20,6 +20,9 @@ public sealed class UserService(IUserRepository userRepository, IDashboardReposi
     public List<User> GetAllUsers() =>
         userRepository.GetAll();
 
+    public void UpdateUser(User user) =>
+        userRepository.Update(user);
+
     public bool TryDeleteUser(UserId id) =>
         userRepository.FindById(id)
             .Where(u => !u.IsSuperUser)
