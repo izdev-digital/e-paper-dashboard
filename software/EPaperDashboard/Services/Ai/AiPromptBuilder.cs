@@ -445,6 +445,21 @@ public sealed class AiPromptBuilder
             foreach (var (entityId, forecast) in weatherForecasts)
             {
                 sb.AppendLine($"Forecast: {entityId} ({forecast.Count} entries)");
+                foreach (var entry in forecast.Take(5))
+                {
+                    if (entry is System.Text.Json.JsonElement je)
+                    {
+                        var parts = new List<string>();
+                        if (je.TryGetProperty("datetime", out var dt)) parts.Add(dt.GetString() ?? "");
+                        if (je.TryGetProperty("condition", out var cond)) parts.Add(cond.GetString() ?? "");
+                        if (je.TryGetProperty("temperature", out var temp)) parts.Add($"{temp}°");
+                        if (je.TryGetProperty("templow", out var tempLow)) parts.Add($"low {tempLow}°");
+                        if (je.TryGetProperty("precipitation_probability", out var precip)) parts.Add($"{precip}% precip");
+                        if (je.TryGetProperty("wind_speed", out var wind)) parts.Add($"wind {wind}");
+                        if (parts.Count > 0)
+                            sb.AppendLine($"  - {string.Join(", ", parts)}");
+                    }
+                }
             }
             sb.AppendLine();
         }

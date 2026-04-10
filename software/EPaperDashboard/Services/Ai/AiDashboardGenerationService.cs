@@ -22,34 +22,51 @@ public sealed class AiDashboardGenerationService(
     AiPromptBuilder promptBuilder,
     ILogger<AiDashboardGenerationService> logger)
 {
-    public async Task<Result<List<WidgetConfig>, string>> GenerateAsync(
+    public async Task<Result<AiGenerationResult, string>> GenerateAsync(
         Dashboard dashboard,
+        string? promptOverride = null,
         CancellationToken cancellationToken = default)
     {
         // Resolve user's AI config
         var userMaybe = userService.GetUserById(dashboard.UserId);
         if (userMaybe.HasNoValue)
         {
-            return "Dashboard owner not found";
+            return StoreError(dashboard, "Dashboard owner not found");
         }
 
         var user = userMaybe.Value;
         if (user.AiConfig == null || user.AiConfig.ConnectionMode == AiConnectionMode.None)
         {
-            return "AI is not configured. Set up an AI connection in user settings.";
+            return StoreError(dashboard, "AI is not configured. Set up an AI connection in user settings.");
         }
 
         // Create AI service from user config
         var aiServiceResult = aiServiceFactory.Create(user.AiConfig, dashboard.Id.ToString());
         if (aiServiceResult.IsFailure)
         {
-            return aiServiceResult.Error;
+            return StoreError(dashboard, aiServiceResult.Error);
+        }
+
+        // Apply prompt override if provided (avoids save-then-generate race)
+        if (!string.IsNullOrWhiteSpace(promptOverride))
+        {
+            dashboard.AiPrompt = promptOverride;
         }
 
         var aiService = aiServiceResult.Value;
 
         // Fetch data from providers for entities the AI can use
         var aiData = await FetchDataForAi(dashboard);
+
+        // Build data summary for the response
+        var dataSummary = new AiDataSummary
+        {
+            EntityStates = aiData.EntityStates.Count,
+            TodoLists = [.. aiData.TodoItems.Keys],
+            Calendars = [.. aiData.CalendarEvents.Keys],
+            WeatherEntities = [.. aiData.WeatherForecasts.Keys],
+            RssFeeds = [.. aiData.RssFeedEntries.Keys]
+        };
 
         // Build the layout config to pass to prompt builder (for grid/color info + pinned widgets)
         var layoutConfig = dashboard.LayoutConfig ?? CreateDefaultLayoutConfig(dashboard);
@@ -64,15 +81,18 @@ public sealed class AiDashboardGenerationService(
             aiData.WeatherForecasts,
             aiData.RssFeedEntries);
 
+        var totalPromptChars = systemPrompt.Length + userPrompt.Length;
+        var promptTokenEstimate = totalPromptChars / 4;
+
         logger.LogInformation(
-            "Generating AI dashboard for {DashboardId} ({DashboardName}), prompt length: {SystemLen}+{UserLen} chars",
-            dashboard.Id, dashboard.Name, systemPrompt.Length, userPrompt.Length);
+            "Generating AI dashboard for {DashboardId} ({DashboardName}), prompt length: {SystemLen}+{UserLen} chars (~{Tokens} tokens)",
+            dashboard.Id, dashboard.Name, systemPrompt.Length, userPrompt.Length, promptTokenEstimate);
 
         // Call LLM
         var completionResult = await aiService.GenerateCompletionAsync(systemPrompt, userPrompt, cancellationToken);
         if (completionResult.IsFailure)
         {
-            return completionResult.Error;
+            return StoreError(dashboard, completionResult.Error);
         }
 
         // Parse and validate the response
@@ -83,7 +103,7 @@ public sealed class AiDashboardGenerationService(
         {
             logger.LogWarning("AI response parsing failed: {Error}. Raw response: {Response}",
                 parseResult.Error, completionResult.Value);
-            return parseResult.Error;
+            return StoreError(dashboard, parseResult.Error);
         }
 
         var generatedWidgets = parseResult.Value;
@@ -131,16 +151,29 @@ public sealed class AiDashboardGenerationService(
             }
         }
 
-        // Store the generated widgets
+        // Store the generated widgets and clear any previous error
         dashboard.AiGeneratedWidgets = generatedWidgets;
         dashboard.LastAiGenerationTime = DateTimeOffset.UtcNow;
+        dashboard.LastAiGenerationError = null;
         dashboardService.UpdateDashboard(dashboard);
 
         logger.LogInformation(
             "AI generated {WidgetCount} widgets for dashboard {DashboardId}",
             generatedWidgets.Count, dashboard.Id);
 
-        return generatedWidgets;
+        return new AiGenerationResult
+        {
+            Widgets = generatedWidgets,
+            DataSummary = dataSummary,
+            PromptTokenEstimate = promptTokenEstimate
+        };
+    }
+
+    private Result<AiGenerationResult, string> StoreError(Dashboard dashboard, string error)
+    {
+        dashboard.LastAiGenerationError = error;
+        dashboardService.UpdateDashboard(dashboard);
+        return Result.Failure<AiGenerationResult, string>(error);
     }
 
     private async Task<AiDataSnapshot> FetchDataForAi(Dashboard dashboard)
@@ -325,7 +358,7 @@ public sealed class AiDashboardGenerationService(
 
     private static bool IsKnownWidgetType(string type) =>
         type is "header" or "markdown" or "calendar" or "weather" or "weather-forecast"
-            or "todo" or "rss-feed" or "graph" or "app-icon" or "image" or "version";
+            or "todo" or "rss-feed" or "graph" or "app-icon";
 
     /// <summary>
     /// Programmatic fallback: removes AI-generated widgets that overlap pinned widgets

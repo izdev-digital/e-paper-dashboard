@@ -34,6 +34,7 @@ import {
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
   AiConfig,
+  AiDataSummary,
 } from '../../models/types';
 
 @Component({
@@ -125,6 +126,9 @@ export class DashboardDesignerComponent implements OnInit {
   isGeneratingAi = signal(false);
   aiGeneratedWidgets = signal<WidgetConfig[]>([]);
   aiLastGenerated = signal<string | null>(null);
+  aiLastError = signal<string | null>(null);
+  aiDataSummary = signal<AiDataSummary | null>(null);
+  aiPromptTokenEstimate = signal<number | null>(null);
 
   // AI settings (editable in the AI tab)
   aiEnabled = signal(false);
@@ -236,6 +240,7 @@ export class DashboardDesignerComponent implements OnInit {
         this.aiLastGenerated.set(
           result.generatedAt ? new Date(result.generatedAt).toLocaleString() : null
         );
+        this.aiLastError.set(result.lastError ?? null);
       },
       error: () => {}
     });
@@ -247,32 +252,23 @@ export class DashboardDesignerComponent implements OnInit {
     }
     this.isGeneratingAi.set(true);
 
-    // Save AI settings first to ensure the backend has the latest state
-    const payload = {
-      isAiEnabled: this.aiEnabled(),
-      aiPrompt: this.aiPrompt(),
-      aiLeadTimeMinutes: this.aiLeadTimeMinutes(),
-    };
-    this.dashboardService.updateDashboard(this.dashboardId, payload).subscribe({
-      next: () => {
-        this.dashboard.update(d => d ? { ...d, ...payload } : d);
-        this.aiService.generateDashboard(this.dashboardId).subscribe({
-          next: (result) => {
-            this.aiGeneratedWidgets.set(result.widgets || []);
-            this.aiLastGenerated.set(
-              result.generatedAt ? new Date(result.generatedAt).toLocaleString() : null
-            );
-            this.toastService.success(`AI generated ${result.widgets?.length ?? 0} widgets`);
-            this.isGeneratingAi.set(false);
-          },
-          error: (err) => {
-            this.toastService.error(err.error?.message || err.error || 'AI generation failed');
-            this.isGeneratingAi.set(false);
-          }
-        });
+    // Send the prompt directly — no need to save first
+    this.aiService.generateDashboard(this.dashboardId, this.aiPrompt()).subscribe({
+      next: (result) => {
+        this.aiGeneratedWidgets.set(result.widgets || []);
+        this.aiLastGenerated.set(
+          result.generatedAt ? new Date(result.generatedAt).toLocaleString() : null
+        );
+        this.aiLastError.set(null);
+        this.aiDataSummary.set(result.dataSummary ?? null);
+        this.aiPromptTokenEstimate.set(result.promptTokenEstimate ?? null);
+        this.toastService.success(`AI generated ${result.widgets?.length ?? 0} widgets`);
+        this.isGeneratingAi.set(false);
       },
       error: (err) => {
-        this.toastService.error(err.error?.message || 'Failed to save AI settings before generation');
+        const errorMsg = err.error?.message || err.error || 'AI generation failed';
+        this.aiLastError.set(errorMsg);
+        this.toastService.error(errorMsg);
         this.isGeneratingAi.set(false);
       }
     });
@@ -1026,11 +1022,6 @@ export class DashboardDesignerComponent implements OnInit {
   refreshLivePreview(): void {
     if (!this.dashboardId) {
       return;
-    }
-
-    // If AI is enabled, also trigger AI generation in parallel
-    if (this.aiEnabled() && this.aiConfigMode() !== 'None') {
-      this.generateAiContent();
     }
 
     const ids = this.collectEntityIds();

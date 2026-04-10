@@ -72,7 +72,10 @@ public sealed class AiApiController(
     /// Triggers AI generation for a specific dashboard. Returns the generated widgets.
     /// </summary>
     [HttpPost("dashboards/{dashboardId}/generate")]
-    public async Task<IActionResult> GenerateAiDashboard(string dashboardId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateAiDashboard(
+        string dashboardId,
+        [FromBody] GenerateAiRequest? request,
+        CancellationToken cancellationToken)
     {
         if (!DashboardId.TryParse(dashboardId, out var id))
         {
@@ -95,19 +98,28 @@ public sealed class AiApiController(
             return BadRequest("AI is not enabled for this dashboard");
         }
 
-        if (string.IsNullOrWhiteSpace(dashboard.Value.AiPrompt))
+        // When a prompt override is provided, use it directly; otherwise require the saved prompt
+        var effectivePrompt = request?.Prompt ?? dashboard.Value.AiPrompt;
+        if (string.IsNullOrWhiteSpace(effectivePrompt))
         {
             return BadRequest("AI prompt is not configured for this dashboard");
         }
 
-        var result = await aiGenerationService.GenerateAsync(dashboard.Value, cancellationToken);
+        var result = await aiGenerationService.GenerateAsync(
+            dashboard.Value, request?.Prompt, cancellationToken);
 
         if (result.IsSuccess)
         {
-            return Ok(new { widgets = result.Value, generatedAt = dashboard.Value.LastAiGenerationTime });
+            return Ok(new
+            {
+                widgets = result.Value.Widgets,
+                generatedAt = dashboard.Value.LastAiGenerationTime,
+                dataSummary = result.Value.DataSummary,
+                promptTokenEstimate = result.Value.PromptTokenEstimate
+            });
         }
 
-        return BadRequest(result.Error);
+        return BadRequest(new { message = result.Error });
     }
 
     /// <summary>
@@ -137,7 +149,8 @@ public sealed class AiApiController(
             widgets = dashboard.Value.AiGeneratedWidgets ?? new List<WidgetConfig>(),
             generatedAt = dashboard.Value.LastAiGenerationTime,
             isAiEnabled = dashboard.Value.IsAiEnabled,
-            prompt = dashboard.Value.AiPrompt
+            prompt = dashboard.Value.AiPrompt,
+            lastError = dashboard.Value.LastAiGenerationError
         });
     }
 
@@ -238,3 +251,5 @@ public sealed class AiApiController(
         }
     }
 }
+
+public record GenerateAiRequest(string? Prompt = null);

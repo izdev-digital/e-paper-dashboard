@@ -41,6 +41,7 @@ namespace EPaperDashboard.Models
         public int AiLeadTimeMinutes { get; set; } = 5;
         public List<WidgetConfig>? AiGeneratedWidgets { get; set; }
         public DateTimeOffset? LastAiGenerationTime { get; set; }
+        public string? LastAiGenerationError { get; set; }
 
         public (int Width, int Height) GetEffectiveSize()
         {

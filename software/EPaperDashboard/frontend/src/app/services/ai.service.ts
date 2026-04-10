@@ -21,8 +21,8 @@ export class AiService {
     return this.http.get<ConversationAgent[]>('/api/ai/conversation-agents');
   }
 
-  generateDashboard(dashboardId: string): Observable<AiGenerationResult> {
-    return this.http.post<AiGenerationResult>(`/api/ai/dashboards/${dashboardId}/generate`, {});
+  generateDashboard(dashboardId: string, prompt?: string): Observable<AiGenerationResult> {
+    return this.http.post<AiGenerationResult>(`/api/ai/dashboards/${dashboardId}/generate`, { prompt: prompt ?? null });
   }
 
   getGeneratedWidgets(dashboardId: string): Observable<AiGenerationResult> {

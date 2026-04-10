@@ -56,6 +56,7 @@ export interface Dashboard {
   aiPrompt?: string;
   aiLeadTimeMinutes?: number;
   lastAiGenerationTime?: string;
+  lastAiGenerationError?: string;
 }
 
 export interface CreateDashboardRequest {
@@ -478,6 +479,17 @@ export interface AiGenerationResult {
   generatedAt?: string;
   isAiEnabled?: boolean;
   prompt?: string;
+  lastError?: string;
+  dataSummary?: AiDataSummary;
+  promptTokenEstimate?: number;
+}
+
+export interface AiDataSummary {
+  entityStates: number;
+  todoLists: string[];
+  calendars: string[];
+  weatherEntities: string[];
+  rssFeeds: string[];
 }
 
 export interface ConversationAgent {

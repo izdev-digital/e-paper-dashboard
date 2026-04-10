@@ -235,7 +235,8 @@ public record DashboardResponseDto(
     bool IsAiEnabled,
     string? AiPrompt,
     int AiLeadTimeMinutes,
-    DateTimeOffset? LastAiGenerationTime
+    DateTimeOffset? LastAiGenerationTime,
+    string? LastAiGenerationError
 )
 {
     public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
@@ -255,6 +256,7 @@ public record DashboardResponseDto(
         IsAiEnabled: dashboard.IsAiEnabled,
         AiPrompt: dashboard.AiPrompt,
         AiLeadTimeMinutes: dashboard.AiLeadTimeMinutes,
-        LastAiGenerationTime: dashboard.LastAiGenerationTime
+        LastAiGenerationTime: dashboard.LastAiGenerationTime,
+        LastAiGenerationError: dashboard.LastAiGenerationError
     );
 }

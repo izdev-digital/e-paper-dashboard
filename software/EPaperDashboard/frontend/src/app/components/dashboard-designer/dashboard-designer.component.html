@@ -75,16 +75,13 @@
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Canvas</h5>
-          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading() || isGeneratingAi()" title="Refresh preview data">
-            @if (livePreviewLoading() || isGeneratingAi()) {
+          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()" title="Refresh preview data">
+            @if (livePreviewLoading()) {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             } @else {
             <i class="fa fa-sync"></i>
             }
           </button>
-          @if (isGeneratingAi()) {
-          <small class="text-muted ms-2">Generating AI content…</small>
-          }
         </div>
         <div class="card-body" style="overflow: auto;">
           <div class="canvas-wrapper">
@@ -451,7 +448,7 @@
 
                 <div class="mb-3">
                   <label class="form-label fw-semibold small">Prompt</label>
-                  <textarea class="form-control form-control-sm" rows="3"
+                  <textarea class="form-control form-control-sm" rows="4"
                     [value]="aiPrompt()"
                     (input)="onAiPromptChange($any($event.target).value)"
                     placeholder="e.g. 'Show today's weather, calendar events, and a motivational quote'"></textarea>
@@ -466,12 +463,50 @@
                       min="1" max="30" />
                     <span class="input-group-text">min</span>
                   </div>
+                  @if (!dashboard()?.updateTimes || dashboard()!.updateTimes!.length === 0) {
+                    <small class="form-text text-muted">No update schedule configured — lead time has no effect without scheduled update times.</small>
+                  }
                 </div>
 
+                <div class="mb-3">
+                  <button class="btn btn-sm btn-primary" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt()">
+                    @if (isGeneratingAi()) {
+                      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      Generating…
+                    } @else {
+                      <i class="fa fa-wand-magic-sparkles me-1"></i>Generate
+                    }
+                  </button>
+                </div>
+
+                @if (aiLastError()) {
+                  <div class="alert alert-danger py-1 small mb-2">
+                    <i class="fa fa-circle-exclamation me-1"></i>
+                    {{ aiLastError() }}
+                  </div>
+                }
+
                 @if (aiLastGenerated()) {
-                  <div class="alert alert-info py-1 small mb-0">
+                  <div class="alert alert-info py-1 small mb-2">
                     <i class="fa fa-clock me-1"></i>
                     Last generated: {{ aiLastGenerated() }}
+                  </div>
+                }
+
+                @if (aiDataSummary()) {
+                  <div class="small text-muted mb-2">
+                    <strong>Data used:</strong>
+                    {{ aiDataSummary()!.entityStates }} entity states<!--
+                    -->@if (aiDataSummary()!.todoLists.length > 0) {, {{ aiDataSummary()!.todoLists.length }} todo lists}<!--
+                    -->@if (aiDataSummary()!.calendars.length > 0) {, {{ aiDataSummary()!.calendars.length }} calendars}<!--
+                    -->@if (aiDataSummary()!.weatherEntities.length > 0) {, {{ aiDataSummary()!.weatherEntities.length }} weather entities}<!--
+                    -->@if (aiDataSummary()!.rssFeeds.length > 0) {, {{ aiDataSummary()!.rssFeeds.length }} RSS feeds}
+                  </div>
+                }
+
+                @if (aiPromptTokenEstimate()) {
+                  <div class="small text-muted mb-0">
+                    ~{{ aiPromptTokenEstimate() }} prompt tokens
                   </div>
                 }
               </div>

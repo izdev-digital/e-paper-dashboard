@@ -62,13 +62,13 @@ public sealed class AiPreGenerationService(
                     "Pre-generating AI content for dashboard {DashboardId} ({DashboardName})",
                     dashboard.Id, dashboard.Name);
 
-                var result = await aiGenerationService.GenerateAsync(dashboard, cancellationToken);
+                var result = await aiGenerationService.GenerateAsync(dashboard, cancellationToken: cancellationToken);
 
                 if (result.IsSuccess)
                 {
                     logger.LogInformation(
                         "Successfully pre-generated {WidgetCount} AI widgets for dashboard {DashboardId}",
-                        result.Value.Count, dashboard.Id);
+                        result.Value.Widgets.Count, dashboard.Id);
                 }
                 else
                 {
