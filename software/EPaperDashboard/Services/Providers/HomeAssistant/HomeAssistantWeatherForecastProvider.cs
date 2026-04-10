@@ -132,4 +132,68 @@ public class HomeAssistantWeatherForecastProvider(
             return $"Failed to fetch weather forecast: {ex.Message}";
         }
     }
+
+    public async Task<Result<Dictionary<string, List<object?>>, string>> FetchAllWeatherForecastsAsync(string dashboardId, string forecastType = "daily")
+    {
+        var entityIds = await DiscoverEntitiesAsync(dashboardId, "weather");
+        if (entityIds.IsFailure)
+            return entityIds.Error;
+
+        var result = new Dictionary<string, List<object?>>();
+        foreach (var entityId in entityIds.Value)
+        {
+            var forecastResult = await FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
+            if (forecastResult.IsSuccess
+                && forecastResult.Value.TryGetValue("forecast", out var forecastVal)
+                && forecastVal is List<object?> forecastList
+                && forecastList.Count > 0)
+            {
+                result[entityId] = forecastList;
+            }
+        }
+
+        _logger.LogDebug("Fetched weather forecasts from {Count} entities for dashboard {DashboardId}", result.Count, dashboardId);
+        return result;
+    }
+
+    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain)
+    {
+        var connectionInfo = _connection.GetConnectionInfo(dashboardId);
+        if (connectionInfo.IsFailure)
+            return connectionInfo.Error;
+
+        var (hostUrl, token) = connectionInfo.Value;
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var json = JsonSerializer.Deserialize<JsonElement>(response);
+
+            var entityIds = new List<string>();
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in result.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    if (entityId != null && entityId.StartsWith(domain + ".", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var state = entity.TryGetProperty("state", out var s) ? s.GetString() : null;
+                        if (state is not "unavailable")
+                            entityIds.Add(entityId);
+                    }
+                }
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            return entityIds;
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to discover {domain} entities: {ex.Message}";
+        }
+    }
 }

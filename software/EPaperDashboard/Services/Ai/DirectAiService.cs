@@ -21,6 +21,26 @@ public sealed class DirectAiService(
         string userPrompt,
         CancellationToken cancellationToken = default)
     {
+        var firstAttempt = await TrySendRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        if (firstAttempt.IsSuccess)
+            return firstAttempt;
+
+        // Retry once for transient / rate-limit failures
+        if (firstAttempt.Error.Contains("status 429") || firstAttempt.Error.Contains("status 5"))
+        {
+            logger.LogWarning("Retrying AI request after transient failure: {Error}", firstAttempt.Error);
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            return await TrySendRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        }
+
+        return firstAttempt;
+    }
+
+    private async Task<Result<string, string>> TrySendRequestAsync(
+        string systemPrompt,
+        string userPrompt,
+        CancellationToken cancellationToken)
+    {
         var client = httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(120);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);

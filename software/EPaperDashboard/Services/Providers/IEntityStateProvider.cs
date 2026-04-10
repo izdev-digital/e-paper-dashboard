@@ -9,4 +9,10 @@ namespace EPaperDashboard.Services.Providers;
 public interface IEntityStateProvider
 {
     Task<Result<List<HassEntityState>, string>> FetchEntityStatesAsync(string dashboardId, string[] entityIds);
+
+    /// <summary>
+    /// Fetches states for all entities relevant to dashboard widgets
+    /// (sensors, binary sensors, persons, etc.). Excludes internal/automation domains.
+    /// </summary>
+    Task<Result<List<HassEntityState>, string>> FetchAllEntityStatesAsync(string dashboardId);
 }

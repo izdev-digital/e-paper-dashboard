@@ -42,7 +42,7 @@ public sealed class AiPreGenerationService(
         var aiGenerationService = scope.ServiceProvider.GetRequiredService<AiDashboardGenerationService>();
 
         var allDashboards = dashboardService.GetAllDashboards();
-        var now = DateTimeOffset.UtcNow;
+        var now = DateTimeOffset.Now;
 
         foreach (var dashboard in allDashboards)
         {
@@ -103,7 +103,7 @@ public sealed class AiPreGenerationService(
         }
 
         var leadTimeMinutes = dashboard.AiLeadTimeMinutes > 0 ? dashboard.AiLeadTimeMinutes : 5;
-        var nowTimeOnly = TimeOnly.FromDateTime(now.DateTime);
+        var nowTimeOnly = TimeOnly.FromDateTime(now.LocalDateTime);
 
         // Check if any scheduled time is within the lead time window
         foreach (var updateTime in dashboard.UpdateTimes)
@@ -118,7 +118,7 @@ public sealed class AiPreGenerationService(
                 // Check if we already generated for this window
                 if (dashboard.LastAiGenerationTime.HasValue)
                 {
-                    var lastGenTime = TimeOnly.FromDateTime(dashboard.LastAiGenerationTime.Value.DateTime);
+                    var lastGenTime = TimeOnly.FromDateTime(dashboard.LastAiGenerationTime.Value.LocalDateTime);
                     var minutesSinceLastGen = GetMinutesDifference(preGenTime, lastGenTime);
 
                     // Already generated within this window

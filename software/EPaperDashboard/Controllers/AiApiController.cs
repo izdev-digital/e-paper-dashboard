@@ -43,10 +43,29 @@ public sealed class AiApiController(
             return NotFound("User not found");
         }
 
+        // Validate required fields per connection mode
+        var validationError = ValidateAiConfig(config);
+        if (validationError != null)
+            return BadRequest(validationError);
+
         user.Value.AiConfig = config;
         userService.UpdateUser(user.Value);
 
         return Ok(config);
+    }
+
+    private static string? ValidateAiConfig(AiConfig config)
+    {
+        return config.ConnectionMode switch
+        {
+            AiConnectionMode.Direct when string.IsNullOrWhiteSpace(config.DirectEndpoint)
+                => "Direct endpoint URL is required",
+            AiConnectionMode.Direct when string.IsNullOrWhiteSpace(config.DirectModel)
+                => "Model name is required for direct connections",
+            AiConnectionMode.HomeAssistant when string.IsNullOrWhiteSpace(config.HomeAssistantAgentId)
+                => "Home Assistant conversation agent must be selected",
+            _ => null
+        };
     }
 
     /// <summary>

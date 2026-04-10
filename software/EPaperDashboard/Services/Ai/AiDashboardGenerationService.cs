@@ -12,7 +12,6 @@ namespace EPaperDashboard.Services.Ai;
 /// </summary>
 public sealed class AiDashboardGenerationService(
     IAiServiceFactory aiServiceFactory,
-    HomeAssistantService homeAssistantService,
     IEntityStateProvider entityStateProvider,
     ITodoDataProvider todoDataProvider,
     ICalendarDataProvider calendarDataProvider,
@@ -149,93 +148,68 @@ public sealed class AiDashboardGenerationService(
         var data = new AiDataSnapshot();
         var dashboardId = dashboard.Id.ToString();
 
+        // Fetch all provider data in parallel
+        var entityStatesTask = SafeFetchAsync(() => entityStateProvider.FetchAllEntityStatesAsync(dashboardId));
+        var todoTask = SafeFetchAsync(() => todoDataProvider.FetchAllTodoItemsAsync(dashboardId));
+        var calendarTask = SafeFetchAsync(() => calendarDataProvider.FetchAllCalendarEventsAsync(dashboardId));
+        var weatherTask = SafeFetchAsync(() => weatherForecastProvider.FetchAllWeatherForecastsAsync(dashboardId));
+        var rssTask = SafeFetchAsync(() => rssFeedDataProvider.FetchAllRssFeedEntriesAsync(dashboardId));
+
+        await Task.WhenAll(entityStatesTask, todoTask, calendarTask, weatherTask, rssTask);
+
+        var entityStates = await entityStatesTask;
+        if (entityStates != null)
+        {
+            foreach (var state in entityStates)
+                data.EntityStates[state.EntityId] = state;
+        }
+
+        var todoItems = await todoTask;
+        if (todoItems != null)
+            data.TodoItems = todoItems;
+
+        var calendarEvents = await calendarTask;
+        if (calendarEvents != null)
+            data.CalendarEvents = calendarEvents;
+
+        var weatherForecasts = await weatherTask;
+        if (weatherForecasts != null)
+            data.WeatherForecasts = weatherForecasts;
+
+        var rssEntries = await rssTask;
+        if (rssEntries != null)
+            data.RssFeedEntries = rssEntries;
+
+        logger.LogInformation(
+            "AI data snapshot for dashboard {DashboardId}: {States} entity states, {Todo} todo lists, {Cal} calendars, {Weather} weather entities, {Rss} RSS feeds",
+            dashboard.Id, data.EntityStates.Count, data.TodoItems.Count,
+            data.CalendarEvents.Count, data.WeatherForecasts.Count, data.RssFeedEntries.Count);
+
+        return data;
+    }
+
+    private async Task<T?> SafeFetchAsync<T>(Func<Task<Result<T, string>>> fetch) where T : class
+    {
         try
         {
-            // Fetch all available HA entities to discover what's available
-            var entitiesResult = await homeAssistantService.FetchEntities(dashboardId);
-            if (entitiesResult.IsFailure)
+            var result = await fetch();
+            if (result.IsFailure)
             {
-                logger.LogWarning("Failed to fetch HA entities for dashboard {DashboardId}: {Error}", dashboard.Id, entitiesResult.Error);
-                return data;
+                logger.LogWarning("Provider fetch failed: {Error}", result.Error);
+                return null;
             }
-
-            var entities = entitiesResult.Value;
-            var entityIds = entities.Select(e => e.EntityId).ToArray();
-
-            // Fetch all entity states
-            try
-            {
-                var statesResult = await entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds);
-                if (statesResult.IsSuccess)
-                {
-                    foreach (var state in statesResult.Value)
-                    {
-                        data.EntityStates[state.EntityId] = state;
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
-            {
-                logger.LogWarning("Entity state fetch timed out for dashboard {DashboardId}", dashboard.Id);
-            }
-
-            // Fetch domain-specific data for all entities of each provider type
-            foreach (var entity in entities)
-            {
-                try
-                {
-                    switch (entity.Domain)
-                    {
-                        case "calendar":
-                            var calResult = await calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entity.EntityId, 168);
-                            if (calResult.IsSuccess)
-                            {
-                                data.CalendarEvents[entity.EntityId] = calResult.Value;
-                            }
-                            break;
-
-                        case "todo":
-                            var todoResult = await todoDataProvider.FetchTodoItemsAsync(dashboardId, entity.EntityId);
-                            if (todoResult.IsSuccess)
-                            {
-                                data.TodoItems[entity.EntityId] = todoResult.Value;
-                            }
-                            break;
-
-                        case "weather":
-                            var forecastResult = await weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entity.EntityId, "daily");
-                            if (forecastResult.IsSuccess
-                                && forecastResult.Value.TryGetValue("forecast", out var forecastVal)
-                                && forecastVal is List<object?> forecastList)
-                            {
-                                data.WeatherForecasts[entity.EntityId] = forecastList;
-                            }
-                            break;
-
-                        case "sensor":
-                            if (entity.EntityId.Contains("feed", StringComparison.OrdinalIgnoreCase))
-                            {
-                                var rssResult = await rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entity.EntityId);
-                                if (rssResult.IsSuccess)
-                                {
-                                    data.RssFeedEntries[entity.EntityId] = rssResult.Value;
-                                }
-                            }
-                            break;
-                    }
-                }
-                catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
-                {
-                    logger.LogWarning("Data fetch timed out for entity {EntityId} on dashboard {DashboardId}", entity.EntityId, dashboard.Id);
-                }
-            }
+            return result.Value;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
+        {
+            logger.LogWarning("Provider fetch timed out: {Message}", ex.Message);
+            return null;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to fetch data for AI generation on dashboard {DashboardId}", dashboard.Id);
+            logger.LogWarning(ex, "Provider fetch failed: {Message}", ex.Message);
+            return null;
         }
-
-        return data;
     }
 
     private Result<List<WidgetConfig>, string> ParseAiResponse(
@@ -269,6 +243,7 @@ public sealed class AiDashboardGenerationService(
             }
 
             var widgets = new List<WidgetConfig>();
+            var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var w in widgetsArray.EnumerateArray())
             {
@@ -277,6 +252,13 @@ public sealed class AiDashboardGenerationService(
 
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(type))
                 {
+                    continue;
+                }
+
+                // Skip duplicate IDs
+                if (!seenIds.Add(id))
+                {
+                    logger.LogWarning("AI generated duplicate widget ID '{Id}', skipping", id);
                     continue;
                 }
 
