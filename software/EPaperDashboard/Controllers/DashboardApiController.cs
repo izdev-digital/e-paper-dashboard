@@ -166,7 +166,6 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         if (request.IsAiEnabled.HasValue) updatedDashboard.IsAiEnabled = request.IsAiEnabled.Value;
         if (request.AiPrompt != null) updatedDashboard.AiPrompt = request.AiPrompt;
-        if (request.AiDataSourceEntityIds != null) updatedDashboard.AiDataSourceEntityIds = request.AiDataSourceEntityIds;
         if (request.AiLeadTimeMinutes.HasValue) updatedDashboard.AiLeadTimeMinutes = request.AiLeadTimeMinutes.Value;
 
         _dashboardService.UpdateDashboard(updatedDashboard);
@@ -216,7 +215,6 @@ public record UpdateDashboardRequest(
     int? ScreenHeight,
     bool? IsAiEnabled,
     string? AiPrompt,
-    List<string>? AiDataSourceEntityIds,
     int? AiLeadTimeMinutes
 );
 
@@ -236,7 +234,6 @@ public record DashboardResponseDto(
     int ScreenHeight,
     bool IsAiEnabled,
     string? AiPrompt,
-    List<string>? AiDataSourceEntityIds,
     int AiLeadTimeMinutes,
     DateTimeOffset? LastAiGenerationTime
 )
@@ -257,7 +254,6 @@ public record DashboardResponseDto(
         ScreenHeight: dashboard.ScreenHeight,
         IsAiEnabled: dashboard.IsAiEnabled,
         AiPrompt: dashboard.AiPrompt,
-        AiDataSourceEntityIds: dashboard.AiDataSourceEntityIds,
         AiLeadTimeMinutes: dashboard.AiLeadTimeMinutes,
         LastAiGenerationTime: dashboard.LastAiGenerationTime
     );

@@ -26,151 +26,352 @@ public sealed class AiPromptBuilder
         return (systemPrompt, userPrompt);
     }
 
-    private static string BuildSystemPrompt(Dashboard dashboard, LayoutConfig layoutConfig)
+    public string BuildVerificationPrompt(
+        List<WidgetConfig> pinnedWidgets,
+        List<WidgetConfig> generatedWidgets,
+        int gridCols,
+        int gridRows)
     {
-        var sb = new StringBuilder();
+        var pinnedSection = pinnedWidgets.Count > 0
+            ? $$"""
 
-        sb.AppendLine("You are an e-paper dashboard designer. Your job is to create a widget layout for an e-paper display.");
-        sb.AppendLine("You MUST respond with valid JSON only. No markdown, no explanation, no code fences.");
-        sb.AppendLine();
+              ## Pinned Widgets (immutable — cannot be moved or removed)
+              {{FormatWidgetList(pinnedWidgets)}}
 
-        // Display constraints
-        var (width, height) = dashboard.GetEffectiveSize();
-        var gridCols = layoutConfig.GridCols > 0 ? layoutConfig.GridCols : 12;
-        var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
+              """
+            : "";
 
-        sb.AppendLine("## Display Constraints");
-        sb.AppendLine($"- Resolution: {width}×{height} pixels");
-        sb.AppendLine($"- Grid: {gridCols} columns × {gridRows} rows");
-        sb.AppendLine("- Color palette: 3 colors only (black, white, red)");
-        sb.AppendLine("- E-paper: no animations, no gradients, high contrast required");
-        sb.AppendLine();
+        var occupancyGrid = BuildOccupancyGrid(pinnedWidgets, generatedWidgets, gridCols, gridRows);
 
-        // Color scheme
-        sb.AppendLine("## Color Scheme");
-        sb.AppendLine($"- Background: {layoutConfig.ColorScheme.Background}");
-        sb.AppendLine($"- Canvas background: {layoutConfig.ColorScheme.CanvasBackgroundColor}");
-        sb.AppendLine($"- Widget background: {layoutConfig.ColorScheme.WidgetBackgroundColor}");
-        sb.AppendLine($"- Widget border: {layoutConfig.ColorScheme.WidgetBorderColor}");
-        sb.AppendLine($"- Title text: {layoutConfig.ColorScheme.WidgetTitleTextColor}");
-        sb.AppendLine($"- Body text: {layoutConfig.ColorScheme.WidgetTextColor}");
-        sb.AppendLine($"- Icon color: {layoutConfig.ColorScheme.IconColor}");
-        sb.AppendLine($"- Accent: {layoutConfig.ColorScheme.Accent}");
-        sb.AppendLine($"- Allowed palette: [{string.Join(", ", layoutConfig.ColorScheme.Palette.Select(p => $"\"{p}\""))}]");
-        sb.AppendLine();
+        return $$"""
+            You are a layout validator for an e-paper dashboard grid system.
+            You MUST respond with valid JSON only. No markdown, no explanation, no code fences.
 
-        // Reserved cells from pinned widgets
-        var pinnedWidgets = layoutConfig.Widgets;
-        if (pinnedWidgets.Count > 0)
+            Grid size: {{gridCols}} columns × {{gridRows}} rows.
+            Constraints: x + w <= gridCols, y + h <= gridRows. No two widgets may share any cell.
+            {{pinnedSection}}
+            ## AI-Generated Widgets (you may reposition, resize, or remove these to fix overlaps)
+            {{FormatWidgetList(generatedWidgets)}}
+
+            ## Current Occupancy Grid (P=pinned, A=AI-generated, X=overlap conflict, .=empty)
+            ```
+            {{occupancyGrid}}```
+
+            ## Task
+            Check the layout above for:
+            1. Overlaps between any widgets (pinned or AI-generated)
+            2. Widgets exceeding grid bounds
+            3. AI widgets that overlap pinned widgets
+
+            If there are NO issues, return the AI-generated widgets unchanged.
+            If there ARE issues, fix them by repositioning, resizing, or removing AI-generated widgets only.
+            Never modify pinned widgets.
+
+            Return the corrected AI-generated widgets as:
+            {"widgets": [{"id": "...", "type": "...", "position": {"x": 0, "y": 0, "w": 6, "h": 4}, "config": {...}, "titleOverride": "..."}]}
+            """;
+    }
+
+    public static bool HasOverlaps(
+        List<WidgetConfig> pinnedWidgets,
+        List<WidgetConfig> generatedWidgets,
+        int gridCols,
+        int gridRows)
+    {
+        var grid = new bool[gridCols, gridRows];
+
+        foreach (var w in pinnedWidgets)
         {
-            sb.AppendLine("## Reserved Cells (user-pinned widgets — do NOT overlap these)");
-            foreach (var w in pinnedWidgets)
+            if (!MarkCells(grid, w.Position, gridCols, gridRows))
             {
-                sb.AppendLine($"- Widget \"{w.Id}\" (type: {w.Type}): position x={w.Position.X}, y={w.Position.Y}, w={w.Position.W}, h={w.Position.H}");
+                return true;
+            }
+        }
+
+        foreach (var w in generatedWidgets)
+        {
+            if (!MarkCells(grid, w.Position, gridCols, gridRows))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool MarkCells(bool[,] grid, WidgetPosition pos, int gridCols, int gridRows)
+    {
+        for (var row = pos.Y; row < pos.Y + pos.H && row < gridRows; row++)
+        {
+            for (var col = pos.X; col < pos.X + pos.W && col < gridCols; col++)
+            {
+                if (grid[col, row])
+                {
+                    return false;
+                }
+                grid[col, row] = true;
+            }
+        }
+        return true;
+    }
+
+    private static string BuildOccupancyGrid(
+        List<WidgetConfig> pinnedWidgets,
+        List<WidgetConfig> generatedWidgets,
+        int gridCols,
+        int gridRows)
+    {
+        var grid = new int[gridCols, gridRows];
+
+        foreach (var w in pinnedWidgets)
+        {
+            FillGrid(grid, w.Position, 1, gridCols, gridRows);
+        }
+
+        foreach (var w in generatedWidgets)
+        {
+            FillGrid(grid, w.Position, 2, gridCols, gridRows);
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("   ");
+        for (var c = 0; c < gridCols; c++)
+        {
+            sb.Append($"{c,2}");
+        }
+        sb.AppendLine();
+
+        for (var r = 0; r < gridRows; r++)
+        {
+            sb.Append($"{r,2} ");
+            for (var c = 0; c < gridCols; c++)
+            {
+                var ch = grid[c, r] switch
+                {
+                    1 => " P",
+                    2 => " A",
+                    3 => " X",
+                    _ => " ."
+                };
+                sb.Append(ch);
             }
             sb.AppendLine();
-
-            sb.AppendLine("## Available Grid Area");
-            sb.AppendLine($"Place your widgets in the remaining cells of the {gridCols}×{gridRows} grid that are NOT occupied by the reserved widgets above.");
         }
-        else
-        {
-            sb.AppendLine("## Available Grid Area");
-            sb.AppendLine($"The entire {gridCols}×{gridRows} grid is available for your layout.");
-        }
-        sb.AppendLine();
-
-        // Widget type schemas
-        sb.AppendLine("## Available Widget Types");
-        sb.AppendLine();
-        AppendWidgetSchemas(sb);
-
-        // Response format
-        sb.AppendLine("## Response Format");
-        sb.AppendLine("Respond with a JSON object containing a single \"widgets\" array:");
-        sb.AppendLine("```");
-        sb.AppendLine("{");
-        sb.AppendLine("  \"widgets\": [");
-        sb.AppendLine("    {");
-        sb.AppendLine("      \"id\": \"unique-string-id\",");
-        sb.AppendLine("      \"type\": \"widget-type-name\",");
-        sb.AppendLine("      \"position\": { \"x\": 0, \"y\": 0, \"w\": 6, \"h\": 4 },");
-        sb.AppendLine("      \"config\": { ... widget-specific config ... },");
-        sb.AppendLine("      \"titleOverride\": \"Optional custom title\"");
-        sb.AppendLine("    }");
-        sb.AppendLine("  ]");
-        sb.AppendLine("}");
-        sb.AppendLine("```");
-        sb.AppendLine();
-        sb.AppendLine("Rules:");
-        sb.AppendLine("- Widget positions must not overlap each other or reserved cells");
-        sb.AppendLine($"- x + w must be <= {gridCols}, y + h must be <= {gridRows}");
-        sb.AppendLine("- Each widget id must be unique (use descriptive names like \"weather-main\", \"calendar-today\")");
-        sb.AppendLine("- Only use widget types from the list above");
-        sb.AppendLine("- Only use entity IDs from the available data provided");
-        sb.AppendLine("- Use the markdown widget for AI-generated text content (summaries, advice, quotes)");
-        sb.AppendLine("- Prefer larger widgets for readability on e-paper");
-        sb.AppendLine("- Leave no empty space if possible — fill the grid");
 
         return sb.ToString();
     }
 
-    private static void AppendWidgetSchemas(StringBuilder sb)
+    private static void FillGrid(int[,] grid, WidgetPosition pos, int value, int gridCols, int gridRows)
     {
-        sb.AppendLine("### header");
-        sb.AppendLine("Displays a title with optional badge icons showing entity states.");
-        sb.AppendLine("Config: { \"title\": \"string\", \"showClock\": true/false, \"badges\": [{ \"entityId\": \"sensor.xxx\", \"icon\": \"fa-icon-name\" }] }");
-        sb.AppendLine("Good for: Top-of-dashboard title bar with at-a-glance sensor values.");
-        sb.AppendLine();
+        for (var row = pos.Y; row < pos.Y + pos.H && row < gridRows; row++)
+        {
+            for (var col = pos.X; col < pos.X + pos.W && col < gridCols; col++)
+            {
+                if (grid[col, row] != 0)
+                {
+                    grid[col, row] = 3;
+                }
+                else
+                {
+                    grid[col, row] = value;
+                }
+            }
+        }
+    }
 
-        sb.AppendLine("### markdown");
-        sb.AppendLine("Renders markdown text content.");
-        sb.AppendLine("Config: { \"content\": \"Markdown text here. **Bold**, *italic*, lists, etc.\" }");
-        sb.AppendLine("Good for: AI-generated summaries, advice, quotes, notes, any text content.");
-        sb.AppendLine();
+    private static string FormatWidgetList(List<WidgetConfig> widgets)
+    {
+        var sb = new StringBuilder();
+        foreach (var w in widgets)
+        {
+            sb.AppendLine($"""- "{w.Id}" (type: {w.Type}): x={w.Position.X}, y={w.Position.Y}, w={w.Position.W}, h={w.Position.H}""");
+        }
+        return sb.ToString().TrimEnd();
+    }
 
-        sb.AppendLine("### calendar");
-        sb.AppendLine("Shows upcoming calendar events from a calendar entity.");
-        sb.AppendLine("Config: { \"entityId\": \"calendar.xxx\", \"maxEvents\": 5 }");
-        sb.AppendLine("Good for: Today's schedule, upcoming events.");
-        sb.AppendLine();
+    private static string BuildSystemPrompt(Dashboard dashboard, LayoutConfig layoutConfig)
+    {
+        var (width, height) = dashboard.GetEffectiveSize();
+        var gridCols = layoutConfig.GridCols > 0 ? layoutConfig.GridCols : 12;
+        var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
 
-        sb.AppendLine("### weather");
-        sb.AppendLine("Shows current weather conditions from a weather entity.");
-        sb.AppendLine("Config: { \"entityId\": \"weather.xxx\" }");
-        sb.AppendLine("Good for: Current temperature, conditions, humidity, wind.");
-        sb.AppendLine();
+        var canvasPadding = layoutConfig.CanvasPadding > 0 ? layoutConfig.CanvasPadding : 8;
+        var widgetGap = layoutConfig.WidgetGap > 0 ? layoutConfig.WidgetGap : 8;
+        var widgetPadding = layoutConfig.WidgetPadding > 0 ? layoutConfig.WidgetPadding : 8;
+        var widgetBorder = layoutConfig.WidgetBorder >= 0 ? layoutConfig.WidgetBorder : 1;
+        var titleFontSize = layoutConfig.TitleFontSize > 0 ? layoutConfig.TitleFontSize : 14;
+        var textFontSize = layoutConfig.TextFontSize > 0 ? layoutConfig.TextFontSize : 12;
 
-        sb.AppendLine("### weather-forecast");
-        sb.AppendLine("Shows weather forecast (hourly or daily) from a weather entity.");
-        sb.AppendLine("Config: { \"entityId\": \"weather.xxx\", \"forecastMode\": \"daily\" or \"hourly\" }");
-        sb.AppendLine("Good for: Multi-day or hourly forecast grid.");
-        sb.AppendLine();
+        var usableWidth = width - (2 * canvasPadding) - ((gridCols - 1) * widgetGap);
+        var usableHeight = height - (2 * canvasPadding) - ((gridRows - 1) * widgetGap);
+        var cellWidth = usableWidth / gridCols;
+        var cellHeight = usableHeight / gridRows;
 
-        sb.AppendLine("### todo");
-        sb.AppendLine("Shows a to-do/task list from a todo entity.");
-        sb.AppendLine("Config: { \"entityId\": \"todo.xxx\" }");
-        sb.AppendLine("Good for: Shopping lists, task lists.");
-        sb.AppendLine();
+        var innerPadding = 2 * (widgetPadding + widgetBorder);
+        var titleLineHeight = (int)(titleFontSize * 1.4);
+        var textLineHeight = (int)(textFontSize * 1.4);
+        var charsPerCellWidth = (int)((cellWidth - innerPadding) / (textFontSize * 0.55));
+        var linesPerCell = (cellHeight - innerPadding - titleLineHeight - 8) / textLineHeight;
 
-        sb.AppendLine("### rss-feed");
-        sb.AppendLine("Shows RSS feed entries from a feedreader entity.");
-        sb.AppendLine("Config: { \"entityId\": \"sensor.xxx_feed\" }");
-        sb.AppendLine("Good for: News headlines, blog updates.");
-        sb.AppendLine();
+        var cs = layoutConfig.ColorScheme;
+        var paletteStr = string.Join(", ", cs.Palette.Select(p => $"\"{p}\""));
 
-        sb.AppendLine("### graph");
-        sb.AppendLine("Shows a line/bar chart of entity history data.");
-        sb.AppendLine("Config: { \"series\": [{ \"entityId\": \"sensor.xxx\", \"color\": \"#000000\" }], \"period\": \"24h\" }");
-        sb.AppendLine("Periods: \"1h\", \"6h\", \"24h\", \"7d\", \"30d\"");
-        sb.AppendLine("Good for: Temperature trends, energy usage over time.");
-        sb.AppendLine();
+        var pinnedWidgets = layoutConfig.Widgets;
+        var reservedSection = pinnedWidgets.Count > 0
+            ? BuildReservedSection(pinnedWidgets, gridCols, gridRows)
+            : $$"""
+              ## Available Grid Area
+              The entire {{gridCols}}×{{gridRows}} grid is available for your layout.
+              """;
 
-        sb.AppendLine("### app-icon");
-        sb.AppendLine("Displays a FontAwesome icon.");
-        sb.AppendLine("Config: { \"icon\": \"fa-icon-name\" }");
-        sb.AppendLine("Good for: Decorative icons, visual separators.");
-        sb.AppendLine();
+        return $$"""
+            You are an e-paper dashboard designer. Your job is to create a widget layout for an e-paper display.
+            You MUST respond with valid JSON only. No markdown, no explanation, no code fences.
+
+            ## Display Constraints
+            - Resolution: {{width}}×{{height}} pixels
+            - Grid: {{gridCols}} columns × {{gridRows}} rows
+            - Color palette: 3 colors only (black, white, red)
+            - E-paper: no animations, no gradients, high contrast required
+
+            ## Cell & Font Metrics (use these to size widgets correctly)
+            - Cell size: ~{{cellWidth}}×{{cellHeight}} pixels per grid cell
+            - Widget inner padding: {{widgetPadding}}px each side, border: {{widgetBorder}}px
+            - Title font: {{titleFontSize}}px (line height ~{{titleLineHeight}}px) — title row takes ~{{titleLineHeight + 8}}px
+            - Body text font: {{textFontSize}}px (line height ~{{textLineHeight}}px)
+            - Approx chars per cell width: ~{{charsPerCellWidth}}
+            - Usable height per cell: ~{{cellHeight - innerPadding}}px (after padding/border)
+            - Text lines that fit in 1 cell height: ~{{linesPerCell}}
+
+            ## Sizing Guidelines
+            Size widgets to OPTIMALLY FIT their content — do NOT make them larger than needed.
+            - header: w=full grid width, h=1 (title + badges fit in one row)
+            - markdown: estimate lines needed = ceil(chars / ({{charsPerCellWidth}} * w)) + title row. Set h accordingly.
+            - weather: w=3-4, h=2 (current conditions are compact)
+            - weather-forecast: w=4-6, h=2-3 (daily: ~5 columns of icons+temps)
+            - calendar: h = min(ceil(events / 1) + 1, available). 1 row title + 1 row per event shown.
+            - todo: h = min(ceil(items / 1) + 1, available). 1 row title + 1 row per item.
+            - rss-feed: h = min(ceil(entries / 1) + 1, available). 1 row title + 1 row per headline.
+            - graph: w=4-6, h=3-4 (needs space for axes and data)
+            - app-icon: w=1, h=1 (single icon)
+            Prefer COMPACT widgets. Only make a widget large if the content requires it.
+            It is BETTER to leave empty grid space than to stretch a widget beyond its content.
+
+            ## Color Scheme
+            - Background: {{cs.Background}}
+            - Canvas background: {{cs.CanvasBackgroundColor}}
+            - Widget background: {{cs.WidgetBackgroundColor}}
+            - Widget border: {{cs.WidgetBorderColor}}
+            - Title text: {{cs.WidgetTitleTextColor}}
+            - Body text: {{cs.WidgetTextColor}}
+            - Icon color: {{cs.IconColor}}
+            - Accent: {{cs.Accent}}
+            - Allowed palette: [{{paletteStr}}]
+
+            {{reservedSection}}
+
+            ## Available Widget Types
+
+            ### header
+            Displays a title with optional badge icons showing entity states.
+            Config: {"title": "string", "showClock": true/false, "badges": [{"entityId": "sensor.xxx", "icon": "fa-icon-name"}]}
+            Good for: Top-of-dashboard title bar with at-a-glance sensor values.
+            Sizing: w=full grid width, h=1. Always 1 row tall — title and badges render inline.
+
+            ### markdown
+            Renders markdown text content.
+            Config: {"content": "Markdown text here. **Bold**, *italic*, lists, etc."}
+            Good for: AI-generated summaries, advice, quotes, notes, any text content.
+            Sizing: Calculate lines = ceil(character_count / (chars_per_cell_width * w)). Then h = ceil((lines * text_line_height + title_row_height) / cell_height). Keep content concise.
+
+            ### calendar
+            Shows upcoming calendar events from a calendar entity.
+            Config: {"entityId": "calendar.xxx", "maxEvents": 5}
+            Good for: Today's schedule, upcoming events.
+            Sizing: h = 1 (title) + ceil(maxEvents * text_line_height / cell_usable_height). For 5 events, typically h=3-4. Set maxEvents based on available space.
+
+            ### weather
+            Shows current weather conditions from a weather entity.
+            Config: {"entityId": "weather.xxx"}
+            Good for: Current temperature, conditions, humidity, wind.
+            Sizing: w=3-4, h=2. Compact — shows icon + temp + a few stats.
+
+            ### weather-forecast
+            Shows weather forecast (hourly or daily) from a weather entity.
+            Config: {"entityId": "weather.xxx", "forecastMode": "daily" or "hourly"}
+            Good for: Multi-day or hourly forecast grid.
+            Sizing: w=4-6, h=2-3. Each forecast column is ~60px wide. 5 days needs w ≈ ceil(5*60/cell_width).
+
+            ### todo
+            Shows a to-do/task list from a todo entity.
+            Config: {"entityId": "todo.xxx"}
+            Good for: Shopping lists, task lists.
+            Sizing: h = 1 (title) + ceil(item_count * text_line_height / cell_usable_height). If many items, cap display and keep h reasonable.
+
+            ### rss-feed
+            Shows RSS feed entries from a feedreader entity.
+            Config: {"entityId": "sensor.xxx_feed"}
+            Good for: News headlines, blog updates.
+            Sizing: h = 1 (title) + ceil(entry_count * text_line_height / cell_usable_height). Typically shows 3-5 headlines.
+
+            ### graph
+            Shows a line/bar chart of entity history data.
+            Config: {"series": [{"entityId": "sensor.xxx", "color": "#000000"}], "period": "24h"}
+            Periods: "1h", "6h", "24h", "7d", "30d"
+            Good for: Temperature trends, energy usage over time.
+            Sizing: w=4-6, h=3-4. Needs room for axes, labels, and data plot.
+
+            ### app-icon
+            Displays a FontAwesome icon.
+            Config: {"icon": "fa-icon-name"}
+            Good for: Decorative icons, visual separators.
+            Sizing: w=1, h=1. Single cell is sufficient.
+
+            ## Response Format
+            Respond with a JSON object containing a single "widgets" array:
+            ```
+            {
+              "widgets": [
+                {
+                  "id": "unique-string-id",
+                  "type": "widget-type-name",
+                  "position": { "x": 0, "y": 0, "w": 6, "h": 4 },
+                  "config": { ... widget-specific config ... },
+                  "titleOverride": "Optional custom title"
+                }
+              ]
+            }
+            ```
+
+            Rules:
+            - Widget positions must not overlap each other or reserved cells
+            - x + w must be <= {{gridCols}}, y + h must be <= {{gridRows}}
+            - Each widget id must be unique (use descriptive names like "weather-main", "calendar-today")
+            - Only use widget types from the list above
+            - Only use entity IDs from the available data provided
+            - Use the markdown widget for AI-generated text content (summaries, advice, quotes)
+            - Size each widget to OPTIMALLY FIT its content using the cell & font metrics above
+            - Do NOT stretch widgets to fill empty space — compact is better
+            - For text widgets (markdown, todo, calendar, rss-feed): calculate the number of text lines, then set h = ceil(lines * lineHeight / cellHeight) + 1 for the title row
+            - Empty grid cells are acceptable and preferred over oversized widgets
+            """;
+    }
+
+    private static string BuildReservedSection(List<WidgetConfig> pinnedWidgets, int gridCols, int gridRows)
+    {
+        var occupancyGrid = BuildOccupancyGrid(pinnedWidgets, new List<WidgetConfig>(), gridCols, gridRows);
+
+        return $$"""
+            ## Reserved Cells (user-pinned widgets — do NOT overlap these)
+            {{FormatWidgetList(pinnedWidgets)}}
+
+            ## Occupancy Grid (P=pinned/reserved, .=available)
+            ```
+            {{occupancyGrid}}```
+
+            ## Available Grid Area
+            Place your widgets ONLY in cells marked '.' in the grid above. Do NOT place any widget in cells marked 'P'.
+            """;
     }
 
     private static string BuildUserPrompt(
@@ -182,18 +383,13 @@ public sealed class AiPromptBuilder
         Dictionary<string, List<RssFeedEntry>> rssFeedEntries)
     {
         var sb = new StringBuilder();
-
-        // Time context
         var now = DateTimeOffset.Now;
+
         sb.AppendLine($"Current date/time: {now:dddd, MMMM d, yyyy h:mm tt}");
         sb.AppendLine();
-
-        // User's prompt
         sb.AppendLine("## User Request");
         sb.AppendLine(dashboard.AiPrompt ?? "Create a useful dashboard with the available data.");
         sb.AppendLine();
-
-        // Available data
         sb.AppendLine("## Available Data");
         sb.AppendLine();
 

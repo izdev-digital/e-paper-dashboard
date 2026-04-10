@@ -54,7 +54,6 @@ export interface Dashboard {
   screenHeight: number;
   isAiEnabled?: boolean;
   aiPrompt?: string;
-  aiDataSourceEntityIds?: string[];
   aiLeadTimeMinutes?: number;
   lastAiGenerationTime?: string;
 }
@@ -82,7 +81,6 @@ export interface UpdateDashboardRequest {
   screenHeight?: number;
   isAiEnabled?: boolean;
   aiPrompt?: string;
-  aiDataSourceEntityIds?: string[];
   aiLeadTimeMinutes?: number;
 }
 

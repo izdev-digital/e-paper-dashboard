@@ -12,6 +12,7 @@ namespace EPaperDashboard.Services.Ai;
 /// </summary>
 public sealed class AiDashboardGenerationService(
     IAiServiceFactory aiServiceFactory,
+    HomeAssistantService homeAssistantService,
     IEntityStateProvider entityStateProvider,
     ITodoDataProvider todoDataProvider,
     ICalendarDataProvider calendarDataProvider,
@@ -87,6 +88,49 @@ public sealed class AiDashboardGenerationService(
         }
 
         var generatedWidgets = parseResult.Value;
+        var pinnedWidgets = layoutConfig.Widgets;
+
+        // Verification pass: check for overlaps and ask AI to fix if needed
+        if (AiPromptBuilder.HasOverlaps(pinnedWidgets, generatedWidgets, gridCols, gridRows))
+        {
+            logger.LogInformation(
+                "Overlap detected in AI output for dashboard {DashboardId}, running verification pass",
+                dashboard.Id);
+
+            var verificationPrompt = promptBuilder.BuildVerificationPrompt(
+                pinnedWidgets, generatedWidgets, gridCols, gridRows);
+
+            var verifyResult = await aiService.GenerateCompletionAsync(
+                verificationPrompt, "Fix any overlapping widgets and return the corrected layout.", cancellationToken);
+
+            if (verifyResult.IsSuccess)
+            {
+                var verifyParseResult = ParseAiResponse(verifyResult.Value, gridCols, gridRows);
+                if (verifyParseResult.IsSuccess)
+                {
+                    if (!AiPromptBuilder.HasOverlaps(pinnedWidgets, verifyParseResult.Value, gridCols, gridRows))
+                    {
+                        generatedWidgets = verifyParseResult.Value;
+                        logger.LogInformation("Verification pass resolved overlaps for dashboard {DashboardId}", dashboard.Id);
+                    }
+                    else
+                    {
+                        logger.LogWarning("Verification pass still has overlaps for dashboard {DashboardId}, removing conflicting widgets", dashboard.Id);
+                        generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, verifyParseResult.Value, gridCols, gridRows);
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("Verification pass response parsing failed, removing conflicting widgets from original output");
+                    generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, generatedWidgets, gridCols, gridRows);
+                }
+            }
+            else
+            {
+                logger.LogWarning("Verification pass LLM call failed: {Error}, removing conflicting widgets", verifyResult.Error);
+                generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, generatedWidgets, gridCols, gridRows);
+            }
+        }
 
         // Store the generated widgets
         dashboard.AiGeneratedWidgets = generatedWidgets;
@@ -103,26 +147,31 @@ public sealed class AiDashboardGenerationService(
     private async Task<AiDataSnapshot> FetchDataForAi(Dashboard dashboard)
     {
         var data = new AiDataSnapshot();
-        var entityIds = dashboard.AiDataSourceEntityIds ?? new List<string>();
-        if (entityIds.Count == 0)
-        {
-            logger.LogWarning("Dashboard {DashboardId} has no AI data source entities configured", dashboard.Id);
-            return data;
-        }
-
         var dashboardId = dashboard.Id.ToString();
 
         try
         {
-            // Fetch all entity states with a timeout
-            using var statesCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            // Fetch all available HA entities to discover what's available
+            var entitiesResult = await homeAssistantService.FetchEntities(dashboardId);
+            if (entitiesResult.IsFailure)
+            {
+                logger.LogWarning("Failed to fetch HA entities for dashboard {DashboardId}: {Error}", dashboard.Id, entitiesResult.Error);
+                return data;
+            }
+
+            var entities = entitiesResult.Value;
+            var entityIds = entities.Select(e => e.EntityId).ToArray();
+
+            // Fetch all entity states
             try
             {
-                var statesResult = await entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds.ToArray());
+                var statesResult = await entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds);
                 if (statesResult.IsSuccess)
                 {
                     foreach (var state in statesResult.Value)
+                    {
                         data.EntityStates[state.EntityId] = state;
+                    }
                 }
             }
             catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
@@ -130,50 +179,54 @@ public sealed class AiDashboardGenerationService(
                 logger.LogWarning("Entity state fetch timed out for dashboard {DashboardId}", dashboard.Id);
             }
 
-            // Fetch per-domain data with individual timeouts
-            foreach (var entityId in entityIds)
+            // Fetch domain-specific data for all entities of each provider type
+            foreach (var entity in entities)
             {
-                var domain = entityId.Split('.').FirstOrDefault() ?? "";
-
                 try
                 {
-                    switch (domain)
+                    switch (entity.Domain)
                     {
                         case "calendar":
-                            var calResult = await calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
+                            var calResult = await calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entity.EntityId, 168);
                             if (calResult.IsSuccess)
-                                data.CalendarEvents[entityId] = calResult.Value;
+                            {
+                                data.CalendarEvents[entity.EntityId] = calResult.Value;
+                            }
                             break;
 
                         case "todo":
-                            var todoResult = await todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
+                            var todoResult = await todoDataProvider.FetchTodoItemsAsync(dashboardId, entity.EntityId);
                             if (todoResult.IsSuccess)
-                                data.TodoItems[entityId] = todoResult.Value;
+                            {
+                                data.TodoItems[entity.EntityId] = todoResult.Value;
+                            }
                             break;
 
                         case "weather":
-                            var forecastResult = await weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, "daily");
+                            var forecastResult = await weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entity.EntityId, "daily");
                             if (forecastResult.IsSuccess
                                 && forecastResult.Value.TryGetValue("forecast", out var forecastVal)
                                 && forecastVal is List<object?> forecastList)
                             {
-                                data.WeatherForecasts[entityId] = forecastList;
+                                data.WeatherForecasts[entity.EntityId] = forecastList;
                             }
                             break;
 
-                        default:
-                            if (entityId.Contains("feed", StringComparison.OrdinalIgnoreCase))
+                        case "sensor":
+                            if (entity.EntityId.Contains("feed", StringComparison.OrdinalIgnoreCase))
                             {
-                                var rssResult = await rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
+                                var rssResult = await rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entity.EntityId);
                                 if (rssResult.IsSuccess)
-                                    data.RssFeedEntries[entityId] = rssResult.Value;
+                                {
+                                    data.RssFeedEntries[entity.EntityId] = rssResult.Value;
+                                }
                             }
                             break;
                     }
                 }
                 catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
                 {
-                    logger.LogWarning("Data fetch timed out for entity {EntityId} on dashboard {DashboardId}", entityId, dashboard.Id);
+                    logger.LogWarning("Data fetch timed out for entity {EntityId} on dashboard {DashboardId}", entity.EntityId, dashboard.Id);
                 }
             }
         }
@@ -291,6 +344,68 @@ public sealed class AiDashboardGenerationService(
     private static bool IsKnownWidgetType(string type) =>
         type is "header" or "markdown" or "calendar" or "weather" or "weather-forecast"
             or "todo" or "rss-feed" or "graph" or "app-icon" or "image" or "version";
+
+    /// <summary>
+    /// Programmatic fallback: removes AI-generated widgets that overlap pinned widgets
+    /// or each other. Widgets are processed in order; later widgets that conflict are dropped.
+    /// </summary>
+    private static List<WidgetConfig> RemoveOverlappingWidgets(
+        List<WidgetConfig> pinnedWidgets,
+        List<WidgetConfig> generatedWidgets,
+        int gridCols,
+        int gridRows)
+    {
+        var grid = new bool[gridCols, gridRows];
+
+        // Mark pinned widget cells
+        foreach (var w in pinnedWidgets)
+        {
+            MarkCells(grid, w.Position, gridCols, gridRows);
+        }
+
+        var result = new List<WidgetConfig>();
+        foreach (var w in generatedWidgets)
+        {
+            if (CanPlace(grid, w.Position, gridCols, gridRows))
+            {
+                MarkCells(grid, w.Position, gridCols, gridRows);
+                result.Add(w);
+            }
+        }
+
+        return result;
+    }
+
+    private static bool CanPlace(bool[,] grid, WidgetPosition pos, int gridCols, int gridRows)
+    {
+        if (pos.X + pos.W > gridCols || pos.Y + pos.H > gridRows)
+        {
+            return false;
+        }
+
+        for (var row = pos.Y; row < pos.Y + pos.H; row++)
+        {
+            for (var col = pos.X; col < pos.X + pos.W; col++)
+            {
+                if (grid[col, row])
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void MarkCells(bool[,] grid, WidgetPosition pos, int gridCols, int gridRows)
+    {
+        for (var row = pos.Y; row < pos.Y + pos.H && row < gridRows; row++)
+        {
+            for (var col = pos.X; col < pos.X + pos.W && col < gridCols; col++)
+            {
+                grid[col, row] = true;
+            }
+        }
+    }
 
     private static Models.LayoutConfig CreateDefaultLayoutConfig(Dashboard dashboard)
     {

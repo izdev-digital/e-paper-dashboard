@@ -129,9 +129,7 @@ export class DashboardDesignerComponent implements OnInit {
   // AI settings (editable in the AI tab)
   aiEnabled = signal(false);
   aiPrompt = signal('');
-  aiDataSourceEntityIds = signal<string[]>([]);
   aiLeadTimeMinutes = signal(5);
-  newAiEntityId = signal('');
   aiConfigMode = signal<string>('None');
 
   // Tab navigation
@@ -188,7 +186,6 @@ export class DashboardDesignerComponent implements OnInit {
         // Initialize AI settings from dashboard
         this.aiEnabled.set(dashboard.isAiEnabled ?? false);
         this.aiPrompt.set(dashboard.aiPrompt ?? '');
-        this.aiDataSourceEntityIds.set(dashboard.aiDataSourceEntityIds ?? []);
         this.aiLeadTimeMinutes.set(dashboard.aiLeadTimeMinutes ?? 5);
 
         // Load AI config mode
@@ -245,13 +242,15 @@ export class DashboardDesignerComponent implements OnInit {
   }
 
   generateAiContent(): void {
+    if (this.isGeneratingAi()) {
+      return;
+    }
     this.isGeneratingAi.set(true);
 
     // Save AI settings first to ensure the backend has the latest state
     const payload = {
       isAiEnabled: this.aiEnabled(),
       aiPrompt: this.aiPrompt(),
-      aiDataSourceEntityIds: this.aiDataSourceEntityIds(),
       aiLeadTimeMinutes: this.aiLeadTimeMinutes(),
     };
     this.dashboardService.updateDashboard(this.dashboardId, payload).subscribe({
@@ -604,7 +603,6 @@ export class DashboardDesignerComponent implements OnInit {
     // Include AI settings in every save
     payload.isAiEnabled = this.aiEnabled();
     payload.aiPrompt = this.aiPrompt();
-    payload.aiDataSourceEntityIds = this.aiDataSourceEntityIds();
     payload.aiLeadTimeMinutes = this.aiLeadTimeMinutes();
 
     this.dashboardService.updateDashboard(this.dashboardId, payload).subscribe({
@@ -613,7 +611,6 @@ export class DashboardDesignerComponent implements OnInit {
           ...d,
           isAiEnabled: payload.isAiEnabled,
           aiPrompt: payload.aiPrompt,
-          aiDataSourceEntityIds: payload.aiDataSourceEntityIds,
           aiLeadTimeMinutes: payload.aiLeadTimeMinutes,
         } : d);
         this.toastService.show('Dashboard saved successfully', 'success');
@@ -1454,18 +1451,6 @@ export class DashboardDesignerComponent implements OnInit {
 
   onAiPromptChange(value: string): void {
     this.aiPrompt.set(value);
-  }
-
-  addAiEntity(): void {
-    const id = this.newAiEntityId().trim();
-    if (id && !this.aiDataSourceEntityIds().includes(id)) {
-      this.aiDataSourceEntityIds.update(ids => [...ids, id]);
-      this.newAiEntityId.set('');
-    }
-  }
-
-  removeAiEntity(index: number): void {
-    this.aiDataSourceEntityIds.update(ids => ids.filter((_, i) => i !== index));
   }
 
   onAiLeadTimeChange(value: string): void {

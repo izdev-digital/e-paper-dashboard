@@ -7,7 +7,9 @@
             <i class="fa fa-arrow-left"></i> Back
           </button>
           <h2 class="mb-0">Dashboard Designer - {{ dashboard()?.name }}</h2>
-          <div class="form-check form-switch mb-0 ms-3">
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="aiEnabledHeader" role="switch"
               [checked]="aiEnabled()"
               (change)="onAiEnabledChange($any($event.target).checked)" />
@@ -15,9 +17,7 @@
               <i class="fa fa-wand-magic-sparkles me-1"></i>AI
             </label>
           </div>
-        </div>
-        <div>
-          <button class="btn btn-success me-2" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
+          <button class="btn btn-success" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
             <i class="fa fa-external-link-alt"></i> Rendered Preview
           </button>
           <button class="btn btn-primary" (click)="saveDashboard()">
@@ -75,13 +75,16 @@
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Canvas</h5>
-          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading()" title="Refresh preview data">
-            @if (livePreviewLoading()) {
+          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading() || isGeneratingAi()" title="Refresh preview data">
+            @if (livePreviewLoading() || isGeneratingAi()) {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             } @else {
             <i class="fa fa-sync"></i>
             }
           </button>
+          @if (isGeneratingAi()) {
+          <small class="text-muted ms-2">Generating AI content…</small>
+          }
         </div>
         <div class="card-body" style="overflow: auto;">
           <div class="canvas-wrapper">
@@ -452,29 +455,6 @@
                     [value]="aiPrompt()"
                     (input)="onAiPromptChange($any($event.target).value)"
                     placeholder="e.g. 'Show today's weather, calendar events, and a motivational quote'"></textarea>
-                </div>
-
-                <div class="mb-3">
-                  <label class="form-label fw-semibold small">Data Source Entities</label>
-                  <div class="d-flex align-items-center mb-2">
-                    <input type="text" class="form-control form-control-sm me-2"
-                      [value]="newAiEntityId()"
-                      (input)="newAiEntityId.set($any($event.target).value)"
-                      (keydown.enter)="addAiEntity(); $event.preventDefault()"
-                      placeholder="e.g. weather.home" />
-                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="addAiEntity()">Add</button>
-                  </div>
-                  <div class="d-flex flex-wrap gap-1 mb-1">
-                    @for (entity of aiDataSourceEntityIds(); track $index) {
-                      <span class="badge bg-secondary" style="font-size: 0.75em;">
-                        {{ entity }}
-                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6em;"
-                          (click)="removeAiEntity($index)"></button>
-                      </span>
-                    } @empty {
-                      <span class="text-muted small">No entities configured</span>
-                    }
-                  </div>
                 </div>
 
                 <div class="mb-3">
