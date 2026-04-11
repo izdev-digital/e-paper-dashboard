@@ -152,6 +152,12 @@ public sealed class AiDashboardGenerationService(
         }
 
         // Store the generated widgets and clear any previous error
+        generatedWidgets = ValidateAndRepairWidgets(generatedWidgets, aiData, dashboard);
+        if (generatedWidgets.Count == 0)
+        {
+            return StoreError(dashboard, "All AI-generated widgets were invalid after validation");
+        }
+
         dashboard.AiGeneratedWidgets = generatedWidgets;
         dashboard.LastAiGenerationTime = DateTimeOffset.UtcNow;
         dashboard.LastAiGenerationError = null;
@@ -421,6 +427,240 @@ public sealed class AiDashboardGenerationService(
             }
         }
     }
+
+    /// <summary>
+    /// Post-parse validation: drops widgets with invalid/missing entity IDs or empty content,
+    /// repairs header titles, and shrinks oversized list widgets to fit their actual data.
+    /// </summary>
+    private List<WidgetConfig> ValidateAndRepairWidgets(
+        List<WidgetConfig> widgets,
+        AiDataSnapshot aiData,
+        Dashboard dashboard)
+    {
+        var result = new List<WidgetConfig>();
+        var initialCount = widgets.Count;
+
+        foreach (var widget in widgets)
+        {
+            var repaired = ValidateWidget(widget, aiData, dashboard);
+            if (repaired != null)
+            {
+                result.Add(repaired);
+            }
+        }
+
+        if (result.Count < initialCount)
+        {
+            logger.LogInformation(
+                "Widget validation removed {Removed} of {Total} widgets for dashboard {DashboardId}",
+                initialCount - result.Count, initialCount, dashboard.Id);
+        }
+
+        return result;
+    }
+
+    private WidgetConfig? ValidateWidget(WidgetConfig widget, AiDataSnapshot aiData, Dashboard dashboard)
+    {
+        var config = widget.Config;
+
+        switch (widget.Type)
+        {
+            case "calendar":
+            {
+                var entityId = GetStringProp(config, "entityId");
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    logger.LogWarning("Dropping calendar widget '{Id}': missing entityId", widget.Id);
+                    return null;
+                }
+                if (!aiData.CalendarEvents.ContainsKey(entityId))
+                {
+                    logger.LogWarning("Dropping calendar widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
+                    return null;
+                }
+                var eventCount = aiData.CalendarEvents[entityId].Count;
+                var maxEvents = GetIntProp(config, "maxEvents") ?? eventCount;
+                var dataRows = Math.Min(maxEvents, eventCount);
+                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(dataRows / 1.0));
+                if (widget.Position.H > idealH + 1)
+                {
+                    widget.Position.H = idealH;
+                }
+                break;
+            }
+
+            case "todo":
+            {
+                var entityId = GetStringProp(config, "entityId");
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    logger.LogWarning("Dropping todo widget '{Id}': missing entityId", widget.Id);
+                    return null;
+                }
+                if (!aiData.TodoItems.ContainsKey(entityId))
+                {
+                    logger.LogWarning("Dropping todo widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
+                    return null;
+                }
+                var itemCount = aiData.TodoItems[entityId].Count;
+                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(itemCount / 1.0));
+                if (widget.Position.H > idealH + 1)
+                {
+                    widget.Position.H = idealH;
+                }
+                break;
+            }
+
+            case "weather":
+            {
+                var entityId = GetStringProp(config, "entityId");
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    logger.LogWarning("Dropping weather widget '{Id}': missing entityId", widget.Id);
+                    return null;
+                }
+                if (!aiData.EntityStates.ContainsKey(entityId))
+                {
+                    logger.LogWarning("Dropping weather widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
+                    return null;
+                }
+                break;
+            }
+
+            case "weather-forecast":
+            {
+                var entityId = GetStringProp(config, "entityId");
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    logger.LogWarning("Dropping weather-forecast widget '{Id}': missing entityId", widget.Id);
+                    return null;
+                }
+                if (!aiData.WeatherForecasts.ContainsKey(entityId))
+                {
+                    logger.LogWarning("Dropping weather-forecast widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
+                    return null;
+                }
+                break;
+            }
+
+            case "rss-feed":
+            {
+                var entityId = GetStringProp(config, "entityId");
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    logger.LogWarning("Dropping rss-feed widget '{Id}': missing entityId", widget.Id);
+                    return null;
+                }
+                if (!aiData.RssFeedEntries.ContainsKey(entityId))
+                {
+                    logger.LogWarning("Dropping rss-feed widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
+                    return null;
+                }
+                var entryCount = aiData.RssFeedEntries[entityId].Count;
+                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(entryCount / 1.0));
+                if (widget.Position.H > idealH + 1)
+                {
+                    widget.Position.H = idealH;
+                }
+                break;
+            }
+
+            case "graph":
+            {
+                if (!config.TryGetProperty("series", out var seriesEl)
+                    || seriesEl.ValueKind != JsonValueKind.Array
+                    || seriesEl.GetArrayLength() == 0)
+                {
+                    logger.LogWarning("Dropping graph widget '{Id}': missing or empty series", widget.Id);
+                    return null;
+                }
+                var hasValidSeries = false;
+                foreach (var s in seriesEl.EnumerateArray())
+                {
+                    var eid = s.TryGetProperty("entityId", out var eidEl) ? eidEl.GetString() : null;
+                    if (!string.IsNullOrEmpty(eid) && aiData.EntityStates.ContainsKey(eid))
+                    {
+                        hasValidSeries = true;
+                        break;
+                    }
+                }
+                if (!hasValidSeries)
+                {
+                    logger.LogWarning("Dropping graph widget '{Id}': no series entity IDs match available data", widget.Id);
+                    return null;
+                }
+                break;
+            }
+
+            case "markdown":
+            {
+                var content = GetStringProp(config, "content");
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    logger.LogWarning("Dropping markdown widget '{Id}': empty content", widget.Id);
+                    return null;
+                }
+                break;
+            }
+
+            case "header":
+            {
+                var title = GetStringProp(config, "title");
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    logger.LogInformation("Repairing header widget '{Id}': setting title to dashboard name", widget.Id);
+                    widget.Config = JsonSerializer.SerializeToElement(
+                        PatchJsonObject(config, "title", dashboard.Name));
+                }
+                break;
+            }
+
+            // app-icon: no required config — always valid
+        }
+
+        return widget;
+    }
+
+    /// <summary>
+    /// Creates a dictionary from a JsonElement object, adds/replaces a string property, and returns it
+    /// ready for serialization. Preserves all existing properties.
+    /// </summary>
+    private static Dictionary<string, object?> PatchJsonObject(JsonElement original, string key, string value)
+    {
+        var dict = new Dictionary<string, object?>();
+        if (original.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in original.EnumerateObject())
+            {
+                if (prop.Name == key) continue;
+                dict[prop.Name] = prop.Value.ValueKind switch
+                {
+                    JsonValueKind.String => prop.Value.GetString(),
+                    JsonValueKind.Number => prop.Value.GetDouble(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Null => null,
+                    _ => prop.Value.Clone()
+                };
+            }
+        }
+        dict[key] = value;
+        return dict;
+    }
+
+    private static string? GetStringProp(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object
+        && el.TryGetProperty(prop, out var p)
+        && p.ValueKind == JsonValueKind.String
+            ? p.GetString()
+            : null;
+
+    private static int? GetIntProp(JsonElement el, string prop) =>
+        el.ValueKind == JsonValueKind.Object
+        && el.TryGetProperty(prop, out var p)
+        && p.ValueKind == JsonValueKind.Number
+            ? p.GetInt32()
+            : null;
 
     private static Models.LayoutConfig CreateDefaultLayoutConfig(Dashboard dashboard)
     {

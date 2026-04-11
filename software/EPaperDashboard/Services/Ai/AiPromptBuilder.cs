@@ -271,61 +271,71 @@ public sealed class AiPromptBuilder
             {{reservedSection}}
 
             ## Available Widget Types
+            Each widget type below documents its REQUIRED and optional config fields, what data it renders, and how it lays out content.
+            IMPORTANT: Only use entity IDs that appear in the "Available Data" section below. Never invent entity IDs.
 
             ### header
-            Displays a title with optional badge icons showing entity states.
-            Config: {"title": "string", "showClock": true/false, "badges": [{"entityId": "sensor.xxx", "icon": "fa-icon-name"}]}
-            Good for: Top-of-dashboard title bar with at-a-glance sensor values.
-            Sizing: w=full grid width, h=1. Always 1 row tall — title and badges render inline.
+            A title bar with optional sensor badges. Does NOT need an entityId.
+            Config: {"title": "My Dashboard" (REQUIRED), "badges": [{"entityId": "sensor.xxx", "icon": "fa-thermometer-half"}] (optional)}
+            Renders: Title text on the left. Badges render as icon + entity state value in a row.
+            Data: Badge entityId must be a sensor/binary_sensor from Available Data. The badge shows the entity's current state + unit.
+            Sizing: w=full grid width, h=1. Always 1 row — content is inline.
 
             ### markdown
-            Renders markdown text content.
-            Config: {"content": "Markdown text here. **Bold**, *italic*, lists, etc."}
-            Good for: AI-generated summaries, advice, quotes, notes, any text content.
-            Sizing: Calculate lines = ceil(character_count / (chars_per_cell_width * w)). Then h = ceil((lines * text_line_height + title_row_height) / cell_height). Keep content concise.
+            Renders static text content using basic markdown formatting.
+            Config: {"content": "Your text here" (REQUIRED)}
+            Renders: Headings (#-####), bold (**), italic (*), unordered/ordered lists, blockquotes (>), horizontal rules (---). One line per text line. No images or links.
+            Data: None — the content is fully contained in the config. Use this for AI-written summaries, quotes, advice, greetings, or any free-form text.
+            Content MUST NOT be empty. Write meaningful, concise text.
+            Sizing: lines = ceil(char_count / ({{charsPerCellWidth}} × w)). h = ceil((lines × {{textLineHeight}} + {{titleLineHeight + 8}}) / {{cellHeight}}).
 
             ### calendar
-            Shows upcoming calendar events from a calendar entity.
-            Config: {"entityId": "calendar.xxx", "maxEvents": 5}
-            Good for: Today's schedule, upcoming events.
-            Sizing: h = 1 (title) + ceil(maxEvents * text_line_height / cell_usable_height). For 5 events, typically h=3-4. Set maxEvents based on available space.
+            Shows upcoming events from a Home Assistant calendar entity.
+            Config: {"entityId": "calendar.xxx" (REQUIRED), "maxEvents": 5 (optional, default 7)}
+            Renders: Title row, then one line per event showing "ddd, MMM d: Summary" (date events) or "MMM d, HH:mm: Summary" (timed events). Events are filtered to future only.
+            Data: entityId MUST be a calendar.* entity from Available Data.
+            Sizing: h = 1 (title) + ceil(min(maxEvents, actual_event_count) × {{textLineHeight}} / {{cellHeight - innerPadding}}). For 5 events typically h=3-4.
 
             ### weather
-            Shows current weather conditions from a weather entity.
-            Config: {"entityId": "weather.xxx"}
-            Good for: Current temperature, conditions, humidity, wind.
-            Sizing: w=3-4, h=2. Compact — shows icon + temp + a few stats.
+            Shows current weather conditions from a weather entity. Displays a 2×2 grid of stats.
+            Config: {"entityId": "weather.xxx" (REQUIRED)}
+            Renders: Title, then 4 items in a 2×2 layout: temperature (°C/°F), condition (sunny/cloudy/etc.), pressure, humidity (%).
+            Data: entityId MUST be a weather.* entity from Available Data. Uses the entity's state and attributes (temperature, pressure, humidity).
+            Sizing: w=3-4, h=2. Compact — fits in 2 rows.
 
             ### weather-forecast
-            Shows weather forecast (hourly or daily) from a weather entity.
-            Config: {"entityId": "weather.xxx", "forecastMode": "daily" or "hourly"}
-            Good for: Multi-day or hourly forecast grid.
-            Sizing: w=4-6, h=2-3. Each forecast column is ~60px wide. 5 days needs w ≈ ceil(5*60/cell_width).
+            Shows a multi-column forecast (daily or hourly) from a weather entity.
+            Config: {"entityId": "weather.xxx" (REQUIRED), "forecastMode": "daily" or "hourly" (optional, default "daily")}
+            Renders: Title row, then equal-width columns. Each column shows: time label, condition text, high temp, low temp. Daily mode shows day names, hourly shows HH:mm.
+            Data: entityId MUST be a weather.* entity that has forecast data in Available Data. Auto-calculates column count from widget width (daily: 2-5, hourly: 4-8).
+            Sizing: w=4-6, h=2-3. Each column needs ~60px width. For 5-day forecast: w ≈ ceil(5 × 60 / {{cellWidth}}).
 
             ### todo
-            Shows a to-do/task list from a todo entity.
-            Config: {"entityId": "todo.xxx"}
-            Good for: Shopping lists, task lists.
-            Sizing: h = 1 (title) + ceil(item_count * text_line_height / cell_usable_height). If many items, cap display and keep h reasonable.
+            Shows a task list from a Home Assistant todo entity.
+            Config: {"entityId": "todo.xxx" (REQUIRED), "showCompleted": true/false (optional, default true), "maxItems": 10 (optional, default 50)}
+            Renders: Title row, then one line per task with a status icon (circle for pending, check-circle for done) + task summary text. Pending tasks shown first, then completed.
+            Data: entityId MUST be a todo.* entity from Available Data.
+            Sizing: h = 1 (title) + ceil(min(maxItems, item_count) × {{textLineHeight}} × 1.4 / {{cellHeight - innerPadding}}).
 
             ### rss-feed
-            Shows RSS feed entries from a feedreader entity.
-            Config: {"entityId": "sensor.xxx_feed"}
-            Good for: News headlines, blog updates.
-            Sizing: h = 1 (title) + ceil(entry_count * text_line_height / cell_usable_height). Typically shows 3-5 headlines.
+            Shows the FIRST entry of an RSS feed with a QR code link.
+            Config: {"entityId": "sensor.xxx_feed" (REQUIRED)}
+            Renders: Feed title row, then the first entry's title (word-wrapped, max 2 lines), then a QR code linking to the entry URL. Only shows ONE entry — not a list.
+            Data: entityId MUST be a sensor with RSS feed data from Available Data.
+            Sizing: h=3-4 (needs space for title + headline text + QR code). w=3-4.
 
             ### graph
-            Shows a line/bar chart of entity history data.
-            Config: {"series": [{"entityId": "sensor.xxx", "color": "#000000"}], "period": "24h"}
-            Periods: "1h", "6h", "24h", "7d", "30d"
-            Good for: Temperature trends, energy usage over time.
-            Sizing: w=4-6, h=3-4. Needs room for axes, labels, and data plot.
+            Shows a line or bar chart of sensor history over time.
+            Config: {"series": [{"entityId": "sensor.xxx", "color": "#000000"}] (REQUIRED, at least 1 series), "period": "24h" (REQUIRED, one of "1h","6h","24h","7d","30d"), "plotType": "line" or "bar" (optional, default "line")}
+            Renders: Title row, then a chart with Y-axis labels (left), X-axis time labels (bottom), grid lines, and data plot. Multiple series overlay on the same chart.
+            Data: Each series entityId MUST be a numeric sensor from Available Data. Color must be from the allowed palette.
+            Sizing: w=4-6, h=3-4. Needs space for axes, labels, and the plot area.
 
             ### app-icon
-            Displays a FontAwesome icon.
-            Config: {"icon": "fa-icon-name"}
-            Good for: Decorative icons, visual separators.
-            Sizing: w=1, h=1. Single cell is sufficient.
+            Displays the EPaperDashboard app icon. Purely decorative.
+            Config: {} (no config needed)
+            Renders: A centered app logo icon.
+            Sizing: w=1, h=1.
 
             ## Response Format
             Respond with a JSON object containing a single "widgets" array:
@@ -348,7 +358,9 @@ public sealed class AiPromptBuilder
             - x + w must be <= {{gridCols}}, y + h must be <= {{gridRows}}
             - Each widget id must be unique (use descriptive names like "weather-main", "calendar-today")
             - Only use widget types from the list above
-            - Only use entity IDs from the available data provided
+            - CRITICAL: Only use entity IDs that appear in the Available Data section. Never invent entity IDs.
+            - CRITICAL: Every widget config MUST include all REQUIRED fields for its type. A calendar/todo/weather/weather-forecast/rss-feed/graph without a valid entityId will be discarded.
+            - CRITICAL: Markdown content MUST NOT be empty — write real, useful text.
             - Use the markdown widget for AI-generated text content (summaries, advice, quotes)
             - Size each widget to OPTIMALLY FIT its content using the cell & font metrics above
             - Do NOT stretch widgets to fill empty space — compact is better

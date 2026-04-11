@@ -24,13 +24,6 @@ public sealed class HomeAssistantAiService(
             // Combine system and user prompts for the conversation API
             var combinedPrompt = $"{systemPrompt}\n\n{userPrompt}";
 
-            if (combinedPrompt.Length > 8000)
-            {
-                logger.LogWarning(
-                    "Combined prompt is {Length} chars which may exceed HA conversation agent limits. Consider shortening the prompt or reducing data sources.",
-                    combinedPrompt.Length);
-            }
-
             logger.LogInformation("Calling Home Assistant conversation/process API (agent: {AgentId})",
                 agentId ?? "default");
 
