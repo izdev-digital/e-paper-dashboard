@@ -5,10 +5,6 @@ using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Services.Ai;
 
-/// <summary>
-/// AI service implementation using OpenAI-compatible chat completion APIs.
-/// Works with OpenAI, Azure OpenAI, Ollama, LM Studio, and other compatible endpoints.
-/// </summary>
 public sealed class DirectAiService(
     IHttpClientFactory httpClientFactory,
     string endpoint,
@@ -23,7 +19,9 @@ public sealed class DirectAiService(
     {
         var firstAttempt = await TrySendRequestAsync(systemPrompt, userPrompt, cancellationToken);
         if (firstAttempt.IsSuccess)
+        {
             return firstAttempt;
+        }
 
         // Retry once for transient / rate-limit failures
         if (firstAttempt.Error.Contains("status 429") || firstAttempt.Error.Contains("status 5"))

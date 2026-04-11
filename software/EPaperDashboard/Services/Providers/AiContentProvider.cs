@@ -21,11 +21,15 @@ public sealed class AiContentProvider(
         string dashboardId, string prompt, CancellationToken cancellationToken)
     {
         if (!DashboardId.TryParse(dashboardId, out var id))
+        {
             return Result.Failure<string, string>("Invalid dashboard ID");
+        }
 
         var dashboard = dashboardService.GetDashboardById(id);
         if (dashboard.HasNoValue)
+        {
             return Result.Failure<string, string>("Dashboard not found");
+        }
 
         var user = userService.GetUserById(dashboard.Value.UserId);
         if (user.HasNoValue || user.Value.AiConfig == null
@@ -37,7 +41,9 @@ public sealed class AiContentProvider(
 
         var aiServiceResult = aiServiceFactory.Create(user.Value.AiConfig, dashboardId);
         if (aiServiceResult.IsFailure)
+        {
             return Result.Failure<string, string>(aiServiceResult.Error);
+        }
 
         return await aiServiceResult.Value.GenerateCompletionAsync(
             SystemPrompt, prompt, cancellationToken);

@@ -2,9 +2,6 @@ using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Services.Ai;
 
-/// <summary>
-/// Background service that pre-generates AI dashboard content before scheduled
-/// device wake-up times.</summary>
 public sealed class AiPreGenerationService(
     ILogger<AiPreGenerationService> logger,
     IServiceProvider serviceProvider) : BackgroundService

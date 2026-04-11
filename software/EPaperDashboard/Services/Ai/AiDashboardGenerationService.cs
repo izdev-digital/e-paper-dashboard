@@ -157,24 +157,34 @@ public sealed class AiDashboardGenerationService(
         if (entityStates != null)
         {
             foreach (var state in entityStates)
+            {
                 data.EntityStates[state.EntityId] = state;
+            }
         }
 
         var todoItems = await todoTask;
         if (todoItems != null)
+        {
             data.TodoItems = todoItems;
+        }
 
         var calendarEvents = await calendarTask;
         if (calendarEvents != null)
+        {
             data.CalendarEvents = calendarEvents;
+        }
 
         var weatherForecasts = await weatherTask;
         if (weatherForecasts != null)
+        {
             data.WeatherForecasts = weatherForecasts;
+        }
 
         var rssEntries = await rssTask;
         if (rssEntries != null)
+        {
             data.RssFeedEntries = rssEntries;
+        }
 
         logger.LogInformation(
             "AI data snapshot for dashboard {DashboardId}: {States} entity states, {Todo} todo lists, {Cal} calendars, {Weather} weather entities, {Rss} RSS feeds",
@@ -446,11 +456,17 @@ public sealed class AiDashboardGenerationService(
                 var charCount = content.Length;
                 int w;
                 if (charCount < 100)
+                {
                     w = Math.Min(gridCols, Math.Max(3, gridCols / 3));
+                }
                 else if (charCount < 300)
+                {
                     w = Math.Min(gridCols, Math.Max(4, gridCols / 2));
+                }
                 else
+                {
                     w = Math.Min(gridCols, Math.Max(6, gridCols * 2 / 3));
+                }
 
                 var charsPerLine = metrics.charsPerCellWidth * w;
                 var textLines = (int)Math.Ceiling((double)charCount / charsPerLine);
@@ -501,7 +517,10 @@ public sealed class AiDashboardGenerationService(
                     break;
                 }
             }
-            if (placed2) continue;
+            if (placed2)
+            {
+                continue;
+            }
 
             for (var w = idealW - 1; w >= 1; w--)
             {
@@ -514,7 +533,10 @@ public sealed class AiDashboardGenerationService(
                         break;
                     }
                 }
-                if (placed2) break;
+                if (placed2)
+                {
+                    break;
+                }
             }
 
             if (!placed2)
@@ -754,7 +776,10 @@ public sealed class AiDashboardGenerationService(
         {
             foreach (var prop in original.EnumerateObject())
             {
-                if (prop.Name == key) continue;
+                if (prop.Name == key)
+                {
+                    continue;
+                }
                 dict[prop.Name] = prop.Value.ValueKind switch
                 {
                     JsonValueKind.String => prop.Value.GetString(),

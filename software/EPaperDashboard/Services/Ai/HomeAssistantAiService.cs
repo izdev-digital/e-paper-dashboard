@@ -3,10 +3,6 @@ using CSharpFunctionalExtensions;
 
 namespace EPaperDashboard.Services.Ai;
 
-/// <summary>
-/// AI service implementation using Home Assistant's conversation/process WebSocket API.
-/// Works with any HA-configured AI agent (OpenAI, Google, Ollama, etc.).
-/// </summary>
 public sealed class HomeAssistantAiService(
     string hostUrl,
     string token,

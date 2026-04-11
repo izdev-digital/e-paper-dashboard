@@ -39,7 +39,9 @@ public sealed class AiApiController(
 
         var validationError = ValidateAiConfig(config);
         if (validationError != null)
+        {
             return BadRequest(validationError);
+        }
 
         user.Value.AiConfig = config;
         userService.UpdateUser(user.Value);
