@@ -19,6 +19,8 @@ export class AiConfigComponent implements OnInit {
   readonly aiConfig = signal<AiConfig>({ connectionMode: 'None' });
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
+  readonly availableModels = signal<{ id: string }[]>([]);
+  readonly isLoadingModels = signal(false);
 
   ngOnInit(): void {
     this.loadConfig();
@@ -30,6 +32,9 @@ export class AiConfigComponent implements OnInit {
       next: (config) => {
         this.aiConfig.set(config);
         this.isLoading.set(false);
+        if (config.connectionMode === 'Direct' && config.directEndpoint) {
+          this.fetchModels();
+        }
       },
       error: () => {
         this.isLoading.set(false);
@@ -39,10 +44,34 @@ export class AiConfigComponent implements OnInit {
 
   onConnectionModeChange(mode: AiConnectionMode): void {
     this.aiConfig.update(c => ({ ...c, connectionMode: mode }));
+    if (mode === 'Direct') {
+      const endpoint = this.aiConfig().directEndpoint;
+      if (endpoint) {
+        this.fetchModels();
+      }
+    }
   }
 
   updateField(field: keyof AiConfig, value: string): void {
     this.aiConfig.update(c => ({ ...c, [field]: value }));
+  }
+
+  fetchModels(): void {
+    const config = this.aiConfig();
+    if (!config.directEndpoint) {
+      return;
+    }
+    this.isLoadingModels.set(true);
+    this.aiService.getAvailableModels(config.directEndpoint, config.directApiKey ?? undefined).subscribe({
+      next: (models) => {
+        this.availableModels.set(models);
+        this.isLoadingModels.set(false);
+      },
+      error: () => {
+        this.availableModels.set([]);
+        this.isLoadingModels.set(false);
+      }
+    });
   }
 
   save(): void {

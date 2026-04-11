@@ -8,7 +8,7 @@ namespace EPaperDashboard.Services.Ai;
 public sealed class DirectAiService(
     IHttpClientFactory httpClientFactory,
     string endpoint,
-    string apiKey,
+    string? apiKey,
     string model,
     ILogger<DirectAiService> logger) : IAiService
 {
@@ -41,7 +41,10 @@ public sealed class DirectAiService(
     {
         var client = httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(120);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
 
         var requestBody = new
         {

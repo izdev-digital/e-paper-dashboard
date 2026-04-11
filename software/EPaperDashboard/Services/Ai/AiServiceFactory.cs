@@ -29,10 +29,6 @@ public sealed class AiServiceFactory(
         {
             return "Direct AI endpoint is required";
         }
-        if (string.IsNullOrWhiteSpace(aiConfig.DirectApiKey))
-        {
-            return "Direct AI API key is required";
-        }
         if (string.IsNullOrWhiteSpace(aiConfig.DirectModel))
         {
             return "Direct AI model name is required";

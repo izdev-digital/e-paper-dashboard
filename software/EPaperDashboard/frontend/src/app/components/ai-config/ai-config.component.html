@@ -36,22 +36,49 @@
                 <input type="text" class="form-control"
                   [value]="aiConfig().directEndpoint || ''"
                   (input)="updateField('directEndpoint', $any($event.target).value)"
+                  (blur)="fetchModels()"
                   placeholder="https://api.openai.com" />
                 <small class="form-text text-muted">OpenAI, Ollama, LM Studio, or any compatible endpoint</small>
               </div>
               <div class="mb-3">
-                <label class="form-label">API Key</label>
+                <label class="form-label">API Key <span class="text-muted fw-normal">(optional for local providers)</span></label>
                 <input type="password" class="form-control"
                   [value]="aiConfig().directApiKey || ''"
                   (input)="updateField('directApiKey', $any($event.target).value)"
+                  (blur)="fetchModels()"
                   placeholder="sk-..." />
+                <small class="form-text text-muted">Required for OpenAI, optional for local services like Ollama or LM Studio</small>
               </div>
               <div class="mb-3">
                 <label class="form-label">Model</label>
-                <input type="text" class="form-control"
-                  [value]="aiConfig().directModel || ''"
-                  (input)="updateField('directModel', $any($event.target).value)"
-                  placeholder="gpt-4o-mini" />
+                <div class="input-group">
+                  @if (availableModels().length > 0) {
+                    <select class="form-select"
+                      [ngModel]="aiConfig().directModel || ''"
+                      (ngModelChange)="updateField('directModel', $event)"
+                      [ngModelOptions]="{standalone: true}">
+                      <option value="" disabled>Select a model</option>
+                      @for (model of availableModels(); track model.id) {
+                        <option [value]="model.id">{{ model.id }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <input type="text" class="form-control"
+                      [value]="aiConfig().directModel || ''"
+                      (input)="updateField('directModel', $any($event.target).value)"
+                      placeholder="gpt-4o-mini" />
+                  }
+                  <button type="button" class="btn btn-outline-secondary" (click)="fetchModels()"
+                    [disabled]="isLoadingModels() || !aiConfig().directEndpoint"
+                    title="Fetch available models from endpoint">
+                    @if (isLoadingModels()) {
+                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    } @else {
+                      <i class="fa fa-rotate"></i>
+                    }
+                  </button>
+                </div>
+                <small class="form-text text-muted">Select from available models or enter manually</small>
               </div>
             }
 

@@ -66,6 +66,88 @@ public sealed class AiApiController(
         };
     }
 
+    [HttpGet("models")]
+    public async Task<IActionResult> GetAvailableModels([FromQuery] string endpoint, [FromQuery] string? apiKey, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return BadRequest("Endpoint is required");
+        }
+
+        var url = endpoint.TrimEnd('/');
+        if (!url.EndsWith("/v1/models", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!url.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+            {
+                url += "/v1";
+            }
+            url += "/models";
+        }
+
+        try
+        {
+            var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            }
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            var response = await client.GetAsync(url, timeoutCts.Token);
+            var body = await response.Content.ReadAsStringAsync(timeoutCts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return BadRequest($"Failed to fetch models: HTTP {response.StatusCode}");
+            }
+
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            var root = doc.RootElement;
+
+            var models = new List<object>();
+
+            // OpenAI-compatible format: { data: [{ id: "model-name", ... }] }
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in data.EnumerateArray())
+                {
+                    var id = item.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                    if (id != null)
+                    {
+                        models.Add(new { id });
+                    }
+                }
+            }
+            // Ollama format: { models: [{ name: "model-name", ... }] }
+            else if (root.TryGetProperty("models", out var ollamaModels) && ollamaModels.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in ollamaModels.EnumerateArray())
+                {
+                    var name = item.TryGetProperty("model", out var modelProp) ? modelProp.GetString()
+                        : item.TryGetProperty("name", out var nameProp) ? nameProp.GetString()
+                        : null;
+                    if (name != null)
+                    {
+                        models.Add(new { id = name });
+                    }
+                }
+            }
+
+            return Ok(models.OrderBy(m => ((dynamic)m).id));
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(504, "Request to AI endpoint timed out");
+        }
+        catch (HttpRequestException ex)
+        {
+            return BadRequest($"Could not connect to endpoint: {ex.Message}");
+        }
+    }
+
     [HttpGet("dashboards/{dashboardId}/config")]
     public IActionResult GetAiConfig(string dashboardId)
     {

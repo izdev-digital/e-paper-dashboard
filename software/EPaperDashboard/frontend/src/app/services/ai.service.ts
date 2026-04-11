@@ -40,4 +40,12 @@ export class AiService {
   clearGeneratedWidgets(dashboardId: string): Observable<void> {
     return this.http.delete<void>(`/api/ai/dashboards/${dashboardId}/generated`);
   }
+
+  getAvailableModels(endpoint: string, apiKey?: string): Observable<{ id: string }[]> {
+    const params: Record<string, string> = { endpoint };
+    if (apiKey) {
+      params['apiKey'] = apiKey;
+    }
+    return this.http.get<{ id: string }[]>('/api/ai/models', { params });
+  }
 }
