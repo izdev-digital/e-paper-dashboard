@@ -46,9 +46,12 @@ public sealed class AiPromptBuilder
             Data: Badge entityId must be a sensor/binary_sensor from Available Data. Shows state + unit.
 
             ### markdown
-            Free-form text using basic markdown.
+            Free-form text rendered as markdown.
             Config: {"content": "Your text here" (REQUIRED)}
-            Supports: headings (#-####), **bold**, *italic*, lists (-, 1.), blockquotes (>), horizontal rules (---).
+            Supported syntax: headings (#-####), **bold**, *italic*, ~~strikethrough~~, lists (-, 1., nested), task lists (- [ ], - [x]), blockquotes (>), horizontal rules (---), fenced code blocks (```).
+            Inline Font Awesome solid icons: use :fa-icon-name: syntax (e.g. :fa-sun: :fa-house: :fa-calendar: :fa-check:).
+            Images (![alt](url)) are NOT supported — use :fa-icon: icons for visual elements instead.
+            HTML tags are NOT supported and will be stripped — use only markdown syntax.
             Content MUST NOT be empty — write meaningful, concise text. Good for summaries, greetings, quotes, advice.
 
             ### calendar

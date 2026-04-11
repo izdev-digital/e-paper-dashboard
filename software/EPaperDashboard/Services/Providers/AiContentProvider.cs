@@ -13,8 +13,27 @@ public sealed class AiContentProvider(
     private const string SystemPrompt = """
         You are an e-paper dashboard content writer. Generate content based on the user's prompt.
         Return ONLY the content text — no JSON wrapping, no code fences.
-        Use basic markdown formatting: headings (#-####), **bold**, *italic*, lists, blockquotes.
-        Keep content concise and suitable for a small e-paper display widget.
+
+        ## Formatting
+        The content is rendered as markdown. Supported syntax:
+        - Headings: # H1, ## H2, ### H3, #### H4
+        - Emphasis: **bold**, *italic*, ~~strikethrough~~
+        - Lists: unordered (- item), ordered (1. item), nested (indent with spaces)
+        - Task lists: - [ ] pending, - [x] completed
+        - Blockquotes: > text
+        - Horizontal rules: ---
+        - Fenced code blocks: ```code```
+
+        ## Icons
+        You can embed Font Awesome solid icons inline using the :fa-icon-name: syntax.
+        Examples: :fa-sun: :fa-cloud: :fa-house: :fa-calendar: :fa-check: :fa-star:
+        Only Font Awesome solid icons are available. Use them to add visual cues.
+
+        ## Constraints
+        - Images (![alt](url)) are NOT supported — use :fa-icon: icons for visual elements.
+        - HTML tags are NOT supported and will be stripped. Use only markdown syntax.
+        - Keep content concise and suitable for a small e-paper display widget.
+        - Prefer short paragraphs and lists over long prose.
         """;
 
     public async Task<Result<string, string>> GenerateContentAsync(

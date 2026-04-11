@@ -33,18 +33,21 @@ public sealed class DashboardImageRenderingService
     private readonly IWebHostEnvironment _env;
     private readonly FontFamily _fontFamily;
     private readonly FontAwesomeIconRegistry _iconRegistry;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public DashboardImageRenderingService(
         ISsrDataProvider ssrDataProvider,
         IWebHostEnvironment env,
         ILogger<DashboardImageRenderingService> logger,
-        FontAwesomeIconRegistry iconRegistry)
+        FontAwesomeIconRegistry iconRegistry,
+        IHttpClientFactory httpClientFactory)
     {
         _ssrDataProvider = ssrDataProvider;
         _env = env;
         _logger = logger;
-        _fontFamily = LoadFontFamily();
+        _fontFamily = LoadFontFamily(env.WebRootPath);
         _iconRegistry = iconRegistry;
+        _httpClientFactory = httpClientFactory;
     }
 
     /// <summary>
@@ -63,7 +66,7 @@ public sealed class DashboardImageRenderingService
 
     private LayoutConfig ParseLayout(string json)
     {
-        _logger.LogInformation("SSR: Parsing layout JSON (first 1000 chars): {Json}", json.Substring(0, Math.Min(1000, json.Length)));
+        _logger.LogDebug("SSR: Parsing layout JSON (first 1000 chars): {Json}", json.Substring(0, Math.Min(1000, json.Length)));
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -114,12 +117,12 @@ public sealed class DashboardImageRenderingService
         var widgets = new List<WidgetConfigEntry>();
         if (root.TryGetProperty("widgets", out var widgetsArr) && widgetsArr.ValueKind == JsonValueKind.Array)
         {
-            _logger.LogInformation("SSR: Found widgets array with {Count} items", widgetsArr.GetArrayLength());
+            _logger.LogDebug("SSR: Found widgets array with {Count} items", widgetsArr.GetArrayLength());
             int widgetIndex = 0;
             foreach (var w in widgetsArr.EnumerateArray())
             {
                 widgetIndex++;
-                _logger.LogInformation("SSR: Processing widget {Index}: {Widget}", widgetIndex, w.ToString());
+                _logger.LogDebug("SSR: Processing widget {Index}: {Widget}", widgetIndex, w.ToString());
 
                 if (!w.TryGetProperty("position", out var pos) ||
                     !w.TryGetProperty("id", out var idEl) ||
@@ -181,7 +184,7 @@ public sealed class DashboardImageRenderingService
                     TitleOverride: w.TryGetProperty("titleOverride", out var toEl) ? toEl.GetString() : null,
                     ShowTitle: w.TryGetProperty("showTitle", out var stEl) && stEl.ValueKind == JsonValueKind.False ? false : true
                 ));
-                _logger.LogInformation("SSR: Successfully parsed widget {Index}: type={Type}, id={Id}, pos=({X},{Y},{W},{H})",
+                _logger.LogDebug("SSR: Successfully parsed widget {Index}: type={Type}, id={Id}, pos=({X},{Y},{W},{H})",
                     widgetIndex, typeEl.GetString(), idEl.GetString(), position.X, position.Y, position.W, position.H);
             }
         }
@@ -190,7 +193,7 @@ public sealed class DashboardImageRenderingService
             _logger.LogWarning("SSR: No widgets property found or not an array in layout JSON");
         }
 
-        _logger.LogInformation("SSR: Parsed {WidgetCount} widgets from layout", widgets.Count);
+        _logger.LogDebug("SSR: Parsed {WidgetCount} widgets from layout", widgets.Count);
 
         return new LayoutConfig(
             Width: root.TryGetProperty("width", out var width) ? width.GetInt32()
@@ -216,12 +219,35 @@ public sealed class DashboardImageRenderingService
     // FONT LOADING
     // =============================================
 
-    private static FontFamily LoadFontFamily()
+    private static FontFamily LoadFontFamily(string? webRootPath)
     {
-        var collection = new FontCollection();
+        // Try bundled fonts from wwwroot/fonts/ first for cross-platform consistency.
+        // Place a .ttf/.otf file (e.g. Inter, Roboto) there so the SSR output
+        // matches the browser regardless of the host OS.
+        if (!string.IsNullOrEmpty(webRootPath))
+        {
+            var fontsDir = System.IO.Path.Combine(webRootPath, "fonts");
+            if (Directory.Exists(fontsDir))
+            {
+                var collection = new FontCollection();
+                foreach (var file in Directory.GetFiles(fontsDir, "*.ttf")
+                    .Concat(Directory.GetFiles(fontsDir, "*.otf")))
+                {
+                    try
+                    {
+                        return collection.Add(file);
+                    }
+                    catch { /* skip unreadable font files */ }
+                }
+            }
+        }
 
-        // Try system fonts first
-        if (SystemFonts.TryGet("DejaVu Sans", out var systemFamily))
+        // Try system fonts — prefer the same families the browser typically uses
+        if (SystemFonts.TryGet("Inter", out var systemFamily))
+            return systemFamily;
+        if (SystemFonts.TryGet("Roboto", out systemFamily))
+            return systemFamily;
+        if (SystemFonts.TryGet("DejaVu Sans", out systemFamily))
             return systemFamily;
         if (SystemFonts.TryGet("Liberation Sans", out systemFamily))
             return systemFamily;
@@ -230,8 +256,6 @@ public sealed class DashboardImageRenderingService
         if (SystemFonts.TryGet("Helvetica", out systemFamily))
             return systemFamily;
         if (SystemFonts.TryGet("Segoe UI", out systemFamily))
-            return systemFamily;
-        if (SystemFonts.TryGet("Roboto", out systemFamily))
             return systemFamily;
 
         // Fallback: use any available system font
@@ -358,17 +382,20 @@ public sealed class DashboardImageRenderingService
 
         image.Mutate(ctx =>
         {
-            // Fill background
-            ctx.Fill(bg, new RectangularPolygon(rect));
-
-            // Draw border
             if (borderWidth > 0)
             {
-                ctx.Draw(bc, borderWidth, new RectangularPolygon(
-                    rect.X + borderWidth / 2f,
-                    rect.Y + borderWidth / 2f,
-                    rect.Width - borderWidth,
-                    rect.Height - borderWidth));
+                // Fill entire rect with border color, then fill interior with background.
+                // This matches CSS border-box behaviour where the border is fully inside the element.
+                ctx.Fill(bc, new RectangularPolygon(rect));
+                ctx.Fill(bg, new RectangularPolygon(
+                    rect.X + borderWidth,
+                    rect.Y + borderWidth,
+                    Math.Max(0, rect.Width - borderWidth * 2),
+                    Math.Max(0, rect.Height - borderWidth * 2)));
+            }
+            else
+            {
+                ctx.Fill(bg, new RectangularPolygon(rect));
             }
         });
     }
@@ -531,7 +558,8 @@ public sealed class DashboardImageRenderingService
         {
             var titleText = widget.TitleOverride ?? "Events";
             var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            DrawTextEllipsis(image, titleText, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
+            // Match frontend h4 { opacity: 0.9 }
+            DrawTextEllipsis(image, titleText, GetFont(titleFontSize, titleFontWeight), WithOpacity(titleColor, 0.9f), titleRect);
             yOffset += titleFontSize + 6;
         }
 
@@ -557,6 +585,9 @@ public sealed class DashboardImageRenderingService
             foreach (var ev in upcoming)
             {
                 if (yOffset + lineHeight > contentRect.Bottom) break;
+                // Match frontend .calendar-event { opacity: 0.85 }
+                var evTextColor = WithOpacity(textColor, 0.85f);
+                var evIconColor = WithOpacity(iconColor, 0.85f);
 
                 foreach (var item in visibleItems)
                 {
@@ -582,12 +613,12 @@ public sealed class DashboardImageRenderingService
                             contentRect.X + 4,
                             yOffset + (lineHeight - iconSize) / 2f,
                             iconSize, iconSize);
-                        DrawFaIcon(image, itemIcon, iconColor, iconBounds);
+                        DrawFaIcon(image, itemIcon, evIconColor, iconBounds);
                         textX = iconBounds.Right + 4;
                     }
 
                     var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, lineHeight);
-                    DrawTextEllipsis(image, text, GetFont(textFontSize, textFontWeight), textColor, textRect);
+                    DrawTextEllipsis(image, text, GetFont(textFontSize, textFontWeight), evTextColor, textRect);
                     yOffset += lineHeight;
                 }
 
@@ -769,12 +800,13 @@ public sealed class DashboardImageRenderingService
 
         float yOffset = contentRect.Y;
 
-        // Title
-        if (widget.ShowTitle && widget.Position.H > 1)
+        // Title — match frontend isTinyMode(): hidden when w<=2 || h==1
+        var isTinyMode = widget.Position.W <= 2 || widget.Position.H == 1;
+        if (widget.ShowTitle && !isTinyMode)
         {
             var headerRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
             DrawTextEllipsis(image, widget.TitleOverride ?? "Forecast", GetFont(titleFontSize, titleFontWeight), titleColor, headerRect);
-            yOffset += titleFontSize + 8;
+            yOffset += titleFontSize + 7; // ~3px gap after header
         }
 
         if (string.IsNullOrEmpty(entityId)
@@ -799,7 +831,8 @@ public sealed class DashboardImageRenderingService
         var colGap = 2f;
         var totalGaps = colGap * (items.Count - 1);
         var colWidth = (contentRect.Width - totalGaps) / items.Count;
-        var lineHeight = textFontSize + 2;
+        // Match frontend line-height: 1.2 on forecast items
+        var lineHeight = (int)Math.Ceiling(textFontSize * 1.2f);
 
         for (int i = 0; i < items.Count; i++)
         {
@@ -811,11 +844,13 @@ public sealed class DashboardImageRenderingService
             if (visibleFields.Contains("time"))
             {
                 var timeRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                DrawTextCentered(image, FormatForecastTime(dt, forecastMode), GetFont(textFontSize, textFontWeight), titleColor, timeRect);
+                // Match frontend .item-time { color: var(--textColor) }
+                DrawTextCentered(image, FormatForecastTime(dt, forecastMode), GetFont(textFontSize, textFontWeight), textColor, timeRect);
                 itemY += lineHeight + rowGap;
             }
 
-            if (visibleFields.Contains("condition"))
+            // Match frontend: condition hidden in tiny mode (w<=2 || h==1) and for h==2
+            if (visibleFields.Contains("condition") && !isTinyMode && widget.Position.H > 2)
             {
                 var condStr = dict.TryGetValue("condition", out var cv) ? FormatCondition(cv?.ToString()) : "";
                 var condRect = new RectangleF(colX, itemY, colWidth, lineHeight);
@@ -837,7 +872,8 @@ public sealed class DashboardImageRenderingService
                 if (!string.IsNullOrEmpty(tempLow))
                 {
                     var tlRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                    DrawTextCentered(image, $"{tempLow}{tempUnit}", GetFont(textFontSize, textFontWeight), textColor, tlRect);
+                    // Match frontend .item-temp-low { opacity: 0.7 }
+                    DrawTextCentered(image, $"{tempLow}{tempUnit}", GetFont(textFontSize, textFontWeight), WithOpacity(textColor, 0.7f), tlRect);
                     itemY += lineHeight + rowGap;
                 }
             }
@@ -855,7 +891,7 @@ public sealed class DashboardImageRenderingService
 
             if (visibleFields.Contains("wind"))
             {
-                var windSpeed = dict.TryGetValue("wind_speed", out var wsVal) ? RoundNum(wsVal) : null;
+                var windSpeed = dict.TryGetValue("wind_speed", out var wsVal) ? RoundNumOneDecimal(wsVal) : null;
                 if (!string.IsNullOrEmpty(windSpeed))
                 {
                     var windUnit = data.EntityStates.TryGetValue(entityId, out var wes) ? GetEntityAttr(wes, "wind_speed_unit") ?? "" : "";
@@ -899,28 +935,31 @@ public sealed class DashboardImageRenderingService
             mapped = mapped.Where(i => !i.Complete).ToList();
         mapped = mapped.OrderBy(i => i.Complete ? 1 : 0).ToList();
 
-        // Compact mode: 1x1 shows count only
+        // Compact mode: 1x1 shows count only — match frontend sizing
         if (w == 1 && h == 1)
         {
             var pendingCount = mapped.Count(i => !i.Complete);
-            var listIconSize = Math.Min(contentRect.Width, contentRect.Height) * 0.3f;
+            // Match frontend: icon = textFontSize * 1.5, count = textFontSize * 1.5, label = round(textFontSize * 0.75)
+            var compactIconSize = textFontSize * 1.5f;
+            var countFontSize = (int)Math.Round(textFontSize * 1.5);
+            var labelFontSize = (int)Math.Round(textFontSize * 0.75);
             var iconBounds = new RectangleF(
-                contentRect.X + (contentRect.Width - listIconSize) / 2f,
+                contentRect.X + (contentRect.Width - compactIconSize) / 2f,
                 contentRect.Y + contentRect.Height * 0.1f,
-                listIconSize, listIconSize);
+                compactIconSize, compactIconSize);
             DrawFaIcon(image, "fa-list-check", iconColor, iconBounds);
 
-            var countRect = new RectangleF(contentRect.X, iconBounds.Bottom + 2, contentRect.Width, titleFontSize + 4);
-            DrawTextCentered(image, pendingCount.ToString(), GetFont(titleFontSize, titleFontWeight), titleColor, countRect);
+            var countRect = new RectangleF(contentRect.X, iconBounds.Bottom + 2, contentRect.Width, countFontSize + 4);
+            DrawTextCentered(image, pendingCount.ToString(), GetFont(countFontSize, textFontWeight), titleColor, countRect);
 
-            var labelRect = new RectangleF(contentRect.X, countRect.Bottom, contentRect.Width, textFontSize + 2);
-            DrawTextCentered(image, "Pending", GetFont(textFontSize - 2, textFontWeight), textColor, labelRect);
+            var labelRect = new RectangleF(contentRect.X, countRect.Bottom, contentRect.Width, labelFontSize + 2);
+            DrawTextCentered(image, "Pending", GetFont(labelFontSize, textFontWeight), textColor, labelRect);
             return;
         }
 
         float yOffset = contentRect.Y;
 
-        // Title
+        // Title — match frontend h4 { opacity: 0.9 }
         if (widget.ShowTitle)
         {
             var friendlyName = "Tasks";
@@ -928,7 +967,7 @@ public sealed class DashboardImageRenderingService
                 friendlyName = GetEntityAttr(es, "friendly_name") ?? "Tasks";
             var titleText = widget.TitleOverride ?? friendlyName;
             var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            DrawTextEllipsis(image, titleText, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
+            DrawTextEllipsis(image, titleText, GetFont(titleFontSize, titleFontWeight), WithOpacity(titleColor, 0.9f), titleRect);
             yOffset += titleFontSize + 10;
         }
 
@@ -937,6 +976,10 @@ public sealed class DashboardImageRenderingService
         var lineHeight = (int)Math.Ceiling(textFontSize * 1.4f);
         var todoIconSize = (float)textFontSize;
         var todoItemGap = 4;
+        var todoFont = GetFont(textFontSize, textFontWeight);
+        // Match frontend span { line-height: 1.3 }
+        var todoGlyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(todoFont)).Height;
+        var todoExtraSpacing = Math.Max(0, textFontSize * 1.3f - todoGlyphHeight);
 
         foreach (var (summary, complete) in limited)
         {
@@ -950,11 +993,29 @@ public sealed class DashboardImageRenderingService
                 todoIconSize, todoIconSize);
             DrawFaIcon(image, itemIconClass, iconColor, iconBounds);
 
-            // Draw text
+            // Draw text with 2-line wrapping (matches frontend -webkit-line-clamp: 2)
             var textX = iconBounds.Right + 6;
-            var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, lineHeight);
-            DrawTextEllipsis(image, summary, GetFont(textFontSize, textFontWeight), textColor, textRect);
-            yOffset += lineHeight + todoItemGap;
+            var maxTextH = (todoGlyphHeight + todoExtraSpacing) * 2;
+            var textAvailH = Math.Min(maxTextH, contentRect.Bottom - yOffset);
+            var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, textAvailH);
+            // Match frontend .completed { text-decoration: line-through; opacity: 0.6 }
+            var itemTextColor = complete ? WithOpacity(textColor, 0.6f) : textColor;
+            var consumed = DrawWrappedTextEllipsis(image, summary, todoFont, itemTextColor, textRect, maxLines: 2, todoExtraSpacing);
+
+            // Draw strikethrough for completed items
+            if (complete && consumed > 0)
+            {
+                var strikeY = yOffset + consumed / 2f;
+                var strikeWidth = Math.Min(
+                    TextMeasurer.MeasureSize(summary, new TextOptions(todoFont)).Width,
+                    textRect.Width);
+                image.Mutate(ctx => ctx.DrawLine(
+                    itemTextColor, 1f,
+                    new PointF(textX, strikeY),
+                    new PointF(textX + strikeWidth, strikeY)));
+            }
+
+            yOffset += Math.Max(consumed, lineHeight) + todoItemGap;
         }
     }
 
@@ -965,6 +1026,7 @@ public sealed class DashboardImageRenderingService
     private void RenderMarkdownWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
     {
         var textColor = ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
+        var iconColor = ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor);
         var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
         var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
         var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 16;
@@ -973,109 +1035,346 @@ public sealed class DashboardImageRenderingService
         var content = GetStringProp(widget.Config, "content") ?? "";
         if (string.IsNullOrEmpty(content)) return;
 
+        // Match frontend .markdown-widget { padding: 0.5rem } ≈ 8px
+        var mdPadding = 8f;
+        var innerRect = new RectangleF(
+            contentRect.X + mdPadding,
+            contentRect.Y + mdPadding,
+            Math.Max(0, contentRect.Width - mdPadding * 2),
+            Math.Max(0, contentRect.Height - mdPadding * 2));
+
+        // Match frontend paragraph margin: 0.25rem ≈ 4px
+        var elementSpacing = 4f;
+
         var lines = content.Split('\n');
-        float yOffset = contentRect.Y;
+        float yOffset = innerRect.Y;
+        var inCodeBlock = false;
 
         foreach (var rawLine in lines)
         {
             var line = rawLine.TrimEnd('\r');
-            if (yOffset > contentRect.Bottom) break;
+            if (yOffset > innerRect.Bottom) break;
+
+            // Fenced code blocks (``` ... ```)
+            if (line.TrimStart().StartsWith("```"))
+            {
+                inCodeBlock = !inCodeBlock;
+                if (inCodeBlock)
+                    yOffset += elementSpacing; // small gap before code block
+                else
+                    yOffset += elementSpacing; // small gap after code block
+                continue;
+            }
+
+            if (inCodeBlock)
+            {
+                // Render code lines with monospace-style (same font at slightly smaller size)
+                var codeFont = GetFont(textFontSize - 1, textFontWeight);
+                var codeRect = new RectangleF(innerRect.X + 8, yOffset, innerRect.Width - 8, innerRect.Bottom - yOffset);
+                var codeGlyph = TextMeasurer.MeasureSize("Ay", new TextOptions(codeFont)).Height;
+                var codeLineH = codeGlyph + 2;
+                if (yOffset + codeLineH > innerRect.Bottom) break;
+                DrawTextEllipsis(image, line, codeFont, WithOpacity(textColor, 0.85f),
+                    new RectangleF(codeRect.X, yOffset, codeRect.Width, codeLineH));
+                yOffset += codeLineH;
+                continue;
+            }
 
             int fontSize;
             int fontWeight;
             string text;
             float xIndent = 0;
+            // CSS line-height: 1.3 for headings, 1.5 for body text
+            float lineHeightMultiplier;
+            int maxWrapLines;
+            bool isBlockquote = false;
+            bool isTaskItem = false;
+            bool isTaskChecked = false;
 
-            // Headings
+            // Headings — sizes match frontend h1-h4 rem values
             if (line.StartsWith("#### "))
             {
-                fontSize = (int)(textFontSize * 1.05);
-                fontWeight = titleFontWeight;
+                fontSize = textFontSize;
+                fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.3f;
                 text = StripInlineMarkdown(line[5..]);
+                maxWrapLines = 2;
             }
             else if (line.StartsWith("### "))
             {
                 fontSize = (int)(textFontSize * 1.1);
-                fontWeight = titleFontWeight;
+                fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.3f;
                 text = StripInlineMarkdown(line[4..]);
+                maxWrapLines = 2;
             }
             else if (line.StartsWith("## "))
             {
                 fontSize = (int)(titleFontSize * 1.0);
                 fontWeight = titleFontWeight;
+                lineHeightMultiplier = 1.3f;
                 text = StripInlineMarkdown(line[3..]);
+                maxWrapLines = 2;
             }
             else if (line.StartsWith("# "))
             {
                 fontSize = (int)(titleFontSize * 1.2);
                 fontWeight = titleFontWeight;
+                lineHeightMultiplier = 1.3f;
                 text = StripInlineMarkdown(line[2..]);
+                maxWrapLines = 3;
             }
-            // Horizontal rules
+            // Horizontal rules — match frontend hr { margin: 0.5rem 0; opacity: 0.3 }
             else if (Regex.IsMatch(line, @"^[-*_]{3,}\s*$"))
             {
-                var lineY = yOffset + textFontSize / 2f;
+                yOffset += 8;
+                var lineY = yOffset;
                 image.Mutate(ctx => ctx.DrawLine(
-                    textColor, 1f,
-                    new PointF(contentRect.X, lineY),
-                    new PointF(contentRect.Right, lineY)));
-                yOffset += textFontSize + 2;
+                    WithOpacity(textColor, 0.3f), 1f,
+                    new PointF(innerRect.X, lineY),
+                    new PointF(innerRect.Right, lineY)));
+                yOffset += 8 + elementSpacing;
                 continue;
             }
-            // Blockquotes
+            // Task lists: - [ ] unchecked, - [x] checked / - [X] checked
+            else if (Regex.IsMatch(line, @"^[-*+]\s\[[ xX]\]\s"))
+            {
+                fontSize = textFontSize;
+                fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.5f;
+                isTaskItem = true;
+                isTaskChecked = Regex.IsMatch(line, @"^[-*+]\s\[[xX]\]");
+                text = StripInlineMarkdown(line[6..]);
+                maxWrapLines = 3;
+            }
+            // Blockquotes — match frontend blockquote { padding-left: 0.5rem; border-left: 3px solid }
             else if (line.StartsWith("> ") || line == ">")
             {
                 fontSize = textFontSize;
                 fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.5f;
                 text = StripInlineMarkdown(line.Length > 2 ? line[2..] : "");
-                xIndent = textFontSize * 0.8f;
-
-                // Draw blockquote bar
-                var barX = contentRect.X + xIndent * 0.3f;
-                var barTop = yOffset;
-                var barBottom = yOffset + fontSize + 4;
-                image.Mutate(ctx => ctx.DrawLine(
-                    textColor, 2f,
-                    new PointF(barX, barTop),
-                    new PointF(barX, barBottom)));
+                xIndent = 3 + 8;
+                maxWrapLines = 10;
+                isBlockquote = true;
             }
-            // Unordered lists
+            // Unordered lists — match frontend ul { padding-left: 1.5rem }
             else if (line.StartsWith("- ") || line.StartsWith("* ") || line.StartsWith("+ "))
             {
                 fontSize = textFontSize;
                 fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.5f;
                 text = $"• {StripInlineMarkdown(line[2..])}";
+                maxWrapLines = 5;
+            }
+            // Indented sub-list items (2+ spaces then - or * or +)
+            else if (Regex.IsMatch(line, @"^\s{2,}[-*+]\s"))
+            {
+                fontSize = textFontSize;
+                fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.5f;
+                var stripped = line.TrimStart();
+                text = $"  ◦ {StripInlineMarkdown(stripped[2..])}";
+                maxWrapLines = 5;
             }
             // Numbered lists (e.g. "1. item", "12. item")
             else if (Regex.IsMatch(line, @"^\d+\.\s"))
             {
                 fontSize = textFontSize;
                 fontWeight = textFontWeight;
+                lineHeightMultiplier = 1.5f;
                 var match = Regex.Match(line, @"^(\d+\.)\s(.*)$");
                 text = match.Success
                     ? $"{match.Groups[1].Value} {StripInlineMarkdown(match.Groups[2].Value)}"
                     : StripInlineMarkdown(line);
+                maxWrapLines = 5;
             }
-            // Empty lines
+            // Empty lines — half line gap
             else if (string.IsNullOrWhiteSpace(line))
             {
-                yOffset += textFontSize / 2f;
+                yOffset += textFontSize * 0.5f;
                 continue;
             }
-            // Regular paragraph text - strip inline markdown formatting
+            // Regular paragraph text — word-wrapped
             else
             {
                 fontSize = textFontSize;
-                // Use bold weight if line is entirely bold
                 fontWeight = IsEntirelyBold(line) ? titleFontWeight : textFontWeight;
+                lineHeightMultiplier = 1.5f;
                 text = StripInlineMarkdown(line);
+                maxWrapLines = 50;
             }
 
-            var lineHeight = fontSize + 4;
-            var lineRect = new RectangleF(contentRect.X + xIndent, yOffset, contentRect.Width - xIndent, lineHeight);
-            DrawTextEllipsis(image, text, GetFont(fontSize, fontWeight), textColor, lineRect);
-            yOffset += lineHeight;
+            var font = GetFont(fontSize, fontWeight);
+            var availableHeight = innerRect.Bottom - yOffset;
+            if (availableHeight <= 0) break;
+
+            var glyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
+            var extraSpacing = Math.Max(0, fontSize * lineHeightMultiplier - glyphHeight);
+
+            float startY = yOffset;
+            float drawX = innerRect.X + xIndent;
+            float drawW = innerRect.Width - xIndent;
+
+            // Task list: draw checkbox icon + text
+            if (isTaskItem)
+            {
+                var checkSize = (float)fontSize;
+                var checkIcon = isTaskChecked ? "fa-square-check" : "fa-square";
+                var checkColor = isTaskChecked ? WithOpacity(iconColor, 0.6f) : iconColor;
+                var checkBounds = new RectangleF(drawX, yOffset + 1, checkSize, checkSize);
+                DrawFaIcon(image, checkIcon, checkColor, checkBounds);
+                drawX += checkSize + 4;
+                drawW -= checkSize + 4;
+                var taskColor = isTaskChecked ? WithOpacity(textColor, 0.6f) : textColor;
+                var textRect = new RectangleF(drawX, yOffset, drawW, availableHeight);
+                var consumedHeight = DrawTextWithInlineIcons(image, text, font, taskColor, iconColor, textRect, maxWrapLines, extraSpacing);
+
+                // Strikethrough for checked items
+                if (isTaskChecked && consumedHeight > 0)
+                {
+                    var strikeY = yOffset + consumedHeight / 2f;
+                    var sw = Math.Min(TextMeasurer.MeasureSize(text, new TextOptions(font)).Width, drawW);
+                    image.Mutate(ctx => ctx.DrawLine(taskColor, 1f,
+                        new PointF(drawX, strikeY), new PointF(drawX + sw, strikeY)));
+                }
+
+                yOffset += consumedHeight + elementSpacing;
+                continue;
+            }
+
+            var mainTextRect = new RectangleF(drawX, yOffset, drawW, availableHeight);
+            var mainColor = isBlockquote ? WithOpacity(textColor, 0.8f) : textColor;
+            var mainConsumed = DrawTextWithInlineIcons(image, text, font, mainColor, iconColor, mainTextRect, maxWrapLines, extraSpacing);
+
+            // Draw blockquote bar after text so it spans the full rendered height
+            if (isBlockquote && mainConsumed > 0)
+            {
+                var barX = innerRect.X + 1.5f;
+                var bqColor = WithOpacity(textColor, 0.8f);
+                image.Mutate(ctx => ctx.DrawLine(
+                    bqColor, 3f,
+                    new PointF(barX, startY),
+                    new PointF(barX, startY + mainConsumed)));
+            }
+
+            yOffset += mainConsumed + elementSpacing;
         }
+    }
+
+    /// <summary>
+    /// Draws text that may contain :fa-icon-name: markers. Icons are rendered inline
+    /// using the FontAwesome icon registry. Returns total height consumed.
+    /// Falls back to DrawWrappedTextEllipsis if no icons are present.
+    /// </summary>
+    private float DrawTextWithInlineIcons(Image<Rgba32> image, string text, Font font,
+        Color textColor, Color iconColor, RectangleF bounds, int maxLines = int.MaxValue, float lineSpacing = 0)
+    {
+        // Fast path: no icons
+        if (!text.Contains(":fa-"))
+            return DrawWrappedTextEllipsis(image, text, font, textColor, bounds, maxLines, lineSpacing);
+
+        // Parse text into segments: text runs and icon references
+        var segments = ParseIconSegments(text);
+        if (segments.Count == 0) return 0;
+
+        var glyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
+        var lineHeight = glyphHeight + lineSpacing;
+        var iconSize = glyphHeight; // icons match text height
+        var spaceWidth = TextMeasurer.MeasureSize(" ", new TextOptions(font)).Width;
+
+        float x = bounds.X;
+        float y = bounds.Y;
+        int lineCount = 1;
+
+        for (int si = 0; si < segments.Count; si++)
+        {
+            var seg = segments[si];
+            if (y + lineHeight > bounds.Bottom + 1 || lineCount > maxLines) break;
+
+            if (seg.IsIcon)
+            {
+                // Add leading space if not at line start and previous segment had trailing space
+                if (x > bounds.X && seg.LeadingSpace)
+                    x += spaceWidth;
+
+                // Check if icon fits on current line; if not, wrap
+                if (x + iconSize > bounds.Right && x > bounds.X)
+                {
+                    x = bounds.X;
+                    y += lineHeight;
+                    lineCount++;
+                    if (lineCount > maxLines || y + lineHeight > bounds.Bottom + 1) break;
+                }
+                DrawFaIcon(image, seg.Text, iconColor, new RectangleF(x, y + 1, iconSize, iconSize));
+                x += iconSize;
+
+                // Add trailing space if the next segment expects it
+                if (seg.TrailingSpace)
+                    x += spaceWidth;
+            }
+            else
+            {
+                // Render text word-by-word with wrapping
+                var words = seg.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                bool firstWord = true;
+                foreach (var word in words)
+                {
+                    // Add space between words, but also respect leading space on first word
+                    bool needsSpace = x > bounds.X && (!firstWord || seg.LeadingSpace);
+                    var wordStr = needsSpace ? " " + word : word;
+                    var wordWidth = TextMeasurer.MeasureSize(wordStr, new TextOptions(font)).Width;
+
+                    // Word doesn't fit on current line
+                    if (x + wordWidth > bounds.Right && x > bounds.X)
+                    {
+                        x = bounds.X;
+                        y += lineHeight;
+                        lineCount++;
+                        if (lineCount > maxLines || y + lineHeight > bounds.Bottom + 1) break;
+                        wordStr = word; // no leading space on new line
+                        wordWidth = TextMeasurer.MeasureSize(wordStr, new TextOptions(font)).Width;
+                    }
+
+                    image.Mutate(ctx => ctx.DrawText(wordStr, font, textColor, new PointF(x, y)));
+                    x += wordWidth;
+                    firstWord = false;
+                }
+                if (lineCount > maxLines) break;
+            }
+        }
+
+        return y - bounds.Y + lineHeight;
+    }
+
+    /// <summary>
+    /// Parses text containing :fa-icon-name: markers into segments.
+    /// Each segment records whether it had whitespace before/after for proper spacing.
+    /// </summary>
+    private static List<(string Text, bool IsIcon, bool LeadingSpace, bool TrailingSpace)> ParseIconSegments(string text)
+    {
+        var segments = new List<(string Text, bool IsIcon, bool LeadingSpace, bool TrailingSpace)>();
+        var iconPattern = new Regex(@":fa-([a-z0-9-]+):");
+        int lastEnd = 0;
+
+        foreach (Match m in iconPattern.Matches(text))
+        {
+            if (m.Index > lastEnd)
+            {
+                var run = text[lastEnd..m.Index];
+                segments.Add((run, false, false, false));
+            }
+
+            bool leadingSpace = m.Index > 0 && char.IsWhiteSpace(text[m.Index - 1]);
+            bool trailingSpace = m.Index + m.Length < text.Length && char.IsWhiteSpace(text[m.Index + m.Length]);
+            segments.Add(($"fa-{m.Groups[1].Value}", true, leadingSpace, trailingSpace));
+            lastEnd = m.Index + m.Length;
+        }
+
+        if (lastEnd < text.Length)
+            segments.Add((text[lastEnd..], false, false, false));
+
+        return segments;
     }
 
     private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
@@ -1157,22 +1456,26 @@ public sealed class DashboardImageRenderingService
         var entry = entries[0];
         float yOffset = contentRect.Y;
 
-        // Feed title
+        // Feed title — match frontend .feed-title { line-height: 1.2; margin: 0 0 0.5rem 0 }
         if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride ?? feedTitle))
         {
-            var feedTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
+            var feedTitleHeight = (int)Math.Ceiling(titleFontSize * 1.2f);
+            var feedTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, feedTitleHeight);
             DrawTextEllipsis(image, widget.TitleOverride ?? feedTitle!, GetFont(titleFontSize, titleFontWeight), titleColor, feedTitleRect);
-            yOffset += titleFontSize + 8;
+            yOffset += feedTitleHeight + 8; // 8px = 0.5rem margin-bottom
         }
 
-        // Entry title (word-wrapped, max 3 lines to match frontend behavior)
+        // Entry title (word-wrapped, max 2 lines to match frontend -webkit-line-clamp: 2)
         var entryTitleFont = GetFont(textFontSize, textFontWeight);
-        var entryLineHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(entryTitleFont)).Height;
+        var entryGlyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(entryTitleFont)).Height;
+        // Match frontend .entry-title { line-height: 1.3 }
+        var entryExtraSpacing = Math.Max(0, textFontSize * 1.3f - entryGlyphHeight);
+        var entryLineHeight = entryGlyphHeight + entryExtraSpacing;
         var maxEntryLines = Math.Max(1, (int)((contentRect.Bottom - yOffset - 8) / entryLineHeight));
         maxEntryLines = Math.Min(maxEntryLines, 2);
         var entryTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, entryLineHeight * maxEntryLines);
-        var entryTitleHeight = DrawWrappedTextEllipsis(image, entry.Title, entryTitleFont, titleColor, entryTitleRect, maxEntryLines);
-        yOffset += entryTitleHeight + 8;
+        var entryTitleHeight = DrawWrappedTextEllipsis(image, entry.Title, entryTitleFont, titleColor, entryTitleRect, maxEntryLines, entryExtraSpacing);
+        yOffset += entryTitleHeight + 12; // Match frontend .rss-entry { gap: 0.75rem } = 12px
 
         // QR code (rendered as ImageSharp image from QRCoder)
         if (!string.IsNullOrEmpty(entry.Link))
@@ -1274,8 +1577,9 @@ public sealed class DashboardImageRenderingService
             }
             else
             {
-                // Fallback: external URL
-                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                // Fallback: external URL — use factory-managed client to avoid socket exhaustion
+                using var httpClient = _httpClientFactory.CreateClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(10);
                 imageBytes = httpClient.GetByteArrayAsync(imageUrl).GetAwaiter().GetResult();
             }
 
@@ -1388,10 +1692,10 @@ public sealed class DashboardImageRenderingService
         var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
         var gridColorStr = (widget.ColorOverrides?.WidgetBorderColor ?? layout.ColorScheme.WidgetBorderColor);
 
-        // Render title if configured (matches frontend graph-title)
+        // Render title if configured — match frontend .graph-title { padding: 8px 12px 4px 12px }
         if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride))
         {
-            var titleRect = new RectangleF(contentRect.X, contentRect.Y, contentRect.Width, titleFontSize + 8);
+            var titleRect = new RectangleF(contentRect.X + 12, contentRect.Y, contentRect.Width - 24, titleFontSize + 8);
             DrawTextCentered(image, widget.TitleOverride, GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
             contentRect = new RectangleF(contentRect.X, contentRect.Y + titleFontSize + 8, contentRect.Width, contentRect.Height - titleFontSize - 8);
         }
@@ -1456,7 +1760,8 @@ public sealed class DashboardImageRenderingService
         var originX = contentRect.X + padL;
         var originY = contentRect.Y + padT;
 
-        var gridColor = ParseColor(gridColorStr + "33");
+        // Match frontend Chart.js grid: `${widgetBorderColor}20` ≈ 12.5% alpha
+        var gridColor = ParseColor(gridColorStr + "20");
         var labelFont = GetFont(Math.Max(8, textFontSize - 2));
 
         // Grid lines
@@ -1496,7 +1801,8 @@ public sealed class DashboardImageRenderingService
 
             if (plotType == "bar")
             {
-                var bw = Math.Max(2, plotW / (ordered.Count + 1));
+                // Match frontend Chart.js barThickness: barWidth * 3 (or auto)
+                var bw = barWidth > 0 ? barWidth * 3f : Math.Max(2, plotW / (ordered.Count + 1));
                 image.Mutate(ctx =>
                 {
                     foreach (var s in ordered)
@@ -1512,7 +1818,7 @@ public sealed class DashboardImageRenderingService
             }
             else
             {
-                // Line chart
+                // Line chart with Catmull-Rom smoothing (matches Chart.js tension: 0.3)
                 if (ordered.Count < 2) continue;
                 var points = ordered.Select(s =>
                 {
@@ -1521,9 +1827,80 @@ public sealed class DashboardImageRenderingService
                     return new PointF(originX + xFrac * plotW, originY + plotH - yFrac * plotH);
                 }).ToArray();
 
-                image.Mutate(ctx => ctx.DrawLine(seriesColor, lineWidth, points));
+                if (points.Length == 2)
+                {
+                    image.Mutate(ctx => ctx.DrawLine(seriesColor, lineWidth, points));
+                }
+                else
+                {
+                    var path = BuildSmoothedPath(points, 0.3f);
+                    image.Mutate(ctx => ctx.Draw(seriesColor, lineWidth, path));
+                }
             }
         }
+
+        // Legend — match Chart.js: display when >1 series, font size 10, boxWidth 8, padding 8
+        if (seriesList.Count > 1)
+        {
+            var legendFont = GetFont(Math.Max(8, textFontSize - 2));
+            var legendY = originY + plotH + padB - 2;
+            var legendBoxSize = 8f;
+            var legendPadding = 8f;
+
+            // Calculate total legend width for centering
+            var legendItems = seriesList.Select(s =>
+            {
+                var labelWidth = TextMeasurer.MeasureSize(s.Label, new TextOptions(legendFont)).Width;
+                return (s.Label, s.Color, LabelWidth: labelWidth);
+            }).ToList();
+            var totalLegendWidth = legendItems.Sum(l => legendBoxSize + 4 + l.LabelWidth + legendPadding) - legendPadding;
+            var legendX = originX + (plotW - totalLegendWidth) / 2f;
+
+            foreach (var (lLabel, lColor, lWidth) in legendItems)
+            {
+                var boxColor = ParseColor(lColor);
+                image.Mutate(ctx => ctx.Fill(boxColor, new RectangularPolygon(
+                    legendX, legendY, legendBoxSize, legendBoxSize)));
+                legendX += legendBoxSize + 4;
+                var lRect = new RectangleF(legendX, legendY - 1, lWidth + 2, legendBoxSize + 2);
+                DrawTextEllipsis(image, lLabel, legendFont, textColor, lRect);
+                legendX += lWidth + legendPadding;
+            }
+        }
+    }
+
+    // =============================================
+    // GRAPH DRAWING HELPERS
+    // =============================================
+
+    /// <summary>
+    /// Builds a smoothed IPath through the given points using cubic Bézier curves,
+    /// matching Chart.js monotone cubic interpolation with the specified tension.
+    /// </summary>
+    private static IPath BuildSmoothedPath(PointF[] pts, float tension)
+    {
+        var builder = new PathBuilder();
+        builder.StartFigure();
+
+        for (int i = 0; i < pts.Length - 1; i++)
+        {
+            var p0 = pts[Math.Max(i - 1, 0)];
+            var p1 = pts[i];
+            var p2 = pts[i + 1];
+            var p3 = pts[Math.Min(i + 2, pts.Length - 1)];
+
+            // Catmull-Rom tangents scaled by tension
+            var cp1 = new PointF(
+                p1.X + (p2.X - p0.X) * tension / 3f,
+                p1.Y + (p2.Y - p0.Y) * tension / 3f);
+            var cp2 = new PointF(
+                p2.X - (p3.X - p1.X) * tension / 3f,
+                p2.Y - (p3.Y - p1.Y) * tension / 3f);
+
+            builder.AddCubicBezier(p1, cp1, cp2, p2);
+        }
+
+        return builder.Build();
     }
 
     // =============================================
@@ -1602,12 +1979,14 @@ public sealed class DashboardImageRenderingService
     /// The last visible line is truncated with ellipsis if the text doesn't fully fit.
     /// Returns the total height consumed.
     /// </summary>
-    private float DrawWrappedTextEllipsis(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds, int maxLines = int.MaxValue)
+    /// <param name="lineSpacing">Extra vertical spacing between lines (to match CSS line-height). 0 = use font metrics only.</param>
+    private float DrawWrappedTextEllipsis(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds, int maxLines = int.MaxValue, float lineSpacing = 0)
     {
         if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0 || maxLines <= 0)
             return 0;
 
-        var lineHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
+        var glyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
+        var lineHeight = glyphHeight + lineSpacing;
         var ellipsis = "…";
         var ellipsisWidth = TextMeasurer.MeasureSize(ellipsis, new TextOptions(font)).Width;
 
@@ -2015,6 +2394,16 @@ public sealed class DashboardImageRenderingService
         }
     }
 
+    /// <summary>
+    /// Returns a new Color with its alpha channel scaled by the given opacity factor (0..1).
+    /// Matches CSS opacity behavior for text/shape rendering.
+    /// </summary>
+    private static Color WithOpacity(Color color, float opacity)
+    {
+        var p = color.ToPixel<Rgba32>();
+        return new Color(new Rgba32(p.R, p.G, p.B, (byte)(p.A * Math.Clamp(opacity, 0f, 1f))));
+    }
+
     private static Color ResolveWidgetColor(
         WidgetConfigEntry widget,
         LayoutConfig layout,
@@ -2171,6 +2560,18 @@ public sealed class DashboardImageRenderingService
         if (val is double d) return Math.Round(d).ToString(CultureInfo.InvariantCulture);
         if (double.TryParse(val.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var num))
             return Math.Round(num).ToString(CultureInfo.InvariantCulture);
+        return val.ToString() ?? "";
+    }
+
+    /// <summary>
+    /// Rounds to 1 decimal place, matching frontend Math.round(n * 10) / 10 for wind speed.
+    /// </summary>
+    private static string RoundNumOneDecimal(object? val)
+    {
+        if (val == null) return "";
+        if (val is double d) return Math.Round(d, 1).ToString(CultureInfo.InvariantCulture);
+        if (double.TryParse(val.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var num))
+            return Math.Round(num, 1).ToString(CultureInfo.InvariantCulture);
         return val.ToString() ?? "";
     }
 
