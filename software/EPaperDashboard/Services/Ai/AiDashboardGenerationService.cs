@@ -6,9 +6,9 @@ using EPaperDashboard.Services.Providers;
 namespace EPaperDashboard.Services.Ai;
 
 /// <summary>
-/// Orchestrates AI dashboard generation: fetches data from providers,
-/// builds prompts, calls the LLM, validates the response, and stores
-/// the generated widgets on the dashboard.
+/// Orchestrates AI dashboard generation using a 2-step approach:
+/// 1. AI decides WHAT content to show (widget types, configs, priority order) — 1 LLM call
+/// 2. Server computes sizes from actual data and packs widgets onto the grid — 0 LLM calls
 /// </summary>
 public sealed class AiDashboardGenerationService(
     IAiServiceFactory aiServiceFactory,
@@ -88,88 +88,64 @@ public sealed class AiDashboardGenerationService(
             "Generating AI dashboard for {DashboardId} ({DashboardName}), prompt length: {SystemLen}+{UserLen} chars (~{Tokens} tokens)",
             dashboard.Id, dashboard.Name, systemPrompt.Length, userPrompt.Length, promptTokenEstimate);
 
-        // Call LLM
+        // Step 1: AI decides what content to show
         var completionResult = await aiService.GenerateCompletionAsync(systemPrompt, userPrompt, cancellationToken);
         if (completionResult.IsFailure)
         {
             return StoreError(dashboard, completionResult.Error);
         }
 
-        // Parse and validate the response
-        var gridCols = layoutConfig.GridCols > 0 ? layoutConfig.GridCols : 12;
-        var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
-        var parseResult = ParseAiResponse(completionResult.Value, gridCols, gridRows);
+        // Parse the content list (no positions — just type + config in priority order)
+        var parseResult = ParseAiResponse(completionResult.Value);
         if (parseResult.IsFailure)
         {
-            logger.LogWarning("AI response parsing failed: {Error}. Raw response: {Response}",
+            logger.LogWarning(
+                "AI response parsing failed: {Error}. Running JSON repair pass. Raw response: {Response}",
                 parseResult.Error, completionResult.Value);
-            return StoreError(dashboard, parseResult.Error);
+
+            // Ask the AI to fix its own broken JSON
+            var repairResult = await RepairJsonAsync(
+                aiService, completionResult.Value, parseResult.Error, cancellationToken);
+            if (repairResult.IsFailure)
+            {
+                return StoreError(dashboard, $"AI returned invalid JSON and repair failed: {repairResult.Error}");
+            }
+
+            parseResult = repairResult;
         }
 
-        var generatedWidgets = parseResult.Value;
-        var pinnedWidgets = layoutConfig.Widgets;
-
-        // Verification pass: check for overlaps and ask AI to fix if needed
-        if (AiPromptBuilder.HasOverlaps(pinnedWidgets, generatedWidgets, gridCols, gridRows))
-        {
-            logger.LogInformation(
-                "Overlap detected in AI output for dashboard {DashboardId}, running verification pass",
-                dashboard.Id);
-
-            var verificationPrompt = promptBuilder.BuildVerificationPrompt(
-                pinnedWidgets, generatedWidgets, gridCols, gridRows);
-
-            var verifyResult = await aiService.GenerateCompletionAsync(
-                verificationPrompt, "Fix any overlapping widgets and return the corrected layout.", cancellationToken);
-
-            if (verifyResult.IsSuccess)
-            {
-                var verifyParseResult = ParseAiResponse(verifyResult.Value, gridCols, gridRows);
-                if (verifyParseResult.IsSuccess)
-                {
-                    if (!AiPromptBuilder.HasOverlaps(pinnedWidgets, verifyParseResult.Value, gridCols, gridRows))
-                    {
-                        generatedWidgets = verifyParseResult.Value;
-                        logger.LogInformation("Verification pass resolved overlaps for dashboard {DashboardId}", dashboard.Id);
-                    }
-                    else
-                    {
-                        logger.LogWarning("Verification pass still has overlaps for dashboard {DashboardId}, removing conflicting widgets", dashboard.Id);
-                        generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, verifyParseResult.Value, gridCols, gridRows);
-                    }
-                }
-                else
-                {
-                    logger.LogWarning("Verification pass response parsing failed, removing conflicting widgets from original output");
-                    generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, generatedWidgets, gridCols, gridRows);
-                }
-            }
-            else
-            {
-                logger.LogWarning("Verification pass LLM call failed: {Error}, removing conflicting widgets", verifyResult.Error);
-                generatedWidgets = RemoveOverlappingWidgets(pinnedWidgets, generatedWidgets, gridCols, gridRows);
-            }
-        }
-
-        // Store the generated widgets and clear any previous error
-        generatedWidgets = ValidateAndRepairWidgets(generatedWidgets, aiData, dashboard);
-        if (generatedWidgets.Count == 0)
+        // Validate entity IDs and repair configs
+        var validatedWidgets = ValidateAndRepairWidgets(parseResult.Value, aiData, dashboard);
+        if (validatedWidgets.Count == 0)
         {
             return StoreError(dashboard, "All AI-generated widgets were invalid after validation");
         }
 
-        dashboard.AiGeneratedWidgets = generatedWidgets;
+        // Step 2: Server computes sizes and packs widgets onto the grid
+        var gridCols = layoutConfig.GridCols > 0 ? layoutConfig.GridCols : 12;
+        var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
+
+        ComputeWidgetSizes(validatedWidgets, aiData, layoutConfig, gridCols);
+        var placedWidgets = PackWidgets(validatedWidgets, layoutConfig.Widgets, gridCols, gridRows);
+
+        if (placedWidgets.Count == 0)
+        {
+            return StoreError(dashboard, "No widgets could be placed on the grid");
+        }
+
+        // Store the generated widgets and clear any previous error
+        dashboard.AiGeneratedWidgets = placedWidgets;
         dashboard.LastAiGenerationTime = DateTimeOffset.UtcNow;
         dashboard.LastAiGenerationError = null;
         dashboardService.UpdateDashboard(dashboard);
 
         logger.LogInformation(
-            "AI generated {WidgetCount} widgets for dashboard {DashboardId}",
-            generatedWidgets.Count, dashboard.Id);
+            "AI generated {WidgetCount} widgets for dashboard {DashboardId} ({Placed} placed on grid)",
+            validatedWidgets.Count, dashboard.Id, placedWidgets.Count);
 
         return new AiGenerationResult
         {
-            Widgets = generatedWidgets,
+            Widgets = placedWidgets,
             DataSummary = dataSummary,
             PromptTokenEstimate = promptTokenEstimate
         };
@@ -251,8 +227,49 @@ public sealed class AiDashboardGenerationService(
         }
     }
 
-    private Result<List<WidgetConfig>, string> ParseAiResponse(
-        string response, int gridCols, int gridRows)
+    // --- Step 1 helpers: parse AI content decisions ---
+
+    private async Task<Result<List<WidgetConfig>, string>> RepairJsonAsync(
+        IAiService aiService,
+        string brokenResponse,
+        string parseError,
+        CancellationToken cancellationToken)
+    {
+        const string repairSystemPrompt = """
+            You are a JSON repair tool. The user will give you a broken JSON response and the parse error.
+            Fix the JSON so it is valid. Return ONLY the corrected JSON — no markdown, no explanation, no code fences.
+            The JSON must be an object with a "widgets" array: {"widgets": [...]}
+            Do NOT change the meaning of the data — only fix syntax errors (missing commas, brackets, quotes, trailing commas, etc.).
+            """;
+
+        var repairUserPrompt = $"""
+            ## Parse Error
+            {parseError}
+
+            ## Broken JSON
+            {brokenResponse}
+            """;
+
+        var repairResult = await aiService.GenerateCompletionAsync(
+            repairSystemPrompt, repairUserPrompt, cancellationToken);
+
+        if (repairResult.IsFailure)
+        {
+            return $"Repair LLM call failed: {repairResult.Error}";
+        }
+
+        var repairedParseResult = ParseAiResponse(repairResult.Value);
+        if (repairedParseResult.IsFailure)
+        {
+            return $"Repaired JSON still invalid: {repairedParseResult.Error}";
+        }
+
+        logger.LogInformation("JSON repair pass succeeded, recovered {Count} widgets", repairedParseResult.Value.Count);
+        return repairedParseResult;
+    }
+
+
+    private Result<List<WidgetConfig>, string> ParseAiResponse(string response)
     {
         try
         {
@@ -282,48 +299,27 @@ public sealed class AiDashboardGenerationService(
             }
 
             var widgets = new List<WidgetConfig>();
-            var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var typeCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var w in widgetsArray.EnumerateArray())
             {
-                var id = w.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
                 var type = w.TryGetProperty("type", out var typeEl) ? typeEl.GetString() : null;
 
-                if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(type))
+                if (string.IsNullOrEmpty(type))
                 {
                     continue;
                 }
 
-                // Skip duplicate IDs
-                if (!seenIds.Add(id))
-                {
-                    logger.LogWarning("AI generated duplicate widget ID '{Id}', skipping", id);
-                    continue;
-                }
-
-                // Validate widget type
                 if (!IsKnownWidgetType(type))
                 {
                     logger.LogWarning("AI generated unknown widget type '{Type}', skipping", type);
                     continue;
                 }
 
-                // Parse position
-                if (!w.TryGetProperty("position", out var posEl))
-                {
-                    continue;
-                }
-
-                var x = posEl.TryGetProperty("x", out var xEl) ? xEl.GetInt32() : 0;
-                var y = posEl.TryGetProperty("y", out var yEl) ? yEl.GetInt32() : 0;
-                var width = posEl.TryGetProperty("w", out var wEl) ? wEl.GetInt32() : 1;
-                var height = posEl.TryGetProperty("h", out var hEl) ? hEl.GetInt32() : 1;
-
-                // Clamp to grid bounds
-                x = Math.Max(0, Math.Min(x, gridCols - 1));
-                y = Math.Max(0, Math.Min(y, gridRows - 1));
-                width = Math.Max(1, Math.Min(width, gridCols - x));
-                height = Math.Max(1, Math.Min(height, gridRows - y));
+                // Generate a unique ID server-side
+                typeCounts.TryGetValue(type, out var count);
+                typeCounts[type] = count + 1;
+                var id = count == 0 ? type : $"{type}-{count + 1}";
 
                 var config = w.TryGetProperty("config", out var configEl)
                     ? configEl.Clone()
@@ -337,13 +333,7 @@ public sealed class AiDashboardGenerationService(
                 {
                     Id = id,
                     Type = type,
-                    Position = new WidgetPosition
-                    {
-                        X = x,
-                        Y = y,
-                        W = width,
-                        H = height
-                    },
+                    Position = new WidgetPosition(), // will be computed by the packer
                     Config = config,
                     TitleOverride = titleOverride
                 });
@@ -366,35 +356,229 @@ public sealed class AiDashboardGenerationService(
         type is "header" or "markdown" or "calendar" or "weather" or "weather-forecast"
             or "todo" or "rss-feed" or "graph" or "app-icon";
 
-    /// <summary>
-    /// Programmatic fallback: removes AI-generated widgets that overlap pinned widgets
-    /// or each other. Widgets are processed in order; later widgets that conflict are dropped.
-    /// </summary>
-    private static List<WidgetConfig> RemoveOverlappingWidgets(
+    // --- Step 2 helpers: compute sizes and pack widgets ---
+
+    private void ComputeWidgetSizes(
+        List<WidgetConfig> widgets,
+        AiDataSnapshot aiData,
+        LayoutConfig layoutConfig,
+        int gridCols)
+    {
+        var metrics = ComputeLayoutMetrics(layoutConfig, gridCols);
+
+        foreach (var widget in widgets)
+        {
+            var (w, h) = ComputeIdealSize(widget, aiData, metrics, gridCols);
+            widget.Position.W = w;
+            widget.Position.H = h;
+        }
+    }
+
+    private static (int cellWidth, int cellHeight, int charsPerCellWidth, double linesPerCell, int textLineHeight, int titleLineHeight)
+        ComputeLayoutMetrics(LayoutConfig layoutConfig, int gridCols)
+    {
+        var (width, height) = (layoutConfig.Width, layoutConfig.Height);
+        if (width <= 0) width = 800;
+        if (height <= 0) height = 480;
+
+        var canvasPadding = layoutConfig.CanvasPadding > 0 ? layoutConfig.CanvasPadding : 8;
+        var widgetGap = layoutConfig.WidgetGap > 0 ? layoutConfig.WidgetGap : 8;
+        var widgetPadding = layoutConfig.WidgetPadding > 0 ? layoutConfig.WidgetPadding : 8;
+        var widgetBorder = layoutConfig.WidgetBorder >= 0 ? layoutConfig.WidgetBorder : 1;
+        var titleFontSize = layoutConfig.TitleFontSize > 0 ? layoutConfig.TitleFontSize : 14;
+        var textFontSize = layoutConfig.TextFontSize > 0 ? layoutConfig.TextFontSize : 12;
+        var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
+
+        var usableWidth = width - (2 * canvasPadding) - ((gridCols - 1) * widgetGap);
+        var usableHeight = height - (2 * canvasPadding) - ((gridRows - 1) * widgetGap);
+        var cellWidth = usableWidth / gridCols;
+        var cellHeight = usableHeight / gridRows;
+
+        var innerPadding = 2 * (widgetPadding + widgetBorder);
+        var titleLineHeight = (int)(titleFontSize * 1.4);
+        var textLineHeight = (int)(textFontSize * 1.4);
+        var charsPerCellWidth = (int)((cellWidth - innerPadding) / (textFontSize * 0.55));
+        var linesPerCell = (double)(cellHeight - innerPadding) / textLineHeight;
+
+        return (cellWidth, cellHeight, Math.Max(1, charsPerCellWidth), Math.Max(1, linesPerCell), textLineHeight, titleLineHeight);
+    }
+
+    private static (int w, int h) ComputeIdealSize(
+        WidgetConfig widget,
+        AiDataSnapshot aiData,
+        (int cellWidth, int cellHeight, int charsPerCellWidth, double linesPerCell, int textLineHeight, int titleLineHeight) metrics,
+        int gridCols)
+    {
+        var config = widget.Config;
+
+        switch (widget.Type)
+        {
+            case "header":
+                return (gridCols, 1);
+
+            case "app-icon":
+                return (1, 1);
+
+            case "weather":
+                return (Math.Min(4, gridCols), 2);
+
+            case "weather-forecast":
+            {
+                var w = Math.Min(6, Math.Max(4, gridCols / 2));
+                return (w, 3);
+            }
+
+            case "calendar":
+            {
+                var entityId = GetStringProp(config, "entityId") ?? "";
+                var eventCount = aiData.CalendarEvents.TryGetValue(entityId, out var events) ? events.Count : 0;
+                var maxEvents = GetIntProp(config, "maxEvents") ?? 7;
+                var dataRows = Math.Min(maxEvents, eventCount);
+                var w = Math.Min(6, Math.Max(4, gridCols / 2));
+                var contentLines = dataRows;
+                var h = 1 + (int)Math.Ceiling(contentLines / metrics.linesPerCell);
+                return (w, Math.Max(2, h));
+            }
+
+            case "todo":
+            {
+                var entityId = GetStringProp(config, "entityId") ?? "";
+                var itemCount = aiData.TodoItems.TryGetValue(entityId, out var items) ? items.Count : 0;
+                var maxItems = GetIntProp(config, "maxItems") ?? 50;
+                var dataRows = Math.Min(maxItems, itemCount);
+                var w = Math.Min(6, Math.Max(4, gridCols / 2));
+                // Todo items are slightly taller due to status icons
+                var contentLines = (int)Math.Ceiling(dataRows * 1.3);
+                var h = 1 + (int)Math.Ceiling(contentLines / metrics.linesPerCell);
+                return (w, Math.Max(2, h));
+            }
+
+            case "rss-feed":
+            {
+                // Title + headline text (2 lines) + QR code (~3 cells)
+                var w = Math.Min(4, Math.Max(3, gridCols / 3));
+                return (w, 4);
+            }
+
+            case "graph":
+            {
+                var w = Math.Min(6, Math.Max(4, gridCols / 2));
+                return (w, 3);
+            }
+
+            case "markdown":
+            {
+                var content = GetStringProp(config, "content") ?? "";
+                var charCount = content.Length;
+                int w;
+                if (charCount < 100)
+                    w = Math.Min(gridCols, Math.Max(3, gridCols / 3));
+                else if (charCount < 300)
+                    w = Math.Min(gridCols, Math.Max(4, gridCols / 2));
+                else
+                    w = Math.Min(gridCols, Math.Max(6, gridCols * 2 / 3));
+
+                var charsPerLine = metrics.charsPerCellWidth * w;
+                var textLines = (int)Math.Ceiling((double)charCount / charsPerLine);
+                // Account for markdown formatting adding line breaks (headings, lists, etc.)
+                var newlineCount = content.Count(c => c == '\n');
+                textLines = Math.Max(textLines, newlineCount + 1);
+                var h = 1 + (int)Math.Ceiling(textLines / metrics.linesPerCell);
+                return (w, Math.Max(2, h));
+            }
+
+            default:
+                return (Math.Min(4, gridCols), 2);
+        }
+    }
+
+    private List<WidgetConfig> PackWidgets(
+        List<WidgetConfig> widgets,
         List<WidgetConfig> pinnedWidgets,
-        List<WidgetConfig> generatedWidgets,
         int gridCols,
         int gridRows)
     {
         var grid = new bool[gridCols, gridRows];
 
-        // Mark pinned widget cells
-        foreach (var w in pinnedWidgets)
+        // Mark pinned widget cells as occupied
+        foreach (var pinned in pinnedWidgets)
         {
-            MarkCells(grid, w.Position, gridCols, gridRows);
+            MarkCells(grid, pinned.Position, gridCols, gridRows);
         }
 
-        var result = new List<WidgetConfig>();
-        foreach (var w in generatedWidgets)
+        var placed = new List<WidgetConfig>();
+
+        // Place widgets in priority order (AI returns them most-important-first)
+        foreach (var widget in widgets)
         {
-            if (CanPlace(grid, w.Position, gridCols, gridRows))
+            var idealW = widget.Position.W;
+            var idealH = widget.Position.H;
+
+            // Try ideal size first, then progressively shrink
+            if (TryPlace(grid, widget, idealW, idealH, gridCols, gridRows))
             {
-                MarkCells(grid, w.Position, gridCols, gridRows);
-                result.Add(w);
+                placed.Add(widget);
+                continue;
+            }
+
+            // Try shrinking height first (more common to need less rows)
+            var placed2 = false;
+            for (var h = idealH - 1; h >= 1; h--)
+            {
+                if (TryPlace(grid, widget, idealW, h, gridCols, gridRows))
+                {
+                    placed2 = true;
+                    placed.Add(widget);
+                    break;
+                }
+            }
+            if (placed2) continue;
+
+            // Try shrinking width
+            for (var w = idealW - 1; w >= 1; w--)
+            {
+                for (var h = idealH; h >= 1; h--)
+                {
+                    if (TryPlace(grid, widget, w, h, gridCols, gridRows))
+                    {
+                        placed2 = true;
+                        placed.Add(widget);
+                        break;
+                    }
+                }
+                if (placed2) break;
+            }
+
+            if (!placed2)
+            {
+                logger.LogInformation(
+                    "Widget '{Id}' ({Type}, {W}×{H}) could not fit on the grid, skipping",
+                    widget.Id, widget.Type, idealW, idealH);
             }
         }
 
-        return result;
+        return placed;
+    }
+
+    private static bool TryPlace(
+        bool[,] grid, WidgetConfig widget,
+        int w, int h,
+        int gridCols, int gridRows)
+    {
+        for (var row = 0; row <= gridRows - h; row++)
+        {
+            for (var col = 0; col <= gridCols - w; col++)
+            {
+                var pos = new WidgetPosition { X = col, Y = row, W = w, H = h };
+                if (CanPlace(grid, pos, gridCols, gridRows))
+                {
+                    widget.Position = pos;
+                    MarkCells(grid, pos, gridCols, gridRows);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static bool CanPlace(bool[,] grid, WidgetPosition pos, int gridCols, int gridRows)
@@ -428,9 +612,11 @@ public sealed class AiDashboardGenerationService(
         }
     }
 
+    // --- Validation ---
+
     /// <summary>
     /// Post-parse validation: drops widgets with invalid/missing entity IDs or empty content,
-    /// repairs header titles, and shrinks oversized list widgets to fit their actual data.
+    /// and repairs header titles.
     /// </summary>
     private List<WidgetConfig> ValidateAndRepairWidgets(
         List<WidgetConfig> widgets,
@@ -478,14 +664,6 @@ public sealed class AiDashboardGenerationService(
                     logger.LogWarning("Dropping calendar widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
                     return null;
                 }
-                var eventCount = aiData.CalendarEvents[entityId].Count;
-                var maxEvents = GetIntProp(config, "maxEvents") ?? eventCount;
-                var dataRows = Math.Min(maxEvents, eventCount);
-                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(dataRows / 1.0));
-                if (widget.Position.H > idealH + 1)
-                {
-                    widget.Position.H = idealH;
-                }
                 break;
             }
 
@@ -501,12 +679,6 @@ public sealed class AiDashboardGenerationService(
                 {
                     logger.LogWarning("Dropping todo widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
                     return null;
-                }
-                var itemCount = aiData.TodoItems[entityId].Count;
-                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(itemCount / 1.0));
-                if (widget.Position.H > idealH + 1)
-                {
-                    widget.Position.H = idealH;
                 }
                 break;
             }
@@ -555,12 +727,6 @@ public sealed class AiDashboardGenerationService(
                 {
                     logger.LogWarning("Dropping rss-feed widget '{Id}': entityId '{EntityId}' not in available data", widget.Id, entityId);
                     return null;
-                }
-                var entryCount = aiData.RssFeedEntries[entityId].Count;
-                var idealH = Math.Max(2, 1 + (int)Math.Ceiling(entryCount / 1.0));
-                if (widget.Position.H > idealH + 1)
-                {
-                    widget.Position.H = idealH;
                 }
                 break;
             }
@@ -621,10 +787,8 @@ public sealed class AiDashboardGenerationService(
         return widget;
     }
 
-    /// <summary>
-    /// Creates a dictionary from a JsonElement object, adds/replaces a string property, and returns it
-    /// ready for serialization. Preserves all existing properties.
-    /// </summary>
+    // --- JSON helpers ---
+
     private static Dictionary<string, object?> PatchJsonObject(JsonElement original, string key, string value)
     {
         var dict = new Dictionary<string, object?>();
@@ -662,10 +826,10 @@ public sealed class AiDashboardGenerationService(
             ? p.GetInt32()
             : null;
 
-    private static Models.LayoutConfig CreateDefaultLayoutConfig(Dashboard dashboard)
+    private static LayoutConfig CreateDefaultLayoutConfig(Dashboard dashboard)
     {
         var (width, height) = dashboard.GetEffectiveSize();
-        return new Models.LayoutConfig
+        return new LayoutConfig
         {
             Width = width,
             Height = height,
