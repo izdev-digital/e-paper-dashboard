@@ -35,6 +35,15 @@ namespace EPaperDashboard.Models
 
         public int ScreenHeight { get; set; } = DashboardSizePreset.Default.Height;
 
+        // AI dashboard generation
+        public AiConfig? AiConfig { get; set; }
+        public bool IsAiEnabled { get; set; }
+        public string? AiPrompt { get; set; }
+        public int AiLeadTimeMinutes { get; set; } = 5;
+        public List<WidgetConfig>? AiGeneratedWidgets { get; set; }
+        public DateTimeOffset? LastAiGenerationTime { get; set; }
+        public string? LastAiGenerationError { get; set; }
+
         public (int Width, int Height) GetEffectiveSize()
         {
             var w = ScreenWidth > 0 ? ScreenWidth : DashboardSizePreset.Default.Width;

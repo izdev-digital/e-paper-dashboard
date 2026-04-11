@@ -51,12 +51,13 @@ public class DashboardSsrController(
 
         try
         {
+            var layoutToRender = GetMergedLayoutConfig(dashboard.Value);
             var serializerOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 WriteIndented = false
             };
-            var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.Value.LayoutConfig, serializerOptions);
+            var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(layoutToRender, serializerOptions);
 
             var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
@@ -112,12 +113,13 @@ public class DashboardSsrController(
 
         try
         {
+            var layoutToRender = GetMergedLayoutConfig(dashboard);
             var serializerOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
                 WriteIndented = false
             };
-            var layoutConfigJson = JsonSerializer.Serialize(dashboard.LayoutConfig, serializerOptions);
+            var layoutConfigJson = JsonSerializer.Serialize(layoutToRender, serializerOptions);
 
             var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Id.ToString(),
@@ -132,6 +134,31 @@ public class DashboardSsrController(
         {
             return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
         }
+    }
+
+    private static Models.LayoutConfig GetMergedLayoutConfig(Dashboard dashboard)
+    {
+        var layout = dashboard.LayoutConfig!;
+        if (!dashboard.IsAiEnabled || dashboard.AiGeneratedWidgets is not { Count: > 0 })
+            return layout;
+
+        return new Models.LayoutConfig
+        {
+            Width = layout.Width,
+            Height = layout.Height,
+            GridCols = layout.GridCols,
+            GridRows = layout.GridRows,
+            ColorScheme = layout.ColorScheme,
+            Widgets = new List<WidgetConfig>(layout.Widgets).Concat(dashboard.AiGeneratedWidgets).ToList(),
+            CanvasPadding = layout.CanvasPadding,
+            WidgetGap = layout.WidgetGap,
+            WidgetBorder = layout.WidgetBorder,
+            WidgetPadding = layout.WidgetPadding,
+            TitleFontSize = layout.TitleFontSize,
+            TextFontSize = layout.TextFontSize,
+            TitleFontWeight = layout.TitleFontWeight,
+            TextFontWeight = layout.TextFontWeight
+        };
     }
 
     private async Task<IActionResult> RenderHomeAssistantPreview(Dashboard dashboard, Size imageSize, string format)

@@ -9,7 +9,8 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { DialogService } from '../../services/dialog.service';
 import { DeviceService, Device } from '../../services/device.service';
-import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFAULT_DASHBOARD_SIZE } from '../../models/types';
+import { AiService } from '../../services/ai.service';
+import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFAULT_DASHBOARD_SIZE, AiConfig, AiConnectionMode, ConversationAgent } from '../../models/types';
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
@@ -279,6 +280,52 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
           </div>
         </div>
 
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <h5 class="mb-3">AI Provider Override</h5>
+            <p class="text-muted small mb-3">By default, this dashboard uses the <a routerLink="/ai/config">global AI provider</a>. You can override it to use a Home Assistant conversation agent for this dashboard.</p>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">AI Provider</label>
+              <select class="form-select"
+                [ngModel]="aiConfig().connectionMode"
+                (ngModelChange)="onAiConnectionModeChange($event)"
+                [ngModelOptions]="{standalone: true}">
+                <option value="None">Default (use global AI provider)</option>
+                <option value="HomeAssistant">Home Assistant Conversation Agent</option>
+              </select>
+            </div>
+
+            @if (aiConfig().connectionMode === 'HomeAssistant') {
+              <hr>
+              <h6 class="mb-3">Home Assistant Settings</h6>
+              <div class="mb-3">
+                <label class="form-label">Conversation Agent</label>
+                @if (isLoadingAgents()) {
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span class="text-muted">Loading agents...</span>
+                  </div>
+                } @else {
+                  <select class="form-select"
+                    [ngModel]="aiConfig().homeAssistantAgentId || ''"
+                    (ngModelChange)="updateAiField('homeAssistantAgentId', $event)"
+                    [ngModelOptions]="{standalone: true}">
+                    <option value="">Default conversation agent</option>
+                    @for (agent of conversationAgents(); track agent.id) {
+                      <option [value]="agent.id">{{ agent.name }}</option>
+                    }
+                  </select>
+                  @if (conversationAgents().length === 0) {
+                    <small class="form-text text-muted">No agents found. Make sure this dashboard is connected to Home Assistant.</small>
+                  } @else {
+                    <small class="form-text text-muted">Select a conversation agent or leave as default</small>
+                  }
+                }
+              </div>
+            }
+          </div>
+        </div>
+
       </form>
 
       <!-- Preview Modal -->
@@ -299,6 +346,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
   private readonly deviceService = inject(DeviceService);
+  private readonly aiService = inject(AiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly http = inject(HttpClient);
@@ -327,6 +375,11 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   
   readonly devices = signal<Device[]>([]);
   readonly isLoadingDevices = signal(false);
+
+  readonly aiConfig = signal<AiConfig>({ connectionMode: 'None' });
+  readonly conversationAgents = signal<ConversationAgent[]>([]);
+  readonly isLoadingAgents = signal(false);
+  private originalAiConfig: AiConfig = { connectionMode: 'None' };
 
   readonly dashboardForm = new FormGroup({
     name: new FormControl('', { validators: Validators.required, nonNullable: true }),
@@ -415,6 +468,13 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         }
 
         this.loadDevices();
+
+        const config = dashboard.aiConfig ?? { connectionMode: 'None' as AiConnectionMode };
+        this.aiConfig.set(config);
+        this.originalAiConfig = JSON.parse(JSON.stringify(config));
+        if (config.connectionMode === 'HomeAssistant') {
+          this.loadConversationAgents(dashboard.id);
+        }
 
         this.cdr.detectChanges();
       },
@@ -588,7 +648,8 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
       renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
       orientation: this.orientationValue,
       screenWidth: selectedSize.width,
-      screenHeight: selectedSize.height
+      screenHeight: selectedSize.height,
+      aiConfig: this.aiConfig(),
     };
 
     if (formValue.accessToken?.trim().length > 0) {
@@ -616,6 +677,9 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
         } else {
           this.originalUpdateTimes = [];
         }
+        const savedConfig = updated.aiConfig ?? { connectionMode: 'None' as AiConnectionMode };
+        this.aiConfig.set(savedConfig);
+        this.originalAiConfig = JSON.parse(JSON.stringify(savedConfig));
         this.toastService.success('Dashboard updated successfully!');
         this.isSaving.set(false);
       },
@@ -673,6 +737,36 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
 
   onSizeChange(): void {
     this.dashboardForm.markAsDirty();
+  }
+
+  onAiConnectionModeChange(mode: AiConnectionMode): void {
+    this.aiConfig.update(c => ({ ...c, connectionMode: mode }));
+    this.dashboardForm.markAsDirty();
+    if (mode === 'HomeAssistant') {
+      const currentDashboard = this.dashboard();
+      if (currentDashboard) {
+        this.loadConversationAgents(currentDashboard.id);
+      }
+    }
+  }
+
+  updateAiField(field: keyof AiConfig, value: string): void {
+    this.aiConfig.update(c => ({ ...c, [field]: value }));
+    this.dashboardForm.markAsDirty();
+  }
+
+  private loadConversationAgents(dashboardId: string): void {
+    this.isLoadingAgents.set(true);
+    this.aiService.getConversationAgents(dashboardId).subscribe({
+      next: (agents) => {
+        this.conversationAgents.set(agents);
+        this.isLoadingAgents.set(false);
+      },
+      error: () => {
+        this.conversationAgents.set([]);
+        this.isLoadingAgents.set(false);
+      }
+    });
   }
 
   disablePreviewButton(): boolean {

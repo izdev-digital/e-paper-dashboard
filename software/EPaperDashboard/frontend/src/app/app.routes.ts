@@ -47,6 +47,11 @@ export const routes: Routes = [
     loadComponent: () => import('./components/profile/profile.component').then(m => m.ProfileComponent)
   },
   {
+    path: 'ai/config',
+    canActivate: [authGuard],
+    loadComponent: () => import('./components/ai-config/ai-config.component').then(m => m.AiConfigComponent)
+  },
+  {
     path: 'users/manage',
     canActivate: [authGuard, superUserGuard],
     loadComponent: () => import('./components/users-management/users-management.component').then(m => m.UsersManagementComponent)

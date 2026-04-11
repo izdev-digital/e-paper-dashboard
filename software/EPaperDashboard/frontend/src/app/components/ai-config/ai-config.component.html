@@ -1,0 +1,97 @@
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <h2 class="mb-0">AI Configuration</h2>
+    </div>
+
+    <p class="text-muted">Configure the default AI provider used across all your dashboards. Individual dashboards can override this with a Home Assistant conversation agent.</p>
+
+    @if (isLoading()) {
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    } @else {
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form (ngSubmit)="save()">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Connection Mode</label>
+              <select class="form-select"
+                [ngModel]="aiConfig().connectionMode"
+                (ngModelChange)="onConnectionModeChange($event)"
+                [ngModelOptions]="{standalone: true}">
+                <option value="None">None (AI disabled)</option>
+                <option value="Direct">Direct (OpenAI-compatible API)</option>
+              </select>
+              <small class="form-text text-muted">Choose a default AI provider. To use a Home Assistant conversation agent, configure it on the individual dashboard.</small>
+            </div>
+
+            @if (aiConfig().connectionMode === 'Direct') {
+              <hr>
+              <h5 class="mb-3">Direct API Settings</h5>
+              <div class="mb-3">
+                <label class="form-label">API Endpoint</label>
+                <input type="text" class="form-control"
+                  [value]="aiConfig().directEndpoint || ''"
+                  (input)="updateField('directEndpoint', $any($event.target).value)"
+                  (blur)="fetchModels()"
+                  placeholder="https://api.openai.com" />
+                <small class="form-text text-muted">OpenAI, Ollama, LM Studio, or any compatible endpoint</small>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">API Key <span class="text-muted fw-normal">(optional for local providers)</span></label>
+                <input type="password" class="form-control"
+                  [value]="aiConfig().directApiKey || ''"
+                  (input)="updateField('directApiKey', $any($event.target).value)"
+                  (blur)="fetchModels()"
+                  placeholder="sk-..." />
+                <small class="form-text text-muted">Required for OpenAI, optional for local services like Ollama or LM Studio</small>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Model</label>
+                <div class="input-group">
+                  @if (availableModels().length > 0) {
+                    <select class="form-select"
+                      [ngModel]="aiConfig().directModel || ''"
+                      (ngModelChange)="updateField('directModel', $event)"
+                      [ngModelOptions]="{standalone: true}">
+                      <option value="" disabled>Select a model</option>
+                      @for (model of availableModels(); track model.id) {
+                        <option [value]="model.id">{{ model.id }}</option>
+                      }
+                    </select>
+                  } @else {
+                    <input type="text" class="form-control"
+                      [value]="aiConfig().directModel || ''"
+                      (input)="updateField('directModel', $any($event.target).value)"
+                      placeholder="gpt-4o-mini" />
+                  }
+                  <button type="button" class="btn btn-outline-secondary" (click)="fetchModels()"
+                    [disabled]="isLoadingModels() || !aiConfig().directEndpoint"
+                    title="Fetch available models from endpoint">
+                    @if (isLoadingModels()) {
+                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    } @else {
+                      <i class="fa fa-rotate"></i>
+                    }
+                  </button>
+                </div>
+                <small class="form-text text-muted">Select from available models or enter manually</small>
+              </div>
+            }
+
+            <hr>
+            <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+              @if (isSaving()) {
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              }
+              Save AI Configuration
+            </button>
+          </form>
+        </div>
+      </div>
+    }
+  </div>
+</div>

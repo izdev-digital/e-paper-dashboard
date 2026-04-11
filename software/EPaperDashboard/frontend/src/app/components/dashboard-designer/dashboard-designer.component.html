@@ -8,12 +8,23 @@
           </button>
           <h2 class="mb-0">Dashboard Designer - {{ dashboard()?.name }}</h2>
         </div>
-        <div>
-          <button class="btn btn-success me-2" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
-            <i class="fa fa-external-link-alt"></i> Rendered Preview
+        <div class="d-flex align-items-center gap-2">
+          <div class="ai-toggle-pill" [class.active]="aiEnabled()" [title]="aiConfigMode() === 'None' ? 'Configure an AI provider in AI Config or dashboard settings first' : ''">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" id="aiEnabledHeader" role="switch"
+                [checked]="aiEnabled()"
+                [disabled]="aiConfigMode() === 'None'"
+                (change)="onAiEnabledChange($any($event.target).checked)" />
+              <label class="form-check-label" for="aiEnabledHeader">
+                <i class="fa fa-wand-magic-sparkles me-1"></i>AI
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
+            <i class="fa fa-external-link-alt me-1"></i>Rendered Preview
           </button>
-          <button class="btn btn-primary" (click)="saveDashboard()">
-            <i class="fa fa-save"></i> Save Layout
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()">
+            <i class="fa fa-save me-1"></i>Save Layout
           </button>
         </div>
       </div>
@@ -93,6 +104,21 @@
                     (headerLayoutChanged)="onHeaderLayoutChanged($event, widget.id)"
                     [weatherInternalEdit]="internalEditingWidgetId() === widget.id"
                     (weatherLayoutChanged)="onWeatherLayoutChanged($event, widget.id)">
+                  </app-widget-preview>
+                </div>
+              </div>
+              }
+
+              <!-- AI-generated widgets (read-only overlay) -->
+              @for (widget of aiGeneratedWidgets(); track widget.id) {
+              <div class="widget-container ai-widget" [ngStyle]="getWidgetStyle(widget)">
+                <div class="widget-content">
+                  <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
+                    [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
+                    [calendarEventsByEntityId]="calendarEventsByEntityId()"
+                    [dashboardId]="dashboardId"
+                    [designerSettings]="layout()"
+                    [dataFetched]="livePreviewEverFetched()">
                   </app-widget-preview>
                 </div>
               </div>
@@ -406,6 +432,90 @@
               </div>
               }
             </div>
+
+            <!-- AI Section -->
+            @if (aiEnabled()) {
+            <div class="collapsible-section mt-2">
+              <div class="collapsible-header" (click)="aiSectionCollapsed.set(!aiSectionCollapsed())">
+                <span><i class="fa fa-wand-magic-sparkles me-2"></i>AI Generation</span>
+                <i class="fa" [class.fa-chevron-down]="aiSectionCollapsed()" [class.fa-chevron-up]="!aiSectionCollapsed()"></i>
+              </div>
+              @if (!aiSectionCollapsed()) {
+              <div class="collapsible-body">
+                @if (aiConfigMode() === 'None') {
+                  <div class="alert alert-warning py-2 small mb-3">
+                    <i class="fa fa-triangle-exclamation me-1"></i>
+                    AI provider not configured. <a routerLink="/ai/config">Set up global AI provider</a> or <a [routerLink]="['/dashboards', dashboardId, 'edit']">use a Home Assistant agent</a>
+                  </div>
+                }
+
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small">Prompt</label>
+                  <textarea class="form-control form-control-sm" rows="4"
+                    [value]="aiPrompt()"
+                    (input)="onAiPromptChange($any($event.target).value)"
+                    placeholder="e.g. 'Show today's weather, calendar events, and a motivational quote'"></textarea>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label fw-semibold small">Pre-generation Lead Time</label>
+                  <div class="input-group input-group-sm">
+                    <input type="number" class="form-control"
+                      [value]="aiLeadTimeMinutes()"
+                      (input)="onAiLeadTimeChange($any($event.target).value)"
+                      min="1" max="30" />
+                    <span class="input-group-text">min</span>
+                  </div>
+                  @if (!dashboard()?.updateTimes || dashboard()!.updateTimes!.length === 0) {
+                    <small class="form-text text-muted">No update schedule configured — lead time has no effect without scheduled update times.</small>
+                  }
+                </div>
+
+                <div class="mb-3">
+                  <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt()">
+                    @if (isGeneratingAi()) {
+                      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      Generating…
+                    } @else {
+                      <i class="fa fa-wand-magic-sparkles me-1"></i>Generate
+                    }
+                  </button>
+                </div>
+
+                @if (aiLastError()) {
+                  <div class="alert alert-danger py-1 small mb-2">
+                    <i class="fa fa-circle-exclamation me-1"></i>
+                    {{ aiLastError() }}
+                  </div>
+                }
+
+                @if (aiLastGenerated()) {
+                  <div class="alert alert-info py-1 small mb-2">
+                    <i class="fa fa-clock me-1"></i>
+                    Last generated: {{ aiLastGenerated() }}
+                  </div>
+                }
+
+                @if (aiDataSummary()) {
+                  <div class="small text-muted mb-2">
+                    <strong>Data used:</strong>
+                    {{ aiDataSummary()!.entityStates }} entity states<!--
+                    -->@if (aiDataSummary()!.todoLists.length > 0) {, {{ aiDataSummary()!.todoLists.length }} todo lists}<!--
+                    -->@if (aiDataSummary()!.calendars.length > 0) {, {{ aiDataSummary()!.calendars.length }} calendars}<!--
+                    -->@if (aiDataSummary()!.weatherEntities.length > 0) {, {{ aiDataSummary()!.weatherEntities.length }} weather entities}<!--
+                    -->@if (aiDataSummary()!.rssFeeds.length > 0) {, {{ aiDataSummary()!.rssFeeds.length }} RSS feeds}
+                  </div>
+                }
+
+                @if (aiPromptTokenEstimate()) {
+                  <div class="small text-muted mb-0">
+                    ~{{ aiPromptTokenEstimate() }} prompt tokens
+                  </div>
+                }
+              </div>
+              }
+            </div>
+            }
           </div>
 
           <!-- Properties Tab -->

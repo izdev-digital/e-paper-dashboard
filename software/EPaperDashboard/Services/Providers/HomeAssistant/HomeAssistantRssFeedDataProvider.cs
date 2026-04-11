@@ -99,6 +99,65 @@ public class HomeAssistantRssFeedDataProvider(
         }
     }
 
+    public async Task<Result<Dictionary<string, List<RssFeedEntry>>, string>> FetchAllRssFeedEntriesAsync(string dashboardId)
+    {
+        var connectionInfo = _connection.GetConnectionInfo(dashboardId);
+        if (connectionInfo.IsFailure)
+            return connectionInfo.Error;
+
+        var (hostUrl, token) = connectionInfo.Value;
+
+        try
+        {
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var json = JsonSerializer.Deserialize<JsonElement>(response);
+
+            var result = new Dictionary<string, List<RssFeedEntry>>();
+
+            if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
+                json.TryGetProperty("result", out var statesResult) && statesResult.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entity in statesResult.EnumerateArray())
+                {
+                    var entityId = entity.TryGetProperty("entity_id", out var eid) ? eid.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(entityId))
+                        continue;
+
+                    var state = entity.TryGetProperty("state", out var s) ? s.GetString() : null;
+                    if (state is "unavailable")
+                        continue;
+
+                    // Match feedreader event entities or sensor entities with "feed" in the name
+                    var isFeedEntity = entityId.StartsWith("event.feedreader", StringComparison.OrdinalIgnoreCase)
+                        || (entityId.StartsWith("sensor.", StringComparison.OrdinalIgnoreCase)
+                            && entityId.Contains("feed", StringComparison.OrdinalIgnoreCase));
+
+                    if (!isFeedEntity)
+                        continue;
+
+                    if (entity.TryGetProperty("attributes", out var attributes) &&
+                        attributes.ValueKind == JsonValueKind.Object)
+                    {
+                        var entry = ParseRssFeedEntry(attributes);
+                        if (entry != null)
+                            result[entityId] = [entry];
+                    }
+                }
+            }
+
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            _logger.LogDebug("Fetched RSS feed entries from {Count} entities for dashboard {DashboardId}", result.Count, dashboardId);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            return $"Failed to discover RSS feed entities: {ex.Message}";
+        }
+    }
+
     private RssFeedEntry? ParseRssFeedEntry(JsonElement attributesElement)
     {
         try

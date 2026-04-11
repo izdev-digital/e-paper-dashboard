@@ -117,12 +117,19 @@ public sealed class RenderToImageController(
 
 		try
 		{
+			// Merge AI-generated widgets into the layout config for rendering
+			var layoutToRender = dashboard.LayoutConfig;
+			if (dashboard.IsAiEnabled && dashboard.AiGeneratedWidgets is { Count: > 0 })
+			{
+				layoutToRender = MergeAiWidgets(layoutToRender, dashboard.AiGeneratedWidgets);
+			}
+
 			var serializerOptions = new JsonSerializerOptions
 			{
 				PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 				WriteIndented = false
 			};
-			var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(dashboard.LayoutConfig, serializerOptions);
+			var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(layoutToRender, serializerOptions);
 
 			var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
 				dashboard.Id.ToString(),
@@ -140,6 +147,32 @@ public sealed class RenderToImageController(
 		{
 			return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
 		}
+	}
+
+	private static Models.LayoutConfig MergeAiWidgets(
+		Models.LayoutConfig layoutConfig,
+		List<Models.WidgetConfig> aiWidgets)
+	{
+		var merged = new Models.LayoutConfig
+		{
+			Width = layoutConfig.Width,
+			Height = layoutConfig.Height,
+			GridCols = layoutConfig.GridCols,
+			GridRows = layoutConfig.GridRows,
+			ColorScheme = layoutConfig.ColorScheme,
+			Widgets = new List<Models.WidgetConfig>(layoutConfig.Widgets),
+			CanvasPadding = layoutConfig.CanvasPadding,
+			WidgetGap = layoutConfig.WidgetGap,
+			WidgetBorder = layoutConfig.WidgetBorder,
+			WidgetPadding = layoutConfig.WidgetPadding,
+			TitleFontSize = layoutConfig.TitleFontSize,
+			TextFontSize = layoutConfig.TextFontSize,
+			TitleFontWeight = layoutConfig.TitleFontWeight,
+			TextFontWeight = layoutConfig.TextFontWeight
+		};
+
+		merged.Widgets.AddRange(aiWidgets);
+		return merged;
 	}
 
 	private async Task<IActionResult> RenderHomeAssistantImage(

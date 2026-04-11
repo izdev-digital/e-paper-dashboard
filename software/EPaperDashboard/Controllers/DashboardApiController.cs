@@ -57,7 +57,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             return Forbid();
         }
 
-        return Ok(DashboardResponseDto.FromDashboard(dashboard.Value, _deploymentStrategy.IsAutoConnected));
+        return Ok(DashboardResponseDto.FromDashboard(dashboard.Value, _deploymentStrategy.IsAutoConnected, ResolveEffectiveAiConfigMode(dashboard.Value)));
     }
 
     [HttpPost]
@@ -97,7 +97,7 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         _dashboardService.AddDashboard(dashboard);
 
-        return Ok(DashboardResponseDto.FromDashboard(dashboard, _deploymentStrategy.IsAutoConnected));
+        return Ok(DashboardResponseDto.FromDashboard(dashboard, _deploymentStrategy.IsAutoConnected, ResolveEffectiveAiConfigMode(dashboard)));
     }
 
     [HttpPut("{id}")]
@@ -164,9 +164,20 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
             updatedDashboard.ScreenHeight = preset.Height;
         }
 
+        if (request.AiConfig != null) updatedDashboard.AiConfig = request.AiConfig;
+        if (request.IsAiEnabled.HasValue) updatedDashboard.IsAiEnabled = request.IsAiEnabled.Value;
+        if (request.AiPrompt != null) updatedDashboard.AiPrompt = request.AiPrompt;
+        if (request.AiLeadTimeMinutes.HasValue) updatedDashboard.AiLeadTimeMinutes = request.AiLeadTimeMinutes.Value;
+
+        // Auto-disable AI if no effective config is available
+        if (updatedDashboard.IsAiEnabled && !HasEffectiveAiConfig(updatedDashboard))
+        {
+            updatedDashboard.IsAiEnabled = false;
+        }
+
         _dashboardService.UpdateDashboard(updatedDashboard);
 
-        return Ok(DashboardResponseDto.FromDashboard(updatedDashboard, _deploymentStrategy.IsAutoConnected));
+        return Ok(DashboardResponseDto.FromDashboard(updatedDashboard, _deploymentStrategy.IsAutoConnected, ResolveEffectiveAiConfigMode(updatedDashboard)));
     }
 
     [HttpDelete("{id}")]
@@ -192,6 +203,27 @@ public class DashboardApiController(DashboardService dashboardService, UserServi
 
         return Ok(new { message = "Dashboard deleted successfully." });
     }
+
+    private bool HasEffectiveAiConfig(Dashboard dashboard)
+    {
+        return ResolveEffectiveAiConfigMode(dashboard) != AiConnectionMode.None.ToString();
+    }
+
+    private string ResolveEffectiveAiConfigMode(Dashboard dashboard)
+    {
+        if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
+        {
+            return dashboard.AiConfig.ConnectionMode.ToString();
+        }
+
+        var user = _userService.GetUserById(dashboard.UserId);
+        if (user.HasValue && user.Value.AiConfig != null && user.Value.AiConfig.ConnectionMode != AiConnectionMode.None)
+        {
+            return user.Value.AiConfig.ConnectionMode.ToString();
+        }
+
+        return AiConnectionMode.None.ToString();
+    }
 }
 
 public record CreateDashboardRequest(string Name, string? Description, string? Orientation, int? ScreenWidth, int? ScreenHeight);
@@ -208,7 +240,11 @@ public record UpdateDashboardRequest(
     string? RenderingMode,
     string? Orientation,
     int? ScreenWidth,
-    int? ScreenHeight
+    int? ScreenHeight,
+    AiConfig? AiConfig,
+    bool? IsAiEnabled,
+    string? AiPrompt,
+    int? AiLeadTimeMinutes
 );
 
 public record DashboardResponseDto(
@@ -224,10 +260,17 @@ public record DashboardResponseDto(
     string? RenderingMode,
     string Orientation,
     int ScreenWidth,
-    int ScreenHeight
+    int ScreenHeight,
+    AiConfig? AiConfig,
+    bool IsAiEnabled,
+    string? AiPrompt,
+    int AiLeadTimeMinutes,
+    DateTimeOffset? LastAiGenerationTime,
+    string? LastAiGenerationError,
+    string EffectiveAiConfigMode
 )
 {
-    public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false) => new(
+    public static DashboardResponseDto FromDashboard(Dashboard dashboard, bool isAutoConnected = false, string? effectiveAiConfigMode = null) => new(
         Id: dashboard.Id.ToString(),
         Name: dashboard.Name,
         Description: dashboard.Description,
@@ -240,6 +283,13 @@ public record DashboardResponseDto(
         RenderingMode: dashboard.RenderingMode.ToString(),
         Orientation: dashboard.Orientation.ToString(),
         ScreenWidth: dashboard.ScreenWidth,
-        ScreenHeight: dashboard.ScreenHeight
+        ScreenHeight: dashboard.ScreenHeight,
+        AiConfig: dashboard.AiConfig,
+        IsAiEnabled: dashboard.IsAiEnabled,
+        AiPrompt: dashboard.AiPrompt,
+        AiLeadTimeMinutes: dashboard.AiLeadTimeMinutes,
+        LastAiGenerationTime: dashboard.LastAiGenerationTime,
+        LastAiGenerationError: dashboard.LastAiGenerationError,
+        EffectiveAiConfigMode: effectiveAiConfigMode ?? AiConnectionMode.None.ToString()
     );
 }

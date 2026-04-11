@@ -52,6 +52,13 @@ export interface Dashboard {
   orientation?: DashboardOrientation;
   screenWidth: number;
   screenHeight: number;
+  isAiEnabled?: boolean;
+  aiPrompt?: string;
+  aiLeadTimeMinutes?: number;
+  lastAiGenerationTime?: string;
+  lastAiGenerationError?: string;
+  aiConfig?: AiConfig;
+  effectiveAiConfigMode?: AiConnectionMode;
 }
 
 export interface CreateDashboardRequest {
@@ -75,6 +82,10 @@ export interface UpdateDashboardRequest {
   orientation?: DashboardOrientation;
   screenWidth?: number;
   screenHeight?: number;
+  isAiEnabled?: boolean;
+  aiPrompt?: string;
+  aiLeadTimeMinutes?: number;
+  aiConfig?: AiConfig;
 }
 
 
@@ -90,7 +101,8 @@ export type WidgetType =
   | 'app-icon'
   | 'image'
   | 'version'
-  | 'rss-feed';
+  | 'rss-feed'
+  | 'ai-content';
 
 export interface WidgetPosition {
   x: number;
@@ -146,7 +158,8 @@ export interface WidgetConfig {
   | AppIconConfig
   | ImageConfig
   | VersionConfig
-  | RssFeedConfig;
+  | RssFeedConfig
+  | AiContentConfig;
   colorOverrides?: WidgetColorOverrides;
   titleOverride?: string;
   showTitle?: boolean;
@@ -180,6 +193,10 @@ export interface BadgeConfig {
 
 export interface MarkdownConfig {
   content: string;
+}
+
+export interface AiContentConfig {
+  prompt: string;
 }
 
 export type CalendarEventItemType = 'datetime' | 'title' | 'location' | 'description';
@@ -454,3 +471,37 @@ export const DEFAULT_COLOR_SCHEMES: ColorScheme[] = [
     text: '#ffffff'
   }
 ];
+
+// AI Configuration Types
+export type AiConnectionMode = 'None' | 'HomeAssistant' | 'Direct';
+
+export interface AiConfig {
+  connectionMode: AiConnectionMode;
+  directEndpoint?: string;
+  directApiKey?: string;
+  directModel?: string;
+  homeAssistantAgentId?: string;
+}
+
+export interface AiGenerationResult {
+  widgets: WidgetConfig[];
+  generatedAt?: string;
+  isAiEnabled?: boolean;
+  prompt?: string;
+  lastError?: string;
+  dataSummary?: AiDataSummary;
+  promptTokenEstimate?: number;
+}
+
+export interface AiDataSummary {
+  entityStates: number;
+  todoLists: string[];
+  calendars: string[];
+  weatherEntities: string[];
+  rssFeeds: string[];
+}
+
+export interface ConversationAgent {
+  id: string;
+  name: string;
+}

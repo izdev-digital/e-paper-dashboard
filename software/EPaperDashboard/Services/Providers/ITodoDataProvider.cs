@@ -8,4 +8,9 @@ namespace EPaperDashboard.Services.Providers;
 public interface ITodoDataProvider
 {
     Task<Result<List<TodoItem>, string>> FetchTodoItemsAsync(string dashboardId, string entityId);
+
+    /// <summary>
+    /// Discovers all available todo entities and fetches items for each.
+    /// </summary>
+    Task<Result<Dictionary<string, List<TodoItem>>, string>> FetchAllTodoItemsAsync(string dashboardId);
 }

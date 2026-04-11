@@ -102,12 +102,17 @@ public class HomeAssistantConnectionService(
 
     public static async Task<string> ReceiveMessageAsync(ClientWebSocket ws)
     {
+        return await ReceiveMessageAsync(ws, CancellationToken.None);
+    }
+
+    public static async Task<string> ReceiveMessageAsync(ClientWebSocket ws, CancellationToken cancellationToken)
+    {
         var buffer = new byte[1024 * 16];
         var sb = new StringBuilder();
         WebSocketReceiveResult result;
         do
         {
-            result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+            result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
             sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
         } while (!result.EndOfMessage);
         return sb.ToString();

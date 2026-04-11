@@ -23,6 +23,7 @@ import {
   TodoConfig,
   AppIconConfig,
   RssFeedConfig,
+  AiContentConfig,
   ColorScheme
 } from '../../models/types';
 import { HttpClient } from '@angular/common/http';
@@ -120,6 +121,10 @@ export class WidgetConfigComponent implements OnChanges {
 
   get rssFeedConfig(): RssFeedConfig {
     return this.widget.config as RssFeedConfig;
+  }
+
+  get aiContentConfig(): AiContentConfig {
+    return this.widget.config as AiContentConfig;
   }
 
   onPropertyChanged(): void {

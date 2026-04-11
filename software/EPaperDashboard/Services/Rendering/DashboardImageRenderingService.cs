@@ -316,6 +316,9 @@ public sealed class DashboardImageRenderingService
                 case "markdown":
                     RenderMarkdownWidget(image, widget, layout, contentRect);
                     break;
+                case "ai-content":
+                    RenderAiContentWidget(image, widget, layout, data, contentRect);
+                    break;
                 case "rss-feed":
                     RenderRssFeedWidget(image, widget, layout, data, contentRect);
                     break;
@@ -1073,6 +1076,19 @@ public sealed class DashboardImageRenderingService
             DrawTextEllipsis(image, text, GetFont(fontSize, fontWeight), textColor, lineRect);
             yOffset += lineHeight;
         }
+    }
+
+    private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    {
+        if (!data.AiContent.TryGetValue(widget.Id, out var content) || string.IsNullOrWhiteSpace(content))
+        {
+            RenderPlaceholder(image, widget, layout, contentRect, "AI Content");
+            return;
+        }
+
+        var syntheticConfig = System.Text.Json.JsonSerializer.SerializeToElement(new { content });
+        var syntheticWidget = widget with { Config = syntheticConfig };
+        RenderMarkdownWidget(image, syntheticWidget, layout, contentRect);
     }
 
     /// <summary>

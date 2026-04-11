@@ -1,6 +1,7 @@
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Providers.HomeAssistant;
+using EPaperDashboard.Services.Ai;
 using EPaperDashboard.Utilities;
 using EPaperDashboard.Data.LiteDb;
 using EPaperDashboard.Data.Repositories;
@@ -112,10 +113,20 @@ builder.Services
 	.AddSingleton<IWeatherForecastProvider, HomeAssistantWeatherForecastProvider>()
 	.AddSingleton<IRssFeedDataProvider, HomeAssistantRssFeedDataProvider>()
 	.AddSingleton<IEntityHistoryProvider, HomeAssistantEntityHistoryProvider>()
+	.AddSingleton<IAiContentProvider, AiContentProvider>()
 	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
 	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<DashboardImageRenderingService>()
-	.AddHostedService<DashboardScheduleMonitorService>();
+	.AddSingleton<IAiServiceFactory, AiServiceFactory>()
+	.AddSingleton<AiPromptBuilder>()
+	.AddSingleton<AiDataFetcher>()
+	.AddSingleton<AiResponseParser>()
+	.AddSingleton<WidgetValidator>()
+	.AddSingleton<WidgetLayoutEngine>()
+	.AddSingleton<GridPacker>()
+	.AddSingleton<AiDashboardGenerationService>()
+	.AddHostedService<DashboardScheduleMonitorService>()
+	.AddHostedService<AiPreGenerationService>();
 
 // Firmware update services
 if (EnvironmentConfiguration.FirmwareUpdateEnabled)
