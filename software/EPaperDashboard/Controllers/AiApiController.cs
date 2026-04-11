@@ -11,13 +11,13 @@ namespace EPaperDashboard.Controllers;
 [Route("api/ai")]
 [Authorize]
 public sealed class AiApiController(
-    UserService userService,
     DashboardService dashboardService,
+    UserService userService,
     AiDashboardGenerationService aiGenerationService,
     HomeAssistantConnectionService homeAssistantConnectionService) : BaseApiController
 {
     [HttpGet("config")]
-    public IActionResult GetAiConfig()
+    public IActionResult GetGlobalAiConfig()
     {
         var user = userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
@@ -29,7 +29,7 @@ public sealed class AiApiController(
     }
 
     [HttpPut("config")]
-    public IActionResult UpdateAiConfig([FromBody] AiConfig config)
+    public IActionResult UpdateGlobalAiConfig([FromBody] AiConfig config)
     {
         var user = userService.GetUserById(CurrentUserId);
         if (user.HasNoValue)
@@ -37,7 +37,7 @@ public sealed class AiApiController(
             return NotFound("User not found");
         }
 
-        var validationError = ValidateAiConfig(config);
+        var validationError = ValidateGlobalAiConfig(config);
         if (validationError != null)
         {
             return BadRequest(validationError);
@@ -46,10 +46,15 @@ public sealed class AiApiController(
         user.Value.AiConfig = config;
         userService.UpdateUser(user.Value);
 
+        if (config.ConnectionMode == AiConnectionMode.None)
+        {
+            DisableAiOnDashboardsWithoutOverride(user.Value.Id);
+        }
+
         return Ok(config);
     }
 
-    private static string? ValidateAiConfig(AiConfig config)
+    private static string? ValidateGlobalAiConfig(AiConfig config)
     {
         return config.ConnectionMode switch
         {
@@ -57,6 +62,60 @@ public sealed class AiApiController(
                 => "Direct endpoint URL is required",
             AiConnectionMode.Direct when string.IsNullOrWhiteSpace(config.DirectModel)
                 => "Model name is required for direct connections",
+            _ => null
+        };
+    }
+
+    [HttpGet("dashboards/{dashboardId}/config")]
+    public IActionResult GetAiConfig(string dashboardId)
+    {
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
+        {
+            return NotFound("Dashboard not found");
+        }
+
+        return Ok(dashboard.AiConfig ?? new AiConfig());
+    }
+
+    [HttpPut("dashboards/{dashboardId}/config")]
+    public IActionResult UpdateAiConfig(string dashboardId, [FromBody] AiConfig config)
+    {
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
+        {
+            return NotFound("Dashboard not found");
+        }
+
+        var validationError = ValidateAiConfig(config);
+        if (validationError != null)
+        {
+            return BadRequest(validationError);
+        }
+
+        dashboard.AiConfig = config;
+
+        if (config.ConnectionMode == AiConnectionMode.None && dashboard.IsAiEnabled)
+        {
+            var user = userService.GetUserById(CurrentUserId);
+            var globalConfig = user.HasValue ? user.Value.AiConfig : null;
+            if (globalConfig == null || globalConfig.ConnectionMode == AiConnectionMode.None)
+            {
+                dashboard.IsAiEnabled = false;
+            }
+        }
+
+        dashboardService.UpdateDashboard(dashboard);
+
+        return Ok(config);
+    }
+
+    private static string? ValidateAiConfig(AiConfig config)
+    {
+        return config.ConnectionMode switch
+        {
+            AiConnectionMode.Direct
+                => "Direct AI configuration is only supported as a global setting. Use the global AI Config page instead.",
             AiConnectionMode.HomeAssistant when string.IsNullOrWhiteSpace(config.HomeAssistantAgentId)
                 => "Home Assistant conversation agent must be selected",
             _ => null
@@ -69,42 +128,37 @@ public sealed class AiApiController(
         [FromBody] GenerateAiRequest? request,
         CancellationToken cancellationToken)
     {
-        if (!DashboardId.TryParse(dashboardId, out var id))
-        {
-            return BadRequest("Invalid dashboard ID");
-        }
-
-        var dashboard = dashboardService.GetDashboardById(id);
-        if (dashboard.HasNoValue)
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
         {
             return NotFound("Dashboard not found");
         }
 
-        if (dashboard.Value.UserId != CurrentUserId)
-        {
-            return Forbid();
-        }
-
-        if (!dashboard.Value.IsAiEnabled)
+        if (!dashboard.IsAiEnabled)
         {
             return BadRequest("AI is not enabled for this dashboard");
         }
 
-        var effectivePrompt = request?.Prompt ?? dashboard.Value.AiPrompt;
+        if (!HasEffectiveAiConfig(dashboard))
+        {
+            return BadRequest("AI is not configured. Set up an AI provider in Settings or the dashboard.");
+        }
+
+        var effectivePrompt = request?.Prompt ?? dashboard.AiPrompt;
         if (string.IsNullOrWhiteSpace(effectivePrompt))
         {
             return BadRequest("AI prompt is not configured for this dashboard");
         }
 
         var result = await aiGenerationService.GenerateAsync(
-            dashboard.Value, request?.Prompt, cancellationToken);
+            dashboard, request?.Prompt, cancellationToken);
 
         if (result.IsSuccess)
         {
             return Ok(new
             {
                 widgets = result.Value.Widgets,
-                generatedAt = dashboard.Value.LastAiGenerationTime,
+                generatedAt = dashboard.LastAiGenerationTime,
                 dataSummary = result.Value.DataSummary,
                 promptTokenEstimate = result.Value.PromptTokenEstimate
             });
@@ -116,69 +170,51 @@ public sealed class AiApiController(
     [HttpGet("dashboards/{dashboardId}/generated")]
     public IActionResult GetGeneratedWidgets(string dashboardId)
     {
-        if (!DashboardId.TryParse(dashboardId, out var id))
-        {
-            return BadRequest("Invalid dashboard ID");
-        }
-
-        var dashboard = dashboardService.GetDashboardById(id);
-        if (dashboard.HasNoValue)
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
         {
             return NotFound("Dashboard not found");
         }
 
-        if (dashboard.Value.UserId != CurrentUserId)
-        {
-            return Forbid();
-        }
-
         return Ok(new
         {
-            widgets = dashboard.Value.AiGeneratedWidgets ?? new List<WidgetConfig>(),
-            generatedAt = dashboard.Value.LastAiGenerationTime,
-            isAiEnabled = dashboard.Value.IsAiEnabled,
-            prompt = dashboard.Value.AiPrompt,
-            lastError = dashboard.Value.LastAiGenerationError
+            widgets = dashboard.AiGeneratedWidgets ?? new List<WidgetConfig>(),
+            generatedAt = dashboard.LastAiGenerationTime,
+            isAiEnabled = dashboard.IsAiEnabled,
+            prompt = dashboard.AiPrompt,
+            lastError = dashboard.LastAiGenerationError
         });
     }
 
     [HttpDelete("dashboards/{dashboardId}/generated")]
     public IActionResult ClearGeneratedWidgets(string dashboardId)
     {
-        if (!DashboardId.TryParse(dashboardId, out var id))
-        {
-            return BadRequest("Invalid dashboard ID");
-        }
-
-        var dashboard = dashboardService.GetDashboardById(id);
-        if (dashboard.HasNoValue)
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
         {
             return NotFound("Dashboard not found");
         }
 
-        if (dashboard.Value.UserId != CurrentUserId)
-        {
-            return Forbid();
-        }
-
-        dashboard.Value.AiGeneratedWidgets = null;
-        dashboard.Value.LastAiGenerationTime = null;
-        dashboardService.UpdateDashboard(dashboard.Value);
+        dashboard.AiGeneratedWidgets = null;
+        dashboard.LastAiGenerationTime = null;
+        dashboardService.UpdateDashboard(dashboard);
 
         return NoContent();
     }
 
-    [HttpGet("conversation-agents")]
-    public async Task<IActionResult> GetConversationAgents(CancellationToken cancellationToken)
+    [HttpGet("dashboards/{dashboardId}/conversation-agents")]
+    public async Task<IActionResult> GetConversationAgents(string dashboardId, CancellationToken cancellationToken)
     {
-        var dashboards = dashboardService.GetDashboardsForUser(CurrentUserId);
-        var dashboardId = dashboards
-            .Select(d => d.Id.ToString())
-            .FirstOrDefault(id => homeAssistantConnectionService.GetConnectionInfo(id).IsSuccess);
-
-        if (dashboardId is null)
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
         {
-            return BadRequest("No dashboard with a valid Home Assistant connection found. Please connect a dashboard to Home Assistant first.");
+            return NotFound("Dashboard not found");
+        }
+
+        var connectionInfo = homeAssistantConnectionService.GetConnectionInfo(dashboardId);
+        if (connectionInfo.IsFailure)
+        {
+            return BadRequest("This dashboard does not have a valid Home Assistant connection. Please configure Host and Access Token first.");
         }
 
         try
@@ -230,6 +266,55 @@ public sealed class AiApiController(
         {
             return BadRequest($"Failed to fetch conversation agents: {ex.Message}");
         }
+    }
+
+    private Dashboard? GetOwnedDashboard(string dashboardId)
+    {
+        if (!DashboardId.TryParse(dashboardId, out var id))
+        {
+            return null;
+        }
+
+        var dashboard = dashboardService.GetDashboardById(id);
+        if (dashboard.HasNoValue || dashboard.Value.UserId != CurrentUserId)
+        {
+            return null;
+        }
+
+        return dashboard.Value;
+    }
+
+    private void DisableAiOnDashboardsWithoutOverride(UserId userId)
+    {
+        var dashboards = dashboardService.GetDashboardsForUser(userId);
+        foreach (var dashboard in dashboards)
+        {
+            if (!dashboard.IsAiEnabled)
+            {
+                continue;
+            }
+
+            var hasOverride = dashboard.AiConfig != null
+                && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant;
+            if (!hasOverride)
+            {
+                dashboard.IsAiEnabled = false;
+                dashboardService.UpdateDashboard(dashboard);
+            }
+        }
+    }
+
+    private bool HasEffectiveAiConfig(Dashboard dashboard)
+    {
+        if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
+        {
+            return true;
+        }
+
+        var user = userService.GetUserById(dashboard.UserId);
+        return user.HasValue
+            && user.Value.AiConfig != null
+            && user.Value.AiConfig.ConnectionMode != AiConnectionMode.None;
     }
 }
 

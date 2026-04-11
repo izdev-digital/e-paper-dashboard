@@ -9,10 +9,11 @@
           <h2 class="mb-0">Dashboard Designer - {{ dashboard()?.name }}</h2>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <div class="ai-toggle-pill" [class.active]="aiEnabled()">
+          <div class="ai-toggle-pill" [class.active]="aiEnabled()" [title]="aiConfigMode() === 'None' ? 'Configure an AI provider in AI Config or dashboard settings first' : ''">
             <div class="form-check form-switch mb-0">
               <input class="form-check-input" type="checkbox" id="aiEnabledHeader" role="switch"
                 [checked]="aiEnabled()"
+                [disabled]="aiConfigMode() === 'None'"
                 (change)="onAiEnabledChange($any($event.target).checked)" />
               <label class="form-check-label" for="aiEnabledHeader">
                 <i class="fa fa-wand-magic-sparkles me-1"></i>AI
@@ -444,7 +445,7 @@
                 @if (aiConfigMode() === 'None') {
                   <div class="alert alert-warning py-2 small mb-3">
                     <i class="fa fa-triangle-exclamation me-1"></i>
-                    AI provider not configured. <a routerLink="/ai/config">Set up AI connection</a>
+                    AI provider not configured. <a routerLink="/ai/config">Set up global AI provider</a> or <a [routerLink]="['/dashboards', dashboardId, 'edit']">use a Home Assistant agent</a>
                   </div>
                 }
 

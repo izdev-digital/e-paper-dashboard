@@ -57,6 +57,8 @@ export interface Dashboard {
   aiLeadTimeMinutes?: number;
   lastAiGenerationTime?: string;
   lastAiGenerationError?: string;
+  aiConfig?: AiConfig;
+  effectiveAiConfigMode?: AiConnectionMode;
 }
 
 export interface CreateDashboardRequest {
@@ -83,6 +85,7 @@ export interface UpdateDashboardRequest {
   isAiEnabled?: boolean;
   aiPrompt?: string;
   aiLeadTimeMinutes?: number;
+  aiConfig?: AiConfig;
 }
 
 

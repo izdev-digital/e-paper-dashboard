@@ -37,6 +37,7 @@ public sealed class AiPreGenerationService(
         using var scope = serviceProvider.CreateScope();
         var dashboardService = scope.ServiceProvider.GetRequiredService<DashboardService>();
         var aiGenerationService = scope.ServiceProvider.GetRequiredService<AiDashboardGenerationService>();
+        var userService = scope.ServiceProvider.GetRequiredService<UserService>();
 
         var allDashboards = dashboardService.GetAllDashboards();
         var now = DateTimeOffset.Now;
@@ -49,6 +50,11 @@ public sealed class AiPreGenerationService(
             }
 
             if (!ShouldPreGenerate(dashboard, now))
+            {
+                continue;
+            }
+
+            if (!HasEffectiveAiConfig(dashboard, userService))
             {
                 continue;
             }
@@ -138,5 +144,18 @@ public sealed class AiPreGenerationService(
         if (diff.TotalMinutes < -720) // Handle midnight crossing
             diff = diff.Add(TimeSpan.FromHours(24));
         return diff.TotalMinutes;
+    }
+
+    private static bool HasEffectiveAiConfig(Dashboard dashboard, UserService userService)
+    {
+        if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
+        {
+            return true;
+        }
+
+        var user = userService.GetUserById(dashboard.UserId);
+        return user.HasValue
+            && user.Value.AiConfig != null
+            && user.Value.AiConfig.ConnectionMode != AiConnectionMode.None;
     }
 }

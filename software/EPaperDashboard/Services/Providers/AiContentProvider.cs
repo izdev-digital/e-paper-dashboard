@@ -31,15 +31,14 @@ public sealed class AiContentProvider(
             return Result.Failure<string, string>("Dashboard not found");
         }
 
-        var user = userService.GetUserById(dashboard.Value.UserId);
-        if (user.HasNoValue || user.Value.AiConfig == null
-            || user.Value.AiConfig.ConnectionMode == AiConnectionMode.None)
+        var effectiveConfig = ResolveAiConfig(dashboard.Value);
+        if (effectiveConfig == null || effectiveConfig.ConnectionMode == AiConnectionMode.None)
         {
             logger.LogWarning("AI not configured for dashboard {DashboardId}, skipping ai-content generation", dashboardId);
             return Result.Failure<string, string>("AI is not configured");
         }
 
-        var aiServiceResult = aiServiceFactory.Create(user.Value.AiConfig, dashboardId);
+        var aiServiceResult = aiServiceFactory.Create(effectiveConfig, dashboardId);
         if (aiServiceResult.IsFailure)
         {
             return Result.Failure<string, string>(aiServiceResult.Error);
@@ -47,5 +46,16 @@ public sealed class AiContentProvider(
 
         return await aiServiceResult.Value.GenerateCompletionAsync(
             SystemPrompt, prompt, cancellationToken);
+    }
+
+    private AiConfig? ResolveAiConfig(Dashboard dashboard)
+    {
+        if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
+        {
+            return dashboard.AiConfig;
+        }
+
+        var user = userService.GetUserById(dashboard.UserId);
+        return user.HasValue ? user.Value.AiConfig : null;
     }
 }

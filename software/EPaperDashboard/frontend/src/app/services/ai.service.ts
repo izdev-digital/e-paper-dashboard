@@ -9,16 +9,24 @@ import { AiConfig, AiGenerationResult, ConversationAgent } from '../models/types
 export class AiService {
   private readonly http = inject(HttpClient);
 
-  getConfig(): Observable<AiConfig> {
+  getGlobalConfig(): Observable<AiConfig> {
     return this.http.get<AiConfig>('/api/ai/config');
   }
 
-  updateConfig(config: AiConfig): Observable<AiConfig> {
+  updateGlobalConfig(config: AiConfig): Observable<AiConfig> {
     return this.http.put<AiConfig>('/api/ai/config', config);
   }
 
-  getConversationAgents(): Observable<ConversationAgent[]> {
-    return this.http.get<ConversationAgent[]>('/api/ai/conversation-agents');
+  getConfig(dashboardId: string): Observable<AiConfig> {
+    return this.http.get<AiConfig>(`/api/ai/dashboards/${dashboardId}/config`);
+  }
+
+  updateConfig(dashboardId: string, config: AiConfig): Observable<AiConfig> {
+    return this.http.put<AiConfig>(`/api/ai/dashboards/${dashboardId}/config`, config);
+  }
+
+  getConversationAgents(dashboardId: string): Observable<ConversationAgent[]> {
+    return this.http.get<ConversationAgent[]>(`/api/ai/dashboards/${dashboardId}/conversation-agents`);
   }
 
   generateDashboard(dashboardId: string, prompt?: string): Observable<AiGenerationResult> {

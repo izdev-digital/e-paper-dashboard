@@ -20,19 +20,13 @@ public sealed class AiDashboardGenerationService(
         string? promptOverride = null,
         CancellationToken cancellationToken = default)
     {
-        var userMaybe = userService.GetUserById(dashboard.UserId);
-        if (userMaybe.HasNoValue)
+        var effectiveConfig = ResolveAiConfig(dashboard);
+        if (effectiveConfig == null || effectiveConfig.ConnectionMode == AiConnectionMode.None)
         {
-            return StoreError(dashboard, "Dashboard owner not found");
+            return StoreError(dashboard, "AI is not configured. Set up an AI connection in Settings or the dashboard.");
         }
 
-        var user = userMaybe.Value;
-        if (user.AiConfig == null || user.AiConfig.ConnectionMode == AiConnectionMode.None)
-        {
-            return StoreError(dashboard, "AI is not configured. Set up an AI connection in user settings.");
-        }
-
-        var aiServiceResult = aiServiceFactory.Create(user.AiConfig, dashboard.Id.ToString());
+        var aiServiceResult = aiServiceFactory.Create(effectiveConfig, dashboard.Id.ToString());
         if (aiServiceResult.IsFailure)
         {
             return StoreError(dashboard, aiServiceResult.Error);
@@ -168,5 +162,16 @@ public sealed class AiDashboardGenerationService(
             TitleFontWeight = 700,
             TextFontWeight = 400
         };
+    }
+
+    private AiConfig? ResolveAiConfig(Dashboard dashboard)
+    {
+        if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
+        {
+            return dashboard.AiConfig;
+        }
+
+        var user = userService.GetUserById(dashboard.UserId);
+        return user.HasValue ? user.Value.AiConfig : null;
     }
 }

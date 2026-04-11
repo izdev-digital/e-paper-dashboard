@@ -189,15 +189,13 @@ export class DashboardDesignerComponent implements OnInit {
         this.loadAiGeneratedWidgets();
 
         // Initialize AI settings from dashboard
-        this.aiEnabled.set(dashboard.isAiEnabled ?? false);
         this.aiPrompt.set(dashboard.aiPrompt ?? '');
         this.aiLeadTimeMinutes.set(dashboard.aiLeadTimeMinutes ?? 5);
 
-        // Load AI config mode
-        this.aiService.getConfig().subscribe({
-          next: (config) => this.aiConfigMode.set(config.connectionMode ?? 'None'),
-          error: () => this.aiConfigMode.set('None')
-        });
+        // Resolve effective AI config mode from backend (already resolved server-side)
+        const effectiveMode = dashboard.effectiveAiConfigMode ?? 'None';
+        this.aiConfigMode.set(effectiveMode);
+        this.aiEnabled.set(effectiveMode !== 'None' && (dashboard.isAiEnabled ?? false));
       },
       error: (err) => {
         this.toastService.show('Failed to load dashboard', 'error');
@@ -1434,6 +1432,10 @@ export class DashboardDesignerComponent implements OnInit {
 
   // AI settings methods
   onAiEnabledChange(enabled: boolean): void {
+    if (enabled && this.aiConfigMode() === 'None') {
+      this.aiEnabled.set(false);
+      return;
+    }
     this.aiEnabled.set(enabled);
     if (!enabled) {
       this.aiGeneratedWidgets.set([]);

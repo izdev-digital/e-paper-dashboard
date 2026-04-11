@@ -4,7 +4,7 @@
       <h2 class="mb-0">AI Configuration</h2>
     </div>
 
-    <p class="text-muted">Configure the AI provider used to generate dashboard content. This setting applies to all your dashboards.</p>
+    <p class="text-muted">Configure the default AI provider used across all your dashboards. Individual dashboards can override this with a Home Assistant conversation agent.</p>
 
     @if (isLoading()) {
       <div class="text-center py-5">
@@ -24,9 +24,8 @@
                 [ngModelOptions]="{standalone: true}">
                 <option value="None">None (AI disabled)</option>
                 <option value="Direct">Direct (OpenAI-compatible API)</option>
-                <option value="HomeAssistant">Home Assistant Conversation Agent</option>
               </select>
-              <small class="form-text text-muted">Choose how to connect to an AI model</small>
+              <small class="form-text text-muted">Choose a default AI provider. To use a Home Assistant conversation agent, configure it on the individual dashboard.</small>
             </div>
 
             @if (aiConfig().connectionMode === 'Direct') {
@@ -56,57 +55,16 @@
               </div>
             }
 
-            @if (aiConfig().connectionMode === 'HomeAssistant') {
-              <hr>
-              <h5 class="mb-3">Home Assistant Settings</h5>
-              <div class="mb-3">
-                <label class="form-label">Conversation Agent</label>
-                @if (isLoadingAgents()) {
-                  <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span class="text-muted">Loading agents...</span>
-                  </div>
-                } @else {
-                  <select class="form-select"
-                    [ngModel]="aiConfig().homeAssistantAgentId || ''"
-                    (ngModelChange)="updateField('homeAssistantAgentId', $event)"
-                    [ngModelOptions]="{standalone: true}">
-                    <option value="">Default conversation agent</option>
-                    @for (agent of conversationAgents(); track agent.id) {
-                      <option [value]="agent.id">{{ agent.name }}</option>
-                    }
-                  </select>
-                  @if (conversationAgents().length === 0) {
-                    <small class="form-text text-muted">No agents found. Make sure a dashboard is connected to Home Assistant.</small>
-                  } @else {
-                    <small class="form-text text-muted">Select a conversation agent or leave as default</small>
-                  }
-                }
-              </div>
-            }
-
-            @if (aiConfig().connectionMode !== 'None') {
-              <hr>
-              <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
-                @if (isSaving()) {
-                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                }
-                Save AI Configuration
-              </button>
-            }
+            <hr>
+            <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+              @if (isSaving()) {
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              }
+              Save AI Configuration
+            </button>
           </form>
         </div>
       </div>
-
-      @if (aiConfig().connectionMode !== 'None') {
-        <div class="mt-4">
-          <h5>Next Steps</h5>
-          <p class="text-muted">
-            Once your AI connection is configured, open the <strong>Dashboard Designer</strong> for any Custom dashboard
-            and enable the <strong>AI</strong> toggle in the header to configure prompts and generate content.
-          </p>
-        </div>
-      }
     }
   </div>
 </div>
