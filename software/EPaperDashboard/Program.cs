@@ -93,6 +93,7 @@ builder.Services.AddSwaggerGen(options =>
 #endif
 
 builder.Services
+	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
@@ -116,7 +117,24 @@ builder.Services
 	.AddSingleton<IAiContentProvider, AiContentProvider>()
 	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
 	.AddSingleton<FontAwesomeIconRegistry>()
+	.AddSingleton<RenderingUtilities>(sp =>
+		RenderingUtilities.Create(
+			sp.GetRequiredService<IWebHostEnvironment>(),
+			sp.GetRequiredService<FontAwesomeIconRegistry>()))
 	.AddSingleton<DashboardImageRenderingService>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.HeaderWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.CalendarWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.WeatherWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.WeatherForecastWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.TodoWidgetRenderer>()
+	.AddSingleton<EPaperDashboard.Services.Rendering.Widgets.MarkdownWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer>(sp => sp.GetRequiredService<EPaperDashboard.Services.Rendering.Widgets.MarkdownWidgetRenderer>())
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.AiContentWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.RssFeedWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.VersionWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.AppIconWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.ImageWidgetRenderer>()
+	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.GraphWidgetRenderer>()
 	.AddSingleton<IAiServiceFactory, AiServiceFactory>()
 	.AddSingleton<AiPromptBuilder>()
 	.AddSingleton<AiDataFetcher>()
@@ -144,6 +162,10 @@ if (EnvironmentConfiguration.FirmwareUpdateEnabled)
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
+builder.Services.AddHttpClient(Constants.SsrImageHttpClientName, client =>
+{
+	client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddHttpClient(Constants.FirmwareHttpClientName, client =>
 {
 	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");

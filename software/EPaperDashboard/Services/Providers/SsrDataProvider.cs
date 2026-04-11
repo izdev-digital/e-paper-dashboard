@@ -26,16 +26,17 @@ public sealed class SsrDataProvider(
     private readonly IAiContentProvider _aiContentProvider = aiContentProvider;
     private readonly ILogger<SsrDataProvider> _logger = logger;
 
-    public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout)
+    public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout, CancellationToken cancellationToken = default)
     {
         var data = new SsrData();
 
         // Collect all entity IDs needed across all widgets
         var entityIds = CollectEntityIds(layout);
 
-        // Fetch all entity states in one call
+        // Fetch all entity states first — other providers may depend on them
         if (entityIds.Count > 0)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var statesResult = await _entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds.ToArray());
             if (statesResult.IsSuccess)
             {
@@ -48,117 +49,173 @@ public sealed class SsrDataProvider(
             }
         }
 
-        // Fetch todo items per widget
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "todo"))
-        {
-            var entityId = GetStringProp(widget.Config, "entityId");
-            if (!string.IsNullOrEmpty(entityId))
-            {
-                var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
-                if (result.IsSuccess) data.TodoItems[entityId] = result.Value;
-            }
-        }
+        // Fetch remaining data sources in parallel
+        var tasks = new List<Task>();
 
-        // Fetch calendar events per widget
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "calendar"))
-        {
-            var entityId = GetStringProp(widget.Config, "entityId");
-            if (!string.IsNullOrEmpty(entityId))
-            {
-                var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
-                if (result.IsSuccess) data.CalendarEvents[entityId] = result.Value;
-            }
-        }
+        // Single-pass grouping instead of scanning widgets 6 times
+        var widgetsByType = layout.Widgets
+            .GroupBy(w => w.Type)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Fetch weather forecasts per widget
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "weather-forecast"))
+        if (widgetsByType.TryGetValue("todo", out var todoWidgets))
         {
-            var entityId = GetStringProp(widget.Config, "entityId");
-            var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
-            var forecastType = forecastMode == "hourly" ? "hourly" : "daily";
-            if (!string.IsNullOrEmpty(entityId))
+            foreach (var widget in todoWidgets)
             {
-                var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
-                if (result.IsSuccess
-                    && result.Value.TryGetValue("forecast", out var forecastVal)
-                    && forecastVal is List<object?> forecastList)
+                var entityId = GetStringProp(widget.Config, "entityId");
+                if (!string.IsNullOrEmpty(entityId))
                 {
-                    data.WeatherForecasts[entityId] = forecastList;
+                    tasks.Add(FetchTodoAsync(dashboardId, entityId, data));
                 }
             }
         }
 
-        // Fetch RSS feed entries per widget
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "rss-feed"))
+        if (widgetsByType.TryGetValue("calendar", out var calendarWidgets))
         {
-            var entityId = GetStringProp(widget.Config, "entityId");
-            if (!string.IsNullOrEmpty(entityId))
+            foreach (var widget in calendarWidgets)
             {
-                var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
-                if (result.IsSuccess)
+                var entityId = GetStringProp(widget.Config, "entityId");
+                if (!string.IsNullOrEmpty(entityId))
                 {
-                    data.RssFeedEntries[entityId] = result.Value;
-                    _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
-                }
-                else
-                {
-                    _logger.LogWarning("SSR: Failed to fetch RSS entries for {EntityId}: {Error}", entityId, result.Error);
+                    tasks.Add(FetchCalendarAsync(dashboardId, entityId, data));
                 }
             }
         }
 
-        // Fetch entity history for graph widgets
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "graph"))
+        if (widgetsByType.TryGetValue("weather-forecast", out var forecastWidgets))
         {
-            if (widget.Config.TryGetProperty("series", out var series) && series.ValueKind == JsonValueKind.Array)
+            foreach (var widget in forecastWidgets)
             {
-                var graphEntityIds = series.EnumerateArray()
-                    .Select(s => GetStringProp(s, "entityId"))
-                    .Where(id => !string.IsNullOrEmpty(id))
-                    .Cast<string>()
-                    .ToList();
-
-                if (graphEntityIds.Count > 0)
+                var entityId = GetStringProp(widget.Config, "entityId");
+                var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
+                var forecastType = forecastMode == "hourly" ? "hourly" : "daily";
+                if (!string.IsNullOrEmpty(entityId))
                 {
-                    var periodStr = GetStringProp(widget.Config, "period") ?? "24h";
-                    var hours = periodStr switch
+                    tasks.Add(FetchWeatherAsync(dashboardId, entityId, forecastType, data));
+                }
+            }
+        }
+
+        if (widgetsByType.TryGetValue("rss-feed", out var rssWidgets))
+        {
+            foreach (var widget in rssWidgets)
+            {
+                var entityId = GetStringProp(widget.Config, "entityId");
+                if (!string.IsNullOrEmpty(entityId))
+                {
+                    tasks.Add(FetchRssAsync(dashboardId, entityId, data));
+                }
+            }
+        }
+
+        if (widgetsByType.TryGetValue("graph", out var graphWidgets))
+        {
+            foreach (var widget in graphWidgets)
+            {
+                if (widget.Config.TryGetProperty("series", out var series) && series.ValueKind == JsonValueKind.Array)
+                {
+                    var graphEntityIds = series.EnumerateArray()
+                        .Select(s => GetStringProp(s, "entityId"))
+                        .Where(id => !string.IsNullOrEmpty(id))
+                        .Cast<string>()
+                        .ToList();
+
+                    if (graphEntityIds.Count > 0)
                     {
-                        "1h" => 1,
-                        "6h" => 6,
-                        "24h" => 24,
-                        "7d" => 168,
-                        "30d" => 720,
-                        _ => 24
-                    };
+                        var periodStr = GetStringProp(widget.Config, "period") ?? "24h";
+                        var hours = periodStr switch
+                        {
+                            "1h" => 1,
+                            "6h" => 6,
+                            "24h" => 24,
+                            "7d" => 168,
+                            "30d" => 720,
+                            _ => 24
+                        };
 
-                    var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, graphEntityIds, hours);
-                    if (result.IsSuccess)
-                    {
-                        foreach (var (entityId, states) in result.Value)
-                            data.HistoryData[entityId] = states;
+                        tasks.Add(FetchGraphHistoryAsync(dashboardId, graphEntityIds, hours, data));
                     }
                 }
             }
         }
 
-        foreach (var widget in layout.Widgets.Where(w => w.Type == "ai-content"))
+        if (widgetsByType.TryGetValue("ai-content", out var aiWidgets))
         {
-            var prompt = GetStringProp(widget.Config, "prompt");
-            if (!string.IsNullOrWhiteSpace(prompt))
+            foreach (var widget in aiWidgets)
             {
-                var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
-                if (result.IsSuccess)
+                var prompt = GetStringProp(widget.Config, "prompt");
+                if (!string.IsNullOrWhiteSpace(prompt))
                 {
-                    data.AiContent[widget.Id] = result.Value;
-                }
-                else
-                {
-                    _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widget.Id, result.Error);
+                    var widgetId = widget.Id;
+                    tasks.Add(FetchAiContentAsync(dashboardId, widgetId, prompt, data));
                 }
             }
         }
 
+        await Task.WhenAll(tasks);
+
         return data;
+    }
+
+    private async Task FetchTodoAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
+        if (result.IsSuccess)
+            data.TodoItems[entityId] = result.Value;
+    }
+
+    private async Task FetchCalendarAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
+        if (result.IsSuccess)
+            data.CalendarEvents[entityId] = result.Value;
+    }
+
+    private async Task FetchWeatherAsync(string dashboardId, string entityId, string forecastType, SsrData data)
+    {
+        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
+        if (result.IsSuccess
+            && result.Value.TryGetValue("forecast", out var forecastVal)
+            && forecastVal is List<object?> forecastList)
+        {
+            data.WeatherForecasts[entityId] = forecastList;
+        }
+    }
+
+    private async Task FetchRssAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
+        if (result.IsSuccess)
+        {
+            data.RssFeedEntries[entityId] = result.Value;
+            _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
+        }
+        else
+        {
+            _logger.LogWarning("SSR: Failed to fetch RSS entries for {EntityId}: {Error}", entityId, result.Error);
+        }
+    }
+
+    private async Task FetchGraphHistoryAsync(string dashboardId, List<string> entityIds, int hours, SsrData data)
+    {
+        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, entityIds, hours);
+        if (result.IsSuccess)
+        {
+            foreach (var (entityId, states) in result.Value)
+                data.HistoryData[entityId] = states;
+        }
+    }
+
+    private async Task FetchAiContentAsync(string dashboardId, string widgetId, string prompt, SsrData data)
+    {
+        var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
+        if (result.IsSuccess)
+        {
+            data.AiContent[widgetId] = result.Value;
+        }
+        else
+        {
+            _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widgetId, result.Error);
+        }
     }
 
     // =============================================

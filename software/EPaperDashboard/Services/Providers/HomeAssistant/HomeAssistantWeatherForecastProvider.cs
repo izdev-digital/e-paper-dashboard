@@ -120,7 +120,7 @@ public class HomeAssistantWeatherForecastProvider(
                 _logger.LogWarning("Weather forecast fetch returned unsuccessful response. Response was: {Response}", response);
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return forecastData;
         }
         catch (WebSocketException)
@@ -188,7 +188,7 @@ public class HomeAssistantWeatherForecastProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
         catch (Exception ex)

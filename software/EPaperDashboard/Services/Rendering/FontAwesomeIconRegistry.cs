@@ -1,4 +1,8 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
+using EPaperDashboard.Utilities;
+using SixLabors.ImageSharp.Drawing;
+using IOPath = System.IO.Path;
 
 namespace EPaperDashboard.Services.Rendering;
 
@@ -10,6 +14,7 @@ namespace EPaperDashboard.Services.Rendering;
 public sealed class FontAwesomeIconRegistry
 {
     private readonly Dictionary<string, IconEntry> _icons;
+    private readonly ConcurrentDictionary<string, IPath?> _parsedPathCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger<FontAwesomeIconRegistry> _logger;
 
     public record IconEntry(string Path, float VbW, float VbH);
@@ -39,17 +44,34 @@ public sealed class FontAwesomeIconRegistry
     /// <summary>Total number of icons available in the registry.</summary>
     public int Count => _icons.Count;
 
+    /// <summary>
+    /// Returns the pre-parsed <see cref="IPath"/> for the given icon entry,
+    /// caching the result for subsequent calls.
+    /// </summary>
+    public IPath? GetParsedPath(string key, IconEntry entry)
+    {
+        return _parsedPathCache.GetOrAdd(key, _ =>
+        {
+            try
+            {
+                var path = SvgPathParser.Parse(entry.Path);
+                return path.Bounds.Width >= 0.1f && path.Bounds.Height >= 0.1f ? path : null;
+            }
+            catch { return null; }
+        });
+    }
+
     private Dictionary<string, IconEntry> LoadIcons(IWebHostEnvironment env)
     {
         var icons = new Dictionary<string, IconEntry>(StringComparer.OrdinalIgnoreCase);
 
         // The Angular build outputs to wwwroot/browser/ and copies public/ assets there.
-        var jsonPath = Path.Combine(env.WebRootPath ?? "", "browser", "fa-icons.json");
+        var jsonPath = IOPath.Combine(env.WebRootPath ?? "", "browser", "fa-icons.json");
 
         if (!File.Exists(jsonPath))
         {
             // Fallback: try directly in wwwroot (development proxy scenario)
-            jsonPath = Path.Combine(env.WebRootPath ?? "", "fa-icons.json");
+            jsonPath = IOPath.Combine(env.WebRootPath ?? "", "fa-icons.json");
         }
 
         if (!File.Exists(jsonPath))

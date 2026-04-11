@@ -9,9 +9,11 @@ namespace EPaperDashboard.Services.Providers.HomeAssistant;
 /// </summary>
 public class HomeAssistantEntityHistoryProvider(
     HomeAssistantConnectionService connection,
+    IHttpClientFactory httpClientFactory,
     ILogger<HomeAssistantEntityHistoryProvider> logger) : IEntityHistoryProvider
 {
     private readonly HomeAssistantConnectionService _connection = connection;
+    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly ILogger<HomeAssistantEntityHistoryProvider> _logger = logger;
 
     public async Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistoryAsync(string dashboardId, IEnumerable<string> entityIds, int hours = 24)
@@ -28,7 +30,7 @@ public class HomeAssistantEntityHistoryProvider(
 
         try
         {
-            using var httpClient = new HttpClient();
+            using var httpClient = _httpClientFactory.CreateClient(Utilities.Constants.HassHttpClientName);
             httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
 
             var entityIdParams = string.Join("&", requestedIds.Select(id => $"filter_entity_id={Uri.EscapeDataString(id)}"));
@@ -37,7 +39,7 @@ public class HomeAssistantEntityHistoryProvider(
 
             var url = $"{hostUrl}/api/history/period/{startTime}?{entityIdParams}&end_time={endTime}";
 
-            var response = await httpClient.GetAsync(url);
+            using var response = await httpClient.GetAsync(url);
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();

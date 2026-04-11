@@ -102,7 +102,7 @@ public class HomeAssistantTodoDataProvider(
                 _logger.LogWarning("Todo items fetch returned unsuccessful response or missing result property. Response was: {Response}", response);
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return items;
         }
         catch (WebSocketException)
@@ -173,7 +173,7 @@ public class HomeAssistantTodoDataProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
         catch (Exception ex)

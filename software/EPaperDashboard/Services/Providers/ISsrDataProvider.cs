@@ -13,5 +13,5 @@ public interface ISsrDataProvider
     /// Fetches all data needed to render a dashboard layout.
     /// Delegates to per-widget providers (entity states, todo, calendar, weather, RSS, history).
     /// </summary>
-    Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout);
+    Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout, CancellationToken cancellationToken = default);
 }

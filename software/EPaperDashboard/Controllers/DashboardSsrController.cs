@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
-using System.Text.Json;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Models;
@@ -51,81 +49,14 @@ public class DashboardSsrController(
 
         try
         {
-            var layoutToRender = GetMergedLayoutConfig(dashboard.Value);
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            };
-            var layoutConfigJson = System.Text.Json.JsonSerializer.Serialize(layoutToRender, serializerOptions);
+            var layoutToRender = dashboard.Value.GetMergedLayoutConfig();
 
-            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
+            using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
-                layoutConfigJson);
+                layoutToRender,
+                HttpContext.RequestAborted);
 
-            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
-
-            var (contentType, encoder) = GetEncoder(format);
-            return await ConvertToResult(image, encoder, contentType);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Renders a preview of the dashboard. Supports both Custom (ImageSharp) and
-    /// HomeAssistant (Playwright) rendering modes. Protected by cookie auth.
-    /// </summary>
-    [HttpGet("{id}/preview")]
-    public async Task<IActionResult> PreviewDashboard(
-        string id,
-        [FromQuery] string format = "png")
-    {
-        if (!DashboardId.TryParse(id, out var dashboardId))
-            return BadRequest("Invalid dashboard ID");
-
-        var dashboard = dashboardService.GetDashboardById(dashboardId);
-        if (dashboard.HasNoValue)
-            return NotFound("Dashboard not found");
-
-        if (dashboard.Value.UserId != CurrentUserId)
-            return Forbid();
-
-        var (width, height) = dashboard.Value.GetEffectiveSize();
-        var imageSize = new Size(width, height);
-
-        if (dashboard.Value.RenderingMode == RenderingMode.Custom)
-        {
-            return await RenderCustomPreview(dashboard.Value, imageSize, format);
-        }
-        else
-        {
-            return await RenderHomeAssistantPreview(dashboard.Value, imageSize, format);
-        }
-    }
-
-    private async Task<IActionResult> RenderCustomPreview(Dashboard dashboard, Size imageSize, string format)
-    {
-        if (dashboard.LayoutConfig == null)
-            return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
-
-        try
-        {
-            var layoutToRender = GetMergedLayoutConfig(dashboard);
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = false
-            };
-            var layoutConfigJson = JsonSerializer.Serialize(layoutToRender, serializerOptions);
-
-            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
-                dashboard.Id.ToString(),
-                layoutConfigJson);
-
-            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+            using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 
             var (contentType, encoder) = GetEncoder(format);
             return await ConvertToResult(image, encoder, contentType);
@@ -134,31 +65,6 @@ public class DashboardSsrController(
         {
             return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
         }
-    }
-
-    private static Models.LayoutConfig GetMergedLayoutConfig(Dashboard dashboard)
-    {
-        var layout = dashboard.LayoutConfig!;
-        if (!dashboard.IsAiEnabled || dashboard.AiGeneratedWidgets is not { Count: > 0 })
-            return layout;
-
-        return new Models.LayoutConfig
-        {
-            Width = layout.Width,
-            Height = layout.Height,
-            GridCols = layout.GridCols,
-            GridRows = layout.GridRows,
-            ColorScheme = layout.ColorScheme,
-            Widgets = new List<WidgetConfig>(layout.Widgets).Concat(dashboard.AiGeneratedWidgets).ToList(),
-            CanvasPadding = layout.CanvasPadding,
-            WidgetGap = layout.WidgetGap,
-            WidgetBorder = layout.WidgetBorder,
-            WidgetPadding = layout.WidgetPadding,
-            TitleFontSize = layout.TitleFontSize,
-            TextFontSize = layout.TextFontSize,
-            TitleFontWeight = layout.TitleFontWeight,
-            TextFontWeight = layout.TextFontWeight
-        };
     }
 
     private async Task<IActionResult> RenderHomeAssistantPreview(Dashboard dashboard, Size imageSize, string format)

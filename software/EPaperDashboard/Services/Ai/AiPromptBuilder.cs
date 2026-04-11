@@ -16,7 +16,7 @@ public sealed class AiPromptBuilder
     {
         var systemPrompt = BuildSystemPrompt(layoutConfig);
         var userPrompt = BuildUserPrompt(
-            dashboard, entityStates, todoItems, calendarEvents, weatherForecasts, rssFeedEntries);
+            dashboard, layoutConfig, entityStates, todoItems, calendarEvents, weatherForecasts, rssFeedEntries);
 
         return (systemPrompt, userPrompt);
     }
@@ -46,9 +46,12 @@ public sealed class AiPromptBuilder
             Data: Badge entityId must be a sensor/binary_sensor from Available Data. Shows state + unit.
 
             ### markdown
-            Free-form text using basic markdown.
+            Free-form text rendered as markdown.
             Config: {"content": "Your text here" (REQUIRED)}
-            Supports: headings (#-####), **bold**, *italic*, lists (-, 1.), blockquotes (>), horizontal rules (---).
+            Supported syntax: headings (#-####), **bold**, *italic*, ~~strikethrough~~, lists (-, 1., nested), task lists (- [ ], - [x]), blockquotes (>), horizontal rules (---), fenced code blocks (```).
+            Inline Font Awesome solid icons: use :fa-icon-name: syntax (e.g. :fa-sun: :fa-house: :fa-calendar: :fa-check:).
+            Images (![alt](url)) are NOT supported — use :fa-icon: icons for visual elements instead.
+            HTML tags are NOT supported and will be stripped — use only markdown syntax.
             Content MUST NOT be empty — write meaningful, concise text. Good for summaries, greetings, quotes, advice.
 
             ### calendar
@@ -94,11 +97,14 @@ public sealed class AiPromptBuilder
             - Be selective — a focused dashboard is better than a cluttered one
             - Use markdown widgets for AI-generated text (summaries, advice, greetings)
             - Do NOT include position or size — the server handles layout
+            - Do NOT include a header widget if one already exists on the dashboard
+            - Do NOT include an app-icon widget unless the user explicitly requests it
             """;
     }
 
     private static string BuildUserPrompt(
         Dashboard dashboard,
+        LayoutConfig layoutConfig,
         Dictionary<string, HassEntityState> entityStates,
         Dictionary<string, List<TodoItem>> todoItems,
         Dictionary<string, List<CalendarEvent>> calendarEvents,
@@ -110,6 +116,14 @@ public sealed class AiPromptBuilder
 
         sb.AppendLine($"Current date/time: {now:dddd, MMMM d, yyyy h:mm tt}");
         sb.AppendLine();
+
+        // Tell the AI if a header widget already exists so it doesn't add another
+        if (layoutConfig.Widgets?.Any(w => string.Equals(w.Type, "header", StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            sb.AppendLine("NOTE: A header widget already exists on this dashboard. Do NOT add another header.");
+            sb.AppendLine();
+        }
+
         sb.AppendLine("## User Request");
         sb.AppendLine(dashboard.AiPrompt ?? "Create a useful dashboard with the available data.");
         sb.AppendLine();
