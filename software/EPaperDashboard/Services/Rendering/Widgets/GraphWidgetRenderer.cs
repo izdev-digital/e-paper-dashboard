@@ -85,12 +85,20 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var timeRange = (maxTime - minTime).TotalSeconds;
         if (timeRange < 1) timeRange = 1;
 
+        // Reserve space for legend below X-axis labels when multiple series exist
+        var showLegend = seriesList.Count > 1;
+        var legendBoxSize = 8f;
+        var legendPadding = 8f;
+        var legendRowHeight = showLegend ? legendBoxSize + 6 : 0f;
+
         var padL = Math.Max(35, textFontSize * 4);
         var padR = 10f;
-        var padT = 10f;
-        var padB = Math.Max(20, textFontSize + 10);
+        var padT = 8f;
+        var xAxisLabelHeight = Math.Max(16, textFontSize + 4);
+        var padB = xAxisLabelHeight + legendRowHeight + 4;
         var plotW = contentRect.Width - padL - padR;
         var plotH = contentRect.Height - padT - padB;
+        if (plotW <= 0 || plotH <= 0) return Task.CompletedTask;
         var originX = contentRect.X + padL;
         var originY = contentRect.Y + padT;
 
@@ -117,12 +125,13 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
                 new PointF(originX + plotW, originY + plotH));
         });
 
-        // X axis labels
+        // X axis labels — positioned just below the plot area
+        var xLabelY = originY + plotH + 3;
         for (int i = 0; i <= 4; i++)
         {
             var t = minTime.AddSeconds(timeRange * i / 4.0);
             var x = originX + plotW * i / 4f;
-            var labelRect = new RectangleF(x - 20, originY + plotH + 4, 40, textFontSize + 4);
+            var labelRect = new RectangleF(x - 20, xLabelY, 40, xAxisLabelHeight);
             utils.DrawTextCentered(image, t.ToString("HH:mm"), labelFont, textColor, labelRect);
         }
 
@@ -172,13 +181,12 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
             }
         }
 
-        // Legend — match Chart.js: display when >1 series, font size 10, boxWidth 8, padding 8
-        if (seriesList.Count > 1)
+        // Legend — positioned below X-axis labels, within content bounds
+        if (showLegend)
         {
             var legendFont = utils.GetFont(Math.Max(8, textFontSize - 2));
-            var legendY = originY + plotH + padB - 2;
-            var legendBoxSize = 8f;
-            var legendPadding = 8f;
+            // Place legend at the bottom of contentRect, leaving 2px margin
+            var legendY = contentRect.Y + contentRect.Height - legendBoxSize - 2;
 
             var legendItems = seriesList.Select(s =>
             {
@@ -186,7 +194,8 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
                 return (s.Label, s.Color, LabelWidth: labelWidth);
             }).ToList();
             var totalLegendWidth = legendItems.Sum(l => legendBoxSize + 4 + l.LabelWidth + legendPadding) - legendPadding;
-            var legendX = originX + (plotW - totalLegendWidth) / 2f;
+            // Clamp legend to contentRect width
+            var legendX = originX + Math.Max(0, (plotW - totalLegendWidth) / 2f);
 
             foreach (var (lLabel, lColor, lWidth) in legendItems)
             {
