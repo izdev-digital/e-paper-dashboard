@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Numerics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using EPaperDashboard.Models.Rendering;
@@ -19,6 +18,9 @@ namespace EPaperDashboard.Services.Rendering;
 
 /// <summary>
 /// Shared drawing utilities used by widget renderers and the main rendering service.
+/// Font management, FA icon drawing, inline-icon text, JSON helpers, and layout utilities.
+/// Color helpers live in <see cref="ColorUtils"/>, text drawing in <see cref="TextDrawing"/>,
+/// app-icon drawing in <see cref="IconDrawing"/>, and markdown helpers in <see cref="MarkdownHelpers"/>.
 /// </summary>
 public sealed class RenderingUtilities
 {
@@ -32,10 +34,6 @@ public sealed class RenderingUtilities
         _iconRegistry = iconRegistry;
     }
 
-    /// <summary>
-    /// Creates a <see cref="RenderingUtilities"/> instance using the web root fonts
-    /// and the given icon registry. Used for DI factory registration.
-    /// </summary>
     public static RenderingUtilities Create(IWebHostEnvironment env, FontAwesomeIconRegistry iconRegistry)
     {
         var fontFamily = LoadFontFamily(env.WebRootPath);
@@ -95,31 +93,38 @@ public sealed class RenderingUtilities
     }
 
     // =============================================
-    // COLOR HELPERS
+    // FA ICON DRAWING
     // =============================================
 
-    public static Color ParseColor(string hex)
+    public void DrawFaIcon(Image<Rgba32> image, string? iconClass, Color color, RectangleF bounds)
     {
-        if (string.IsNullOrEmpty(hex))
-            return Color.Black;
-        try { return Color.ParseHex(hex); }
-        catch { return Color.Black; }
-    }
+        if (string.IsNullOrEmpty(iconClass) || bounds.Width <= 0 || bounds.Height <= 0)
+            return;
 
-    public static Color WithOpacity(Color color, float opacity)
-    {
-        var p = color.ToPixel<Rgba32>();
-        return new Color(new Rgba32(p.R, p.G, p.B, (byte)(p.A * Math.Clamp(opacity, 0f, 1f))));
-    }
+        if (!_iconRegistry.TryGetIcon(iconClass, out var entry))
+            return;
 
-    public static Color ResolveWidgetColor(
-        WidgetConfigEntry widget,
-        LayoutConfig layout,
-        Func<ColorSchemeConfig, string> schemeSelector,
-        Func<WidgetColorOverridesConfig?, string?> overrideSelector)
-    {
-        var hex = overrideSelector(widget.ColorOverrides) ?? schemeSelector(layout.ColorScheme);
-        return ParseColor(hex);
+        try
+        {
+            var path = SvgPathParser.Parse(entry.Path);
+            var pathBounds = path.Bounds;
+            if (pathBounds.Width < 0.1f || pathBounds.Height < 0.1f)
+                return;
+
+            var scale = Math.Min(bounds.Width / entry.VbW, bounds.Height / entry.VbH);
+            var offsetX = bounds.X + (bounds.Width - entry.VbW * scale) / 2f;
+            var offsetY = bounds.Y + (bounds.Height - entry.VbH * scale) / 2f;
+
+            var matrix = System.Numerics.Matrix3x2.CreateScale(scale) *
+                         System.Numerics.Matrix3x2.CreateTranslation(offsetX, offsetY);
+
+            var transformed = path.Transform(matrix);
+            image.Mutate(ctx => ctx.Fill(color, transformed));
+        }
+        catch
+        {
+            // Silently ignore icon rendering failures
+        }
     }
 
     // =============================================
@@ -170,200 +175,6 @@ public sealed class RenderingUtilities
     }
 
     // =============================================
-    // TEXT DRAWING HELPERS
-    // =============================================
-
-    public void DrawTextEllipsis(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds)
-    {
-        if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0)
-            return;
-
-        var measuredSize = TextMeasurer.MeasureSize(text, new TextOptions(font));
-
-        if (measuredSize.Width <= bounds.Width)
-        {
-            var y = bounds.Y + (bounds.Height - measuredSize.Height) / 2f;
-            image.Mutate(ctx => ctx.DrawText(text, font, color, new PointF(bounds.X, y)));
-            return;
-        }
-
-        var ellipsis = "…";
-        var ellipsisSize = TextMeasurer.MeasureSize(ellipsis, new TextOptions(font));
-        var availableWidth = bounds.Width - ellipsisSize.Width;
-
-        if (availableWidth <= 0)
-        {
-            var cy = bounds.Y + (bounds.Height - measuredSize.Height) / 2f;
-            image.Mutate(ctx => ctx.DrawText(
-                new RichTextOptions(font)
-                {
-                    Origin = new PointF(bounds.X, cy),
-                    WrappingLength = bounds.Width,
-                    WordBreaking = WordBreaking.BreakAll,
-                },
-                text, new SolidBrush(color), null));
-            return;
-        }
-
-        int lo = 0, hi = text.Length;
-        while (lo < hi)
-        {
-            int mid = (lo + hi + 1) / 2;
-            var subSize = TextMeasurer.MeasureSize(text[..mid], new TextOptions(font));
-            if (subSize.Width <= availableWidth)
-                lo = mid;
-            else
-                hi = mid - 1;
-        }
-
-        var truncated = lo > 0 ? text[..lo] + ellipsis : ellipsis;
-        var truncSize = TextMeasurer.MeasureSize(truncated, new TextOptions(font));
-        var ty = bounds.Y + (bounds.Height - truncSize.Height) / 2f;
-        image.Mutate(ctx => ctx.DrawText(truncated, font, color, new PointF(bounds.X, ty)));
-    }
-
-    public float DrawWrappedTextEllipsis(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds, int maxLines = int.MaxValue, float lineSpacing = 0)
-    {
-        if (string.IsNullOrEmpty(text) || bounds.Width <= 0 || bounds.Height <= 0 || maxLines <= 0)
-            return 0;
-
-        var glyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(font)).Height;
-        var lineHeight = glyphHeight + lineSpacing;
-        var ellipsis = "…";
-        var ellipsisWidth = TextMeasurer.MeasureSize(ellipsis, new TextOptions(font)).Width;
-
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length == 0) return 0;
-
-        var lines = new List<string>();
-        var currentLine = words[0];
-
-        for (int i = 1; i < words.Length; i++)
-        {
-            var candidate = currentLine + " " + words[i];
-            var candidateWidth = TextMeasurer.MeasureSize(candidate, new TextOptions(font)).Width;
-
-            if (candidateWidth <= bounds.Width)
-            {
-                currentLine = candidate;
-            }
-            else
-            {
-                lines.Add(currentLine);
-                currentLine = words[i];
-                if (lines.Count >= maxLines) break;
-            }
-        }
-
-        if (lines.Count < maxLines)
-            lines.Add(currentLine);
-
-        var needsEllipsis = lines.Count > maxLines ||
-            (lines.Count == maxLines && words.Length > 0 && !text.EndsWith(lines[^1]));
-
-        if (lines.Count > maxLines)
-        {
-            lines = lines.Take(maxLines).ToList();
-            needsEllipsis = true;
-        }
-
-        var reconstructed = string.Join(" ", lines);
-        if (reconstructed.Length < text.Replace("  ", " ").Trim().Length)
-            needsEllipsis = true;
-
-        float yOffset = bounds.Y;
-        for (int i = 0; i < lines.Count; i++)
-        {
-            if (yOffset + lineHeight > bounds.Bottom + 1) break;
-
-            var line = lines[i];
-            var isLastLine = i == lines.Count - 1;
-
-            if (isLastLine && needsEllipsis)
-            {
-                var lineWidth = TextMeasurer.MeasureSize(line, new TextOptions(font)).Width;
-                var widthAvailable = bounds.Width - ellipsisWidth;
-
-                if (lineWidth > widthAvailable && widthAvailable > 0)
-                {
-                    int blo = 0, bhi = line.Length;
-                    while (blo < bhi)
-                    {
-                        int mid = (blo + bhi + 1) / 2;
-                        var subWidth = TextMeasurer.MeasureSize(line[..mid], new TextOptions(font)).Width;
-                        if (subWidth <= widthAvailable) blo = mid; else bhi = mid - 1;
-                    }
-                    line = (blo > 0 ? line[..blo].TrimEnd() : "") + ellipsis;
-                }
-                else
-                {
-                    line = line.TrimEnd() + ellipsis;
-                }
-            }
-            else if (isLastLine)
-            {
-                var lineWidth = TextMeasurer.MeasureSize(line, new TextOptions(font)).Width;
-                if (lineWidth > bounds.Width)
-                {
-                    var widthAvailable = bounds.Width - ellipsisWidth;
-                    int blo = 0, bhi = line.Length;
-                    while (blo < bhi)
-                    {
-                        int mid = (blo + bhi + 1) / 2;
-                        var subWidth = TextMeasurer.MeasureSize(line[..mid], new TextOptions(font)).Width;
-                        if (subWidth <= widthAvailable) blo = mid; else bhi = mid - 1;
-                    }
-                    line = (blo > 0 ? line[..blo] : "") + ellipsis;
-                }
-            }
-
-            image.Mutate(ctx => ctx.DrawText(line, font, color, new PointF(bounds.X, yOffset)));
-            yOffset += lineHeight;
-        }
-
-        return yOffset - bounds.Y;
-    }
-
-    public void DrawCenteredText(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        var size = TextMeasurer.MeasureSize(text, new TextOptions(font));
-        var x = bounds.X + (bounds.Width - size.Width) / 2f;
-        var y = bounds.Y + (bounds.Height - size.Height) / 2f;
-        image.Mutate(ctx => ctx.DrawText(text, font, color, new PointF(x, y)));
-    }
-
-    public void DrawTextCentered(Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        var size = TextMeasurer.MeasureSize(text, new TextOptions(font));
-
-        if (size.Width > bounds.Width)
-        {
-            DrawTextEllipsis(image, text, font, color, bounds);
-            return;
-        }
-
-        var x = bounds.X + (bounds.Width - size.Width) / 2f;
-        var y = bounds.Y + (bounds.Height - size.Height) / 2f;
-        image.Mutate(ctx => ctx.DrawText(text, font, color, new PointF(x, y)));
-    }
-
-    public static void DrawTextAligned(IImageProcessingContext ctx, Image<Rgba32> image, string text, Font font, Color color, RectangleF bounds, HorizontalAlignment alignment)
-    {
-        if (string.IsNullOrEmpty(text)) return;
-        var size = TextMeasurer.MeasureSize(text, new TextOptions(font));
-        var x = alignment switch
-        {
-            HorizontalAlignment.Right => bounds.Right - size.Width,
-            HorizontalAlignment.Center => bounds.X + (bounds.Width - size.Width) / 2f,
-            _ => bounds.X
-        };
-        var y = bounds.Y + (bounds.Height - size.Height) / 2f;
-        ctx.DrawText(text, font, color, new PointF(x, y));
-    }
-
-    // =============================================
     // INLINE ICON TEXT DRAWING
     // =============================================
 
@@ -373,7 +184,7 @@ public sealed class RenderingUtilities
         Color textColor, Color iconColor, RectangleF bounds, int maxLines = int.MaxValue, float lineSpacing = 0)
     {
         if (!text.Contains(":fa-"))
-            return DrawWrappedTextEllipsis(image, text, font, textColor, bounds, maxLines, lineSpacing);
+            return TextDrawing.DrawWrappedTextEllipsis(image, text, font, textColor, bounds, maxLines, lineSpacing);
 
         var segments = ParseIconSegments(text);
         if (segments.Count == 0) return 0;
@@ -467,122 +278,6 @@ public sealed class RenderingUtilities
     }
 
     // =============================================
-    // FA ICON DRAWING
-    // =============================================
-
-    public void DrawFaIcon(Image<Rgba32> image, string? iconClass, Color color, RectangleF bounds)
-    {
-        if (string.IsNullOrEmpty(iconClass) || bounds.Width <= 0 || bounds.Height <= 0)
-            return;
-
-        if (!_iconRegistry.TryGetIcon(iconClass, out var entry))
-            return;
-
-        try
-        {
-            var path = SvgPathParser.Parse(entry.Path);
-            var pathBounds = path.Bounds;
-            if (pathBounds.Width < 0.1f || pathBounds.Height < 0.1f)
-                return;
-
-            var scale = Math.Min(bounds.Width / entry.VbW, bounds.Height / entry.VbH);
-            var offsetX = bounds.X + (bounds.Width - entry.VbW * scale) / 2f;
-            var offsetY = bounds.Y + (bounds.Height - entry.VbH * scale) / 2f;
-
-            var matrix = Matrix3x2.CreateScale(scale) *
-                         Matrix3x2.CreateTranslation(offsetX, offsetY);
-
-            var transformed = path.Transform(matrix);
-            image.Mutate(ctx => ctx.Fill(color, transformed));
-        }
-        catch
-        {
-            // Silently ignore icon rendering failures
-        }
-    }
-
-    // =============================================
-    // APP ICON DRAWING
-    // =============================================
-
-    public static void DrawAppIcon(Image<Rgba32> image, Color accentColor, RectangleF bounds)
-    {
-        if (bounds.Width <= 0 || bounds.Height <= 0) return;
-
-        const float vb = 370f;
-        var scale = Math.Min(bounds.Width / vb, bounds.Height / vb);
-        var ox = bounds.X + (bounds.Width - vb * scale) / 2f;
-        var oy = bounds.Y + (bounds.Height - vb * scale) / 2f;
-
-        var p = accentColor.ToPixel<Rgba32>();
-        var darkest  = new Color(new Rgba32((byte)(p.R * 0.3f), (byte)(p.G * 0.3f), (byte)(p.B * 0.3f), p.A));
-        var darker   = new Color(new Rgba32((byte)(p.R * 0.7f), (byte)(p.G * 0.7f), (byte)(p.B * 0.7f), p.A));
-        var baseC    = accentColor;
-        var light    = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.2f), (byte)(p.G + (255 - p.G) * 0.2f), (byte)(p.B + (255 - p.B) * 0.2f), p.A));
-        var lighter  = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.4f), (byte)(p.G + (255 - p.G) * 0.4f), (byte)(p.B + (255 - p.B) * 0.4f), p.A));
-        var lightest = new Color(new Rgba32((byte)(p.R + (255 - p.R) * 0.6f), (byte)(p.G + (255 - p.G) * 0.6f), (byte)(p.B + (255 - p.B) * 0.6f), p.A));
-
-        (float x, float y, float w, float h, float rx, Color c)[] rects =
-        [
-            (20, 20, 90, 96, 4, darkest),
-            (20, 128, 90, 196, 4, darker),
-            (122, 20, 134, 96, 4, baseC),
-            (268, 20, 82, 96, 4, light),
-            (122, 236, 84, 88, 4, light),
-            (218, 236, 132, 88, 4, lighter),
-        ];
-
-        foreach (var (rx, ry, rw, rh, rrx, color) in rects)
-        {
-            var x1 = rx * scale + ox;
-            var y1 = ry * scale + oy;
-            var w1 = rw * scale;
-            var h1 = rh * scale;
-            var cr = Math.Min(rrx * scale, Math.Min(w1, h1) / 2f);
-            image.Mutate(ctx => ctx.Fill(color, BuildRoundedRect(x1, y1, w1, h1, cr)));
-        }
-
-        PointF[] leftPoly = [
-            new(122 * scale + ox, 128 * scale + oy),
-            new(256 * scale + ox, 128 * scale + oy),
-            new(206 * scale + ox, 224 * scale + oy),
-            new(122 * scale + ox, 224 * scale + oy),
-        ];
-        PointF[] rightPoly = [
-            new(268 * scale + ox, 128 * scale + oy),
-            new(350 * scale + ox, 128 * scale + oy),
-            new(350 * scale + ox, 224 * scale + oy),
-            new(218 * scale + ox, 224 * scale + oy),
-        ];
-
-        image.Mutate(ctx =>
-        {
-            ctx.Fill(lightest, new Polygon(new LinearLineSegment(leftPoly)));
-            ctx.Fill(lighter, new Polygon(new LinearLineSegment(rightPoly)));
-        });
-    }
-
-    public static IPath BuildRoundedRect(float x, float y, float w, float h, float cr)
-    {
-        if (cr < 0.5f)
-            return new RectangularPolygon(x, y, w, h);
-
-        cr = Math.Min(cr, Math.Min(w, h) / 2f);
-        var pb = new PathBuilder();
-        pb.MoveTo(new PointF(x + cr, y));
-        pb.LineTo(new PointF(x + w - cr, y));
-        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + w, y + cr));
-        pb.LineTo(new PointF(x + w, y + h - cr));
-        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + w - cr, y + h));
-        pb.LineTo(new PointF(x + cr, y + h));
-        pb.ArcTo(cr, cr, 0, false, true, new PointF(x, y + h - cr));
-        pb.LineTo(new PointF(x, y + cr));
-        pb.ArcTo(cr, cr, 0, false, true, new PointF(x + cr, y));
-        pb.CloseFigure();
-        return pb.Build();
-    }
-
-    // =============================================
     // DITHERING
     // =============================================
 
@@ -595,7 +290,7 @@ public sealed class RenderingUtilities
         if (rw <= 0 || rh <= 0) return;
 
         var paletteColors = layout.ColorScheme.Palette
-            .Select(hex => ParseColor(hex))
+            .Select(hex => ColorUtils.ParseColor(hex))
             .ToArray();
         if (paletteColors.Length == 0) return;
 
@@ -704,17 +399,6 @@ public sealed class RenderingUtilities
         return val.ToString() ?? "";
     }
 
-    public static string GetDefaultSeriesColor(ColorSchemeConfig cs, int index)
-    {
-        var chartColors = cs.Palette
-            .Where(c => !string.IsNullOrEmpty(c) && c != cs.Background && c != cs.CanvasBackgroundColor)
-            .ToArray();
-        if (chartColors.Length > 0)
-            return chartColors[index % chartColors.Length];
-        var fallback = new[] { "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff" };
-        return fallback[index % fallback.Length];
-    }
-
     // =============================================
     // GRAPH HELPERS
     // =============================================
@@ -743,61 +427,4 @@ public sealed class RenderingUtilities
 
         return builder.Build();
     }
-
-    // =============================================
-    // MARKDOWN HELPERS
-    // =============================================
-
-    private static readonly Regex HorizontalRulePattern = new(@"^[-*_]{3,}\s*$", RegexOptions.Compiled);
-    private static readonly Regex TaskListPattern = new(@"^[-*+]\s\[[ xX]\]\s", RegexOptions.Compiled);
-    private static readonly Regex TaskCheckedPattern = new(@"^[-*+]\s\[[xX]\]", RegexOptions.Compiled);
-    private static readonly Regex IndentedSubListPattern = new(@"^\s{2,}[-*+]\s", RegexOptions.Compiled);
-    private static readonly Regex NumberedListPattern = new(@"^\d+\.\s", RegexOptions.Compiled);
-    private static readonly Regex NumberedListCapture = new(@"^(\d+\.)\s(.*)$", RegexOptions.Compiled);
-
-    // Inline markdown stripping patterns
-    private static readonly Regex ImagePattern = new(@"!\[([^\]]*)\]\([^)]*\)", RegexOptions.Compiled);
-    private static readonly Regex LinkPattern = new(@"\[([^\]]*)\]\([^)]*\)", RegexOptions.Compiled);
-    private static readonly Regex BoldItalic3Star = new(@"\*{3}(.+?)\*{3}", RegexOptions.Compiled);
-    private static readonly Regex BoldItalic3Under = new(@"_{3}(.+?)_{3}", RegexOptions.Compiled);
-    private static readonly Regex Bold2Star = new(@"\*{2}(.+?)\*{2}", RegexOptions.Compiled);
-    private static readonly Regex Bold2Under = new(@"_{2}(.+?)_{2}", RegexOptions.Compiled);
-    private static readonly Regex ItalicStar = new(@"\*(.+?)\*", RegexOptions.Compiled);
-    private static readonly Regex ItalicUnder = new(@"(?<=\s|^)_(.+?)_(?=\s|$)", RegexOptions.Compiled);
-    private static readonly Regex Strikethrough = new(@"~~(.+?)~~", RegexOptions.Compiled);
-    private static readonly Regex InlineCode = new(@"`(.+?)`", RegexOptions.Compiled);
-
-    public static bool IsHorizontalRule(string line) => HorizontalRulePattern.IsMatch(line);
-    public static bool IsTaskListItem(string line) => TaskListPattern.IsMatch(line);
-    public static bool IsTaskCheckedItem(string line) => TaskCheckedPattern.IsMatch(line);
-    public static bool IsIndentedSubList(string line) => IndentedSubListPattern.IsMatch(line);
-    public static bool IsNumberedList(string line) => NumberedListPattern.IsMatch(line);
-    public static Match MatchNumberedList(string line) => NumberedListCapture.Match(line);
-
-    public static string StripInlineMarkdown(string text)
-    {
-        if (string.IsNullOrEmpty(text)) return text;
-
-        text = ImagePattern.Replace(text, "$1");
-        text = LinkPattern.Replace(text, "$1");
-        text = BoldItalic3Star.Replace(text, "$1");
-        text = BoldItalic3Under.Replace(text, "$1");
-        text = Bold2Star.Replace(text, "$1");
-        text = Bold2Under.Replace(text, "$1");
-        text = ItalicStar.Replace(text, "$1");
-        text = ItalicUnder.Replace(text, "$1");
-        text = Strikethrough.Replace(text, "$1");
-        text = InlineCode.Replace(text, "$1");
-
-        return text;
-    }
-
-    public static bool IsEntirelyBold(string line)
-    {
-        var trimmed = line.Trim();
-        return (trimmed.StartsWith("**") && trimmed.EndsWith("**") && trimmed.Length > 4)
-            || (trimmed.StartsWith("__") && trimmed.EndsWith("__") && trimmed.Length > 4);
-    }
-
-    public enum HorizontalAlignment { Left, Center, Right }
 }

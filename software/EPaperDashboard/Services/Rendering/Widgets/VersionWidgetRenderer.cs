@@ -9,11 +9,11 @@ public sealed class VersionWidgetRenderer(RenderingUtilities utils) : IWidgetRen
 {
     public string WidgetType => "version";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var version = typeof(DashboardImageRenderingService).Assembly.GetName().Version?.ToString() ?? "?";
-        utils.DrawCenteredText(image, $"v{version}", utils.GetFont(ctx.TextFontSize, ctx.TextFontWeight), ctx.TextColor, contentRect);
+        TextDrawing.DrawCenteredText(image, $"v{version}", utils.GetFont(ctx.TextFontSize, ctx.TextFontWeight), ctx.TextColor, contentRect);
         return Task.CompletedTask;
     }
 }

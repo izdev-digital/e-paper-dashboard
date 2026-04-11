@@ -22,7 +22,7 @@ public sealed partial class ImageWidgetRenderer(
     [GeneratedRegex(@"^/api/dashboards/([^/]+)/images/([^/]+)$")]
     private static partial Regex LocalImagePathRegex();
 
-    public async Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public async Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var imageUrl = RenderingUtilities.GetStringProp(widget.Config, "imageUrl") ?? "";
         if (string.IsNullOrEmpty(imageUrl)) return;
@@ -48,13 +48,13 @@ public sealed partial class ImageWidgetRenderer(
                     logger.LogWarning("Image file not found on disk: {Path}", filePath);
                     return;
                 }
-                imageBytes = await File.ReadAllBytesAsync(filePath);
+                imageBytes = await File.ReadAllBytesAsync(filePath, cancellationToken);
             }
             else
             {
                 // External URL — use named client with pre-configured timeout
                 using var httpClient = httpClientFactory.CreateClient(Utilities.Constants.SsrImageHttpClientName);
-                imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
+                imageBytes = await httpClient.GetByteArrayAsync(imageUrl, cancellationToken);
             }
 
             using var srcImage = Image.Load<Rgba32>(imageBytes);
@@ -111,7 +111,7 @@ public sealed partial class ImageWidgetRenderer(
             var dithering = RenderingUtilities.GetBoolProp(widget.Config, "dithering") ?? false;
             {
                 var paletteColors = layout.ColorScheme.Palette
-                    .Select(hex => RenderingUtilities.ParseColor(hex))
+                    .Select(hex => ColorUtils.ParseColor(hex))
                     .ToArray();
                 if (paletteColors.Length > 0)
                 {
@@ -147,7 +147,7 @@ public sealed partial class ImageWidgetRenderer(
         {
             logger.LogWarning(ex, "Failed to load image from URL: {Url}", imageUrl);
             var ctx = WidgetRenderContext.Create(widget, layout);
-            utils.DrawCenteredText(image, "Image", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
+            TextDrawing.DrawCenteredText(image, "Image", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
         }
     }
 }

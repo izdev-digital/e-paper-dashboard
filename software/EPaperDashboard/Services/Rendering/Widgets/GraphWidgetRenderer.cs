@@ -1,7 +1,6 @@
 using System.Text.Json;
 using EPaperDashboard.Models.Rendering;
 using SixLabors.Fonts;
-using HorizontalAlignment = EPaperDashboard.Services.Rendering.RenderingUtilities.HorizontalAlignment;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -17,7 +16,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
 {
     public string WidgetType => "graph";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var textColor = ctx.TextColor;
@@ -31,7 +30,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride))
         {
             var titleRect = new RectangleF(contentRect.X + 12, contentRect.Y, contentRect.Width - 24, titleFontSize + 8);
-            utils.DrawTextCentered(image, widget.TitleOverride, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
+            TextDrawing.DrawTextCentered(image, widget.TitleOverride, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
             contentRect = new RectangleF(contentRect.X, contentRect.Y + titleFontSize + 8, contentRect.Width, contentRect.Height - titleFontSize - 8);
         }
 
@@ -47,7 +46,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
             {
                 var sEntityId = RenderingUtilities.GetStringProp(s, "entityId") ?? "";
                 var sLabel = RenderingUtilities.GetStringProp(s, "label") ?? sEntityId;
-                var sColor = RenderingUtilities.GetStringProp(s, "color") ?? RenderingUtilities.GetDefaultSeriesColor(layout.ColorScheme, idx);
+                var sColor = RenderingUtilities.GetStringProp(s, "color") ?? ColorUtils.GetDefaultSeriesColor(layout.ColorScheme, idx);
                 if (!string.IsNullOrEmpty(sEntityId))
                     seriesList.Add((sEntityId, sLabel, sColor));
                 idx++;
@@ -57,7 +56,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var hasData = seriesList.Any(s => data.HistoryData.ContainsKey(s.EntityId) && data.HistoryData[s.EntityId].Count > 0);
         if (!hasData)
         {
-            utils.DrawCenteredText(image, "Graph", utils.GetFont(textFontSize), titleColor, contentRect);
+            TextDrawing.DrawCenteredText(image, "Graph", utils.GetFont(textFontSize), titleColor, contentRect);
             return Task.CompletedTask;
         }
 
@@ -104,10 +103,11 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var originY = contentRect.Y + padT;
 
         // Match frontend Chart.js grid: `${widgetBorderColor}20` ≈ 12.5% alpha
-        var gridColor = RenderingUtilities.WithOpacity(RenderingUtilities.ParseColor(gridColorStr), 0.125f);
+        var gridColor = ColorUtils.WithOpacity(ColorUtils.ParseColor(gridColorStr), 0.125f);
         var labelFont = utils.GetFont(Math.Max(8, textFontSize - 2));
 
         // Grid lines
+        var yAxisFormat = valRange < 1 ? "F2" : valRange < 10 ? "F1" : "F0";
         image.Mutate(ctx =>
         {
             for (int i = 0; i <= 3; i++)
@@ -117,7 +117,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
 
                 var val = maxVal - (valRange * i / 3.0);
                 var labelRect = new RectangleF(contentRect.X, y - textFontSize / 2f, padL - 4, textFontSize);
-                RenderingUtilities.DrawTextAligned(ctx, image, $"{val:F0}", labelFont, textColor, labelRect, HorizontalAlignment.Right);
+                TextDrawing.DrawTextAligned(ctx, image, val.ToString(yAxisFormat), labelFont, textColor, labelRect, HorizontalAlignment.Right);
             }
 
             // X axis
@@ -133,14 +133,14 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
             var t = minTime.AddSeconds(timeRange * i / 4.0);
             var x = originX + plotW * i / 4f;
             var labelRect = new RectangleF(x - 20, xLabelY, 40, xAxisLabelHeight);
-            utils.DrawTextCentered(image, t.ToString("HH:mm"), labelFont, textColor, labelRect);
+            TextDrawing.DrawTextCentered(image, t.ToString("HH:mm"), labelFont, textColor, labelRect);
         }
 
         // Render series
         foreach (var (entityId, label, color) in seriesList)
         {
             if (!data.HistoryData.TryGetValue(entityId, out var states) || states.Count == 0) continue;
-            var seriesColor = RenderingUtilities.ParseColor(color);
+            var seriesColor = ColorUtils.ParseColor(color);
             var ordered = states.OrderBy(s => s.LastChanged).ToList();
 
             if (plotType == "bar")
@@ -200,12 +200,12 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
 
             foreach (var (lLabel, lColor, lWidth) in legendItems)
             {
-                var boxColor = RenderingUtilities.ParseColor(lColor);
+                var boxColor = ColorUtils.ParseColor(lColor);
                 image.Mutate(ctx => ctx.Fill(boxColor, new RectangularPolygon(
                     legendX, legendY, legendBoxSize, legendBoxSize)));
                 legendX += legendBoxSize + 4;
                 var lRect = new RectangleF(legendX, legendY - 1, lWidth + 2, legendBoxSize + 2);
-                utils.DrawTextEllipsis(image, lLabel, legendFont, textColor, lRect);
+                TextDrawing.DrawTextEllipsis(image, lLabel, legendFont, textColor, lRect);
                 legendX += lWidth + legendPadding;
             }
         }

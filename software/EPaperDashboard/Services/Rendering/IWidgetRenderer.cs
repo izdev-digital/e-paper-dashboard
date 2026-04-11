@@ -17,5 +17,5 @@ public interface IWidgetRenderer
     /// <summary>
     /// Renders the widget onto the target image within the given content rectangle.
     /// </summary>
-    Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect);
+    Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default);
 }

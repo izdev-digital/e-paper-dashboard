@@ -9,7 +9,7 @@ public sealed class AppIconWidgetRenderer : IWidgetRenderer
 {
     public string WidgetType => "app-icon";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var size = RenderingUtilities.GetIntProp(widget.Config, "size") ?? 64;
@@ -19,7 +19,7 @@ public sealed class AppIconWidgetRenderer : IWidgetRenderer
             contentRect.X + (contentRect.Width - actualSize) / 2f,
             contentRect.Y + (contentRect.Height - actualSize) / 2f,
             actualSize, actualSize);
-        RenderingUtilities.DrawAppIcon(image, ctx.IconColor, iconBounds);
+        IconDrawing.DrawAppIcon(image, ctx.IconColor, iconBounds);
 
         var dithering = RenderingUtilities.GetBoolProp(widget.Config, "dithering") ?? false;
         if (dithering)

@@ -10,7 +10,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 {
     public string WidgetType => "weather-forecast";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -34,7 +34,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
         if (widget.ShowTitle && !isTinyMode)
         {
             var headerRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            utils.DrawTextEllipsis(image, widget.TitleOverride ?? "Forecast", utils.GetFont(titleFontSize, titleFontWeight), titleColor, headerRect);
+            TextDrawing.DrawTextEllipsis(image, widget.TitleOverride ?? "Forecast", utils.GetFont(titleFontSize, titleFontWeight), titleColor, headerRect);
             yOffset += titleFontSize + 7;
         }
 
@@ -70,7 +70,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
             if (visibleFields.Contains("time"))
             {
                 var timeRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                utils.DrawTextCentered(image, RenderingUtilities.FormatForecastTime(dt, forecastMode), utils.GetFont(textFontSize, textFontWeight), textColor, timeRect);
+                TextDrawing.DrawTextCentered(image, RenderingUtilities.FormatForecastTime(dt, forecastMode), utils.GetFont(textFontSize, textFontWeight), textColor, timeRect);
                 itemY += lineHeight + rowGap;
             }
 
@@ -78,7 +78,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
             {
                 var condStr = dict.TryGetValue("condition", out var cv) ? RenderingUtilities.FormatCondition(cv?.ToString()) : "";
                 var condRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                utils.DrawTextCentered(image, condStr, utils.GetFont(textFontSize, textFontWeight), textColor, condRect);
+                TextDrawing.DrawTextCentered(image, condStr, utils.GetFont(textFontSize, textFontWeight), textColor, condRect);
                 itemY += lineHeight + rowGap;
             }
 
@@ -86,7 +86,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
             {
                 var temp = dict.TryGetValue("temperature", out var tVal) ? RenderingUtilities.RoundNum(tVal) : "";
                 var tempRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                utils.DrawTextCentered(image, $"{temp}{tempUnit}", utils.GetFont(textFontSize, textFontWeight), textColor, tempRect);
+                TextDrawing.DrawTextCentered(image, $"{temp}{tempUnit}", utils.GetFont(textFontSize, textFontWeight), textColor, tempRect);
                 itemY += lineHeight + rowGap;
             }
 
@@ -96,7 +96,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
                 if (!string.IsNullOrEmpty(tempLow))
                 {
                     var tlRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                    utils.DrawTextCentered(image, $"{tempLow}{tempUnit}", utils.GetFont(textFontSize, textFontWeight), RenderingUtilities.WithOpacity(textColor, 0.7f), tlRect);
+                    TextDrawing.DrawTextCentered(image, $"{tempLow}{tempUnit}", utils.GetFont(textFontSize, textFontWeight), ColorUtils.WithOpacity(textColor, 0.7f), tlRect);
                     itemY += lineHeight + rowGap;
                 }
             }
@@ -107,7 +107,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
                 if (!string.IsNullOrEmpty(precip))
                 {
                     var precipRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                    utils.DrawTextCentered(image, $"{precip}%", utils.GetFont(textFontSize, textFontWeight), textColor, precipRect);
+                    TextDrawing.DrawTextCentered(image, $"{precip}%", utils.GetFont(textFontSize, textFontWeight), textColor, precipRect);
                     itemY += lineHeight + rowGap;
                 }
             }
@@ -119,7 +119,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
                 {
                     var windUnit = data.EntityStates.TryGetValue(entityId, out var wes) ? RenderingUtilities.GetEntityAttr(wes, "wind_speed_unit") ?? "" : "";
                     var windRect = new RectangleF(colX, itemY, colWidth, lineHeight);
-                    utils.DrawTextCentered(image, $"{windSpeed} {windUnit}", utils.GetFont(textFontSize, textFontWeight), textColor, windRect);
+                    TextDrawing.DrawTextCentered(image, $"{windSpeed} {windUnit}", utils.GetFont(textFontSize, textFontWeight), textColor, windRect);
                 }
             }
         }

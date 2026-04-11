@@ -90,9 +90,9 @@ public readonly record struct WidgetRenderContext(
     int TextFontWeight)
 {
     public static WidgetRenderContext Create(WidgetConfigEntry widget, LayoutConfig layout) => new(
-        TitleColor: RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTitleTextColor, o => o?.WidgetTitleTextColor),
-        TextColor: RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor),
-        IconColor: RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor),
+        TitleColor: ColorUtils.ResolveWidgetColor(widget, layout, c => c.WidgetTitleTextColor, o => o?.WidgetTitleTextColor),
+        TextColor: ColorUtils.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor),
+        IconColor: ColorUtils.ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor),
         TitleFontSize: layout.TitleFontSize > 0 ? layout.TitleFontSize : 16,
         TextFontSize: layout.TextFontSize > 0 ? layout.TextFontSize : 14,
         TitleFontWeight: layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700,

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Services.Providers;
@@ -50,9 +52,10 @@ public sealed class DashboardImageRenderingService
     /// Renders the dashboard to an ImageSharp image using the typed layout model and live HA data.
     /// Returns a cached result if the same dashboard was rendered within the last 30 seconds.
     /// </summary>
-    public async Task<Image<Rgba32>> RenderDashboardImageAsync(string dashboardId, Models.LayoutConfig layoutConfig)
+    public async Task<Image<Rgba32>> RenderDashboardImageAsync(string dashboardId, Models.LayoutConfig layoutConfig, CancellationToken cancellationToken = default)
     {
-        var cacheKey = $"ssr:{dashboardId}";
+        var layoutHash = ComputeLayoutHash(layoutConfig);
+        var cacheKey = $"ssr:{dashboardId}:{layoutHash}";
 
         if (_cache.TryGetValue<byte[]>(cacheKey, out var cachedBytes) && cachedBytes is not null)
         {
@@ -61,12 +64,12 @@ public sealed class DashboardImageRenderingService
         }
 
         var layout = ConvertLayout(layoutConfig);
-        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout);
-        var image = await RenderToImageAsync(layout, data);
+        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken);
+        var image = await RenderToImageAsync(layout, data, cancellationToken);
 
         // Cache the rendered image as PNG bytes
         using var ms = new MemoryStream();
-        await image.SaveAsPngAsync(ms);
+        await image.SaveAsPngAsync(ms, cancellationToken);
         _cache.Set(cacheKey, ms.ToArray(), CacheDuration);
 
         return image;
@@ -139,22 +142,23 @@ public sealed class DashboardImageRenderingService
     // IMAGE RENDERING
     // =============================================
 
-    private async Task<Image<Rgba32>> RenderToImageAsync(LayoutConfig layout, SsrData data)
+    private async Task<Image<Rgba32>> RenderToImageAsync(LayoutConfig layout, SsrData data, CancellationToken cancellationToken)
     {
         var image = new Image<Rgba32>(layout.Width, layout.Height);
 
-        var canvasBg = RenderingUtilities.ParseColor(layout.ColorScheme.CanvasBackgroundColor);
+        var canvasBg = ColorUtils.ParseColor(layout.ColorScheme.CanvasBackgroundColor);
         image.Mutate(ctx => ctx.Fill(canvasBg));
 
         foreach (var widget in layout.Widgets)
         {
-            await RenderWidgetAsync(image, widget, layout, data);
+            cancellationToken.ThrowIfCancellationRequested();
+            await RenderWidgetAsync(image, widget, layout, data, cancellationToken);
         }
 
         return image;
     }
 
-    private async Task RenderWidgetAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data)
+    private async Task RenderWidgetAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, CancellationToken cancellationToken)
     {
         var (px, py, pw, ph) = RenderingUtilities.ResolvePixelPosition(widget.Position, layout);
         var widgetRect = new RectangleF((float)px, (float)py, (float)pw, (float)ph);
@@ -177,7 +181,14 @@ public sealed class DashboardImageRenderingService
         {
             if (_renderers.TryGetValue(widget.Type, out var renderer))
             {
-                await renderer.RenderAsync(image, widget, layout, data, contentRect);
+                // Render into a clipped sub-image to prevent widget content overflow
+                var clipW = (int)Math.Ceiling(contentRect.Width);
+                var clipH = (int)Math.Ceiling(contentRect.Height);
+                using var tempImage = new Image<Rgba32>(clipW, clipH);
+                var localRect = new RectangleF(0, 0, contentRect.Width, contentRect.Height);
+                await renderer.RenderAsync(tempImage, widget, layout, data, localRect, cancellationToken);
+                image.Mutate(ctx => ctx.DrawImage(tempImage,
+                    new SixLabors.ImageSharp.Point((int)contentRect.X, (int)contentRect.Y), 1f));
             }
             else
             {
@@ -187,6 +198,7 @@ public sealed class DashboardImageRenderingService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to render widget {WidgetId} of type {WidgetType}", widget.Id, widget.Type);
+            RenderErrorIndicator(image, widget, layout, contentRect);
         }
     }
 
@@ -197,8 +209,8 @@ public sealed class DashboardImageRenderingService
     private static void DrawWidgetContainer(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF rect)
     {
         var cs = layout.ColorScheme;
-        var bg = RenderingUtilities.ParseColor(widget.ColorOverrides?.WidgetBackgroundColor ?? cs.WidgetBackgroundColor);
-        var bc = RenderingUtilities.ParseColor(widget.ColorOverrides?.WidgetBorderColor ?? cs.WidgetBorderColor);
+        var bg = ColorUtils.ParseColor(widget.ColorOverrides?.WidgetBackgroundColor ?? cs.WidgetBackgroundColor);
+        var bc = ColorUtils.ParseColor(widget.ColorOverrides?.WidgetBorderColor ?? cs.WidgetBorderColor);
         var borderWidth = layout.WidgetBorder;
 
         image.Mutate(ctx =>
@@ -226,6 +238,21 @@ public sealed class DashboardImageRenderingService
     private void RenderPlaceholder(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect, string label)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
-        _utils.DrawCenteredText(image, label, _utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
+        TextDrawing.DrawCenteredText(image, label, _utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
+    }
+
+    private void RenderErrorIndicator(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
+    {
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        var errorColor = ColorUtils.WithOpacity(ctx.TextColor, 0.4f);
+        var font = _utils.GetFont(Math.Max(10, ctx.TextFontSize - 2));
+        TextDrawing.DrawCenteredText(image, $"⚠ {widget.Type}", font, errorColor, contentRect);
+    }
+
+    private static string ComputeLayoutHash(Models.LayoutConfig layoutConfig)
+    {
+        var json = JsonSerializer.Serialize(layoutConfig);
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(json));
+        return Convert.ToHexString(hashBytes)[..16];
     }
 }

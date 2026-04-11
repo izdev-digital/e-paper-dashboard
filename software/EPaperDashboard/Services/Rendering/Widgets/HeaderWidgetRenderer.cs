@@ -15,7 +15,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
 {
     public string WidgetType => "header";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -67,7 +67,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
                         effectiveIconSize, effectiveIconSize);
                     textRightOffset = effectiveIconSize + 8;
                 }
-                RenderingUtilities.DrawAppIcon(image, iconColor, iconBounds);
+                IconDrawing.DrawAppIcon(image, iconColor, iconBounds);
 
                 var dithering = RenderingUtilities.GetBoolProp(widget.Config, "dithering") ?? false;
                 if (dithering)
@@ -80,7 +80,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
                 sectionRect.Width - textLeftOffset - textRightOffset,
                 sectionRect.Height);
 
-            utils.DrawTextEllipsis(image, title, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
+            TextDrawing.DrawTextEllipsis(image, title, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
         }
 
         // Render badges
@@ -125,7 +125,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
                     var uom = RenderingUtilities.GetEntityAttr(es, "unit_of_measurement");
                     if (!string.IsNullOrEmpty(uom)) badgeText += $" {uom}";
                     var textRect = new RectangleF(textStartX, badgeRect.Y, badgeRect.Right - textStartX - badgePadding, badgeRect.Height);
-                    utils.DrawTextEllipsis(image, badgeText, utils.GetFont(textFontSize, textFontWeight), textColor, textRect);
+                    TextDrawing.DrawTextEllipsis(image, badgeText, utils.GetFont(textFontSize, textFontWeight), textColor, textRect);
                 }
 
                 badgeIndex++;

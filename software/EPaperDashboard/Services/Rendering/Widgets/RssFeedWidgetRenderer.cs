@@ -14,7 +14,7 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
 {
     public string WidgetType => "rss-feed";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -42,7 +42,7 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
         {
             var feedTitleHeight = (int)Math.Ceiling(titleFontSize * 1.2f);
             var feedTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, feedTitleHeight);
-            utils.DrawTextEllipsis(image, widget.TitleOverride ?? feedTitle!, utils.GetFont(titleFontSize, titleFontWeight), titleColor, feedTitleRect);
+            TextDrawing.DrawTextEllipsis(image, widget.TitleOverride ?? feedTitle!, utils.GetFont(titleFontSize, titleFontWeight), titleColor, feedTitleRect);
             yOffset += feedTitleHeight + 8;
         }
 
@@ -53,7 +53,7 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
         var maxEntryLines = Math.Max(1, (int)((contentRect.Bottom - yOffset - 8) / entryLineHeight));
         maxEntryLines = Math.Min(maxEntryLines, 2);
         var entryTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, entryLineHeight * maxEntryLines);
-        var entryTitleHeight = utils.DrawWrappedTextEllipsis(image, entry.Title, entryTitleFont, titleColor, entryTitleRect, maxEntryLines, entryExtraSpacing);
+        var entryTitleHeight = TextDrawing.DrawWrappedTextEllipsis(image, entry.Title, entryTitleFont, titleColor, entryTitleRect, maxEntryLines, entryExtraSpacing);
         yOffset += entryTitleHeight + 12;
 
         if (!string.IsNullOrEmpty(entry.Link))
@@ -63,8 +63,8 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
                 var qrSize = Math.Min(contentRect.Width, contentRect.Bottom - yOffset);
                 if (qrSize > 20)
                 {
-                    var darkColor = RenderingUtilities.ParseColor(layout.ColorScheme.Text);
-                    var lightColor = RenderingUtilities.ParseColor(widgetBg);
+                    var darkColor = ColorUtils.ParseColor(layout.ColorScheme.Text);
+                    var lightColor = ColorUtils.ParseColor(widgetBg);
                     var qrImage = GenerateQrCodeImage(entry.Link, darkColor, lightColor, (int)qrSize);
                     if (qrImage != null)
                     {

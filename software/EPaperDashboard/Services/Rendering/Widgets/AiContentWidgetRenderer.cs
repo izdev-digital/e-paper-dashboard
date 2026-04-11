@@ -10,7 +10,7 @@ public sealed class AiContentWidgetRenderer(RenderingUtilities utils, MarkdownWi
 {
     public string WidgetType => "ai-content";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         if (!data.AiContent.TryGetValue(widget.Id, out var content) || string.IsNullOrWhiteSpace(content))
         {
@@ -27,6 +27,6 @@ public sealed class AiContentWidgetRenderer(RenderingUtilities utils, MarkdownWi
     private void RenderPlaceholder(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
-        utils.DrawCenteredText(image, "AI Content", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
+        TextDrawing.DrawCenteredText(image, "AI Content", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
     }
 }

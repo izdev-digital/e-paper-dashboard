@@ -15,7 +15,7 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
 {
     public string WidgetType => "todo";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -57,10 +57,10 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
             utils.DrawFaIcon(image, "fa-list-check", iconColor, iconBounds);
 
             var countRect = new RectangleF(contentRect.X, iconBounds.Bottom + 2, contentRect.Width, countFontSize + 4);
-            utils.DrawTextCentered(image, pendingCount.ToString(), utils.GetFont(countFontSize, textFontWeight), titleColor, countRect);
+            TextDrawing.DrawTextCentered(image, pendingCount.ToString(), utils.GetFont(countFontSize, textFontWeight), titleColor, countRect);
 
             var labelRect = new RectangleF(contentRect.X, countRect.Bottom, contentRect.Width, labelFontSize + 2);
-            utils.DrawTextCentered(image, "Pending", utils.GetFont(labelFontSize, textFontWeight), textColor, labelRect);
+            TextDrawing.DrawTextCentered(image, "Pending", utils.GetFont(labelFontSize, textFontWeight), textColor, labelRect);
             return Task.CompletedTask;
         }
 
@@ -73,7 +73,7 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
                 friendlyName = RenderingUtilities.GetEntityAttr(es, "friendly_name") ?? "Tasks";
             var titleText = widget.TitleOverride ?? friendlyName;
             var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            utils.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), RenderingUtilities.WithOpacity(titleColor, 0.9f), titleRect);
+            TextDrawing.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), ColorUtils.WithOpacity(titleColor, 0.9f), titleRect);
             yOffset += titleFontSize + 10;
         }
 
@@ -101,8 +101,8 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
             var maxTextH = (todoGlyphHeight + todoExtraSpacing) * 2;
             var textAvailH = Math.Min(maxTextH, contentRect.Bottom - yOffset);
             var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, textAvailH);
-            var itemTextColor = complete ? RenderingUtilities.WithOpacity(textColor, 0.6f) : textColor;
-            var consumed = utils.DrawWrappedTextEllipsis(image, summary, todoFont, itemTextColor, textRect, maxLines: 2, todoExtraSpacing);
+            var itemTextColor = complete ? ColorUtils.WithOpacity(textColor, 0.6f) : textColor;
+            var consumed = TextDrawing.DrawWrappedTextEllipsis(image, summary, todoFont, itemTextColor, textRect, maxLines: 2, todoExtraSpacing);
 
             if (complete && consumed > 0)
             {

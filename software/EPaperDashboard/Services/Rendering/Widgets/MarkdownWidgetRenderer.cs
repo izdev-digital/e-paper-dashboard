@@ -15,7 +15,7 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
 {
     public string WidgetType => "markdown";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         RenderMarkdown(image, widget, layout, contentRect);
         return Task.CompletedTask;
@@ -64,7 +64,7 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
                 var codeGlyph = TextMeasurer.MeasureSize("Ay", new TextOptions(codeFont)).Height;
                 var codeLineH = codeGlyph + 2;
                 if (yOffset + codeLineH > innerRect.Bottom) break;
-                utils.DrawTextEllipsis(image, line, codeFont, RenderingUtilities.WithOpacity(textColor, 0.85f),
+                TextDrawing.DrawTextEllipsis(image, line, codeFont, ColorUtils.WithOpacity(textColor, 0.85f),
                     new RectangleF(innerRect.X + 8, yOffset, innerRect.Width - 8, codeLineH));
                 yOffset += codeLineH;
                 continue;
@@ -83,65 +83,65 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             if (line.StartsWith("#### "))
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.3f;
-                text = RenderingUtilities.StripInlineMarkdown(line[5..]); maxWrapLines = 2;
+                text = MarkdownHelpers.StripInlineMarkdown(line[5..]); maxWrapLines = 2;
             }
             else if (line.StartsWith("### "))
             {
                 fontSize = (int)(textFontSize * 1.1); fontWeight = textFontWeight; lineHeightMultiplier = 1.3f;
-                text = RenderingUtilities.StripInlineMarkdown(line[4..]); maxWrapLines = 2;
+                text = MarkdownHelpers.StripInlineMarkdown(line[4..]); maxWrapLines = 2;
             }
             else if (line.StartsWith("## "))
             {
                 fontSize = (int)(titleFontSize * 1.0); fontWeight = titleFontWeight; lineHeightMultiplier = 1.3f;
-                text = RenderingUtilities.StripInlineMarkdown(line[3..]); maxWrapLines = 2;
+                text = MarkdownHelpers.StripInlineMarkdown(line[3..]); maxWrapLines = 2;
             }
             else if (line.StartsWith("# "))
             {
                 fontSize = (int)(titleFontSize * 1.2); fontWeight = titleFontWeight; lineHeightMultiplier = 1.3f;
-                text = RenderingUtilities.StripInlineMarkdown(line[2..]); maxWrapLines = 3;
+                text = MarkdownHelpers.StripInlineMarkdown(line[2..]); maxWrapLines = 3;
             }
-            else if (RenderingUtilities.IsHorizontalRule(line))
+            else if (MarkdownHelpers.IsHorizontalRule(line))
             {
                 yOffset += 8;
                 var lineY = yOffset;
                 image.Mutate(ctx => ctx.DrawLine(
-                    RenderingUtilities.WithOpacity(textColor, 0.3f), 1f,
+                    ColorUtils.WithOpacity(textColor, 0.3f), 1f,
                     new PointF(innerRect.X, lineY),
                     new PointF(innerRect.Right, lineY)));
                 yOffset += 8 + elementSpacing;
                 continue;
             }
-            else if (RenderingUtilities.IsTaskListItem(line))
+            else if (MarkdownHelpers.IsTaskListItem(line))
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.5f;
                 isTaskItem = true;
-                isTaskChecked = RenderingUtilities.IsTaskCheckedItem(line);
-                text = RenderingUtilities.StripInlineMarkdown(line[6..]); maxWrapLines = 3;
+                isTaskChecked = MarkdownHelpers.IsTaskCheckedItem(line);
+                text = MarkdownHelpers.StripInlineMarkdown(line[6..]); maxWrapLines = 3;
             }
             else if (line.StartsWith("> ") || line == ">")
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.5f;
-                text = RenderingUtilities.StripInlineMarkdown(line.Length > 2 ? line[2..] : "");
+                text = MarkdownHelpers.StripInlineMarkdown(line.Length > 2 ? line[2..] : "");
                 xIndent = 3 + 8; maxWrapLines = 10; isBlockquote = true;
             }
             else if (line.StartsWith("- ") || line.StartsWith("* ") || line.StartsWith("+ "))
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.5f;
-                text = $"• {RenderingUtilities.StripInlineMarkdown(line[2..])}"; maxWrapLines = 5;
+                text = $"• {MarkdownHelpers.StripInlineMarkdown(line[2..])}"; maxWrapLines = 5;
             }
-            else if (RenderingUtilities.IsIndentedSubList(line))
+            else if (MarkdownHelpers.IsIndentedSubList(line))
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.5f;
                 var stripped = line.TrimStart();
-                text = $"  ◦ {RenderingUtilities.StripInlineMarkdown(stripped[2..])}"; maxWrapLines = 5;
+                text = $"  ◦ {MarkdownHelpers.StripInlineMarkdown(stripped[2..])}"; maxWrapLines = 5;
             }
-            else if (RenderingUtilities.IsNumberedList(line))
+            else if (MarkdownHelpers.IsNumberedList(line))
             {
                 fontSize = textFontSize; fontWeight = textFontWeight; lineHeightMultiplier = 1.5f;
-                var match = RenderingUtilities.MatchNumberedList(line);
+                var match = MarkdownHelpers.MatchNumberedList(line);
                 text = match.Success
-                    ? $"{match.Groups[1].Value} {RenderingUtilities.StripInlineMarkdown(match.Groups[2].Value)}"
-                    : RenderingUtilities.StripInlineMarkdown(line);
+                    ? $"{match.Groups[1].Value} {MarkdownHelpers.StripInlineMarkdown(match.Groups[2].Value)}"
+                    : MarkdownHelpers.StripInlineMarkdown(line);
                 maxWrapLines = 5;
             }
             else if (string.IsNullOrWhiteSpace(line))
@@ -152,9 +152,9 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             else
             {
                 fontSize = textFontSize;
-                fontWeight = RenderingUtilities.IsEntirelyBold(line) ? titleFontWeight : textFontWeight;
+                fontWeight = MarkdownHelpers.IsEntirelyBold(line) ? titleFontWeight : textFontWeight;
                 lineHeightMultiplier = 1.5f;
-                text = RenderingUtilities.StripInlineMarkdown(line);
+                text = MarkdownHelpers.StripInlineMarkdown(line);
                 maxWrapLines = 50;
             }
 
@@ -173,12 +173,12 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             {
                 var checkSize = (float)fontSize;
                 var checkIcon = isTaskChecked ? "fa-square-check" : "fa-square";
-                var checkColor = isTaskChecked ? RenderingUtilities.WithOpacity(iconColor, 0.6f) : iconColor;
+                var checkColor = isTaskChecked ? ColorUtils.WithOpacity(iconColor, 0.6f) : iconColor;
                 var checkBounds = new RectangleF(drawX, yOffset + 1, checkSize, checkSize);
                 utils.DrawFaIcon(image, checkIcon, checkColor, checkBounds);
                 drawX += checkSize + 4;
                 drawW -= checkSize + 4;
-                var taskColor = isTaskChecked ? RenderingUtilities.WithOpacity(textColor, 0.6f) : textColor;
+                var taskColor = isTaskChecked ? ColorUtils.WithOpacity(textColor, 0.6f) : textColor;
                 var textRect = new RectangleF(drawX, yOffset, drawW, availableHeight);
                 var consumedHeight = utils.DrawTextWithInlineIcons(image, text, font, taskColor, iconColor, textRect, maxWrapLines, extraSpacing);
 
@@ -195,13 +195,13 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             }
 
             var mainTextRect = new RectangleF(drawX, yOffset, drawW, availableHeight);
-            var mainColor = isBlockquote ? RenderingUtilities.WithOpacity(textColor, 0.8f) : textColor;
+            var mainColor = isBlockquote ? ColorUtils.WithOpacity(textColor, 0.8f) : textColor;
             var mainConsumed = utils.DrawTextWithInlineIcons(image, text, font, mainColor, iconColor, mainTextRect, maxWrapLines, extraSpacing);
 
             if (isBlockquote && mainConsumed > 0)
             {
                 var barX = innerRect.X + 1.5f;
-                var bqColor = RenderingUtilities.WithOpacity(textColor, 0.8f);
+                var bqColor = ColorUtils.WithOpacity(textColor, 0.8f);
                 image.Mutate(ctx => ctx.DrawLine(
                     bqColor, 3f,
                     new PointF(barX, startY),

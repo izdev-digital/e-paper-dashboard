@@ -12,7 +12,7 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
 {
     public string WidgetType => "calendar";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -34,7 +34,7 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
         {
             var titleText = widget.TitleOverride ?? "Events";
             var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            utils.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), RenderingUtilities.WithOpacity(titleColor, 0.9f), titleRect);
+            TextDrawing.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), ColorUtils.WithOpacity(titleColor, 0.9f), titleRect);
             yOffset += titleFontSize + 6;
         }
 
@@ -60,8 +60,8 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             foreach (var ev in upcoming)
             {
                 if (yOffset + lineHeight > contentRect.Bottom) break;
-                var evTextColor = RenderingUtilities.WithOpacity(textColor, 0.85f);
-                var evIconColor = RenderingUtilities.WithOpacity(iconColor, 0.85f);
+                var evTextColor = ColorUtils.WithOpacity(textColor, 0.85f);
+                var evIconColor = ColorUtils.WithOpacity(iconColor, 0.85f);
 
                 foreach (var item in visibleItems)
                 {
@@ -91,7 +91,7 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
                     }
 
                     var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, lineHeight);
-                    utils.DrawTextEllipsis(image, text, utils.GetFont(textFontSize, textFontWeight), evTextColor, textRect);
+                    TextDrawing.DrawTextEllipsis(image, text, utils.GetFont(textFontSize, textFontWeight), evTextColor, textRect);
                     yOffset += lineHeight;
                 }
 
@@ -102,16 +102,16 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
         return Task.CompletedTask;
     }
 
-    private record CalendarEventItemEntry(string Type, bool Visible, string? Icon, double X, double Y, double W, double H);
+    private record CalendarEventItemEntry(string Type, bool Visible, string? Icon);
 
     private static List<CalendarEventItemEntry> GetCalendarEventItems(JsonElement config)
     {
         var defaults = new List<CalendarEventItemEntry>
         {
-            new("datetime", true, "fa-clock", 0, 0, 100, 50),
-            new("title", true, null, 0, 50, 100, 50),
-            new("location", false, "fa-location-dot", 0, 50, 100, 25),
-            new("description", false, "fa-align-left", 0, 75, 100, 25),
+            new("datetime", true, "fa-clock"),
+            new("title", true, null),
+            new("location", false, "fa-location-dot"),
+            new("description", false, "fa-align-left"),
         };
 
         if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
@@ -122,13 +122,8 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
                 var type = el.TryGetProperty("type", out var tProp) ? tProp.GetString() ?? "" : "";
                 var visible = !el.TryGetProperty("visible", out var vProp) || vProp.ValueKind != JsonValueKind.False;
                 var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
-                var def = defaults.FirstOrDefault(d => d.Type == type) ?? defaults[0];
-                var x = el.TryGetProperty("x", out var xP) && xP.TryGetDouble(out var xv) ? xv : def.X;
-                var y = el.TryGetProperty("y", out var yP) && yP.TryGetDouble(out var yv) ? yv : def.Y;
-                var w = el.TryGetProperty("w", out var wP) && wP.TryGetDouble(out var wv) ? wv : def.W;
-                var h = el.TryGetProperty("h", out var hP) && hP.TryGetDouble(out var hv) ? hv : def.H;
                 if (visible)
-                    result.Add(new CalendarEventItemEntry(type, visible, icon, x, y, w, h));
+                    result.Add(new CalendarEventItemEntry(type, visible, icon));
             }
             return result;
         }

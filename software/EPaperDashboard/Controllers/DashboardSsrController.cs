@@ -53,63 +53,8 @@ public class DashboardSsrController(
 
             using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
-                layoutToRender);
-
-            using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
-
-            var (contentType, encoder) = GetEncoder(format);
-            return await ConvertToResult(image, encoder, contentType);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Renders a preview of the dashboard. Supports both Custom (ImageSharp) and
-    /// HomeAssistant (Playwright) rendering modes. Protected by cookie auth.
-    /// </summary>
-    [HttpGet("{id}/preview")]
-    public async Task<IActionResult> PreviewDashboard(
-        string id,
-        [FromQuery] string format = "png")
-    {
-        if (!DashboardId.TryParse(id, out var dashboardId))
-            return BadRequest("Invalid dashboard ID");
-
-        var dashboard = dashboardService.GetDashboardById(dashboardId);
-        if (dashboard.HasNoValue)
-            return NotFound("Dashboard not found");
-
-        if (dashboard.Value.UserId != CurrentUserId)
-            return Forbid();
-
-        var (width, height) = dashboard.Value.GetEffectiveSize();
-        var imageSize = new Size(width, height);
-
-        if (dashboard.Value.RenderingMode == RenderingMode.Custom)
-        {
-            return await RenderCustomPreview(dashboard.Value, imageSize, format);
-        }
-        else
-        {
-            return await RenderHomeAssistantPreview(dashboard.Value, imageSize, format);
-        }
-    }
-
-    private async Task<IActionResult> RenderCustomPreview(Dashboard dashboard, Size imageSize, string format)
-    {
-        if (dashboard.LayoutConfig == null)
-            return BadRequest("Dashboard has no layout configuration. Open the designer and create a layout first.");
-
-        try
-        {
-            var layoutToRender = dashboard.GetMergedLayoutConfig();
-
-            using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
-                dashboard.Id.ToString(),
-                layoutToRender);
+                layoutToRender,
+                HttpContext.RequestAborted);
 
             using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 

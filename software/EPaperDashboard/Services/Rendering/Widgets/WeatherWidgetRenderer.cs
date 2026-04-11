@@ -11,7 +11,7 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
 {
     public string WidgetType => "weather";
 
-    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
+    public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
@@ -49,21 +49,21 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
             switch (item.Type)
             {
                 case "title":
-                    utils.DrawTextEllipsis(image, widget.TitleOverride ?? "Weather", utils.GetFont(titleFontSize, titleFontWeight), titleColor, itemRect);
+                    TextDrawing.DrawTextEllipsis(image, widget.TitleOverride ?? "Weather", utils.GetFont(titleFontSize, titleFontWeight), titleColor, itemRect);
                     break;
                 case "temperature":
                 {
                     var tempIcon = item.Icon ?? "fa-temperature-half";
                     var (textX, textW) = DrawWeatherItemIcon(image, tempIcon, iconColor, iconSize, itemRect);
-                    utils.DrawTextEllipsis(image, $"{temperature}°", utils.GetFont(textFontSize, textFontWeight), textColor,
+                    TextDrawing.DrawTextEllipsis(image, $"{temperature}°", utils.GetFont(textFontSize, textFontWeight), textColor,
                         new RectangleF(textX, itemRect.Y, textW, itemRect.Height));
                     break;
                 }
                 case "condition":
                 {
-                    var condIcon = item.Icon ?? "fa-cloud-sun";
+                    var condIcon = item.Icon ?? ConditionToIcon(condition);
                     var (textX, textW) = DrawWeatherItemIcon(image, condIcon, iconColor, iconSize, itemRect);
-                    utils.DrawTextEllipsis(image, condition, utils.GetFont(textFontSize, textFontWeight), textColor,
+                    TextDrawing.DrawTextEllipsis(image, condition, utils.GetFont(textFontSize, textFontWeight), textColor,
                         new RectangleF(textX, itemRect.Y, textW, itemRect.Height));
                     break;
                 }
@@ -71,7 +71,7 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
                 {
                     var pressIcon = item.Icon ?? "fa-gauge";
                     var (textX, textW) = DrawWeatherItemIcon(image, pressIcon, iconColor, iconSize, itemRect);
-                    utils.DrawTextEllipsis(image, pressure, utils.GetFont(textFontSize, textFontWeight), textColor,
+                    TextDrawing.DrawTextEllipsis(image, pressure, utils.GetFont(textFontSize, textFontWeight), textColor,
                         new RectangleF(textX, itemRect.Y, textW, itemRect.Height));
                     break;
                 }
@@ -87,7 +87,7 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
                         _ => "fa-circle-info"
                     };
                     var (textX, textW) = DrawWeatherItemIcon(image, attrIcon, iconColor, iconSize, itemRect);
-                    utils.DrawTextEllipsis(image, $"{attrVal}{suffix}", utils.GetFont(textFontSize, textFontWeight), textColor,
+                    TextDrawing.DrawTextEllipsis(image, $"{attrVal}{suffix}", utils.GetFont(textFontSize, textFontWeight), textColor,
                         new RectangleF(textX, itemRect.Y, textW, itemRect.Height));
                     break;
                 }
@@ -145,4 +145,23 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
 
         return defaults;
     }
+
+    private static string ConditionToIcon(string condition) => condition.ToLowerInvariant() switch
+    {
+        "clear-night" => "fa-moon",
+        "cloudy" => "fa-cloud",
+        "fog" => "fa-smog",
+        "hail" => "fa-cloud-meatball",
+        "lightning" => "fa-bolt",
+        "lightning-rainy" => "fa-cloud-bolt",
+        "partlycloudy" => "fa-cloud-sun",
+        "pouring" => "fa-cloud-showers-heavy",
+        "rainy" => "fa-cloud-rain",
+        "snowy" => "fa-snowflake",
+        "snowy-rainy" => "fa-cloud-rain",
+        "sunny" => "fa-sun",
+        "windy" or "windy-variant" => "fa-wind",
+        "exceptional" => "fa-triangle-exclamation",
+        _ => "fa-cloud-sun"
+    };
 }
