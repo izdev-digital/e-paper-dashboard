@@ -1,10 +1,11 @@
-import { Component, signal, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { AiService } from '../../services/ai.service';
 import { ToastService } from '../../services/toast.service';
 import { AiConfig, AiConnectionMode } from '../../models/types';
+import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
 @Component({
   selector: 'app-ai-config',
@@ -12,15 +13,17 @@ import { AiConfig, AiConnectionMode } from '../../models/types';
   imports: [CommonModule, FormsModule, RouterModule],
   templateUrl: './ai-config.component.html'
 })
-export class AiConfigComponent implements OnInit {
+export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   private readonly aiService = inject(AiService);
   private readonly toastService = inject(ToastService);
 
   readonly aiConfig = signal<AiConfig>({ connectionMode: 'None' });
+  private originalAiConfig: string = '';
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly availableModels = signal<{ id: string }[]>([]);
   readonly isLoadingModels = signal(false);
+  readonly isDirty = computed(() => JSON.stringify(this.aiConfig()) !== this.originalAiConfig);
 
   ngOnInit(): void {
     this.loadConfig();
@@ -31,6 +34,7 @@ export class AiConfigComponent implements OnInit {
     this.aiService.getGlobalConfig().subscribe({
       next: (config) => {
         this.aiConfig.set(config);
+        this.originalAiConfig = JSON.stringify(config);
         this.isLoading.set(false);
         if (config.connectionMode === 'Direct' && config.directEndpoint) {
           this.fetchModels();
@@ -80,6 +84,7 @@ export class AiConfigComponent implements OnInit {
     this.aiService.updateGlobalConfig(this.aiConfig()).subscribe({
       next: (config) => {
         this.aiConfig.set(config);
+        this.originalAiConfig = JSON.stringify(config);
         this.toastService.success('AI configuration saved.');
         this.isSaving.set(false);
       },
@@ -88,5 +93,13 @@ export class AiConfigComponent implements OnInit {
         this.isSaving.set(false);
       }
     });
+  }
+
+  discardChanges(): void {
+    this.aiConfig.set(JSON.parse(this.originalAiConfig));
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.isDirty();
   }
 }
