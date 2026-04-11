@@ -119,6 +119,11 @@ builder.Services
 	.AddSingleton<DashboardImageRenderingService>()
 	.AddSingleton<IAiServiceFactory, AiServiceFactory>()
 	.AddSingleton<AiPromptBuilder>()
+	.AddSingleton<AiDataFetcher>()
+	.AddSingleton<AiResponseParser>()
+	.AddSingleton<WidgetValidator>()
+	.AddSingleton<WidgetLayoutEngine>()
+	.AddSingleton<GridPacker>()
 	.AddSingleton<AiDashboardGenerationService>()
 	.AddHostedService<DashboardScheduleMonitorService>()
 	.AddHostedService<AiPreGenerationService>();
