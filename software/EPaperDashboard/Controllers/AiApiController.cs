@@ -16,9 +16,6 @@ public sealed class AiApiController(
     AiDashboardGenerationService aiGenerationService,
     HomeAssistantConnectionService homeAssistantConnectionService) : BaseApiController
 {
-    /// <summary>
-    /// Gets the current user's AI configuration.
-    /// </summary>
     [HttpGet("config")]
     public IActionResult GetAiConfig()
     {
@@ -31,9 +28,6 @@ public sealed class AiApiController(
         return Ok(user.Value.AiConfig ?? new AiConfig());
     }
 
-    /// <summary>
-    /// Updates the current user's AI configuration.
-    /// </summary>
     [HttpPut("config")]
     public IActionResult UpdateAiConfig([FromBody] AiConfig config)
     {
@@ -43,7 +37,6 @@ public sealed class AiApiController(
             return NotFound("User not found");
         }
 
-        // Validate required fields per connection mode
         var validationError = ValidateAiConfig(config);
         if (validationError != null)
             return BadRequest(validationError);
@@ -68,9 +61,6 @@ public sealed class AiApiController(
         };
     }
 
-    /// <summary>
-    /// Triggers AI generation for a specific dashboard. Returns the generated widgets.
-    /// </summary>
     [HttpPost("dashboards/{dashboardId}/generate")]
     public async Task<IActionResult> GenerateAiDashboard(
         string dashboardId,
@@ -98,7 +88,6 @@ public sealed class AiApiController(
             return BadRequest("AI is not enabled for this dashboard");
         }
 
-        // When a prompt override is provided, use it directly; otherwise require the saved prompt
         var effectivePrompt = request?.Prompt ?? dashboard.Value.AiPrompt;
         if (string.IsNullOrWhiteSpace(effectivePrompt))
         {
@@ -122,9 +111,6 @@ public sealed class AiApiController(
         return BadRequest(new { message = result.Error });
     }
 
-    /// <summary>
-    /// Gets the current AI-generated widgets for a dashboard.
-    /// </summary>
     [HttpGet("dashboards/{dashboardId}/generated")]
     public IActionResult GetGeneratedWidgets(string dashboardId)
     {
@@ -154,9 +140,6 @@ public sealed class AiApiController(
         });
     }
 
-    /// <summary>
-    /// Clears the AI-generated widgets for a dashboard.
-    /// </summary>
     [HttpDelete("dashboards/{dashboardId}/generated")]
     public IActionResult ClearGeneratedWidgets(string dashboardId)
     {
@@ -183,10 +166,6 @@ public sealed class AiApiController(
         return NoContent();
     }
 
-    /// <summary>
-    /// Lists available Home Assistant conversation agents.
-    /// Finds a HA-connected dashboard owned by the current user to establish the connection.
-    /// </summary>
     [HttpGet("conversation-agents")]
     public async Task<IActionResult> GetConversationAgents(CancellationToken cancellationToken)
     {

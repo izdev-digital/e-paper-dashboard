@@ -1078,20 +1078,14 @@ public sealed class DashboardImageRenderingService
         }
     }
 
-    // =============================================
-    // AI CONTENT WIDGET (renders content as markdown)
-    // =============================================
-
     private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        // AI content is generated at render time and stored in SsrData.AiContent by widget ID.
         if (!data.AiContent.TryGetValue(widget.Id, out var content) || string.IsNullOrWhiteSpace(content))
         {
             RenderPlaceholder(image, widget, layout, contentRect, "AI Content");
             return;
         }
 
-        // Reuse the markdown rendering logic by swapping in the content
         var syntheticConfig = System.Text.Json.JsonSerializer.SerializeToElement(new { content });
         var syntheticWidget = widget with { Config = syntheticConfig };
         RenderMarkdownWidget(image, syntheticWidget, layout, contentRect);

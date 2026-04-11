@@ -5,11 +5,6 @@ using EPaperDashboard.Services.Providers;
 
 namespace EPaperDashboard.Services.Ai;
 
-/// <summary>
-/// Orchestrates AI dashboard generation using a 2-step approach:
-/// 1. AI decides WHAT content to show (widget types, configs, priority order) — 1 LLM call
-/// 2. Server computes sizes from actual data and packs widgets onto the grid — 0 LLM calls
-/// </summary>
 public sealed class AiDashboardGenerationService(
     IAiServiceFactory aiServiceFactory,
     IEntityStateProvider entityStateProvider,
@@ -27,7 +22,6 @@ public sealed class AiDashboardGenerationService(
         string? promptOverride = null,
         CancellationToken cancellationToken = default)
     {
-        // Resolve user's AI config
         var userMaybe = userService.GetUserById(dashboard.UserId);
         if (userMaybe.HasNoValue)
         {
@@ -40,14 +34,12 @@ public sealed class AiDashboardGenerationService(
             return StoreError(dashboard, "AI is not configured. Set up an AI connection in user settings.");
         }
 
-        // Create AI service from user config
         var aiServiceResult = aiServiceFactory.Create(user.AiConfig, dashboard.Id.ToString());
         if (aiServiceResult.IsFailure)
         {
             return StoreError(dashboard, aiServiceResult.Error);
         }
 
-        // Apply prompt override if provided (avoids save-then-generate race)
         if (!string.IsNullOrWhiteSpace(promptOverride))
         {
             dashboard.AiPrompt = promptOverride;
@@ -55,10 +47,8 @@ public sealed class AiDashboardGenerationService(
 
         var aiService = aiServiceResult.Value;
 
-        // Fetch data from providers for entities the AI can use
         var aiData = await FetchDataForAi(dashboard);
 
-        // Build data summary for the response
         var dataSummary = new AiDataSummary
         {
             EntityStates = aiData.EntityStates.Count,
@@ -68,10 +58,8 @@ public sealed class AiDashboardGenerationService(
             RssFeeds = [.. aiData.RssFeedEntries.Keys]
         };
 
-        // Build the layout config to pass to prompt builder (for grid/color info + pinned widgets)
         var layoutConfig = dashboard.LayoutConfig ?? CreateDefaultLayoutConfig(dashboard);
 
-        // Build prompts
         var (systemPrompt, userPrompt) = promptBuilder.BuildPrompt(
             dashboard,
             layoutConfig,
@@ -88,14 +76,12 @@ public sealed class AiDashboardGenerationService(
             "Generating AI dashboard for {DashboardId} ({DashboardName}), prompt length: {SystemLen}+{UserLen} chars (~{Tokens} tokens)",
             dashboard.Id, dashboard.Name, systemPrompt.Length, userPrompt.Length, promptTokenEstimate);
 
-        // Step 1: AI decides what content to show
         var completionResult = await aiService.GenerateCompletionAsync(systemPrompt, userPrompt, cancellationToken);
         if (completionResult.IsFailure)
         {
             return StoreError(dashboard, completionResult.Error);
         }
 
-        // Parse the content list (no positions — just type + config in priority order)
         var parseResult = ParseAiResponse(completionResult.Value);
         if (parseResult.IsFailure)
         {
@@ -103,7 +89,6 @@ public sealed class AiDashboardGenerationService(
                 "AI response parsing failed: {Error}. Running JSON repair pass. Raw response: {Response}",
                 parseResult.Error, completionResult.Value);
 
-            // Ask the AI to fix its own broken JSON
             var repairResult = await RepairJsonAsync(
                 aiService, completionResult.Value, parseResult.Error, cancellationToken);
             if (repairResult.IsFailure)
@@ -114,14 +99,12 @@ public sealed class AiDashboardGenerationService(
             parseResult = repairResult;
         }
 
-        // Validate entity IDs and repair configs
         var validatedWidgets = ValidateAndRepairWidgets(parseResult.Value, aiData, dashboard);
         if (validatedWidgets.Count == 0)
         {
             return StoreError(dashboard, "All AI-generated widgets were invalid after validation");
         }
 
-        // Step 2: Server computes sizes and packs widgets onto the grid
         var gridCols = layoutConfig.GridCols > 0 ? layoutConfig.GridCols : 12;
         var gridRows = layoutConfig.GridRows > 0 ? layoutConfig.GridRows : 8;
 
@@ -133,7 +116,6 @@ public sealed class AiDashboardGenerationService(
             return StoreError(dashboard, "No widgets could be placed on the grid");
         }
 
-        // Store the generated widgets and clear any previous error
         dashboard.AiGeneratedWidgets = placedWidgets;
         dashboard.LastAiGenerationTime = DateTimeOffset.UtcNow;
         dashboard.LastAiGenerationError = null;
@@ -163,7 +145,6 @@ public sealed class AiDashboardGenerationService(
         var data = new AiDataSnapshot();
         var dashboardId = dashboard.Id.ToString();
 
-        // Fetch all provider data in parallel
         var entityStatesTask = SafeFetchAsync(() => entityStateProvider.FetchAllEntityStatesAsync(dashboardId));
         var todoTask = SafeFetchAsync(() => todoDataProvider.FetchAllTodoItemsAsync(dashboardId));
         var calendarTask = SafeFetchAsync(() => calendarDataProvider.FetchAllCalendarEventsAsync(dashboardId));
@@ -227,8 +208,6 @@ public sealed class AiDashboardGenerationService(
         }
     }
 
-    // --- Step 1 helpers: parse AI content decisions ---
-
     private async Task<Result<List<WidgetConfig>, string>> RepairJsonAsync(
         IAiService aiService,
         string brokenResponse,
@@ -273,7 +252,6 @@ public sealed class AiDashboardGenerationService(
     {
         try
         {
-            // Strip markdown code fences if present
             var json = response.Trim();
             if (json.StartsWith("```"))
             {
@@ -316,7 +294,6 @@ public sealed class AiDashboardGenerationService(
                     continue;
                 }
 
-                // Generate a unique ID server-side
                 typeCounts.TryGetValue(type, out var count);
                 typeCounts[type] = count + 1;
                 var id = count == 0 ? type : $"{type}-{count + 1}";
@@ -333,7 +310,7 @@ public sealed class AiDashboardGenerationService(
                 {
                     Id = id,
                     Type = type,
-                    Position = new WidgetPosition(), // will be computed by the packer
+                    Position = new WidgetPosition(),
                     Config = config,
                     TitleOverride = titleOverride
                 });
@@ -355,8 +332,6 @@ public sealed class AiDashboardGenerationService(
     private static bool IsKnownWidgetType(string type) =>
         type is "header" or "markdown" or "calendar" or "weather" or "weather-forecast"
             or "todo" or "rss-feed" or "graph" or "app-icon" or "ai-content";
-
-    // --- Step 2 helpers: compute sizes and pack widgets ---
 
     private void ComputeWidgetSizes(
         List<WidgetConfig> widgets,
@@ -447,7 +422,6 @@ public sealed class AiDashboardGenerationService(
                 var maxItems = GetIntProp(config, "maxItems") ?? 50;
                 var dataRows = Math.Min(maxItems, itemCount);
                 var w = Math.Min(6, Math.Max(4, gridCols / 2));
-                // Todo items are slightly taller due to status icons
                 var contentLines = (int)Math.Ceiling(dataRows * 1.3);
                 var h = 1 + (int)Math.Ceiling(contentLines / metrics.linesPerCell);
                 return (w, Math.Max(2, h));
@@ -455,7 +429,6 @@ public sealed class AiDashboardGenerationService(
 
             case "rss-feed":
             {
-                // Title + headline text (2 lines) + QR code (~3 cells)
                 var w = Math.Min(4, Math.Max(3, gridCols / 3));
                 return (w, 4);
             }
@@ -481,7 +454,6 @@ public sealed class AiDashboardGenerationService(
 
                 var charsPerLine = metrics.charsPerCellWidth * w;
                 var textLines = (int)Math.Ceiling((double)charCount / charsPerLine);
-                // Account for markdown formatting adding line breaks (headings, lists, etc.)
                 var newlineCount = content.Count(c => c == '\n');
                 textLines = Math.Max(textLines, newlineCount + 1);
                 var h = 1 + (int)Math.Ceiling(textLines / metrics.linesPerCell);
@@ -501,7 +473,6 @@ public sealed class AiDashboardGenerationService(
     {
         var grid = new bool[gridCols, gridRows];
 
-        // Mark pinned widget cells as occupied
         foreach (var pinned in pinnedWidgets)
         {
             MarkCells(grid, pinned.Position, gridCols, gridRows);
@@ -509,20 +480,17 @@ public sealed class AiDashboardGenerationService(
 
         var placed = new List<WidgetConfig>();
 
-        // Place widgets in priority order (AI returns them most-important-first)
         foreach (var widget in widgets)
         {
             var idealW = widget.Position.W;
             var idealH = widget.Position.H;
 
-            // Try ideal size first, then progressively shrink
             if (TryPlace(grid, widget, idealW, idealH, gridCols, gridRows))
             {
                 placed.Add(widget);
                 continue;
             }
 
-            // Try shrinking height first (more common to need less rows)
             var placed2 = false;
             for (var h = idealH - 1; h >= 1; h--)
             {
@@ -535,7 +503,6 @@ public sealed class AiDashboardGenerationService(
             }
             if (placed2) continue;
 
-            // Try shrinking width
             for (var w = idealW - 1; w >= 1; w--)
             {
                 for (var h = idealH; h >= 1; h--)
@@ -613,12 +580,6 @@ public sealed class AiDashboardGenerationService(
         }
     }
 
-    // --- Validation ---
-
-    /// <summary>
-    /// Post-parse validation: drops widgets with invalid/missing entity IDs or empty content,
-    /// and repairs header titles.
-    /// </summary>
     private List<WidgetConfig> ValidateAndRepairWidgets(
         List<WidgetConfig> widgets,
         AiDataSnapshot aiData,
@@ -781,14 +742,10 @@ public sealed class AiDashboardGenerationService(
                 }
                 break;
             }
-
-            // app-icon: no required config — always valid
         }
 
         return widget;
     }
-
-    // --- JSON helpers ---
 
     private static Dictionary<string, object?> PatchJsonObject(JsonElement original, string key, string value)
     {

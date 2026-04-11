@@ -70,6 +70,5 @@ public class SsrData
     public Dictionary<string, List<object?>> WeatherForecasts { get; set; } = new();
     public Dictionary<string, List<RssFeedEntry>> RssFeedEntries { get; set; } = new();
     public Dictionary<string, List<HistoryState>> HistoryData { get; set; } = new();
-    /// <summary>Widget ID → AI-generated content for ai-content widgets.</summary>
     public Dictionary<string, string> AiContent { get; set; } = new();
 }

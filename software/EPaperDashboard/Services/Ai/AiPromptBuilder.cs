@@ -3,10 +3,6 @@ using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Services.Ai;
 
-/// <summary>
-/// Builds system and user prompts for AI dashboard generation.
-/// The AI only decides WHAT content to show — the server handles sizing and placement.
-/// </summary>
 public sealed class AiPromptBuilder
 {
     public (string systemPrompt, string userPrompt) BuildPrompt(

@@ -141,7 +141,6 @@ public sealed class SsrDataProvider(
             }
         }
 
-        // Generate AI content for ai-content widgets
         foreach (var widget in layout.Widgets.Where(w => w.Type == "ai-content"))
         {
             var prompt = GetStringProp(widget.Config, "prompt");
