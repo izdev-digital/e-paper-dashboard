@@ -24,6 +24,7 @@ public sealed class RenderingUtilities
 {
     private readonly FontFamily _fontFamily;
     private readonly FontAwesomeIconRegistry _iconRegistry;
+    private readonly Dictionary<(int Size, FontStyle Style), Font> _fontCache = new();
 
     public RenderingUtilities(FontFamily fontFamily, FontAwesomeIconRegistry iconRegistry)
     {
@@ -77,12 +78,20 @@ public sealed class RenderingUtilities
     // =============================================
 
     public Font GetFont(int size, FontStyle style = FontStyle.Regular)
-        => _fontFamily.CreateFont(size, style);
+    {
+        var key = (size, style);
+        if (!_fontCache.TryGetValue(key, out var font))
+        {
+            font = _fontFamily.CreateFont(size, style);
+            _fontCache[key] = font;
+        }
+        return font;
+    }
 
     public Font GetFont(int size, int weight)
     {
         var style = weight >= 700 ? FontStyle.Bold : FontStyle.Regular;
-        return _fontFamily.CreateFont(size, style);
+        return GetFont(size, style);
     }
 
     // =============================================

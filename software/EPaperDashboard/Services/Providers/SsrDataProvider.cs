@@ -60,7 +60,7 @@ public sealed class SsrDataProvider(
                 {
                     var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
                     if (result.IsSuccess)
-                        lock (data.TodoItems) { data.TodoItems[entityId] = result.Value; }
+                        data.TodoItems[entityId] = result.Value;
                 }));
             }
         }
@@ -74,7 +74,7 @@ public sealed class SsrDataProvider(
                 {
                     var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
                     if (result.IsSuccess)
-                        lock (data.CalendarEvents) { data.CalendarEvents[entityId] = result.Value; }
+                        data.CalendarEvents[entityId] = result.Value;
                 }));
             }
         }
@@ -93,7 +93,7 @@ public sealed class SsrDataProvider(
                         && result.Value.TryGetValue("forecast", out var forecastVal)
                         && forecastVal is List<object?> forecastList)
                     {
-                        lock (data.WeatherForecasts) { data.WeatherForecasts[entityId] = forecastList; }
+                        data.WeatherForecasts[entityId] = forecastList;
                     }
                 }));
             }
@@ -109,7 +109,7 @@ public sealed class SsrDataProvider(
                     var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
                     if (result.IsSuccess)
                     {
-                        lock (data.RssFeedEntries) { data.RssFeedEntries[entityId] = result.Value; }
+                        data.RssFeedEntries[entityId] = result.Value;
                         _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
                     }
                     else
@@ -148,11 +148,8 @@ public sealed class SsrDataProvider(
                         var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, graphEntityIds, hours);
                         if (result.IsSuccess)
                         {
-                            lock (data.HistoryData)
-                            {
-                                foreach (var (entityId, states) in result.Value)
-                                    data.HistoryData[entityId] = states;
-                            }
+                            foreach (var (entityId, states) in result.Value)
+                                data.HistoryData[entityId] = states;
                         }
                     }));
                 }
@@ -170,7 +167,7 @@ public sealed class SsrDataProvider(
                     var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
                     if (result.IsSuccess)
                     {
-                        lock (data.AiContent) { data.AiContent[widgetId] = result.Value; }
+                        data.AiContent[widgetId] = result.Value;
                     }
                     else
                     {

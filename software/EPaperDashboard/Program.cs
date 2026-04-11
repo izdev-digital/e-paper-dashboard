@@ -162,6 +162,10 @@ if (EnvironmentConfiguration.FirmwareUpdateEnabled)
 
 builder.Services.AddHttpClient(Constants.DashboardHttpClientName);
 builder.Services.AddHttpClient(Constants.HassHttpClientName);
+builder.Services.AddHttpClient(Constants.SsrImageHttpClientName, client =>
+{
+	client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddHttpClient(Constants.FirmwareHttpClientName, client =>
 {
 	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");

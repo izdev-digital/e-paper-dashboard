@@ -11,7 +11,7 @@ public sealed class AppIconWidgetRenderer : IWidgetRenderer
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        var iconColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor);
+        var ctx = WidgetRenderContext.Create(widget, layout);
         var size = RenderingUtilities.GetIntProp(widget.Config, "size") ?? 64;
 
         var actualSize = Math.Min(size, Math.Min(contentRect.Width, contentRect.Height));
@@ -19,7 +19,7 @@ public sealed class AppIconWidgetRenderer : IWidgetRenderer
             contentRect.X + (contentRect.Width - actualSize) / 2f,
             contentRect.Y + (contentRect.Height - actualSize) / 2f,
             actualSize, actualSize);
-        RenderingUtilities.DrawAppIcon(image, iconColor, iconBounds);
+        RenderingUtilities.DrawAppIcon(image, ctx.IconColor, iconBounds);
 
         var dithering = RenderingUtilities.GetBoolProp(widget.Config, "dithering") ?? false;
         if (dithering)

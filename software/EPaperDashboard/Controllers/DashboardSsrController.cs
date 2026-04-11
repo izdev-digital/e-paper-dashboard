@@ -51,11 +51,11 @@ public class DashboardSsrController(
         {
             var layoutToRender = dashboard.Value.GetMergedLayoutConfig();
 
-            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
+            using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
                 layoutToRender);
 
-            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+            using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 
             var (contentType, encoder) = GetEncoder(format);
             return await ConvertToResult(image, encoder, contentType);
@@ -107,11 +107,11 @@ public class DashboardSsrController(
         {
             var layoutToRender = dashboard.GetMergedLayoutConfig();
 
-            var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
+            using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Id.ToString(),
                 layoutToRender);
 
-            IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+            using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 
             var (contentType, encoder) = GetEncoder(format);
             return await ConvertToResult(image, encoder, contentType);

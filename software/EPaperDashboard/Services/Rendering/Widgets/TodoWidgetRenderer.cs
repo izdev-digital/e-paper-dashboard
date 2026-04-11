@@ -17,13 +17,14 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        var titleColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTitleTextColor, o => o?.WidgetTitleTextColor);
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var iconColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor);
-        var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
-        var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
-        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
-        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        var titleColor = ctx.TitleColor;
+        var textColor = ctx.TextColor;
+        var iconColor = ctx.IconColor;
+        var titleFontSize = ctx.TitleFontSize;
+        var textFontSize = ctx.TextFontSize;
+        var titleFontWeight = ctx.TitleFontWeight;
+        var textFontWeight = ctx.TextFontWeight;
 
         var entityId = RenderingUtilities.GetStringProp(widget.Config, "entityId") ?? "";
         var showCompleted = RenderingUtilities.GetBoolProp(widget.Config, "showCompleted") ?? true;

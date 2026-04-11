@@ -11,11 +11,9 @@ public sealed class VersionWidgetRenderer(RenderingUtilities utils) : IWidgetRen
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
-        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
+        var ctx = WidgetRenderContext.Create(widget, layout);
         var version = typeof(DashboardImageRenderingService).Assembly.GetName().Version?.ToString() ?? "?";
-        utils.DrawCenteredText(image, $"v{version}", utils.GetFont(textFontSize, textFontWeight), textColor, contentRect);
+        utils.DrawCenteredText(image, $"v{version}", utils.GetFont(ctx.TextFontSize, ctx.TextFontWeight), ctx.TextColor, contentRect);
         return Task.CompletedTask;
     }
 }

@@ -19,11 +19,12 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var titleColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTitleTextColor, o => o?.WidgetTitleTextColor);
-        var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 12;
-        var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 15;
-        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        var textColor = ctx.TextColor;
+        var titleColor = ctx.TitleColor;
+        var textFontSize = ctx.TextFontSize;
+        var titleFontSize = ctx.TitleFontSize;
+        var titleFontWeight = ctx.TitleFontWeight;
         var gridColorStr = widget.ColorOverrides?.WidgetBorderColor ?? layout.ColorScheme.WidgetBorderColor;
 
         // Render title if configured — match frontend .graph-title { padding: 8px 12px 4px 12px }
@@ -103,7 +104,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var originY = contentRect.Y + padT;
 
         // Match frontend Chart.js grid: `${widgetBorderColor}20` ≈ 12.5% alpha
-        var gridColor = RenderingUtilities.ParseColor(gridColorStr + "20");
+        var gridColor = RenderingUtilities.WithOpacity(RenderingUtilities.ParseColor(gridColorStr), 0.125f);
         var labelFont = utils.GetFont(Math.Max(8, textFontSize - 2));
 
         // Grid lines

@@ -225,8 +225,7 @@ public sealed class DashboardImageRenderingService
 
     private void RenderPlaceholder(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect, string label)
     {
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var fontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
-        _utils.DrawCenteredText(image, label, _utils.GetFont(fontSize), textColor, contentRect);
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        _utils.DrawCenteredText(image, label, _utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
     }
 }

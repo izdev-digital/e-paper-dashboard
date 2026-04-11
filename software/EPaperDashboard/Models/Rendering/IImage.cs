@@ -5,7 +5,7 @@ using SixLabors.ImageSharp.Processing.Processors.Dithering;
 
 namespace EPaperDashboard.Models.Rendering;
 
-public interface IImage
+public interface IImage : IDisposable
 {
     IImage RotateFlip(RotateMode rotateMode, FlipMode flipMode);
 

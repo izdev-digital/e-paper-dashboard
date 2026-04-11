@@ -26,8 +26,7 @@ public sealed class AiContentWidgetRenderer(RenderingUtilities utils, MarkdownWi
 
     private void RenderPlaceholder(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
     {
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var fontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
-        utils.DrawCenteredText(image, "AI Content", utils.GetFont(fontSize), textColor, contentRect);
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        utils.DrawCenteredText(image, "AI Content", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
     }
 }

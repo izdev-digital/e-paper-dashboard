@@ -52,9 +52,8 @@ public sealed partial class ImageWidgetRenderer(
             }
             else
             {
-                // External URL — use factory-managed client to avoid socket exhaustion
-                using var httpClient = httpClientFactory.CreateClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(10);
+                // External URL — use named client with pre-configured timeout
+                using var httpClient = httpClientFactory.CreateClient(Utilities.Constants.SsrImageHttpClientName);
                 imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
             }
 
@@ -147,8 +146,8 @@ public sealed partial class ImageWidgetRenderer(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to load image from URL: {Url}", imageUrl);
-            var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-            utils.DrawCenteredText(image, "Image", utils.GetFont(layout.TextFontSize > 0 ? layout.TextFontSize : 12), textColor, contentRect);
+            var ctx = WidgetRenderContext.Create(widget, layout);
+            utils.DrawCenteredText(image, "Image", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
         }
     }
 }

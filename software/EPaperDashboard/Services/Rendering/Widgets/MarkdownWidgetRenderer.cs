@@ -23,12 +23,13 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
 
     internal void RenderMarkdown(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
     {
-        var textColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.WidgetTextColor, o => o?.WidgetTextColor);
-        var iconColor = RenderingUtilities.ResolveWidgetColor(widget, layout, c => c.IconColor, o => o?.IconColor);
-        var textFontSize = layout.TextFontSize > 0 ? layout.TextFontSize : 14;
-        var textFontWeight = layout.TextFontWeight > 0 ? layout.TextFontWeight : 400;
-        var titleFontSize = layout.TitleFontSize > 0 ? layout.TitleFontSize : 16;
-        var titleFontWeight = layout.TitleFontWeight > 0 ? layout.TitleFontWeight : 700;
+        var ctx = WidgetRenderContext.Create(widget, layout);
+        var textColor = ctx.TextColor;
+        var iconColor = ctx.IconColor;
+        var textFontSize = ctx.TextFontSize;
+        var textFontWeight = ctx.TextFontWeight;
+        var titleFontSize = ctx.TitleFontSize;
+        var titleFontWeight = ctx.TitleFontWeight;
 
         var content = RenderingUtilities.GetStringProp(widget.Config, "content") ?? "";
         if (string.IsNullOrEmpty(content)) return;

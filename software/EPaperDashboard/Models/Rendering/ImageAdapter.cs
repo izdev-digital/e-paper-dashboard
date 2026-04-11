@@ -14,6 +14,8 @@ where TPixel : unmanaged, IPixel<TPixel>
 
     private ImageAdapter(Image<TPixel> image) => _image = image;
 
+    public void Dispose() => _image.Dispose();
+
     public static ImageAdapter<TPixel> Load(ReadOnlySpan<byte> data)
     {
         var image = Image.Load(data);
