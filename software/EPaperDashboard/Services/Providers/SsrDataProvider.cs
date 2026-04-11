@@ -14,6 +14,7 @@ public sealed class SsrDataProvider(
     IWeatherForecastProvider weatherForecastProvider,
     IRssFeedDataProvider rssFeedDataProvider,
     IEntityHistoryProvider entityHistoryProvider,
+    IAiContentProvider aiContentProvider,
     ILogger<SsrDataProvider> logger) : ISsrDataProvider
 {
     private readonly IEntityStateProvider _entityStateProvider = entityStateProvider;
@@ -22,6 +23,7 @@ public sealed class SsrDataProvider(
     private readonly IWeatherForecastProvider _weatherForecastProvider = weatherForecastProvider;
     private readonly IRssFeedDataProvider _rssFeedDataProvider = rssFeedDataProvider;
     private readonly IEntityHistoryProvider _entityHistoryProvider = entityHistoryProvider;
+    private readonly IAiContentProvider _aiContentProvider = aiContentProvider;
     private readonly ILogger<SsrDataProvider> _logger = logger;
 
     public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout)
@@ -135,6 +137,24 @@ public sealed class SsrDataProvider(
                         foreach (var (entityId, states) in result.Value)
                             data.HistoryData[entityId] = states;
                     }
+                }
+            }
+        }
+
+        // Generate AI content for ai-content widgets
+        foreach (var widget in layout.Widgets.Where(w => w.Type == "ai-content"))
+        {
+            var prompt = GetStringProp(widget.Config, "prompt");
+            if (!string.IsNullOrWhiteSpace(prompt))
+            {
+                var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
+                if (result.IsSuccess)
+                {
+                    data.AiContent[widget.Id] = result.Value;
+                }
+                else
+                {
+                    _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widget.Id, result.Error);
                 }
             }
         }

@@ -1480,7 +1480,7 @@ export class DashboardDesignerComponent implements OnInit {
       case 'version':
         return {};
       case 'ai-content':
-        return { prompt: '', content: '' };
+        return { prompt: '' };
       default:
         return {};
     }

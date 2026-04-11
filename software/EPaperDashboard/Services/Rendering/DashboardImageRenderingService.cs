@@ -317,7 +317,7 @@ public sealed class DashboardImageRenderingService
                     RenderMarkdownWidget(image, widget, layout, contentRect);
                     break;
                 case "ai-content":
-                    RenderAiContentWidget(image, widget, layout, contentRect);
+                    RenderAiContentWidget(image, widget, layout, data, contentRect);
                     break;
                 case "rss-feed":
                     RenderRssFeedWidget(image, widget, layout, data, contentRect);
@@ -1082,12 +1082,10 @@ public sealed class DashboardImageRenderingService
     // AI CONTENT WIDGET (renders content as markdown)
     // =============================================
 
-    private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
+    private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect)
     {
-        // AI content widget stores generated markdown in the "content" config field.
-        // If content hasn't been generated yet, show a placeholder.
-        var content = GetStringProp(widget.Config, "content");
-        if (string.IsNullOrWhiteSpace(content))
+        // AI content is generated at render time and stored in SsrData.AiContent by widget ID.
+        if (!data.AiContent.TryGetValue(widget.Id, out var content) || string.IsNullOrWhiteSpace(content))
         {
             RenderPlaceholder(image, widget, layout, contentRect, "AI Content");
             return;

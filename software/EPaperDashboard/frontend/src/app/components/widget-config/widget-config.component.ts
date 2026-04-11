@@ -127,29 +127,6 @@ export class WidgetConfigComponent implements OnChanges {
     return this.widget.config as AiContentConfig;
   }
 
-  aiContentGenerating = false;
-  aiContentError: string | null = null;
-
-  generateAiContent(): void {
-    if (!this.dashboard?.id || !this.aiContentConfig.prompt?.trim()) return;
-    this.aiContentGenerating = true;
-    this.aiContentError = null;
-    this.http.post<{ content: string }>(
-      `/api/ai/widget-content/generate`,
-      { dashboardId: this.dashboard.id, prompt: this.aiContentConfig.prompt }
-    ).subscribe({
-      next: (res) => {
-        this.aiContentConfig.content = res.content;
-        this.aiContentGenerating = false;
-        this.onPropertyChanged();
-      },
-      error: (err) => {
-        this.aiContentError = err.error?.message || 'Generation failed';
-        this.aiContentGenerating = false;
-      }
-    });
-  }
-
   onPropertyChanged(): void {
     this.widgetChanged.emit(this.widget);
   }

@@ -14,7 +14,6 @@ public sealed class AiApiController(
     UserService userService,
     DashboardService dashboardService,
     AiDashboardGenerationService aiGenerationService,
-    IAiServiceFactory aiServiceFactory,
     HomeAssistantConnectionService homeAssistantConnectionService) : BaseApiController
 {
     /// <summary>
@@ -251,61 +250,6 @@ public sealed class AiApiController(
             return BadRequest($"Failed to fetch conversation agents: {ex.Message}");
         }
     }
-    /// <summary>
-    /// Generates content for an ai-content widget using the user's AI configuration.
-    /// </summary>
-    [HttpPost("widget-content/generate")]
-    public async Task<IActionResult> GenerateWidgetContent(
-        [FromBody] GenerateWidgetContentRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(request.Prompt))
-        {
-            return BadRequest(new { message = "Prompt is required" });
-        }
-
-        if (!DashboardId.TryParse(request.DashboardId, out var id))
-        {
-            return BadRequest(new { message = "Invalid dashboard ID" });
-        }
-
-        var dashboard = dashboardService.GetDashboardById(id);
-        if (dashboard.HasNoValue || dashboard.Value.UserId != CurrentUserId)
-        {
-            return NotFound(new { message = "Dashboard not found" });
-        }
-
-        var user = userService.GetUserById(CurrentUserId);
-        if (user.HasNoValue || user.Value.AiConfig == null
-            || user.Value.AiConfig.ConnectionMode == AiConnectionMode.None)
-        {
-            return BadRequest(new { message = "AI is not configured. Set up an AI connection in user settings." });
-        }
-
-        var aiServiceResult = aiServiceFactory.Create(user.Value.AiConfig, request.DashboardId);
-        if (aiServiceResult.IsFailure)
-        {
-            return BadRequest(new { message = aiServiceResult.Error });
-        }
-
-        const string systemPrompt = """
-            You are an e-paper dashboard content writer. Generate content based on the user's prompt.
-            Return ONLY the content text — no JSON wrapping, no code fences.
-            Use basic markdown formatting: headings (#-####), **bold**, *italic*, lists, blockquotes.
-            Keep content concise and suitable for a small e-paper display widget.
-            """;
-
-        var result = await aiServiceResult.Value.GenerateCompletionAsync(
-            systemPrompt, request.Prompt, cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(new { message = result.Error });
-        }
-
-        return Ok(new { content = result.Value });
-    }
 }
 
 public record GenerateAiRequest(string? Prompt = null);
-public record GenerateWidgetContentRequest(string DashboardId, string Prompt);

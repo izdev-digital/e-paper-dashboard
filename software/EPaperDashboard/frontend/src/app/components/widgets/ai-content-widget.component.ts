@@ -1,7 +1,5 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { marked } from 'marked';
 import { WidgetConfig, ColorScheme, DashboardLayout, AiContentConfig } from '../../models/types';
 
 @Component({
@@ -11,14 +9,14 @@ import { WidgetConfig, ColorScheme, DashboardLayout, AiContentConfig } from '../
   styleUrls: ['./markdown-widget.component.scss'],
   template: `
     <div class="markdown-widget" [style.color]="getTextColor()">
-      @if (hasContent()) {
-        <div class="markdown-content" [innerHTML]="parsedContent"></div>
-      } @else {
-        <div class="ai-content-empty">
-          <i class="fa fa-wand-magic-sparkles"></i>
-          <p>Configure a prompt and generate content</p>
-        </div>
-      }
+      <div class="ai-content-empty">
+        <i class="fa fa-wand-magic-sparkles"></i>
+        @if (config.prompt.trim()) {
+          <p class="ai-prompt-preview">{{ config.prompt }}</p>
+        } @else {
+          <p>Configure a prompt to generate AI content</p>
+        }
+      </div>
     </div>
   `,
   styles: [`
@@ -40,6 +38,13 @@ import { WidgetConfig, ColorScheme, DashboardLayout, AiContentConfig } from '../
       p {
         margin: 0;
       }
+
+      .ai-prompt-preview {
+        font-style: italic;
+        max-height: 3.6em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
     }
   `]
 })
@@ -48,20 +53,8 @@ export class AiContentWidgetComponent {
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
 
-  constructor(private sanitizer: DomSanitizer) {}
-
   get config(): AiContentConfig {
     return this.widget.config as AiContentConfig;
-  }
-
-  hasContent(): boolean {
-    return !!this.config.content?.trim();
-  }
-
-  get parsedContent(): SafeHtml {
-    const content = this.config.content || '';
-    const html = marked(content) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   getTextColor(): string {

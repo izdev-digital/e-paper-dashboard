@@ -113,6 +113,7 @@ builder.Services
 	.AddSingleton<IWeatherForecastProvider, HomeAssistantWeatherForecastProvider>()
 	.AddSingleton<IRssFeedDataProvider, HomeAssistantRssFeedDataProvider>()
 	.AddSingleton<IEntityHistoryProvider, HomeAssistantEntityHistoryProvider>()
+	.AddSingleton<IAiContentProvider, AiContentProvider>()
 	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
 	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<DashboardImageRenderingService>()

@@ -194,7 +194,6 @@ export interface MarkdownConfig {
 
 export interface AiContentConfig {
   prompt: string;
-  content: string;
 }
 
 export type CalendarEventItemType = 'datetime' | 'title' | 'location' | 'description';
