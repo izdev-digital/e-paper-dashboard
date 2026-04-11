@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -11,6 +11,8 @@ import { TodoService, type TodoItem } from '../../services/todo.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
 import { AiService } from '../../services/ai.service';
+import { DialogService } from '../../services/dialog.service';
+import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
@@ -44,7 +46,7 @@ import {
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
-export class DashboardDesignerComponent implements OnInit {
+export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
@@ -56,6 +58,7 @@ export class DashboardDesignerComponent implements OnInit {
   private readonly calendarService = inject(CalendarService);
   private readonly weatherService = inject(WeatherService);
   private readonly aiService = inject(AiService);
+  private readonly dialogService = inject(DialogService);
 
   // Dashboard data
   dashboardId: string = '';
@@ -137,6 +140,13 @@ export class DashboardDesignerComponent implements OnInit {
   aiLeadTimeMinutes = signal(5);
   aiConfigMode = signal<string>('None');
 
+  // Dirty tracking
+  private savedSnapshot = signal('');
+  readonly isDirty = computed(() => {
+    const current = this.computeCurrentSnapshot();
+    return current !== this.savedSnapshot();
+  });
+
   // Tab navigation
   tabOrder: Array<'dashboard' | 'widgets' | 'properties'> = ['dashboard', 'widgets', 'properties'];
 
@@ -196,6 +206,8 @@ export class DashboardDesignerComponent implements OnInit {
         const effectiveMode = dashboard.effectiveAiConfigMode ?? 'None';
         this.aiConfigMode.set(effectiveMode);
         this.aiEnabled.set(effectiveMode !== 'None' && (dashboard.isAiEnabled ?? false));
+
+        this.markAsPristine();
       },
       error: (err) => {
         this.toastService.show('Failed to load dashboard', 'error');
@@ -608,6 +620,7 @@ export class DashboardDesignerComponent implements OnInit {
           aiPrompt: payload.aiPrompt,
           aiLeadTimeMinutes: payload.aiLeadTimeMinutes,
         } : d);
+        this.markAsPristine();
         this.toastService.show('Dashboard saved successfully', 'success');
       },
       error: (err) => {
@@ -654,29 +667,42 @@ export class DashboardDesignerComponent implements OnInit {
     this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
   }
 
+  hasUnsavedChanges(): boolean {
+    return this.isDirty();
+  }
+
+  discardChanges(): void {
+    const snapshot = JSON.parse(this.savedSnapshot());
+    this.layout.set(snapshot.layout);
+    this.orientation.set(snapshot.orientation);
+    this.aiEnabled.set(snapshot.aiEnabled);
+    this.aiPrompt.set(snapshot.aiPrompt);
+    this.aiLeadTimeMinutes.set(snapshot.aiLeadTimeMinutes);
+    this.selectedWidget.set(null);
+  }
+
+  private computeCurrentSnapshot(): string {
+    const layout = this.layout();
+    return JSON.stringify({
+      layout,
+      orientation: this.orientation(),
+      aiEnabled: this.aiEnabled(),
+      aiPrompt: this.aiPrompt(),
+      aiLeadTimeMinutes: this.aiLeadTimeMinutes(),
+    });
+  }
+
+  private markAsPristine(): void {
+    this.savedSnapshot.set(this.computeCurrentSnapshot());
+  }
+
   previewServerSideRendered(): void {
-    // Save first, then show preview modal
     if (!this.dashboard()) {
       this.toastService.show('No dashboard loaded', 'error');
       return;
     }
 
-    const layoutConfig = this.computePixelPositions(this.layout());
-    this.dashboardService.updateDashboard(this.dashboardId, { layoutConfig, orientation: this.orientation() }).subscribe({
-      next: () => {
-        this.openRenderedPreview();
-      },
-      error: (err) => {
-        if (err.status === 401 || err.status === 403) {
-          this.toastService.show('Authentication error. Please log in again.', 'error');
-          this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
-        } else {
-          this.toastService.show('Failed to save dashboard. Preview may be outdated.', 'warning');
-          // Still open preview with last saved version
-          this.openRenderedPreview();
-        }
-      }
-    });
+    this.openRenderedPreview();
   }
 
   openRenderedPreview(): void {

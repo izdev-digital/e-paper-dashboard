@@ -20,10 +20,13 @@
               </label>
             </div>
           </div>
-          <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" title="Open rendered preview in new tab">
+          <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" [disabled]="isDirty()" [title]="isDirty() ? 'Save your changes before previewing' : 'Open rendered preview'">
             <i class="fa fa-external-link-alt me-1"></i>Rendered Preview
           </button>
-          <button class="btn btn-sm btn-primary" (click)="saveDashboard()">
+          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()">
+            <i class="fa fa-rotate-left me-1"></i>Discard
+          </button>
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()">
             <i class="fa fa-save me-1"></i>Save Layout
           </button>
         </div>
@@ -472,7 +475,8 @@
                 </div>
 
                 <div class="mb-3">
-                  <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt()">
+                  <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt() || isDirty()"
+                    [title]="isDirty() ? 'Save your changes before generating' : ''">
                     @if (isGeneratingAi()) {
                       <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       Generating…

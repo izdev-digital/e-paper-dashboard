@@ -14,6 +14,7 @@ import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PR
 import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
+import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
 @Component({
   selector: 'app-dashboard-edit',
@@ -62,9 +63,12 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
           </div>
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-success" (click)="openPreview()" 
-              [disabled]="disablePreviewButton()"
-              [title]="previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview'">
+              [disabled]="disablePreviewButton() || dashboardForm.dirty"
+              [title]="dashboardForm.dirty ? 'Save your changes before previewing' : (previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview')">
               <i class="fa-solid fa-eye"></i> Preview
+            </button>
+            <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!dashboardForm.dirty">
+              <i class="fa-solid fa-rotate-left"></i> Discard
             </button>
             <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
               <i class="fa-solid fa-floppy-disk"></i> Save
@@ -341,7 +345,7 @@ import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendere
     }
   `
 })
-export class DashboardEditComponent implements OnInit, OnDestroy {
+export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChanges {
   private readonly dashboardService = inject(DashboardService);
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
@@ -691,19 +695,45 @@ export class DashboardEditComponent implements OnInit, OnDestroy {
   }
 
   onCancel(): void {
-    if (this.dashboardForm.dirty) {
-      this.dialogService.confirm({
-        title: 'Unsaved Changes',
-        message: 'You have unsaved changes. Are you sure you want to leave without saving?',
-        confirmLabel: 'Leave',
-        isDangerous: true,
-        onConfirm: () => {
-          this.router.navigate(['/dashboards']);
-        }
-      });
+    this.router.navigate(['/dashboards']);
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.dashboardForm.dirty;
+  }
+
+  discardChanges(): void {
+    const dashboard = this.originalDashboard;
+    if (!dashboard) return;
+
+    this.dashboardForm.reset({
+      name: dashboard.name || '',
+      description: dashboard.description || '',
+      host: dashboard.host || '',
+      path: dashboard.path || '',
+      accessToken: '',
+    });
+
+    this.updateTimes.set([...this.originalUpdateTimes]);
+
+    if (dashboard.renderingMode === 'HomeAssistant') {
+      this.previewModeValue = 'homeassistant';
     } else {
-      this.router.navigate(['/dashboards']);
+      this.previewModeValue = 'ssr';
     }
+    this.previewMode.set(this.previewModeValue);
+
+    this.orientationValue = dashboard.orientation || 'Landscape';
+
+    const sizeIdx = this.sizePresets.findIndex(
+      s => s.width === dashboard.screenWidth && s.height === dashboard.screenHeight
+    );
+    this.selectedSizeIndex = sizeIdx >= 0 ? sizeIdx : 0;
+
+    const config = JSON.parse(JSON.stringify(this.originalAiConfig));
+    this.aiConfig.set(config);
+
+    this.shouldClearAccessToken.set(false);
   }
 
   openDesigner(): void {

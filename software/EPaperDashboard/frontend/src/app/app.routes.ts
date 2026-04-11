@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { superUserGuard } from './guards/superuser.guard';
+import { unsavedChangesGuard } from './guards/unsaved-changes.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -24,11 +25,13 @@ export const routes: Routes = [
   {
     path: 'dashboards/:id/edit',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./components/dashboard-edit/dashboard-edit.component').then(m => m.DashboardEditComponent)
   },
   {
     path: 'dashboards/:id/designer',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./components/dashboard-designer/dashboard-designer.component').then(m => m.DashboardDesignerComponent)
   },
   {
@@ -49,6 +52,7 @@ export const routes: Routes = [
   {
     path: 'ai/config',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./components/ai-config/ai-config.component').then(m => m.AiConfigComponent)
   },
   {
