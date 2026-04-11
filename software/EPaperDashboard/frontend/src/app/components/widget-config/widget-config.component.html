@@ -700,4 +700,52 @@
   <i class="fa fa-info-circle"></i> This widget displays the software version. No configuration needed.
 </div>
 }
+
+@case ('ai-content') {
+<div class="mb-3">
+  <label class="form-label fw-semibold small">Widget Title</label>
+  <div class="form-check form-switch mb-2">
+    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
+      [checked]="widget.showTitle !== false"
+      (change)="toggleTitleVisibility()" />
+    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
+  </div>
+  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="Override widget title" />
+  <small class="form-text text-muted">Leave empty to use default title</small>
+</div>
+<hr class="my-2" />
+<div class="mb-3">
+  <label class="form-label fw-semibold small">AI Prompt</label>
+  <textarea class="form-control" rows="4" [(ngModel)]="aiContentConfig.prompt"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="e.g. 'Write a motivational quote for today'"></textarea>
+  <small class="form-text text-muted">Describe what content the AI should generate</small>
+</div>
+<div class="mb-3">
+  <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()"
+    [disabled]="aiContentGenerating || !aiContentConfig.prompt.trim()">
+    @if (aiContentGenerating) {
+      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+      Generating…
+    } @else {
+      <i class="fa fa-wand-magic-sparkles me-1"></i>Generate Content
+    }
+  </button>
+</div>
+@if (aiContentError) {
+  <div class="alert alert-danger py-1 small mb-2">
+    <i class="fa fa-circle-exclamation me-1"></i>{{ aiContentError }}
+  </div>
+}
+@if (aiContentConfig.content) {
+  <hr class="my-2" />
+  <label class="form-label fw-semibold small">Generated Content</label>
+  <textarea class="form-control" rows="6" [(ngModel)]="aiContentConfig.content"
+    (ngModelChange)="onPropertyChanged()"
+    placeholder="AI-generated content will appear here"></textarea>
+  <small class="form-text text-muted">You can manually edit the generated content</small>
+}
+}
 }

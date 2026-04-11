@@ -93,7 +93,8 @@ export class DashboardDesignerComponent implements OnInit {
     { type: 'rss-feed', label: 'RSS Feed', icon: 'fa-rss' },
     { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
     { type: 'image', label: 'Image', icon: 'fa-image' },
-    { type: 'version', label: 'Version', icon: 'fa-code-branch' }
+    { type: 'version', label: 'Version', icon: 'fa-code-branch' },
+    { type: 'ai-content', label: 'AI Content', icon: 'fa-wand-magic-sparkles' }
   ];
 
   selectedWidget = signal<WidgetConfig | null>(null);
@@ -1478,6 +1479,8 @@ export class DashboardDesignerComponent implements OnInit {
         return { imageUrl: '', fit: 'contain' };
       case 'version':
         return {};
+      case 'ai-content':
+        return { prompt: '', content: '' };
       default:
         return {};
     }

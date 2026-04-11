@@ -316,6 +316,9 @@ public sealed class DashboardImageRenderingService
                 case "markdown":
                     RenderMarkdownWidget(image, widget, layout, contentRect);
                     break;
+                case "ai-content":
+                    RenderAiContentWidget(image, widget, layout, contentRect);
+                    break;
                 case "rss-feed":
                     RenderRssFeedWidget(image, widget, layout, data, contentRect);
                     break;
@@ -1073,6 +1076,27 @@ public sealed class DashboardImageRenderingService
             DrawTextEllipsis(image, text, GetFont(fontSize, fontWeight), textColor, lineRect);
             yOffset += lineHeight;
         }
+    }
+
+    // =============================================
+    // AI CONTENT WIDGET (renders content as markdown)
+    // =============================================
+
+    private void RenderAiContentWidget(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, RectangleF contentRect)
+    {
+        // AI content widget stores generated markdown in the "content" config field.
+        // If content hasn't been generated yet, show a placeholder.
+        var content = GetStringProp(widget.Config, "content");
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            RenderPlaceholder(image, widget, layout, contentRect, "AI Content");
+            return;
+        }
+
+        // Reuse the markdown rendering logic by swapping in the content
+        var syntheticConfig = System.Text.Json.JsonSerializer.SerializeToElement(new { content });
+        var syntheticWidget = widget with { Config = syntheticConfig };
+        RenderMarkdownWidget(image, syntheticWidget, layout, contentRect);
     }
 
     /// <summary>

@@ -98,7 +98,8 @@ export type WidgetType =
   | 'app-icon'
   | 'image'
   | 'version'
-  | 'rss-feed';
+  | 'rss-feed'
+  | 'ai-content';
 
 export interface WidgetPosition {
   x: number;
@@ -154,7 +155,8 @@ export interface WidgetConfig {
   | AppIconConfig
   | ImageConfig
   | VersionConfig
-  | RssFeedConfig;
+  | RssFeedConfig
+  | AiContentConfig;
   colorOverrides?: WidgetColorOverrides;
   titleOverride?: string;
   showTitle?: boolean;
@@ -187,6 +189,11 @@ export interface BadgeConfig {
 }
 
 export interface MarkdownConfig {
+  content: string;
+}
+
+export interface AiContentConfig {
+  prompt: string;
   content: string;
 }
 

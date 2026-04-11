@@ -354,7 +354,7 @@ public sealed class AiDashboardGenerationService(
 
     private static bool IsKnownWidgetType(string type) =>
         type is "header" or "markdown" or "calendar" or "weather" or "weather-forecast"
-            or "todo" or "rss-feed" or "graph" or "app-icon";
+            or "todo" or "rss-feed" or "graph" or "app-icon" or "ai-content";
 
     // --- Step 2 helpers: compute sizes and pack widgets ---
 
@@ -467,6 +467,7 @@ public sealed class AiDashboardGenerationService(
             }
 
             case "markdown":
+            case "ai-content":
             {
                 var content = GetStringProp(config, "content") ?? "";
                 var charCount = content.Length;
