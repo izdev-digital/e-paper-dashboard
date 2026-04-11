@@ -91,7 +91,7 @@ public class HomeAssistantEntityStateProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             _logger.LogDebug("Fetched {Count} relevant entity states for dashboard {DashboardId}", entityStates.Count, dashboardId);
             return entityStates;
         }
@@ -161,7 +161,7 @@ public class HomeAssistantEntityStateProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityStates;
         }
         catch (WebSocketException)

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.RegularExpressions;
 using EPaperDashboard.Models.Rendering;
 using Microsoft.Extensions.Logging;
@@ -71,18 +72,25 @@ public sealed partial class ImageWidgetRenderer(
 
                 using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
                 using var ms = new MemoryStream();
-                var buffer = new byte[81920];
-                long totalRead = 0;
-                int bytesRead;
-                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                var buffer = ArrayPool<byte>.Shared.Rent(81920);
+                try
                 {
-                    totalRead += bytesRead;
-                    if (totalRead > maxBytes)
+                    long totalRead = 0;
+                    int bytesRead;
+                    while ((bytesRead = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
                     {
-                        logger.LogWarning("Image download aborted — exceeded {Limit} bytes", maxBytes);
-                        return;
+                        totalRead += bytesRead;
+                        if (totalRead > maxBytes)
+                        {
+                            logger.LogWarning("Image download aborted — exceeded {Limit} bytes", maxBytes);
+                            return;
+                        }
+                        ms.Write(buffer, 0, bytesRead);
                     }
-                    ms.Write(buffer, 0, bytesRead);
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(buffer);
                 }
                 imageBytes = ms.ToArray();
             }

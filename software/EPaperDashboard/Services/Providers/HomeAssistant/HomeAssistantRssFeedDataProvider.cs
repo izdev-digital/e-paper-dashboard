@@ -84,7 +84,7 @@ public class HomeAssistantRssFeedDataProvider(
                 _logger.LogWarning("RSS feed entries fetch returned unsuccessful response or missing result property");
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entries;
         }
         catch (WebSocketException)
@@ -148,7 +148,7 @@ public class HomeAssistantRssFeedDataProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             _logger.LogDebug("Fetched RSS feed entries from {Count} entities for dashboard {DashboardId}", result.Count, dashboardId);
             return result;
         }

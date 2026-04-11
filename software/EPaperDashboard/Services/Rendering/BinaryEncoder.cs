@@ -7,6 +7,9 @@ public sealed class BlackRedWhiteBinaryEncoder : ImageEncoder
 {
 	protected override void Encode<TPixel>(Image<TPixel> image, Stream stream, CancellationToken cancellationToken)
 	{
+		if (image.Width <= 0 || image.Height <= 0)
+			throw new ArgumentException("Image dimensions must be positive");
+
 		var imagePixelCount = image.Width * image.Height;
 		if (imagePixelCount % 8 != 0)
 		{

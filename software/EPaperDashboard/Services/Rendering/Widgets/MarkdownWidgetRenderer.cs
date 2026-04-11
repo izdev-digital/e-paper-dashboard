@@ -45,11 +45,13 @@ public sealed class MarkdownWidgetRenderer(RenderingUtilities utils) : IWidgetRe
         var lines = content.Split('\n');
         float yOffset = innerRect.Y;
         var inCodeBlock = false;
+        const int maxLines = 1000;
+        var lineCount = 0;
 
         foreach (var rawLine in lines)
         {
             var line = rawLine.TrimEnd('\r');
-            if (yOffset > innerRect.Bottom) break;
+            if (yOffset > innerRect.Bottom || ++lineCount > maxLines) break;
 
             if (line.TrimStart().StartsWith("```"))
             {

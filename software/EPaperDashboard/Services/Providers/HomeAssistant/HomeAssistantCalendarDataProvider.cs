@@ -114,7 +114,7 @@ public class HomeAssistantCalendarDataProvider(
                 _logger.LogWarning("Calendar events fetch returned unsuccessful response. Response was: {Response}", response);
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return events;
         }
         catch (WebSocketException)
@@ -248,7 +248,7 @@ public class HomeAssistantCalendarDataProvider(
                 }
             }
 
-            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None);
+            try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
         catch (Exception ex)

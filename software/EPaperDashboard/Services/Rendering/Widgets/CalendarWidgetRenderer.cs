@@ -46,6 +46,8 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
             var upcoming = events
                 .Where(e =>
                 {
+                    if (string.IsNullOrEmpty(e.Start) && string.IsNullOrEmpty(e.End))
+                        return false;
                     if (DateTimeOffset.TryParse(e.End ?? e.Start, CultureInfo.InvariantCulture, DateTimeStyles.None, out var endDt))
                         return endDt > now;
                     if (DateTimeOffset.TryParse(e.Start, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startDt))
