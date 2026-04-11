@@ -21,6 +21,10 @@ public static class MarkdownHelpers
     private static readonly Regex ItalicUnder = new(@"(?<=\s|^)_(.+?)_(?=\s|$)", RegexOptions.Compiled);
     private static readonly Regex Strikethrough = new(@"~~(.+?)~~", RegexOptions.Compiled);
     private static readonly Regex InlineCode = new(@"`(.+?)`", RegexOptions.Compiled);
+    // BMP emoji ranges + surrogate pairs (covers U+1F000–U+1FAFF and other supplementary plane emoji)
+    private static readonly Regex EmojiPattern = new(
+        @"[\u00A9\u00AE\u203C\u2049\u2122\u2139\u2194-\u21AA\u231A-\u231B\u2328\u23CF\u23E9-\u23F3\u23F8-\u23FA\u24C2\u25AA-\u25AB\u25B6\u25C0\u25FB-\u25FE\u2600-\u27BF\u2934-\u2935\u2B05-\u2B07\u2B1B-\u2B1C\u2B50\u2B55\u3030\u303D\u3297\u3299\uFE0F]|[\uD83C-\uDBFF][\uDC00-\uDFFF]",
+        RegexOptions.Compiled);
 
     public static bool IsHorizontalRule(string line) => HorizontalRulePattern.IsMatch(line);
     public static bool IsTaskListItem(string line) => TaskListPattern.IsMatch(line);
@@ -43,8 +47,15 @@ public static class MarkdownHelpers
         text = ItalicUnder.Replace(text, "$1");
         text = Strikethrough.Replace(text, "$1");
         text = InlineCode.Replace(text, "$1");
+        text = StripEmoji(text);
 
         return text;
+    }
+
+    public static string StripEmoji(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        return EmojiPattern.Replace(text, "").Trim();
     }
 
     public static bool IsEntirelyBold(string line)

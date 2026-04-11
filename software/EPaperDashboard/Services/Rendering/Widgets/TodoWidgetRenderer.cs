@@ -101,20 +101,7 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
             var maxTextH = (todoGlyphHeight + todoExtraSpacing) * 2;
             var textAvailH = Math.Min(maxTextH, contentRect.Bottom - yOffset);
             var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, textAvailH);
-            var itemTextColor = complete ? ColorUtils.WithOpacity(textColor, 0.6f) : textColor;
-            var consumed = TextDrawing.DrawWrappedTextEllipsis(image, summary, todoFont, itemTextColor, textRect, maxLines: 2, todoExtraSpacing);
-
-            if (complete && consumed > 0)
-            {
-                var strikeY = yOffset + consumed / 2f;
-                var strikeWidth = Math.Min(
-                    TextMeasurer.MeasureSize(summary, new TextOptions(todoFont)).Width,
-                    textRect.Width);
-                image.Mutate(ctx => ctx.DrawLine(
-                    itemTextColor, 1f,
-                    new PointF(textX, strikeY),
-                    new PointF(textX + strikeWidth, strikeY)));
-            }
+            var consumed = TextDrawing.DrawWrappedTextEllipsis(image, summary, todoFont, textColor, textRect, maxLines: 2, todoExtraSpacing);
 
             yOffset += Math.Max(consumed, lineHeight) + todoItemGap;
         }
