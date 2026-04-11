@@ -52,5 +52,33 @@ namespace EPaperDashboard.Models
                 ? (h, w)
                 : (w, h);
         }
+
+        /// <summary>
+        /// Returns the layout config with AI-generated widgets merged in (if enabled).
+        /// </summary>
+        public LayoutConfig GetMergedLayoutConfig()
+        {
+            var layout = LayoutConfig!;
+            if (!IsAiEnabled || AiGeneratedWidgets is not { Count: > 0 })
+                return layout;
+
+            return new LayoutConfig
+            {
+                Width = layout.Width,
+                Height = layout.Height,
+                GridCols = layout.GridCols,
+                GridRows = layout.GridRows,
+                ColorScheme = layout.ColorScheme,
+                Widgets = new List<WidgetConfig>(layout.Widgets).Concat(AiGeneratedWidgets).ToList(),
+                CanvasPadding = layout.CanvasPadding,
+                WidgetGap = layout.WidgetGap,
+                WidgetBorder = layout.WidgetBorder,
+                WidgetPadding = layout.WidgetPadding,
+                TitleFontSize = layout.TitleFontSize,
+                TextFontSize = layout.TextFontSize,
+                TitleFontWeight = layout.TitleFontWeight,
+                TextFontWeight = layout.TextFontWeight
+            };
+        }
     }
 }
