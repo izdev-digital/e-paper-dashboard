@@ -64,12 +64,7 @@ public sealed class SsrDataProvider(
                 var entityId = GetStringProp(widget.Config, "entityId");
                 if (!string.IsNullOrEmpty(entityId))
                 {
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
-                        if (result.IsSuccess)
-                            data.TodoItems[entityId] = result.Value;
-                    }));
+                    tasks.Add(FetchTodoAsync(dashboardId, entityId, data));
                 }
             }
         }
@@ -81,12 +76,7 @@ public sealed class SsrDataProvider(
                 var entityId = GetStringProp(widget.Config, "entityId");
                 if (!string.IsNullOrEmpty(entityId))
                 {
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
-                        if (result.IsSuccess)
-                            data.CalendarEvents[entityId] = result.Value;
-                    }));
+                    tasks.Add(FetchCalendarAsync(dashboardId, entityId, data));
                 }
             }
         }
@@ -100,16 +90,7 @@ public sealed class SsrDataProvider(
                 var forecastType = forecastMode == "hourly" ? "hourly" : "daily";
                 if (!string.IsNullOrEmpty(entityId))
                 {
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
-                        if (result.IsSuccess
-                            && result.Value.TryGetValue("forecast", out var forecastVal)
-                            && forecastVal is List<object?> forecastList)
-                        {
-                            data.WeatherForecasts[entityId] = forecastList;
-                        }
-                    }));
+                    tasks.Add(FetchWeatherAsync(dashboardId, entityId, forecastType, data));
                 }
             }
         }
@@ -121,19 +102,7 @@ public sealed class SsrDataProvider(
                 var entityId = GetStringProp(widget.Config, "entityId");
                 if (!string.IsNullOrEmpty(entityId))
                 {
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
-                        if (result.IsSuccess)
-                        {
-                            data.RssFeedEntries[entityId] = result.Value;
-                            _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("SSR: Failed to fetch RSS entries for {EntityId}: {Error}", entityId, result.Error);
-                        }
-                    }));
+                    tasks.Add(FetchRssAsync(dashboardId, entityId, data));
                 }
             }
         }
@@ -163,15 +132,7 @@ public sealed class SsrDataProvider(
                             _ => 24
                         };
 
-                        tasks.Add(Task.Run(async () =>
-                        {
-                            var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, graphEntityIds, hours);
-                            if (result.IsSuccess)
-                            {
-                                foreach (var (entityId, states) in result.Value)
-                                    data.HistoryData[entityId] = states;
-                            }
-                        }));
+                        tasks.Add(FetchGraphHistoryAsync(dashboardId, graphEntityIds, hours, data));
                     }
                 }
             }
@@ -185,18 +146,7 @@ public sealed class SsrDataProvider(
                 if (!string.IsNullOrWhiteSpace(prompt))
                 {
                     var widgetId = widget.Id;
-                    tasks.Add(Task.Run(async () =>
-                    {
-                        var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
-                        if (result.IsSuccess)
-                        {
-                            data.AiContent[widgetId] = result.Value;
-                        }
-                        else
-                        {
-                            _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widgetId, result.Error);
-                        }
-                    }));
+                    tasks.Add(FetchAiContentAsync(dashboardId, widgetId, prompt, data));
                 }
             }
         }
@@ -204,6 +154,68 @@ public sealed class SsrDataProvider(
         await Task.WhenAll(tasks);
 
         return data;
+    }
+
+    private async Task FetchTodoAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
+        if (result.IsSuccess)
+            data.TodoItems[entityId] = result.Value;
+    }
+
+    private async Task FetchCalendarAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
+        if (result.IsSuccess)
+            data.CalendarEvents[entityId] = result.Value;
+    }
+
+    private async Task FetchWeatherAsync(string dashboardId, string entityId, string forecastType, SsrData data)
+    {
+        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
+        if (result.IsSuccess
+            && result.Value.TryGetValue("forecast", out var forecastVal)
+            && forecastVal is List<object?> forecastList)
+        {
+            data.WeatherForecasts[entityId] = forecastList;
+        }
+    }
+
+    private async Task FetchRssAsync(string dashboardId, string entityId, SsrData data)
+    {
+        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
+        if (result.IsSuccess)
+        {
+            data.RssFeedEntries[entityId] = result.Value;
+            _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
+        }
+        else
+        {
+            _logger.LogWarning("SSR: Failed to fetch RSS entries for {EntityId}: {Error}", entityId, result.Error);
+        }
+    }
+
+    private async Task FetchGraphHistoryAsync(string dashboardId, List<string> entityIds, int hours, SsrData data)
+    {
+        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, entityIds, hours);
+        if (result.IsSuccess)
+        {
+            foreach (var (entityId, states) in result.Value)
+                data.HistoryData[entityId] = states;
+        }
+    }
+
+    private async Task FetchAiContentAsync(string dashboardId, string widgetId, string prompt, SsrData data)
+    {
+        var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
+        if (result.IsSuccess)
+        {
+            data.AiContent[widgetId] = result.Value;
+        }
+        else
+        {
+            _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widgetId, result.Error);
+        }
     }
 
     // =============================================

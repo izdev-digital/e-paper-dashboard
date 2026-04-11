@@ -65,13 +65,12 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
                 {
                     var darkColor = ColorUtils.ParseColor(layout.ColorScheme.Text);
                     var lightColor = ColorUtils.ParseColor(widgetBg);
-                    var qrImage = GenerateQrCodeImage(entry.Link, darkColor, lightColor, (int)qrSize);
+                    using var qrImage = GenerateQrCodeImage(entry.Link, darkColor, lightColor, (int)qrSize);
                     if (qrImage != null)
                     {
                         var qrX = (int)(contentRect.X + (contentRect.Width - qrSize) / 2);
                         var qrY = (int)yOffset;
                         image.Mutate(ctx => ctx.DrawImage(qrImage, new SixLabors.ImageSharp.Point(qrX, qrY), 1f));
-                        qrImage.Dispose();
                     }
                 }
             }

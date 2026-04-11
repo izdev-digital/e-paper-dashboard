@@ -57,23 +57,30 @@ public sealed class DashboardImageRenderingService
         var layoutHash = ComputeLayoutHash(layoutConfig);
         var cacheKey = $"ssr:{dashboardId}:{layoutHash}";
 
-        if (_cache.TryGetValue<byte[]>(cacheKey, out var cachedBytes) && cachedBytes is not null)
+        if (_cache.TryGetValue<CachedRender>(cacheKey, out var cached) && cached is not null)
         {
             _logger.LogDebug("SSR: Returning cached render for dashboard {DashboardId}", dashboardId);
-            return Image.Load<Rgba32>(cachedBytes);
+            var img = new Image<Rgba32>(cached.Width, cached.Height);
+            if (img.DangerousTryGetSinglePixelMemory(out var memory))
+            {
+                cached.PixelData.AsSpan().CopyTo(memory.Span);
+            }
+            return img;
         }
 
         var layout = ConvertLayout(layoutConfig);
         var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken);
         var image = await RenderToImageAsync(layout, data, cancellationToken);
 
-        // Cache the rendered image as PNG bytes
-        using var ms = new MemoryStream();
-        await image.SaveAsPngAsync(ms, cancellationToken);
-        _cache.Set(cacheKey, ms.ToArray(), CacheDuration);
+        // Cache raw pixel data — avoids PNG encode on write + PNG decode on read
+        var pixelData = new Rgba32[image.Width * image.Height];
+        image.CopyPixelDataTo(pixelData);
+        _cache.Set(cacheKey, new CachedRender(image.Width, image.Height, pixelData), CacheDuration);
 
         return image;
     }
+
+    private sealed record CachedRender(int Width, int Height, Rgba32[] PixelData);
 
     // =============================================
     // LAYOUT CONVERSION (typed model → rendering record)
@@ -144,7 +151,10 @@ public sealed class DashboardImageRenderingService
 
     private async Task<Image<Rgba32>> RenderToImageAsync(LayoutConfig layout, SsrData data, CancellationToken cancellationToken)
     {
-        var image = new Image<Rgba32>(layout.Width, layout.Height);
+        // Clamp dimensions to a safe range to prevent excessive memory allocation
+        var width = Math.Clamp(layout.Width, 1, 4096);
+        var height = Math.Clamp(layout.Height, 1, 4096);
+        var image = new Image<Rgba32>(width, height);
 
         var canvasBg = ColorUtils.ParseColor(layout.ColorScheme.CanvasBackgroundColor);
         image.Mutate(ctx => ctx.Fill(canvasBg));

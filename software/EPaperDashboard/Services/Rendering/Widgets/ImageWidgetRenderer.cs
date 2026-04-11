@@ -38,11 +38,15 @@ public sealed partial class ImageWidgetRenderer(
             {
                 var dashId = localMatch.Groups[1].Value;
                 var fileName = localMatch.Groups[2].Value;
-                // Guard against traversal
+                // Guard against traversal — reject suspicious characters then verify canonical path
                 if (fileName.Contains("..") || fileName.Contains('/') || fileName.Contains('\\'))
                     return;
-                var filePath = Path.Combine(
-                    Utilities.EnvironmentConfiguration.ConfigDir, "uploads", dashId, fileName);
+                var uploadsDir = Path.GetFullPath(Path.Combine(
+                    Utilities.EnvironmentConfiguration.ConfigDir, "uploads", dashId));
+                var filePath = Path.GetFullPath(Path.Combine(uploadsDir, fileName));
+                if (!filePath.StartsWith(uploadsDir + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    && filePath != uploadsDir)
+                    return;
                 if (!File.Exists(filePath))
                 {
                     logger.LogWarning("Image file not found on disk: {Path}", filePath);
@@ -54,7 +58,33 @@ public sealed partial class ImageWidgetRenderer(
             {
                 // External URL — use named client with pre-configured timeout
                 using var httpClient = httpClientFactory.CreateClient(Utilities.Constants.SsrImageHttpClientName);
-                imageBytes = await httpClient.GetByteArrayAsync(imageUrl, cancellationToken);
+                using var response = await httpClient.GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                // Reject downloads exceeding 10 MB to prevent memory exhaustion
+                const long maxBytes = 10 * 1024 * 1024;
+                if (response.Content.Headers.ContentLength > maxBytes)
+                {
+                    logger.LogWarning("Image download rejected — Content-Length {Length} exceeds limit", response.Content.Headers.ContentLength);
+                    return;
+                }
+
+                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var ms = new MemoryStream();
+                var buffer = new byte[81920];
+                long totalRead = 0;
+                int bytesRead;
+                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    totalRead += bytesRead;
+                    if (totalRead > maxBytes)
+                    {
+                        logger.LogWarning("Image download aborted — exceeded {Limit} bytes", maxBytes);
+                        return;
+                    }
+                    ms.Write(buffer, 0, bytesRead);
+                }
+                imageBytes = ms.ToArray();
             }
 
             using var srcImage = Image.Load<Rgba32>(imageBytes);

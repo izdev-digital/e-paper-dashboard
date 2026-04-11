@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -26,7 +27,7 @@ public sealed class RenderingUtilities
 {
     private readonly FontFamily _fontFamily;
     private readonly FontAwesomeIconRegistry _iconRegistry;
-    private readonly Dictionary<(int Size, FontStyle Style), Font> _fontCache = new();
+    private readonly ConcurrentDictionary<(int Size, FontStyle Style), Font> _fontCache = new();
 
     public RenderingUtilities(FontFamily fontFamily, FontAwesomeIconRegistry iconRegistry)
     {
@@ -77,13 +78,7 @@ public sealed class RenderingUtilities
 
     public Font GetFont(int size, FontStyle style = FontStyle.Regular)
     {
-        var key = (size, style);
-        if (!_fontCache.TryGetValue(key, out var font))
-        {
-            font = _fontFamily.CreateFont(size, style);
-            _fontCache[key] = font;
-        }
-        return font;
+        return _fontCache.GetOrAdd((size, style), k => _fontFamily.CreateFont(k.Size, k.Style));
     }
 
     public Font GetFont(int size, int weight)
@@ -104,27 +99,19 @@ public sealed class RenderingUtilities
         if (!_iconRegistry.TryGetIcon(iconClass, out var entry))
             return;
 
-        try
-        {
-            var path = SvgPathParser.Parse(entry.Path);
-            var pathBounds = path.Bounds;
-            if (pathBounds.Width < 0.1f || pathBounds.Height < 0.1f)
-                return;
+        var path = _iconRegistry.GetParsedPath(iconClass, entry);
+        if (path is null)
+            return;
 
-            var scale = Math.Min(bounds.Width / entry.VbW, bounds.Height / entry.VbH);
-            var offsetX = bounds.X + (bounds.Width - entry.VbW * scale) / 2f;
-            var offsetY = bounds.Y + (bounds.Height - entry.VbH * scale) / 2f;
+        var scale = Math.Min(bounds.Width / entry.VbW, bounds.Height / entry.VbH);
+        var offsetX = bounds.X + (bounds.Width - entry.VbW * scale) / 2f;
+        var offsetY = bounds.Y + (bounds.Height - entry.VbH * scale) / 2f;
 
-            var matrix = System.Numerics.Matrix3x2.CreateScale(scale) *
-                         System.Numerics.Matrix3x2.CreateTranslation(offsetX, offsetY);
+        var matrix = System.Numerics.Matrix3x2.CreateScale(scale) *
+                     System.Numerics.Matrix3x2.CreateTranslation(offsetX, offsetY);
 
-            var transformed = path.Transform(matrix);
-            image.Mutate(ctx => ctx.Fill(color, transformed));
-        }
-        catch
-        {
-            // Silently ignore icon rendering failures
-        }
+        var transformed = path.Transform(matrix);
+        image.Mutate(ctx => ctx.Fill(color, transformed));
     }
 
     // =============================================
