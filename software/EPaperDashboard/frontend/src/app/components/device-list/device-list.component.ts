@@ -136,9 +136,9 @@ import { Dashboard } from '../../models/types';
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h1 class="mb-0">Devices</h1>
       @if (!isPairingActive()) {
-        <button class="btn btn-primary" (click)="startPairing()" [disabled]="isStartingPairing()">
+        <button class="btn btn-sm btn-primary" (click)="startPairing()" [disabled]="isStartingPairing()">
           <i class="fa-solid fa-plus"></i>
-          {{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}
+          <span class="d-none d-sm-inline">{{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}</span><span class="d-sm-none">{{ isStartingPairing() ? '...' : 'New' }}</span>
         </button>
       }
     </div>

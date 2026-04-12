@@ -90,9 +90,11 @@
                 }
                 Save AI Configuration
               </button>
-              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()">
+              @if (isDirty()) {
+              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()">
                 <i class="fa fa-rotate-left me-1"></i>Discard Changes
               </button>
+              }
             </div>
           </form>
         </div>

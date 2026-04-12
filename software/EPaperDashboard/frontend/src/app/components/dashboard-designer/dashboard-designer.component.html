@@ -3,7 +3,7 @@
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-secondary" (click)="goBack()">
+          <button class="btn btn-sm btn-secondary" (click)="goBack()">
             <i class="fa fa-arrow-left"></i>@if (!isMobile()) {<span> Back</span>}
           </button>
           <h2 class="mb-0">Dashboard Designer@if (!isMobile()) {<span> - {{ dashboard()?.name }}</span>}</h2>
@@ -25,9 +25,11 @@
           <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" [disabled]="isDirty()" [title]="isDirty() ? 'Save your changes before previewing' : 'Open rendered preview'">
             <i class="fa fa-external-link-alt me-1"></i>Rendered Preview
           </button>
-          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()">
+          @if (isDirty()) {
+          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
             <i class="fa fa-rotate-left me-1"></i>Discard
           </button>
+          }
           <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()">
             <i class="fa fa-save me-1"></i>Save Layout
           </button>
@@ -47,9 +49,11 @@
               </label>
             </div>
           </div>
-          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()" title="Discard">
+          @if (isDirty()) {
+          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" title="Discard">
             <i class="fa fa-rotate-left"></i>
           </button>
+          }
           <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()" title="Save">
             <i class="fa fa-save"></i>
           </button>

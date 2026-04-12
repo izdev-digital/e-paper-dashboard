@@ -17,8 +17,8 @@ import { Dashboard } from '../../models/types';
     <app-toast-container></app-toast-container>
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h1 class="mb-0">Dashboards</h1>
-      <a routerLink="/dashboards/create" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Create New Dashboard
+      <a routerLink="/dashboards/create" class="btn btn-sm btn-primary">
+        <i class="fa-solid fa-plus"></i><span class="d-none d-sm-inline"> Create New Dashboard</span><span class="d-sm-none"> New</span>
       </a>
     </div>
 
