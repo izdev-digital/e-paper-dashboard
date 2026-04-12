@@ -1731,7 +1731,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.activeTab.set('properties');
   }
 
-  onCanvasClick(event: MouseEvent): void {
+  onCanvasMouseDown(event: MouseEvent): void {
     const target = event.target as HTMLElement;
     if (target.classList.contains('dashboard-canvas') || target.classList.contains('grid-overlay')) {
       this.selectedWidget.set(null);

@@ -136,7 +136,7 @@
         <div class="card-body" style="overflow: auto;">
           <div class="canvas-wrapper">
             <div class="canvas-scale-wrapper" [ngStyle]="getCanvasScaleStyle()">
-            <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()" (click)="onCanvasClick($event)">
+            <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()" (mousedown)="onCanvasMouseDown($event)">
               <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
