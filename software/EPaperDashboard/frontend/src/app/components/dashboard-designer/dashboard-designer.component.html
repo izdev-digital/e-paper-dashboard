@@ -29,10 +29,10 @@
           <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
             <i class="fa fa-rotate-left me-1"></i>Discard
           </button>
-          }
-          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()">
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()">
             <i class="fa fa-save me-1"></i>Save Layout
           </button>
+          }
         </div>
         }
         <!-- Mobile actions -->
@@ -53,10 +53,10 @@
           <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" title="Discard">
             <i class="fa fa-rotate-left"></i>
           </button>
-          }
-          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()" title="Save">
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" title="Save">
             <i class="fa fa-save"></i>
           </button>
+          }
           <div class="mobile-overflow-menu">
             <button class="btn btn-sm btn-outline-secondary" (click)="mobileOverflowOpen.set(!mobileOverflowOpen())">
               <i class="fa fa-ellipsis-vertical"></i>

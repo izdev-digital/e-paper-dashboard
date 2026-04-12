@@ -71,10 +71,10 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
               <i class="fa-solid fa-rotate-left"></i><span class="d-none d-sm-inline"> Discard</span>
             </button>
-            }
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="isSaving()">
               <i class="fa-solid fa-floppy-disk"></i><span class="d-none d-sm-inline"> Save</span>
             </button>
+            }
           </div>
         </div>
         <div class="card shadow-sm mb-3">
