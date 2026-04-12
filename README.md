@@ -22,6 +22,7 @@
 ## Features
 
 - Visual dashboard designer with multiple widget types
+- AI-powered dashboard generation — describe what you want in plain language and let AI build the layout using your Home Assistant data
 - Home Assistant integration
 - E-Paper optimized image processing
 - Configurable update schedules with deep sleep for long battery life

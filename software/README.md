@@ -5,6 +5,7 @@ The server component of the izBoard system. An ASP.NET Core web application with
 ## Features
 
 - Visual dashboard designer with multiple widget types
+- AI-powered dashboard generation — describe your ideal layout in natural language and have AI create it using your Home Assistant entities, calendars, weather, and more
 - Home Assistant integration
 - E-Paper optimized image processing
 - Device management and pairing
