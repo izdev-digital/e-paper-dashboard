@@ -1,10 +1,10 @@
 <div class="users-management-container">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="mb-0">Users</h1>
-    <button (click)="toggleAddForm()" class="btn btn-primary" [class.btn-outline-primary]="showAddForm()"
+    <button (click)="toggleAddForm()" class="btn btn-sm btn-primary" [class.btn-outline-primary]="showAddForm()"
       [disabled]="isAddingUser()">
       <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'"></i>
-      {{ showAddForm() ? 'Cancel' : 'Add New User' }}
+      <span class="d-none d-sm-inline">{{ showAddForm() ? 'Cancel' : 'Add New User' }}</span><span class="d-sm-none">{{ showAddForm() ? 'Cancel' : 'New' }}</span>
     </button>
   </div>
 

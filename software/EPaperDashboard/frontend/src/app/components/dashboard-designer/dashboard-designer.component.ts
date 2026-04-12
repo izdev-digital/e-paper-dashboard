@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, HostListener, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -46,7 +46,7 @@ import {
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
-export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
+export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsavedChanges {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
@@ -126,6 +126,21 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
   /** ID of the widget whose internal layout editor is currently active (header or weather). */
   internalEditingWidgetId = signal<string | null>(null);
 
+  // Mobile responsive state
+  isMobile = signal(false);
+  mobileWidgetDrawerOpen = signal(false);
+  mobilePropertiesOpen = signal(false);
+  mobileOverflowOpen = signal(false);
+  mobileSelectionToolbar = signal(false);
+  longPressActive = signal(false);
+  mobileDragging = signal(false);
+  private mobileBreakpoint = 768;
+  private isTouchDevice = false;
+  private resizeTimer: any = null;
+  private viewportWidth = signal(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  private swipeStartY = 0;
+  private swipeStartX = 0;
+
   // AI state
   isGeneratingAi = signal(false);
   aiGeneratedWidgets = signal<WidgetConfig[]>([]);
@@ -154,8 +169,48 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
   private dragStartPos = { x: 0, y: 0 };
   private dragStartWidget = { x: 0, y: 0, w: 0, h: 0 };
   private previewObjectUrl: string | null = null;
+  private longPressTimer: any = null;
+  private readonly LONG_PRESS_MS = 300;
+  private pointerMoved = false;
+
+  canvasScale = computed(() => {
+    if (!this.isMobile()) return 1;
+    const availableWidth = this.viewportWidth() - 16;
+    const canvasWidth = this.layout().width;
+    if (canvasWidth <= availableWidth) return 1;
+    return Math.max(0.2, availableWidth / canvasWidth);
+  });
+
+  constructor() {
+    // Scroll lock when mobile overlays are open
+    effect(() => {
+      const lock = this.mobileWidgetDrawerOpen() || this.mobilePropertiesOpen();
+      document.body.style.overflow = lock ? 'hidden' : '';
+    });
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      this.viewportWidth.set(window.innerWidth);
+      this.isMobile.set(this.checkIsMobile());
+    }, 100);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    if (!this.mobileOverflowOpen()) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest('.mobile-overflow-menu')) {
+      this.mobileOverflowOpen.set(false);
+    }
+  }
 
   ngOnInit(): void {
+    this.isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    this.viewportWidth.set(window.innerWidth);
+    this.isMobile.set(this.checkIsMobile());
     this.dashboardId = this.route.snapshot.paramMap.get('id') || '';
     if (this.dashboardId) {
       this.isLoading.set(true);
@@ -164,6 +219,12 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
       this.toastService.show('No dashboard ID provided', 'error');
       this.isLoading.set(false);
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.longPressTimer) clearTimeout(this.longPressTimer);
+    if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    document.body.style.overflow = '';
   }
 
   // Dashboard loading
@@ -295,7 +356,7 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
     }
   }
 
-  onToolboxWidgetMouseDown(event: MouseEvent, widget: { type: WidgetType; label: string; icon: string }): void {
+  onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: { type: WidgetType; label: string; icon: string }): void {
     event.preventDefault();
     const layout = this.layout();
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
@@ -311,13 +372,13 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
     preview.innerHTML = `<i class='fa ${widget.icon}'></i> ${widget.label}`;
     document.body.appendChild(preview);
 
-    const movePreview = (e: MouseEvent) => {
+    const movePreview = (e: PointerEvent | MouseEvent) => {
       preview.style.left = e.clientX + 8 + 'px';
       preview.style.top = e.clientY + 8 + 'px';
     };
     movePreview(event);
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent | MouseEvent) => {
       movePreview(e);
 
       const rect = canvas.getBoundingClientRect();
@@ -344,9 +405,12 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
       }
     };
 
-    const onMouseUp = (e: MouseEvent) => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+    const onPointerUp = () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
       preview.remove();
 
       const g = this.ghost();
@@ -362,8 +426,64 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
       this.ghost.set(null);
     };
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+    // Fallback for environments where pointer events aren't fully supported
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
+  }
+
+  /** Add a widget to the first available grid position (used on mobile). */
+  addWidgetToFirstSlot(widget: { type: WidgetType; label: string; icon: string }): void {
+    const layout = this.layout();
+    const cols = layout.gridCols;
+    const rows = layout.gridRows;
+    const defaultW = Math.min(4, cols);
+    const defaultH = Math.min(2, rows);
+
+    // Build occupancy grid
+    const occupied = new Set<string>();
+    for (const w of layout.widgets) {
+      for (let dx = 0; dx < w.position.w; dx++) {
+        for (let dy = 0; dy < w.position.h; dy++) {
+          occupied.add(`${w.position.x + dx},${w.position.y + dy}`);
+        }
+      }
+    }
+
+    // Find first position that fits
+    let placed = false;
+    for (let y = 0; y <= rows - defaultH && !placed; y++) {
+      for (let x = 0; x <= cols - defaultW && !placed; x++) {
+        let fits = true;
+        for (let dx = 0; dx < defaultW && fits; dx++) {
+          for (let dy = 0; dy < defaultH && fits; dy++) {
+            if (occupied.has(`${x + dx},${y + dy}`)) fits = false;
+          }
+        }
+        if (fits) {
+          const newWidget: WidgetConfig = {
+            id: this.generateId(),
+            type: widget.type,
+            position: { x, y, w: defaultW, h: defaultH },
+            config: this.getDefaultConfig(widget.type)
+          };
+          this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
+          this.selectedWidget.set(newWidget);
+          this.activeTab.set('properties');
+          if (this.isMobile()) {
+            this.mobileWidgetDrawerOpen.set(false);
+            this.mobilePropertiesOpen.set(true);
+          }
+          placed = true;
+        }
+      }
+    }
+
+    if (!placed) {
+      this.toastService.show('No space available on the canvas for a new widget', 'error');
+    }
   }
 
   // Tab navigation
@@ -394,7 +514,7 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
   }
 
 
-  onWidgetMouseDown(event: MouseEvent, widget: WidgetConfig): void {
+  onWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
     event.stopPropagation();
     // While a header widget is in internal-edit mode, swallow all outer drag/resize
     // interactions for that specific widget so the inner editor gets full mouse control.
@@ -407,6 +527,12 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
     }
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
+
+    // On mobile, show floating toolbar instead of immediately opening drawer
+    if (this.isMobile()) {
+      this.mobileSelectionToolbar.set(true);
+    }
+
     const target = event.target as HTMLElement;
     if (target.classList.contains('resize-handle')) {
       const dir = target.dataset['direction'];
@@ -415,6 +541,48 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
         return;
       }
     }
+
+    // On touch devices, use long-press to initiate drag
+    const isTouch = 'pointerType' in event && (event as PointerEvent).pointerType === 'touch';
+    if (isTouch) {
+      this.pointerMoved = false;
+      this.longPressActive.set(true);
+      if (this.longPressTimer) clearTimeout(this.longPressTimer);
+
+      const onTouchMove = (e: PointerEvent) => {
+        const dx = Math.abs(e.clientX - event.clientX);
+        const dy = Math.abs(e.clientY - event.clientY);
+        if (dx > 5 || dy > 5) {
+          this.pointerMoved = true;
+          this.longPressActive.set(false);
+          if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+          cleanup();
+        }
+      };
+      const onTouchUp = () => {
+        this.longPressActive.set(false);
+        if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+        cleanup();
+      };
+      const cleanup = () => {
+        document.removeEventListener('pointermove', onTouchMove);
+        document.removeEventListener('pointerup', onTouchUp);
+        document.removeEventListener('pointercancel', onTouchUp);
+      };
+
+      document.addEventListener('pointermove', onTouchMove);
+      document.addEventListener('pointerup', onTouchUp);
+      document.addEventListener('pointercancel', onTouchUp);
+
+      this.longPressTimer = setTimeout(() => {
+        cleanup();
+        this.longPressActive.set(false);
+        this.startDrag(event, widget);
+      }, this.LONG_PRESS_MS);
+
+      return;
+    }
+
     this.startDrag(event, widget);
   }
 
@@ -446,8 +614,9 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
     if (updated) this.selectedWidget.set(updated);
   }
 
-  private startDrag(event: MouseEvent, widget: WidgetConfig): void {
+  private startDrag(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
     let isDragging = true;
+    this.mobileDragging.set(true);
     this.dragStartPos = { x: event.clientX, y: event.clientY };
     this.dragStartWidget = { ...widget.position };
 
@@ -467,7 +636,7 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
 
     this.ghost.set({ id: widget.id, position: { ...widget.position } });
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent | MouseEvent) => {
       if (!isDragging) return;
 
       const deltaX = e.clientX - this.dragStartPos.x;
@@ -480,8 +649,9 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
       this.ghost.set({ id: widget.id, position: { ...widget.position, x: newX, y: newY } });
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       isDragging = false;
+      this.mobileDragging.set(false);
       const g = this.ghost();
       if (g) {
         this.layout.update(l => ({
@@ -492,17 +662,24 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
         if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
     };
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
   }
 
-  private startResize(event: MouseEvent, widget: WidgetConfig, direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'): void {
+  private startResize(event: MouseEvent | PointerEvent, widget: WidgetConfig, direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'): void {
     event.stopPropagation();
     let isResizing = true;
+    this.mobileDragging.set(true);
     this.dragStartPos = { x: event.clientX, y: event.clientY };
     this.dragStartWidget = { ...widget.position };
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
@@ -521,7 +698,7 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
 
     this.ghost.set({ id: widget.id, position: { ...widget.position } });
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent | MouseEvent) => {
       if (!isResizing) return;
       const deltaX = e.clientX - this.dragStartPos.x;
       const deltaY = e.clientY - this.dragStartPos.y;
@@ -580,8 +757,9 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
       this.ghost.set({ id: widget.id, position: { x: newX, y: newY, w: newW, h: newH } });
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       isResizing = false;
+      this.mobileDragging.set(false);
       const g = this.ghost();
       if (g) {
         this.layout.update(l => ({
@@ -592,12 +770,18 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
         if (updated) this.selectedWidget.set(updated);
       }
       this.ghost.set(null);
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerUp);
+      document.removeEventListener('mousemove', onPointerMove);
+      document.removeEventListener('mouseup', onPointerUp);
     };
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
   }
 
 
@@ -1511,6 +1695,69 @@ export class DashboardDesignerComponent implements OnInit, HasUnsavedChanges {
         return { prompt: '' };
       default:
         return {};
+    }
+  }
+
+  getCanvasScaleStyle(): any {
+    const scale = this.canvasScale();
+    if (scale >= 1) return {};
+    const w = this.layout().width;
+    const h = this.layout().height;
+    return {
+      transform: `scale(${scale})`,
+      'transform-origin': 'top left',
+      width: `${w}px`,
+      height: `${h}px`,
+      'margin-right': `-${w * (1 - scale)}px`,
+      'margin-bottom': `-${h * (1 - scale)}px`,
+    };
+  }
+
+  /** Touch-primary devices use a wider breakpoint (1024) so landscape phones still get mobile UI. */
+  private checkIsMobile(): boolean {
+    const width = window.innerWidth;
+    if (this.isTouchDevice) {
+      // Use the smaller screen dimension to detect phones vs tablets
+      const minDim = Math.min(screen.width, screen.height);
+      // Phones typically have a shorter dimension under ~500px
+      return minDim < 600 || width < this.mobileBreakpoint;
+    }
+    return width < this.mobileBreakpoint;
+  }
+
+  openMobileProperties(): void {
+    this.mobileSelectionToolbar.set(false);
+    this.mobilePropertiesOpen.set(true);
+    this.activeTab.set('properties');
+  }
+
+  onCanvasClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.classList.contains('dashboard-canvas') || target.classList.contains('grid-overlay')) {
+      this.selectedWidget.set(null);
+      this.mobileSelectionToolbar.set(false);
+    }
+  }
+
+  onBottomSheetTouchStart(event: TouchEvent): void {
+    this.swipeStartY = event.touches[0].clientY;
+  }
+
+  onBottomSheetTouchEnd(event: TouchEvent): void {
+    const deltaY = event.changedTouches[0].clientY - this.swipeStartY;
+    if (deltaY > 80) {
+      this.mobileWidgetDrawerOpen.set(false);
+    }
+  }
+
+  onDrawerTouchStart(event: TouchEvent): void {
+    this.swipeStartX = event.touches[0].clientX;
+  }
+
+  onDrawerTouchEnd(event: TouchEvent): void {
+    const deltaX = event.changedTouches[0].clientX - this.swipeStartX;
+    if (deltaX > 80) {
+      this.mobilePropertiesOpen.set(false);
     }
   }
 }

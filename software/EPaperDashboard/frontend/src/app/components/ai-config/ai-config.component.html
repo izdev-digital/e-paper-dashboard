@@ -84,15 +84,17 @@
 
             <hr>
             <div class="d-flex gap-2">
-              <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !isDirty()">
+              @if (isDirty()) {
+              <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
                 @if (isSaving()) {
                   <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                 }
                 Save AI Configuration
               </button>
-              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()">
+              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()">
                 <i class="fa fa-rotate-left me-1"></i>Discard Changes
               </button>
+              }
             </div>
           </form>
         </div>

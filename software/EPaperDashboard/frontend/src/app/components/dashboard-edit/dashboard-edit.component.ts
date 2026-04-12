@@ -55,24 +55,26 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
     } @else if (dashboard()) {
       <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm">
         <div class="d-flex justify-content-between align-items-center mb-4">
-          <div class="d-flex align-items-center gap-3">
-            <button type="button" class="btn btn-secondary" (click)="onCancel()">
-              <i class="fa-solid fa-arrow-left"></i> Back
+          <div class="d-flex align-items-center gap-2 gap-sm-3" style="min-width:0">
+            <button type="button" class="btn btn-sm btn-secondary" (click)="onCancel()">
+              <i class="fa-solid fa-arrow-left"></i><span class="d-none d-sm-inline"> Back</span>
             </button>
-            <h2 class="mb-0">Edit Dashboard</h2>
+            <h2 class="mb-0 text-truncate">Edit Dashboard</h2>
           </div>
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-success" (click)="openPreview()" 
+          <div class="d-flex gap-1 gap-sm-2 flex-shrink-0">
+            <button type="button" class="btn btn-sm btn-success" (click)="openPreview()" 
               [disabled]="disablePreviewButton() || dashboardForm.dirty"
               [title]="dashboardForm.dirty ? 'Save your changes before previewing' : (previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview')">
-              <i class="fa-solid fa-eye"></i> Preview
+              <i class="fa-solid fa-eye"></i><span class="d-none d-sm-inline"> Preview</span>
             </button>
-            <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!dashboardForm.dirty">
-              <i class="fa-solid fa-rotate-left"></i> Discard
+            @if (dashboardForm.dirty) {
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
+              <i class="fa-solid fa-rotate-left"></i><span class="d-none d-sm-inline"> Discard</span>
             </button>
-            <button type="submit" class="btn btn-primary" [disabled]="isSaving() || !dashboardForm.dirty">
-              <i class="fa-solid fa-floppy-disk"></i> Save
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="isSaving()">
+              <i class="fa-solid fa-floppy-disk"></i><span class="d-none d-sm-inline"> Save</span>
             </button>
+            }
           </div>
         </div>
         <div class="card shadow-sm mb-3">
