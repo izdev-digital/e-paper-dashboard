@@ -4,11 +4,12 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-3">
           <button class="btn btn-secondary" (click)="goBack()">
-            <i class="fa fa-arrow-left"></i> Back
+            <i class="fa fa-arrow-left"></i><span class="desktop-only"> Back</span>
           </button>
-          <h2 class="mb-0">Dashboard Designer - {{ dashboard()?.name }}</h2>
+          <h2 class="mb-0">Dashboard Designer<span class="desktop-only"> - {{ dashboard()?.name }}</span></h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
+        <!-- Desktop actions -->
+        <div class="d-flex align-items-center gap-2 desktop-only">
           <div class="ai-toggle-pill" [class.active]="aiEnabled()" [title]="aiConfigMode() === 'None' ? 'Configure an AI provider in AI Config or dashboard settings first' : ''">
             <div class="form-check form-switch mb-0">
               <input class="form-check-input" type="checkbox" id="aiEnabledHeader" role="switch"
@@ -30,6 +31,32 @@
             <i class="fa fa-save me-1"></i>Save Layout
           </button>
         </div>
+        <!-- Mobile actions -->
+        @if (isMobile()) {
+        <div class="mobile-header-actions">
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()" title="Save">
+            <i class="fa fa-save"></i>
+          </button>
+          <div class="mobile-overflow-menu">
+            <button class="btn btn-sm btn-outline-secondary" (click)="mobileOverflowOpen.set(!mobileOverflowOpen())">
+              <i class="fa fa-ellipsis-vertical"></i>
+            </button>
+            @if (mobileOverflowOpen()) {
+              <div class="overflow-dropdown">
+                <button (click)="mobilePropertiesOpen.set(true); mobileOverflowOpen.set(false)">
+                  <i class="fa fa-sliders"></i> Settings / Properties
+                </button>
+                <button (click)="previewServerSideRendered(); mobileOverflowOpen.set(false)" [disabled]="isDirty()">
+                  <i class="fa fa-external-link-alt"></i> Rendered Preview
+                </button>
+                <button (click)="discardChanges(); mobileOverflowOpen.set(false)" [disabled]="!isDirty()">
+                  <i class="fa fa-rotate-left"></i> Discard Changes
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+        }
       </div>
     </div>
   </div>
@@ -46,7 +73,7 @@
   }
 
   @if (!isLoading()) {
-  <div class="designer-grid-container" [class.toolbox-collapsed]="toolboxCollapsed()">
+  <div class="designer-grid-container" [class.toolbox-collapsed]="toolboxCollapsed()" [class.mobile-dragging]="mobileDragging()" [class.mobile-layout]="isMobile()">
     <!-- Left Panel - Widget Toolbar -->
     <div class="designer-panel-left">
       <div class="card">
@@ -91,7 +118,8 @@
         </div>
         <div class="card-body" style="overflow: auto;">
           <div class="canvas-wrapper">
-            <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()">
+            <div class="canvas-scale-wrapper" [ngStyle]="getCanvasScaleStyle()">
+            <div class="dashboard-canvas" [ngStyle]="getCanvasStyle()" (click)="onCanvasClick($event)">
               <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
@@ -130,6 +158,7 @@
               <!-- Selection overlay: lives on the canvas, never inside a grid cell -->
               @if (selectedWidget()) {
                 <div class="sel-overlay"
+                     [class.long-press-active]="longPressActive()"
                      [ngStyle]="getSelectionOverlayStyle()"
                      (mousedown)="onWidgetMouseDown($event, selectedWidget()!)">
 
@@ -191,6 +220,7 @@
               <div class="widget-ghost" [ngStyle]="getGhostStyle(ghost()!)"></div>
               }
             </div>
+            </div><!-- /canvas-scale-wrapper -->
           </div>
         </div>
       </div>
@@ -220,447 +250,17 @@
         <div class="card-body">
           <!-- Dashboard Settings Tab -->
           <div class="tab-pane" [class.active]="activeTab() === 'dashboard'">
-            <div class="collapsible-section" [class.collapsed]="colorSchemeCollapsed()">
-              <div class="collapsible-header" (click)="colorSchemeCollapsed.set(!colorSchemeCollapsed())">
-                <span class="section-title">Color Scheme</span>
-                <div class="d-flex align-items-center gap-2">
-                  <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides(); $event.stopPropagation()"
-                    title="Reset all color overrides (layout + widgets) to the selected scheme defaults">
-                    <i class="fa fa-undo"></i> Reset All
-                  </button>
-                  <i class="fa" [ngClass]="colorSchemeCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-                </div>
-              </div>
-              @if (!colorSchemeCollapsed()) {
-              <div class="collapsible-body">
-                <select class="form-select" [ngModel]="layout().colorScheme"
-                  [compareWith]="compareColorSchemes"
-                  (ngModelChange)="updateColorScheme($event)">
-                  @for (scheme of colorSchemes; track scheme.name) {
-                  <option [ngValue]="scheme">
-                    {{ scheme.name }}
-                  </option>
-                  }
-                </select>
-              </div>
-              }
-            </div>
-            <div class="collapsible-section" [class.collapsed]="colorOverridesCollapsed()">
-              <div class="collapsible-header" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())">
-                <div class="d-flex align-items-center">
-                  <span class="section-title">Color Overrides</span>
-                  @if (hasLayoutColorOverrides()) {
-                  <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
-                  }
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                  @if (hasLayoutColorOverrides()) {
-                  <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
-                    title="Reset layout colors to scheme defaults">
-                    <i class="fa fa-undo"></i>
-                  </button>
-                  }
-                  <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-                </div>
-              </div>
-              @if (!colorOverridesCollapsed()) {
-              <div class="collapsible-body">
-                <div class="mb-2">
-                  <label class="form-label small">Canvas Background @if (isLayoutColorOverridden('canvasBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor"
-                    (ngModelChange)="updateCanvasBackgroundColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">
-                      <span [style.backgroundColor]="color">{{ getColorName(color) }}</span>
-                    </option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Background @if (isLayoutColorOverridden('widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBackgroundColor"
-                    (ngModelChange)="updateWidgetBackgroundColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Border Color @if (isLayoutColorOverridden('widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBorderColor"
-                    (ngModelChange)="updateWidgetBorderColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Title Text Color @if (isLayoutColorOverridden('widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor"
-                    (ngModelChange)="updateWidgetTitleTextColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Text Color @if (isLayoutColorOverridden('widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTextColor"
-                    (ngModelChange)="updateWidgetTextColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Icon Color @if (isLayoutColorOverridden('iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.iconColor"
-                    (ngModelChange)="updateIconColor($event)">
-                    @for (color of layout().colorScheme.palette; track color) {
-                    <option [value]="color">{{ getColorName(color) }}</option>
-                    }
-                  </select>
-                </div>
-              </div>
-              }
-            </div>
-            <div class="collapsible-section" [class.collapsed]="layoutCollapsed()">
-              <div class="collapsible-header" (click)="layoutCollapsed.set(!layoutCollapsed())">
-                <span class="section-title">Layout</span>
-                <i class="fa" [ngClass]="layoutCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-              </div>
-              @if (!layoutCollapsed()) {
-              <div class="collapsible-body">
-                <div class="mb-2">
-                  <label class="form-label small">Orientation</label>
-                  <div class="btn-group d-flex" role="group">
-                    <button type="button" class="btn btn-sm flex-grow-1"
-                      [class.btn-secondary]="orientation() === 'Landscape'"
-                      [class.btn-outline-secondary]="orientation() !== 'Landscape'"
-                      (click)="setOrientation('Landscape')">
-                      <i class="fa-solid fa-display"></i> Landscape
-                    </button>
-                    <button type="button" class="btn btn-sm flex-grow-1"
-                      [class.btn-secondary]="orientation() === 'Portrait'"
-                      [class.btn-outline-secondary]="orientation() !== 'Portrait'"
-                      (click)="setOrientation('Portrait')">
-                      <i class="fa-solid fa-mobile-screen"></i> Portrait
-                    </button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Screen Size</label>
-                  <select class="form-select form-select-sm" [(ngModel)]="selectedSizeIndex" (ngModelChange)="onSizeChange()">
-                    @for (size of sizePresets; track size.label; let i = $index) {
-                      <option [ngValue]="i">{{ size.label }}</option>
-                    }
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Grid Columns</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridCols"
-                    (ngModelChange)="updateLayoutGridCols($event)" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Grid Rows</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridRows"
-                    (ngModelChange)="updateLayoutGridRows($event)" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Canvas Padding</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().canvasPadding"
-                    (ngModelChange)="updateCanvasPadding($event)" min="0" max="128" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Gap</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetGap"
-                    (ngModelChange)="updateWidgetGap($event)" min="0" max="64" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Border (px)</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetBorder"
-                    (ngModelChange)="updateWidgetBorder($event)" min="0" max="20" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Padding (px)</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetPadding"
-                    (ngModelChange)="updateWidgetPadding($event)" min="0" max="32" />
-                </div>
-              </div>
-              }
-            </div>
-            <div class="collapsible-section" [class.collapsed]="fontsCollapsed()">
-              <div class="collapsible-header" (click)="fontsCollapsed.set(!fontsCollapsed())">
-                <span class="section-title">Typography</span>
-                <i class="fa" [ngClass]="fontsCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-              </div>
-              @if (!fontsCollapsed()) {
-              <div class="collapsible-body">
-                <div class="mb-2">
-                  <label class="form-label small">Widget Title Font Size (px)</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().titleFontSize"
-                    (ngModelChange)="updateTitleFontSize($event)" min="8" max="72" placeholder="16" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Title Font Weight</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().titleFontWeight || 700"
-                    (ngModelChange)="updateTitleFontWeight($event)">
-                    <option [value]="300">Light (300)</option>
-                    <option [value]="400">Regular (400)</option>
-                    <option [value]="500">Medium (500)</option>
-                    <option [value]="600">Semi Bold (600)</option>
-                    <option [value]="700">Bold (700)</option>
-                    <option [value]="800">Extra Bold (800)</option>
-                    <option [value]="900">Black (900)</option>
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Text Font Size (px)</label>
-                  <input type="number" class="form-control form-control-sm" [ngModel]="layout().textFontSize"
-                    (ngModelChange)="updateTextFontSize($event)" min="6" max="48" placeholder="14" />
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Text Font Weight</label>
-                  <select class="form-select form-select-sm" [ngModel]="layout().textFontWeight || 400"
-                    (ngModelChange)="updateTextFontWeight($event)">
-                    <option [value]="300">Light (300)</option>
-                    <option [value]="400">Regular (400)</option>
-                    <option [value]="500">Medium (500)</option>
-                    <option [value]="600">Semi Bold (600)</option>
-                    <option [value]="700">Bold (700)</option>
-                    <option [value]="800">Extra Bold (800)</option>
-                    <option [value]="900">Black (900)</option>
-                  </select>
-                </div>
-              </div>
-              }
-            </div>
-
-            <!-- AI Section -->
-            @if (aiEnabled()) {
-            <div class="collapsible-section mt-2">
-              <div class="collapsible-header" (click)="aiSectionCollapsed.set(!aiSectionCollapsed())">
-                <span><i class="fa fa-wand-magic-sparkles me-2"></i>AI Generation</span>
-                <i class="fa" [class.fa-chevron-down]="aiSectionCollapsed()" [class.fa-chevron-up]="!aiSectionCollapsed()"></i>
-              </div>
-              @if (!aiSectionCollapsed()) {
-              <div class="collapsible-body">
-                @if (aiConfigMode() === 'None') {
-                  <div class="alert alert-warning py-2 small mb-3">
-                    <i class="fa fa-triangle-exclamation me-1"></i>
-                    AI provider not configured. <a routerLink="/ai/config">Set up global AI provider</a> or <a [routerLink]="['/dashboards', dashboardId, 'edit']">use a Home Assistant agent</a>
-                  </div>
-                }
-
-                <div class="mb-3">
-                  <label class="form-label fw-semibold small">Prompt</label>
-                  <textarea class="form-control form-control-sm" rows="4"
-                    [value]="aiPrompt()"
-                    (input)="onAiPromptChange($any($event.target).value)"
-                    placeholder="e.g. 'Show today's weather, calendar events, and a motivational quote'"></textarea>
-                </div>
-
-                <div class="mb-3">
-                  <label class="form-label fw-semibold small">Pre-generation Lead Time</label>
-                  <div class="input-group input-group-sm">
-                    <input type="number" class="form-control"
-                      [value]="aiLeadTimeMinutes()"
-                      (input)="onAiLeadTimeChange($any($event.target).value)"
-                      min="1" max="30" />
-                    <span class="input-group-text">min</span>
-                  </div>
-                  @if (!dashboard()?.updateTimes || dashboard()!.updateTimes!.length === 0) {
-                    <small class="form-text text-muted">No update schedule configured — lead time has no effect without scheduled update times.</small>
-                  }
-                </div>
-
-                <div class="mb-3">
-                  <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt() || isDirty()"
-                    [title]="isDirty() ? 'Save your changes before generating' : ''">
-                    @if (isGeneratingAi()) {
-                      <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                      Generating…
-                    } @else {
-                      <i class="fa fa-wand-magic-sparkles me-1"></i>Generate
-                    }
-                  </button>
-                </div>
-
-                @if (aiLastError()) {
-                  <div class="alert alert-danger py-1 small mb-2">
-                    <i class="fa fa-circle-exclamation me-1"></i>
-                    {{ aiLastError() }}
-                  </div>
-                }
-
-                @if (aiLastGenerated()) {
-                  <div class="alert alert-info py-1 small mb-2">
-                    <i class="fa fa-clock me-1"></i>
-                    Last generated: {{ aiLastGenerated() }}
-                  </div>
-                }
-
-                @if (aiDataSummary()) {
-                  <div class="small text-muted mb-2">
-                    <strong>Data used:</strong>
-                    {{ aiDataSummary()!.entityStates }} entity states<!--
-                    -->@if (aiDataSummary()!.todoLists.length > 0) {, {{ aiDataSummary()!.todoLists.length }} todo lists}<!--
-                    -->@if (aiDataSummary()!.calendars.length > 0) {, {{ aiDataSummary()!.calendars.length }} calendars}<!--
-                    -->@if (aiDataSummary()!.weatherEntities.length > 0) {, {{ aiDataSummary()!.weatherEntities.length }} weather entities}<!--
-                    -->@if (aiDataSummary()!.rssFeeds.length > 0) {, {{ aiDataSummary()!.rssFeeds.length }} RSS feeds}
-                  </div>
-                }
-
-                @if (aiPromptTokenEstimate()) {
-                  <div class="small text-muted mb-0">
-                    ~{{ aiPromptTokenEstimate() }} prompt tokens
-                  </div>
-                }
-              </div>
-              }
-            </div>
-            }
+            <ng-container *ngTemplateOutlet="dashboardSettingsContent"></ng-container>
           </div>
 
           <!-- Properties Tab -->
           <div class="tab-pane" [class.active]="activeTab() === 'properties'">
-            @if (!selectedWidget()) {
-            <div class="text-muted text-center py-4">
-              Select a widget to edit its properties
-            </div>
-            }
-            @if (selectedWidget()) {
-            <h6>{{ selectedWidget()!.type | titlecase }}</h6>
-            <hr />
-            <div class="collapsible-section" [class.collapsed]="widgetColorOverridesCollapsed()">
-              <div class="collapsible-header" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())">
-                <div class="d-flex align-items-center">
-                  <span class="section-title">Color Overrides</span>
-                  @if (hasWidgetColorOverrides(selectedWidget())) {
-                  <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
-                    }
-                </div>
-                <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-              </div>
-              @if (!widgetColorOverridesCollapsed()) {
-              <div class="collapsible-body">
-                <div class="mb-2">
-                  <label class="form-label small">Widget Background Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <div class="input-group">
-                    <select class="form-select form-select-sm"
-                      [ngModel]="selectedWidget()!.colorOverrides?.widgetBackgroundColor || ''"
-                      (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor', $event)">
-                      <option value="">Default ({{ layout().colorScheme.widgetBackgroundColor }})</option>
-                      @for (color of layout().colorScheme.palette; track color) {
-                      <option [value]="color">{{ getColorName(color) }}</option>
-                      }
-                    </select>
-                    <button class="btn btn-sm btn-outline-secondary"
-                      (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor')"
-                      title="Clear override">×</button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Border Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <div class="input-group">
-                    <select class="form-select form-select-sm"
-                      [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor || ''"
-                      (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)">
-                      <option value="">Default ({{ layout().colorScheme.widgetBorderColor }})</option>
-                      @for (color of layout().colorScheme.palette; track color) {
-                      <option [value]="color">{{ getColorName(color) }}</option>
-                      }
-                    </select>
-                    <button class="btn btn-sm btn-outline-secondary"
-                      (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBorderColor')"
-                      title="Clear override">×</button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Title Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <div class="input-group">
-                    <select class="form-select form-select-sm"
-                      [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor || ''"
-                      (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)">
-                      <option value="">Default ({{ layout().colorScheme.widgetTitleTextColor }})</option>
-                      @for (color of layout().colorScheme.palette; track color) {
-                      <option [value]="color">{{ getColorName(color) }}</option>
-                      }
-                    </select>
-                    <button class="btn btn-sm btn-outline-secondary"
-                      (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor')"
-                      title="Clear override">×</button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Widget Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <div class="input-group">
-                    <select class="form-select form-select-sm"
-                      [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor || ''"
-                      (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)">
-                      <option value="">Default ({{ layout().colorScheme.widgetTextColor }})</option>
-                      @for (color of layout().colorScheme.palette; track color) {
-                      <option [value]="color">{{ getColorName(color) }}</option>
-                      }
-                    </select>
-                    <button class="btn btn-sm btn-outline-secondary"
-                      (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTextColor')"
-                      title="Clear override">×</button>
-                  </div>
-                </div>
-                <div class="mb-2">
-                  <label class="form-label small">Icon Color @if (isWidgetColorOverridden(selectedWidget(), 'iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
-                  <div class="input-group">
-                    <select class="form-select form-select-sm"
-                      [ngModel]="selectedWidget()!.colorOverrides?.iconColor || ''"
-                      (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)">
-                      <option value="">Default ({{ layout().colorScheme.iconColor }})</option>
-                      @for (color of layout().colorScheme.palette; track color) {
-                      <option [value]="color">{{ getColorName(color) }}</option>
-                      }
-                    </select>
-                    <button class="btn btn-sm btn-outline-secondary"
-                      (click)="clearWidgetColorOverride(selectedWidget()!, 'iconColor')"
-                      title="Clear override">×</button>
-                  </div>
-                </div>
-              </div>
-              }
-            </div>
-            <app-widget-config [widget]="selectedWidget()!" [dashboard]="dashboard()"
-              [availableEntities]="availableEntities()" [entitiesLoading]="entitiesLoading()"
-              [colorScheme]="layout().colorScheme"
-              (widgetChanged)="onWidgetConfigChanged($event)"
-              [attr.key]="selectedWidget()!.id"></app-widget-config>
-            }
+            <ng-container *ngTemplateOutlet="propertiesContent"></ng-container>
           </div>
 
           <!-- Widgets List Tab -->
           <div class="widgets-list-pane" [class.active]="activeTab() === 'widgets'">
-            @if (layout().widgets.length === 0) {
-            <div class="text-muted text-center py-4">
-              <p>No widgets added yet.</p>
-              <small>Drag widgets from the toolbar or click to add them.</small>
-            </div>
-            } @else {
-            @for (w of layout().widgets; track w.id) {
-            <div class="widget-item" [class.active]="selectedWidget()?.id === w.id"
-              (click)="onWidgetSelect(w)">
-              <div class="widget-item-info">
-                <div class="fw-bold text-truncate">{{ w.type | titlecase }}</div>
-                <small class="text-muted text-truncate d-block">ID: {{ w.id }}</small>
-                <div class="small mt-1 d-flex gap-1 flex-wrap">
-                  <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
-                  <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
-                </div>
-              </div>
-              <button class="btn btn-sm btn-danger btn-delete"
-                (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
-                <i class="fa fa-trash"></i>
-              </button>
-            </div>
-            }
-            }
+            <ng-container *ngTemplateOutlet="widgetsListContent"></ng-container>
           </div>
         </div>
       </div>
@@ -687,3 +287,524 @@
   (close)="showPreviewModal.set(false)"
   (reload)="openRenderedPreview()">
 </app-rendered-preview-modal>
+
+<!-- Mobile FAB (Add Widget) -->
+@if (isMobile() && !isLoading()) {
+  <button class="mobile-fab" (click)="mobileWidgetDrawerOpen.set(true)" aria-label="Add Widget" title="Add Widget">
+    <i class="fa fa-plus"></i>
+  </button>
+}
+
+<!-- Mobile Selection Toolbar -->
+@if (isMobile() && mobileSelectionToolbar() && selectedWidget()) {
+  <div class="mobile-selection-toolbar" role="toolbar" aria-label="Widget actions">
+    <button class="toolbar-btn" (click)="openMobileProperties()" title="Properties">
+      <i class="fa fa-sliders"></i> Properties
+    </button>
+    <button class="toolbar-btn toolbar-btn-danger" (click)="deleteWidget(selectedWidget()!); mobileSelectionToolbar.set(false)" title="Delete">
+      <i class="fa fa-trash"></i> Delete
+    </button>
+    <button class="toolbar-btn" (click)="selectedWidget.set(null); mobileSelectionToolbar.set(false)" title="Deselect">
+      <i class="fa fa-xmark"></i>
+    </button>
+  </div>
+}
+
+<!-- Mobile Bottom Sheet (Widget Picker) -->
+@if (isMobile() && mobileWidgetDrawerOpen()) {
+  <div class="mobile-bottom-sheet-backdrop" (click)="mobileWidgetDrawerOpen.set(false)"></div>
+  <div class="mobile-bottom-sheet" role="dialog" aria-label="Add Widget"
+       (touchstart)="onBottomSheetTouchStart($event)" (touchend)="onBottomSheetTouchEnd($event)">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-header">
+      <h5>Add Widget</h5>
+      <button class="btn-close-sheet" (click)="mobileWidgetDrawerOpen.set(false)" aria-label="Close">
+        <i class="fa fa-xmark"></i>
+      </button>
+    </div>
+    <div class="bottom-sheet-body">
+      @for (widget of availableWidgets; track widget.type) {
+        <button class="widget-grid-item" (click)="addWidgetToFirstSlot(widget)">
+          <i class="fa {{ widget.icon }}"></i>
+          <span>{{ widget.label }}</span>
+        </button>
+      }
+    </div>
+  </div>
+}
+
+<!-- Mobile Right Drawer (Properties / Settings) -->
+@if (isMobile() && mobilePropertiesOpen()) {
+  <div class="mobile-drawer-backdrop" (click)="mobilePropertiesOpen.set(false)"></div>
+  <div class="mobile-drawer" role="dialog" aria-label="Dashboard Settings"
+       (touchstart)="onDrawerTouchStart($event)" (touchend)="onDrawerTouchEnd($event)">
+    <div class="drawer-header">
+      <h5>
+        @if (activeTab() === 'dashboard') { Dashboard Settings }
+        @else if (activeTab() === 'widgets') { Widgets ({{ layout().widgets.length }}) }
+        @else { Widget Properties }
+      </h5>
+      <button class="btn-close-drawer" (click)="mobilePropertiesOpen.set(false)" aria-label="Close">
+        <i class="fa fa-xmark"></i>
+      </button>
+    </div>
+    <div class="drawer-tabs" role="tablist">
+      <button class="drawer-tab-btn" [class.active]="activeTab() === 'dashboard'"
+        (click)="activeTab.set('dashboard')" role="tab" [attr.aria-selected]="activeTab() === 'dashboard'">
+        <i class="fa fa-cog"></i> Settings
+      </button>
+      <button class="drawer-tab-btn" [class.active]="activeTab() === 'widgets'"
+        (click)="activeTab.set('widgets')" role="tab" [attr.aria-selected]="activeTab() === 'widgets'">
+        <i class="fa fa-layer-group"></i> Widgets
+      </button>
+      <button class="drawer-tab-btn" [class.active]="activeTab() === 'properties'"
+        (click)="activeTab.set('properties')" role="tab" [attr.aria-selected]="activeTab() === 'properties'">
+        <i class="fa fa-sliders"></i> Props
+      </button>
+    </div>
+    <div class="drawer-body">
+      @if (activeTab() === 'dashboard') {
+        <ng-container *ngTemplateOutlet="dashboardSettingsContent"></ng-container>
+      }
+      @if (activeTab() === 'properties') {
+        <ng-container *ngTemplateOutlet="propertiesContent"></ng-container>
+      }
+      @if (activeTab() === 'widgets') {
+        <ng-container *ngTemplateOutlet="widgetsListContent"></ng-container>
+      }
+    </div>
+  </div>
+}
+
+<!-- ═══ Shared tab content templates ═══ -->
+
+<ng-template #dashboardSettingsContent>
+  <div class="collapsible-section" [class.collapsed]="colorSchemeCollapsed()">
+    <div class="collapsible-header" (click)="colorSchemeCollapsed.set(!colorSchemeCollapsed())">
+      <span class="section-title">Color Scheme</span>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides(); $event.stopPropagation()"
+          title="Reset all color overrides (layout + widgets) to the selected scheme defaults">
+          <i class="fa fa-undo"></i> Reset All
+        </button>
+        <i class="fa" [ngClass]="colorSchemeCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+      </div>
+    </div>
+    @if (!colorSchemeCollapsed()) {
+    <div class="collapsible-body">
+      <select class="form-select" [ngModel]="layout().colorScheme"
+        [compareWith]="compareColorSchemes"
+        (ngModelChange)="updateColorScheme($event)">
+        @for (scheme of colorSchemes; track scheme.name) {
+        <option [ngValue]="scheme">{{ scheme.name }}</option>
+        }
+      </select>
+    </div>
+    }
+  </div>
+  <div class="collapsible-section" [class.collapsed]="colorOverridesCollapsed()">
+    <div class="collapsible-header" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())">
+      <div class="d-flex align-items-center">
+        <span class="section-title">Color Overrides</span>
+        @if (hasLayoutColorOverrides()) {
+        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+        }
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        @if (hasLayoutColorOverrides()) {
+        <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
+          title="Reset layout colors to scheme defaults">
+          <i class="fa fa-undo"></i>
+        </button>
+        }
+        <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+      </div>
+    </div>
+    @if (!colorOverridesCollapsed()) {
+    <div class="collapsible-body">
+      <div class="mb-2">
+        <label class="form-label small">Canvas Background @if (isLayoutColorOverridden('canvasBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor"
+          (ngModelChange)="updateCanvasBackgroundColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Background @if (isLayoutColorOverridden('widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBackgroundColor"
+          (ngModelChange)="updateWidgetBackgroundColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Border Color @if (isLayoutColorOverridden('widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetBorderColor"
+          (ngModelChange)="updateWidgetBorderColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Title Text Color @if (isLayoutColorOverridden('widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTitleTextColor"
+          (ngModelChange)="updateWidgetTitleTextColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Text Color @if (isLayoutColorOverridden('widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.widgetTextColor"
+          (ngModelChange)="updateWidgetTextColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Icon Color @if (isLayoutColorOverridden('iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.iconColor"
+          (ngModelChange)="updateIconColor($event)">
+          @for (color of layout().colorScheme.palette; track color) {
+          <option [value]="color">{{ getColorName(color) }}</option>
+          }
+        </select>
+      </div>
+    </div>
+    }
+  </div>
+  <div class="collapsible-section" [class.collapsed]="layoutCollapsed()">
+    <div class="collapsible-header" (click)="layoutCollapsed.set(!layoutCollapsed())">
+      <span class="section-title">Layout</span>
+      <i class="fa" [ngClass]="layoutCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+    </div>
+    @if (!layoutCollapsed()) {
+    <div class="collapsible-body">
+      <div class="mb-2">
+        <label class="form-label small">Orientation</label>
+        <div class="btn-group d-flex" role="group">
+          <button type="button" class="btn btn-sm flex-grow-1"
+            [class.btn-secondary]="orientation() === 'Landscape'"
+            [class.btn-outline-secondary]="orientation() !== 'Landscape'"
+            (click)="setOrientation('Landscape')">
+            <i class="fa-solid fa-display"></i> Landscape
+          </button>
+          <button type="button" class="btn btn-sm flex-grow-1"
+            [class.btn-secondary]="orientation() === 'Portrait'"
+            [class.btn-outline-secondary]="orientation() !== 'Portrait'"
+            (click)="setOrientation('Portrait')">
+            <i class="fa-solid fa-mobile-screen"></i> Portrait
+          </button>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Screen Size</label>
+        <select class="form-select form-select-sm" [(ngModel)]="selectedSizeIndex" (ngModelChange)="onSizeChange()">
+          @for (size of sizePresets; track size.label; let i = $index) {
+            <option [ngValue]="i">{{ size.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Grid Columns</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridCols"
+          (ngModelChange)="updateLayoutGridCols($event)" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Grid Rows</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().gridRows"
+          (ngModelChange)="updateLayoutGridRows($event)" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Canvas Padding</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().canvasPadding"
+          (ngModelChange)="updateCanvasPadding($event)" min="0" max="128" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Gap</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetGap"
+          (ngModelChange)="updateWidgetGap($event)" min="0" max="64" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Border (px)</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetBorder"
+          (ngModelChange)="updateWidgetBorder($event)" min="0" max="20" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Padding (px)</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().widgetPadding"
+          (ngModelChange)="updateWidgetPadding($event)" min="0" max="32" />
+      </div>
+    </div>
+    }
+  </div>
+  <div class="collapsible-section" [class.collapsed]="fontsCollapsed()">
+    <div class="collapsible-header" (click)="fontsCollapsed.set(!fontsCollapsed())">
+      <span class="section-title">Typography</span>
+      <i class="fa" [ngClass]="fontsCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+    </div>
+    @if (!fontsCollapsed()) {
+    <div class="collapsible-body">
+      <div class="mb-2">
+        <label class="form-label small">Widget Title Font Size (px)</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().titleFontSize"
+          (ngModelChange)="updateTitleFontSize($event)" min="8" max="72" placeholder="16" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Title Font Weight</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().titleFontWeight || 700"
+          (ngModelChange)="updateTitleFontWeight($event)">
+          <option [value]="300">Light (300)</option>
+          <option [value]="400">Regular (400)</option>
+          <option [value]="500">Medium (500)</option>
+          <option [value]="600">Semi Bold (600)</option>
+          <option [value]="700">Bold (700)</option>
+          <option [value]="800">Extra Bold (800)</option>
+          <option [value]="900">Black (900)</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Text Font Size (px)</label>
+        <input type="number" class="form-control form-control-sm" [ngModel]="layout().textFontSize"
+          (ngModelChange)="updateTextFontSize($event)" min="6" max="48" placeholder="14" />
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Text Font Weight</label>
+        <select class="form-select form-select-sm" [ngModel]="layout().textFontWeight || 400"
+          (ngModelChange)="updateTextFontWeight($event)">
+          <option [value]="300">Light (300)</option>
+          <option [value]="400">Regular (400)</option>
+          <option [value]="500">Medium (500)</option>
+          <option [value]="600">Semi Bold (600)</option>
+          <option [value]="700">Bold (700)</option>
+          <option [value]="800">Extra Bold (800)</option>
+          <option [value]="900">Black (900)</option>
+        </select>
+      </div>
+    </div>
+    }
+  </div>
+
+  <!-- AI Section -->
+  @if (aiEnabled()) {
+  <div class="collapsible-section mt-2">
+    <div class="collapsible-header" (click)="aiSectionCollapsed.set(!aiSectionCollapsed())">
+      <span><i class="fa fa-wand-magic-sparkles me-2"></i>AI Generation</span>
+      <i class="fa" [class.fa-chevron-down]="aiSectionCollapsed()" [class.fa-chevron-up]="!aiSectionCollapsed()"></i>
+    </div>
+    @if (!aiSectionCollapsed()) {
+    <div class="collapsible-body">
+      @if (aiConfigMode() === 'None') {
+        <div class="alert alert-warning py-2 small mb-3">
+          <i class="fa fa-triangle-exclamation me-1"></i>
+          AI provider not configured. <a routerLink="/ai/config">Set up global AI provider</a> or <a [routerLink]="['/dashboards', dashboardId, 'edit']">use a Home Assistant agent</a>
+        </div>
+      }
+      <div class="mb-3">
+        <label class="form-label fw-semibold small">Prompt</label>
+        <textarea class="form-control form-control-sm" rows="4"
+          [value]="aiPrompt()"
+          (input)="onAiPromptChange($any($event.target).value)"
+          placeholder="e.g. 'Show today's weather, calendar events, and a motivational quote'"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold small">Pre-generation Lead Time</label>
+        <div class="input-group input-group-sm">
+          <input type="number" class="form-control"
+            [value]="aiLeadTimeMinutes()"
+            (input)="onAiLeadTimeChange($any($event.target).value)"
+            min="1" max="30" />
+          <span class="input-group-text">min</span>
+        </div>
+        @if (!dashboard()?.updateTimes || dashboard()!.updateTimes!.length === 0) {
+          <small class="form-text text-muted">No update schedule configured — lead time has no effect without scheduled update times.</small>
+        }
+      </div>
+      <div class="mb-3">
+        <button class="btn btn-sm btn-primary w-100" (click)="generateAiContent()" [disabled]="isGeneratingAi() || aiConfigMode() === 'None' || !aiPrompt() || isDirty()"
+          [title]="isDirty() ? 'Save your changes before generating' : ''">
+          @if (isGeneratingAi()) {
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            Generating…
+          } @else {
+            <i class="fa fa-wand-magic-sparkles me-1"></i>Generate
+          }
+        </button>
+      </div>
+      @if (aiLastError()) {
+        <div class="alert alert-danger py-1 small mb-2">
+          <i class="fa fa-circle-exclamation me-1"></i>
+          {{ aiLastError() }}
+        </div>
+      }
+      @if (aiLastGenerated()) {
+        <div class="alert alert-info py-1 small mb-2">
+          <i class="fa fa-clock me-1"></i>
+          Last generated: {{ aiLastGenerated() }}
+        </div>
+      }
+      @if (aiDataSummary()) {
+        <div class="small text-muted mb-2">
+          <strong>Data used:</strong>
+          {{ aiDataSummary()!.entityStates }} entity states<!--
+          -->@if (aiDataSummary()!.todoLists.length > 0) {, {{ aiDataSummary()!.todoLists.length }} todo lists}<!--
+          -->@if (aiDataSummary()!.calendars.length > 0) {, {{ aiDataSummary()!.calendars.length }} calendars}<!--
+          -->@if (aiDataSummary()!.weatherEntities.length > 0) {, {{ aiDataSummary()!.weatherEntities.length }} weather entities}<!--
+          -->@if (aiDataSummary()!.rssFeeds.length > 0) {, {{ aiDataSummary()!.rssFeeds.length }} RSS feeds}
+        </div>
+      }
+      @if (aiPromptTokenEstimate()) {
+        <div class="small text-muted mb-0">
+          ~{{ aiPromptTokenEstimate() }} prompt tokens
+        </div>
+      }
+    </div>
+    }
+  </div>
+  }
+</ng-template>
+
+<ng-template #propertiesContent>
+  @if (!selectedWidget()) {
+  <div class="text-muted text-center py-4">
+    Select a widget to edit its properties
+  </div>
+  }
+  @if (selectedWidget()) {
+  <h6>{{ selectedWidget()!.type | titlecase }}</h6>
+  <hr />
+  <div class="collapsible-section" [class.collapsed]="widgetColorOverridesCollapsed()">
+    <div class="collapsible-header" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())">
+      <div class="d-flex align-items-center">
+        <span class="section-title">Color Overrides</span>
+        @if (hasWidgetColorOverrides(selectedWidget())) {
+        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+        }
+      </div>
+      <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+    </div>
+    @if (!widgetColorOverridesCollapsed()) {
+    <div class="collapsible-body">
+      <div class="mb-2">
+        <label class="form-label small">Widget Background Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <div class="input-group">
+          <select class="form-select form-select-sm"
+            [ngModel]="selectedWidget()!.colorOverrides?.widgetBackgroundColor || ''"
+            (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor', $event)">
+            <option value="">Default ({{ layout().colorScheme.widgetBackgroundColor }})</option>
+            @for (color of layout().colorScheme.palette; track color) {
+            <option [value]="color">{{ getColorName(color) }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-secondary"
+            (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBackgroundColor')"
+            title="Clear override">×</button>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Border Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBorderColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <div class="input-group">
+          <select class="form-select form-select-sm"
+            [ngModel]="selectedWidget()!.colorOverrides?.widgetBorderColor || ''"
+            (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetBorderColor', $event)">
+            <option value="">Default ({{ layout().colorScheme.widgetBorderColor }})</option>
+            @for (color of layout().colorScheme.palette; track color) {
+            <option [value]="color">{{ getColorName(color) }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-secondary"
+            (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetBorderColor')"
+            title="Clear override">×</button>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Title Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTitleTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <div class="input-group">
+          <select class="form-select form-select-sm"
+            [ngModel]="selectedWidget()!.colorOverrides?.widgetTitleTextColor || ''"
+            (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor', $event)">
+            <option value="">Default ({{ layout().colorScheme.widgetTitleTextColor }})</option>
+            @for (color of layout().colorScheme.palette; track color) {
+            <option [value]="color">{{ getColorName(color) }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-secondary"
+            (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTitleTextColor')"
+            title="Clear override">×</button>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Widget Text Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetTextColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <div class="input-group">
+          <select class="form-select form-select-sm"
+            [ngModel]="selectedWidget()!.colorOverrides?.widgetTextColor || ''"
+            (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'widgetTextColor', $event)">
+            <option value="">Default ({{ layout().colorScheme.widgetTextColor }})</option>
+            @for (color of layout().colorScheme.palette; track color) {
+            <option [value]="color">{{ getColorName(color) }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-secondary"
+            (click)="clearWidgetColorOverride(selectedWidget()!, 'widgetTextColor')"
+            title="Clear override">×</button>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Icon Color @if (isWidgetColorOverridden(selectedWidget(), 'iconColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
+        <div class="input-group">
+          <select class="form-select form-select-sm"
+            [ngModel]="selectedWidget()!.colorOverrides?.iconColor || ''"
+            (ngModelChange)="updateWidgetColorOverride(selectedWidget()!, 'iconColor', $event)">
+            <option value="">Default ({{ layout().colorScheme.iconColor }})</option>
+            @for (color of layout().colorScheme.palette; track color) {
+            <option [value]="color">{{ getColorName(color) }}</option>
+            }
+          </select>
+          <button class="btn btn-sm btn-outline-secondary"
+            (click)="clearWidgetColorOverride(selectedWidget()!, 'iconColor')"
+            title="Clear override">×</button>
+        </div>
+      </div>
+    </div>
+    }
+  </div>
+  <app-widget-config [widget]="selectedWidget()!" [dashboard]="dashboard()"
+    [availableEntities]="availableEntities()" [entitiesLoading]="entitiesLoading()"
+    [colorScheme]="layout().colorScheme"
+    (widgetChanged)="onWidgetConfigChanged($event)"
+    [attr.key]="selectedWidget()!.id"></app-widget-config>
+  }
+</ng-template>
+
+<ng-template #widgetsListContent>
+  @if (layout().widgets.length === 0) {
+  <div class="text-muted text-center py-4">
+    <p>No widgets added yet.</p>
+    <small>Drag widgets from the toolbar or click to add them.</small>
+  </div>
+  } @else {
+  @for (w of layout().widgets; track w.id) {
+  <div class="widget-item" [class.active]="selectedWidget()?.id === w.id"
+    (click)="onWidgetSelect(w)">
+    <div class="widget-item-info">
+      <div class="fw-bold text-truncate">{{ w.type | titlecase }}</div>
+      <small class="text-muted text-truncate d-block">ID: {{ w.id }}</small>
+      <div class="small mt-1 d-flex gap-1 flex-wrap">
+        <span class="badge bg-secondary">{{ w.position.x }},{{ w.position.y }}</span>
+        <span class="badge bg-secondary">{{ w.position.w }}×{{ w.position.h }}</span>
+      </div>
+    </div>
+    <button class="btn btn-sm btn-danger btn-delete"
+      (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
+      <i class="fa fa-trash"></i>
+    </button>
+  </div>
+  }
+  }
+</ng-template>
