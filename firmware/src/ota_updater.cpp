@@ -63,6 +63,14 @@ bool OtaUpdater::perform(const DeviceConfig& config)
   size_t written = Update.writeStream(_network.client());
   _logger.printf("OTA: Written %u bytes\n", written);
 
+  if (written != (size_t)headers.contentLength)
+  {
+    _logger.printf("OTA: Size mismatch — expected %ld, written %u\n", headers.contentLength, written);
+    Update.abort();
+    _network.close();
+    return false;
+  }
+
   if (Update.end())
   {
     if (Update.isFinished())

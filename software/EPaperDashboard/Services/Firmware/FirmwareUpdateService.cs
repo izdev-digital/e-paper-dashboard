@@ -35,19 +35,21 @@ public sealed class FirmwareUpdateService : BackgroundService
     public FirmwareReleaseInfo? GetLatestRelease() => _latestRelease;
 
     /// <summary>
-    /// Gets the cached firmware binary, downloading it if necessary.
+    /// Gets the path to the cached firmware binary, downloading it if necessary.
+    /// Returns null if no firmware is available.
     /// </summary>
-    public async Task<byte[]?> GetFirmwareBinaryAsync(CancellationToken cancellationToken = default)
+    public async Task<string?> GetFirmwareBinaryPathAsync(CancellationToken cancellationToken = default)
     {
         if (_latestRelease?.DownloadUrl is null)
             return null;
 
         // Serve from cache if available
         if (_cachedBinaryPath is not null && File.Exists(_cachedBinaryPath))
-            return await File.ReadAllBytesAsync(_cachedBinaryPath, cancellationToken);
+            return _cachedBinaryPath;
 
         // Download on demand
-        return await DownloadAndCacheBinaryAsync(_latestRelease.DownloadUrl, _latestRelease.Version, cancellationToken);
+        await DownloadAndCacheBinaryAsync(_latestRelease.DownloadUrl, _latestRelease.Version, cancellationToken);
+        return _cachedBinaryPath;
     }
 
     /// <summary>
@@ -121,10 +123,19 @@ public sealed class FirmwareUpdateService : BackgroundService
         {
             _logger.LogInformation("New firmware version detected: {Version}", release.Version);
 
-            // Proactively download and cache the binary for faster device delivery
             if (release.DownloadUrl is not null)
             {
-                await DownloadAndCacheBinaryAsync(release.DownloadUrl, release.Version, cancellationToken);
+                // Check if binary is already cached on disk (e.g., from before a server restart)
+                var expectedPath = Path.Combine(_firmwareCacheDir, $"firmware-{release.Version}.bin");
+                if (File.Exists(expectedPath))
+                {
+                    _cachedBinaryPath = expectedPath;
+                    _logger.LogInformation("Firmware binary v{Version} restored from disk cache", release.Version);
+                }
+                else
+                {
+                    await DownloadAndCacheBinaryAsync(release.DownloadUrl, release.Version, cancellationToken);
+                }
             }
         }
         else
