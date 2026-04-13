@@ -17,8 +17,9 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   private readonly aiService = inject(AiService);
   private readonly toastService = inject(ToastService);
 
-  readonly aiConfig = signal<AiConfig>({ connectionMode: 'None' });
-  private originalAiConfig: string = '';
+  private static readonly DEFAULT_CONFIG: AiConfig = { connectionMode: 'None' };
+  readonly aiConfig = signal<AiConfig>(AiConfigComponent.DEFAULT_CONFIG);
+  private originalAiConfig = JSON.stringify(AiConfigComponent.DEFAULT_CONFIG);
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly availableModels = signal<{ id: string }[]>([]);
@@ -41,6 +42,7 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
         }
       },
       error: () => {
+        this.originalAiConfig = JSON.stringify(this.aiConfig());
         this.isLoading.set(false);
       }
     });
