@@ -18,16 +18,11 @@ bool OtaUpdater::isNewerVersion(const char* current, const String& available) co
   return avPatch > curPatch;
 }
 
-bool OtaUpdater::shouldAttempt(const String& version) const
-{
-  return _configStore.getOtaFailCount(version) < Ota::MaxRetries;
-}
-
 bool OtaUpdater::perform(const DeviceConfig& config)
 {
   _logger.println("Starting OTA firmware update...");
 
-  _network.setTimeout(10000);
+  _network.setTimeout(30000);
 
   if (!_network.sendGetRequest("/api/firmware/download", config))
   {
@@ -63,11 +58,20 @@ bool OtaUpdater::perform(const DeviceConfig& config)
   size_t written = Update.writeStream(_network.client());
   _logger.printf("OTA: Written %u bytes\n", written);
 
+  if (written != (size_t)headers.contentLength)
+  {
+    _logger.printf("OTA: Size mismatch — expected %ld, written %u\n", headers.contentLength, written);
+    Update.abort();
+    _network.close();
+    return false;
+  }
+
   if (Update.end())
   {
     if (Update.isFinished())
     {
       _logger.println("OTA: Update successful! Rebooting...");
+      _configStore.clearOtaFailCount();
       _network.close();
       delay(1000);
       ESP.restart();

@@ -45,7 +45,7 @@ public class FirmwareApiController(FirmwareUpdateService firmwareUpdateService) 
     [Authorize]
     public async Task<IActionResult> RefreshFirmwareCheck()
     {
-        var release = await firmwareUpdateService.RefreshAsync();
+        var release = await firmwareUpdateService.RefreshAsync(HttpContext.RequestAborted);
         if (release is null)
             return Ok(new
             {
@@ -74,13 +74,13 @@ public class FirmwareApiController(FirmwareUpdateService firmwareUpdateService) 
     [DeviceAccessible]
     public async Task<IActionResult> DownloadFirmware()
     {
-        var binary = await firmwareUpdateService.GetFirmwareBinaryAsync();
-        if (binary is null)
+        var path = await firmwareUpdateService.GetFirmwareBinaryPathAsync(HttpContext.RequestAborted);
+        if (path is null)
             return NotFound("No firmware binary available for download.");
 
         var release = firmwareUpdateService.GetLatestRelease();
         var fileName = $"firmware-{release?.Version ?? "unknown"}.bin";
 
-        return File(binary, "application/octet-stream", fileName);
+        return PhysicalFile(path, "application/octet-stream", fileName);
     }
 }

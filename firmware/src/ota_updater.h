@@ -10,7 +10,6 @@ public:
   OtaUpdater(Logger& logger, Network& network, ConfigStore& configStore);
 
   bool isNewerVersion(const char* current, const String& available) const;
-  bool shouldAttempt(const String& version) const;
   bool perform(const DeviceConfig& config);
 
 private:
