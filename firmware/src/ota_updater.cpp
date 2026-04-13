@@ -68,6 +68,7 @@ bool OtaUpdater::perform(const DeviceConfig& config)
     if (Update.isFinished())
     {
       _logger.println("OTA: Update successful! Rebooting...");
+      _configStore.clearOtaFailCount();
       _network.close();
       delay(1000);
       ESP.restart();

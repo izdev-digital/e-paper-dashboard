@@ -306,7 +306,7 @@ app.Use(async (context, next) =>
 		// Add latest firmware version header to all device-port responses
 		var firmwareService = context.RequestServices.GetService<FirmwareUpdateService>();
 		var latestRelease = firmwareService?.GetLatestRelease();
-		if (latestRelease is not null)
+		if (latestRelease?.DownloadUrl is not null)
 		{
 			context.Response.OnStarting(() =>
 			{

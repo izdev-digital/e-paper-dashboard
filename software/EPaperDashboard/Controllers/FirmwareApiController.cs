@@ -74,7 +74,7 @@ public class FirmwareApiController(FirmwareUpdateService firmwareUpdateService) 
     [DeviceAccessible]
     public async Task<IActionResult> DownloadFirmware()
     {
-        var binary = await firmwareUpdateService.GetFirmwareBinaryAsync();
+        var binary = await firmwareUpdateService.GetFirmwareBinaryAsync(HttpContext.RequestAborted);
         if (binary is null)
             return NotFound("No firmware binary available for download.");
 

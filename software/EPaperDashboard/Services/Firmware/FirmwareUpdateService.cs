@@ -72,7 +72,7 @@ public sealed class FirmwareUpdateService : BackgroundService
         _logger.LogInformation("Firmware Update Service started (check interval: {Interval})", _checkInterval);
 
         // Initial check after a short delay to allow app startup to complete
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {

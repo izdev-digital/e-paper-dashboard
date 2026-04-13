@@ -85,7 +85,6 @@ void setup()
       logger.printf(" available (attempt %d/%d). Starting OTA update...\n", failCount + 1, Ota::MaxRetries);
       if (otaUpdater.perform(config))
       {
-        configStore.clearOtaFailCount();
         return;
       }
       logger.println("OTA update failed, continuing with current firmware");
