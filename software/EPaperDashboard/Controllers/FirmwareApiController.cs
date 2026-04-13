@@ -45,7 +45,7 @@ public class FirmwareApiController(FirmwareUpdateService firmwareUpdateService) 
     [Authorize]
     public async Task<IActionResult> RefreshFirmwareCheck()
     {
-        var release = await firmwareUpdateService.RefreshAsync();
+        var release = await firmwareUpdateService.RefreshAsync(HttpContext.RequestAborted);
         if (release is null)
             return Ok(new
             {
