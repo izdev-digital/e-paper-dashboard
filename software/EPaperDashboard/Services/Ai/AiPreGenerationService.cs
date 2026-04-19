@@ -1,4 +1,5 @@
 using EPaperDashboard.Models;
+using EPaperDashboard.Services.Providers;
 
 namespace EPaperDashboard.Services.Ai;
 
@@ -37,6 +38,7 @@ public sealed class AiPreGenerationService(
         using var scope = serviceProvider.CreateScope();
         var dashboardService = scope.ServiceProvider.GetRequiredService<DashboardService>();
         var aiGenerationService = scope.ServiceProvider.GetRequiredService<AiDashboardGenerationService>();
+        var aiContentProvider = scope.ServiceProvider.GetRequiredService<IAiContentProvider>();
         var userService = scope.ServiceProvider.GetRequiredService<UserService>();
 
         var allDashboards = dashboardService.GetAllDashboards();
@@ -45,53 +47,78 @@ public sealed class AiPreGenerationService(
         foreach (var dashboard in allDashboards)
         {
             if (cancellationToken.IsCancellationRequested)
-            {
                 break;
-            }
-
-            if (!ShouldPreGenerate(dashboard, now))
-            {
-                continue;
-            }
 
             if (!HasEffectiveAiConfig(dashboard, userService))
-            {
                 continue;
+
+            // Pre-generate AI dashboard widgets (existing behavior)
+            if (ShouldPreGenerateDashboard(dashboard, now))
+            {
+                await PreGenerateDashboardAsync(dashboard, aiGenerationService, cancellationToken);
             }
 
-            try
+            // Pre-generate AI content widget cache
+            if (ShouldPreGenerateContentWidgets(dashboard, now))
             {
-                logger.LogInformation(
-                    "Pre-generating AI content for dashboard {DashboardId} ({DashboardName})",
-                    dashboard.Id, dashboard.Name);
-
-                var result = await aiGenerationService.GenerateAsync(dashboard, cancellationToken: cancellationToken);
-
-                if (result.IsSuccess)
-                {
-                    logger.LogInformation(
-                        "Successfully pre-generated {WidgetCount} AI widgets for dashboard {DashboardId}",
-                        result.Value.Widgets.Count, dashboard.Id);
-                }
-                else
-                {
-                    logger.LogWarning(
-                        "AI pre-generation failed for dashboard {DashboardId}: {Error}",
-                        dashboard.Id, result.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex,
-                    "Exception during AI pre-generation for dashboard {DashboardId}",
-                    dashboard.Id);
+                await PreGenerateContentWidgetsAsync(dashboard, aiContentProvider, cancellationToken);
             }
         }
     }
 
-    private static bool ShouldPreGenerate(Dashboard dashboard, DateTimeOffset now)
+    private async Task PreGenerateDashboardAsync(
+        Dashboard dashboard, AiDashboardGenerationService aiGenerationService, CancellationToken cancellationToken)
     {
-        // Only process AI-enabled custom dashboards
+        try
+        {
+            logger.LogInformation(
+                "Pre-generating AI dashboard for {DashboardId} ({DashboardName})",
+                dashboard.Id, dashboard.Name);
+
+            var result = await aiGenerationService.GenerateAsync(dashboard, cancellationToken: cancellationToken);
+
+            if (result.IsSuccess)
+            {
+                logger.LogInformation(
+                    "Successfully pre-generated {WidgetCount} AI widgets for dashboard {DashboardId}",
+                    result.Value.Widgets.Count, dashboard.Id);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "AI pre-generation failed for dashboard {DashboardId}: {Error}",
+                    dashboard.Id, result.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Exception during AI pre-generation for dashboard {DashboardId}",
+                dashboard.Id);
+        }
+    }
+
+    private async Task PreGenerateContentWidgetsAsync(
+        Dashboard dashboard, IAiContentProvider aiContentProvider, CancellationToken cancellationToken)
+    {
+        try
+        {
+            logger.LogInformation(
+                "Pre-generating AI content widgets for dashboard {DashboardId} ({DashboardName})",
+                dashboard.Id, dashboard.Name);
+
+            await aiContentProvider.PreGenerateAllAsync(dashboard.Id.ToString(), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex,
+                "Exception during AI content pre-generation for dashboard {DashboardId}",
+                dashboard.Id);
+        }
+    }
+
+    private static bool ShouldPreGenerateDashboard(Dashboard dashboard, DateTimeOffset now)
+    {
         if (!dashboard.IsAiEnabled
             || dashboard.RenderingMode != RenderingMode.Custom
             || string.IsNullOrWhiteSpace(dashboard.AiPrompt))
@@ -99,6 +126,27 @@ public sealed class AiPreGenerationService(
             return false;
         }
 
+        return IsInPreGenerationWindow(dashboard, now, dashboard.LastAiGenerationTime);
+    }
+
+    private static bool ShouldPreGenerateContentWidgets(Dashboard dashboard, DateTimeOffset now)
+    {
+        if (dashboard.RenderingMode != RenderingMode.Custom)
+            return false;
+
+        // Check if the dashboard has any ai-content widgets with prompts
+        var hasAiContentWidgets = dashboard.LayoutConfig?.Widgets?.Any(
+            w => w.Type == "ai-content" && !string.IsNullOrWhiteSpace(
+                w.Config.TryGetProperty("prompt", out var p) ? p.GetString() : null)) ?? false;
+
+        if (!hasAiContentWidgets)
+            return false;
+
+        return IsInPreGenerationWindow(dashboard, now, dashboard.LastAiContentCacheTime);
+    }
+
+    private static bool IsInPreGenerationWindow(Dashboard dashboard, DateTimeOffset now, DateTimeOffset? lastGenerationTime)
+    {
         // Must have scheduled update times
         if (dashboard.UpdateTimes == null || dashboard.UpdateTimes.Count == 0)
         {
@@ -113,15 +161,14 @@ public sealed class AiPreGenerationService(
         {
             var preGenTime = updateTime.AddMinutes(-leadTimeMinutes);
             var minutesUntilUpdate = GetMinutesDifference(nowTimeOnly, updateTime);
-            var minutesSincePre = GetMinutesDifference(preGenTime, nowTimeOnly);
 
             // We're in the pre-generation window: between [updateTime - leadTime] and [updateTime]
             if (minutesUntilUpdate >= 0 && minutesUntilUpdate <= leadTimeMinutes)
             {
                 // Check if we already generated for this window
-                if (dashboard.LastAiGenerationTime.HasValue)
+                if (lastGenerationTime.HasValue)
                 {
-                    var lastGenTime = TimeOnly.FromDateTime(dashboard.LastAiGenerationTime.Value.LocalDateTime);
+                    var lastGenTime = TimeOnly.FromDateTime(lastGenerationTime.Value.LocalDateTime);
                     var minutesSinceLastGen = GetMinutesDifference(preGenTime, lastGenTime);
 
                     // Already generated within this window

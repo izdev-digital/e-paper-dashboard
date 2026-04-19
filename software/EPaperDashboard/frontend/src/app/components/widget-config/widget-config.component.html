@@ -723,6 +723,20 @@
     placeholder="e.g. 'Write a motivational quote for today'"></textarea>
   <small class="form-text text-muted">Describe what content the AI should generate</small>
 </div>
+<div class="mb-3">
+  <button class="btn btn-sm btn-outline-primary" type="button"
+    (click)="generateAiContent()"
+    [disabled]="generatingAiContent() || !aiContentConfig.prompt">
+    @if (generatingAiContent()) {
+      <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+      Generating…
+    } @else {
+      <i class="fa fa-rotate me-1"></i>
+      Generate content
+    }
+  </button>
+  <small class="form-text text-muted d-block mt-1">Generate and cache the AI response now</small>
+</div>
 
 }
 }

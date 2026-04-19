@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services.Ai;
@@ -47,17 +48,109 @@ public sealed class AiContentProvider(
         string dashboardId, string prompt, CancellationToken cancellationToken)
     {
         if (!DashboardId.TryParse(dashboardId, out var id))
-        {
             return Result.Failure<string, string>("Invalid dashboard ID");
-        }
 
         var dashboard = dashboardService.GetDashboardById(id);
         if (dashboard.HasNoValue)
-        {
             return Result.Failure<string, string>("Dashboard not found");
+
+        return await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+    }
+
+    public async Task<Result<string, string>> GenerateAndCacheContentAsync(
+        string dashboardId, string widgetId, string prompt, CancellationToken cancellationToken)
+    {
+        if (!DashboardId.TryParse(dashboardId, out var id))
+            return Result.Failure<string, string>("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(id);
+        if (dashboard.HasNoValue)
+            return Result.Failure<string, string>("Dashboard not found");
+
+        var result = await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+        if (result.IsSuccess)
+        {
+            StoreInCache(dashboard.Value, widgetId, result.Value);
         }
 
+        return result;
+    }
+
+    public async Task PreGenerateAllAsync(string dashboardId, CancellationToken cancellationToken)
+    {
+        if (!DashboardId.TryParse(dashboardId, out var id))
+            return;
+
+        var dashboard = dashboardService.GetDashboardById(id);
+        if (dashboard.HasNoValue || dashboard.Value.LayoutConfig?.Widgets == null)
+            return;
+
+        var aiWidgets = dashboard.Value.LayoutConfig.Widgets
+            .Where(w => w.Type == "ai-content")
+            .ToList();
+
+        if (aiWidgets.Count == 0)
+            return;
+
         var effectiveConfig = ResolveAiConfig(dashboard.Value);
+        if (effectiveConfig == null || effectiveConfig.ConnectionMode == AiConnectionMode.None)
+            return;
+
+        logger.LogInformation(
+            "Pre-generating AI content for {Count} widget(s) on dashboard {DashboardId}",
+            aiWidgets.Count, dashboardId);
+
+        var anyUpdated = false;
+        foreach (var widget in aiWidgets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var prompt = GetStringProp(widget.Config, "prompt");
+            if (string.IsNullOrWhiteSpace(prompt))
+                continue;
+
+            var result = await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+            if (result.IsSuccess)
+            {
+                dashboard.Value.AiContentCache ??= new Dictionary<string, string>();
+                dashboard.Value.AiContentCache[widget.Id] = result.Value;
+                anyUpdated = true;
+
+                logger.LogInformation(
+                    "Pre-generated AI content for widget {WidgetId} ({Length} chars)",
+                    widget.Id, result.Value.Length);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Failed to pre-generate AI content for widget {WidgetId}: {Error}",
+                    widget.Id, result.Error);
+            }
+        }
+
+        if (anyUpdated)
+        {
+            dashboard.Value.LastAiContentCacheTime = DateTimeOffset.UtcNow;
+            dashboardService.UpdateDashboard(dashboard.Value);
+        }
+    }
+
+    public string? GetCachedContent(string dashboardId, string widgetId)
+    {
+        if (!DashboardId.TryParse(dashboardId, out var id))
+            return null;
+
+        var dashboard = dashboardService.GetDashboardById(id);
+        if (dashboard.HasNoValue)
+            return null;
+
+        return dashboard.Value.AiContentCache?.GetValueOrDefault(widgetId);
+    }
+
+    private async Task<Result<string, string>> CallAiAsync(
+        Dashboard dashboard, string dashboardId, string prompt, CancellationToken cancellationToken)
+    {
+        var effectiveConfig = ResolveAiConfig(dashboard);
         if (effectiveConfig == null || effectiveConfig.ConnectionMode == AiConnectionMode.None)
         {
             logger.LogWarning("AI not configured for dashboard {DashboardId}, skipping ai-content generation", dashboardId);
@@ -66,15 +159,21 @@ public sealed class AiContentProvider(
 
         var aiServiceResult = aiServiceFactory.Create(effectiveConfig, dashboardId);
         if (aiServiceResult.IsFailure)
-        {
             return Result.Failure<string, string>(aiServiceResult.Error);
-        }
 
         var aiData = await dataFetcher.FetchAsync(dashboardId);
         var userPrompt = BuildUserPrompt(prompt, aiData, sectionFormatters);
 
         return await aiServiceResult.Value.GenerateCompletionAsync(
             SystemPrompt, userPrompt, cancellationToken, jsonMode: false);
+    }
+
+    private void StoreInCache(Dashboard dashboard, string widgetId, string content)
+    {
+        dashboard.AiContentCache ??= new Dictionary<string, string>();
+        dashboard.AiContentCache[widgetId] = content;
+        dashboard.LastAiContentCacheTime = DateTimeOffset.UtcNow;
+        dashboardService.UpdateDashboard(dashboard);
     }
 
     private static string BuildUserPrompt(string prompt, AiDataSnapshot data, IEnumerable<IAiDataSectionFormatter> formatters)
@@ -114,4 +213,7 @@ public sealed class AiContentProvider(
         var user = userService.GetUserById(dashboard.UserId);
         return user.HasValue ? user.Value.AiConfig : null;
     }
+
+    private static string? GetStringProp(JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
 }

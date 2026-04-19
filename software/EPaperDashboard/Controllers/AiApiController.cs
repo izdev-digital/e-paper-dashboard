@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Ai;
+using EPaperDashboard.Services.Providers;
 
 namespace EPaperDashboard.Controllers;
 
@@ -14,6 +15,7 @@ public sealed class AiApiController(
     DashboardService dashboardService,
     UserService userService,
     AiDashboardGenerationService aiGenerationService,
+    IAiContentProvider aiContentProvider,
     HomeAssistantConnectionService homeAssistantConnectionService) : BaseApiController
 {
     [HttpGet("config")]
@@ -348,6 +350,31 @@ public sealed class AiApiController(
         {
             return BadRequest($"Failed to fetch conversation agents: {ex.Message}");
         }
+    }
+
+    [HttpPost("dashboards/{dashboardId}/widgets/{widgetId}/generate-content")]
+    public async Task<IActionResult> GenerateWidgetContent(
+        string dashboardId, string widgetId, CancellationToken cancellationToken)
+    {
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
+            return NotFound("Dashboard not found");
+
+        var widget = dashboard.LayoutConfig?.Widgets?.FirstOrDefault(w => w.Id == widgetId);
+        if (widget == null || widget.Type != "ai-content")
+            return NotFound("AI content widget not found");
+
+        var prompt = widget.Config.TryGetProperty("prompt", out var p) ? p.GetString() : null;
+        if (string.IsNullOrWhiteSpace(prompt))
+            return BadRequest("Widget has no prompt configured");
+
+        var result = await aiContentProvider.GenerateAndCacheContentAsync(
+            dashboardId, widgetId, prompt, cancellationToken);
+
+        if (result.IsFailure)
+            return BadRequest(result.Error);
+
+        return Ok(new { content = result.Value });
     }
 
     private Dashboard? GetOwnedDashboard(string dashboardId)
