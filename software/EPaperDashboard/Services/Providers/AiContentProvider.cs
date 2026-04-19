@@ -1,3 +1,4 @@
+using System.Text;
 using CSharpFunctionalExtensions;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services.Ai;
@@ -8,11 +9,17 @@ public sealed class AiContentProvider(
     DashboardService dashboardService,
     UserService userService,
     IAiServiceFactory aiServiceFactory,
+    AiDataFetcher dataFetcher,
+    IEnumerable<IAiDataSectionFormatter> sectionFormatters,
     ILogger<AiContentProvider> logger) : IAiContentProvider
 {
     private const string SystemPrompt = """
         You are an e-paper dashboard content writer. Generate content based on the user's prompt.
         Return ONLY the content text — no JSON wrapping, no code fences.
+
+        You will receive the user's prompt along with available smart-home data (entity states,
+        weather forecasts, calendar events, todo lists, RSS feeds). Use this data when the prompt
+        references it. Ignore data that is not relevant to the prompt.
 
         ## Formatting
         The content is rendered as markdown. Supported syntax:
@@ -63,8 +70,38 @@ public sealed class AiContentProvider(
             return Result.Failure<string, string>(aiServiceResult.Error);
         }
 
+        var aiData = await dataFetcher.FetchAsync(dashboardId);
+        var userPrompt = BuildUserPrompt(prompt, aiData, sectionFormatters);
+
         return await aiServiceResult.Value.GenerateCompletionAsync(
-            SystemPrompt, prompt, cancellationToken);
+            SystemPrompt, userPrompt, cancellationToken, jsonMode: false);
+    }
+
+    private static string BuildUserPrompt(string prompt, AiDataSnapshot data, IEnumerable<IAiDataSectionFormatter> formatters)
+    {
+        var sb = new StringBuilder();
+        var now = DateTimeOffset.Now;
+
+        sb.AppendLine($"Current date/time: {now:dddd, MMMM d, yyyy h:mm tt}");
+        sb.AppendLine();
+        sb.AppendLine("## Prompt");
+        sb.AppendLine(prompt);
+        sb.AppendLine();
+
+        var activeSections = formatters.Where(f => f.HasData(data)).ToList();
+        if (activeSections.Count == 0)
+            return sb.ToString();
+
+        sb.AppendLine("## Available Data");
+        sb.AppendLine();
+
+        foreach (var section in activeSections)
+        {
+            sb.Append(section.FormatSection(data));
+            sb.AppendLine();
+        }
+
+        return sb.ToString();
     }
 
     private AiConfig? ResolveAiConfig(Dashboard dashboard)

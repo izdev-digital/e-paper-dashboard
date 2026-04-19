@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using EPaperDashboard.Services;
 using EPaperDashboard.Services.Firmware;
 using EPaperDashboard.Authentication;
+using EPaperDashboard.Services.Ai.DataSections;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
@@ -16,7 +17,6 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.FileProviders;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,6 +115,11 @@ builder.Services
 	.AddSingleton<IRssFeedDataProvider, HomeAssistantRssFeedDataProvider>()
 	.AddSingleton<IEntityHistoryProvider, HomeAssistantEntityHistoryProvider>()
 	.AddSingleton<IAiContentProvider, AiContentProvider>()
+	.AddSingleton<IAiDataSectionFormatter, EntityStateSectionFormatter>()
+	.AddSingleton<IAiDataSectionFormatter, EPaperDashboard.Services.Ai.DataSections.CalendarEventsSectionFormatter>()
+	.AddSingleton<IAiDataSectionFormatter, EPaperDashboard.Services.Ai.DataSections.TodoItemsSectionFormatter>()
+	.AddSingleton<IAiDataSectionFormatter, EPaperDashboard.Services.Ai.DataSections.WeatherForecastSectionFormatter>()
+	.AddSingleton<IAiDataSectionFormatter, EPaperDashboard.Services.Ai.DataSections.RssFeedSectionFormatter>()
 	.AddSingleton<ISsrDataProvider, SsrDataProvider>()
 	.AddSingleton<FontAwesomeIconRegistry>()
 	.AddSingleton<RenderingUtilities>(sp =>

@@ -44,11 +44,7 @@ public sealed class AiDashboardGenerationService(
         var (systemPrompt, userPrompt) = promptBuilder.BuildPrompt(
             dashboard,
             layoutConfig,
-            aiData.EntityStates,
-            aiData.TodoItems,
-            aiData.CalendarEvents,
-            aiData.WeatherForecasts,
-            aiData.RssFeedEntries);
+            aiData);
 
         var totalPromptChars = systemPrompt.Length + userPrompt.Length;
         var promptTokenEstimate = totalPromptChars / 4;

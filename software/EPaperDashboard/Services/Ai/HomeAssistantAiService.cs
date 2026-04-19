@@ -13,7 +13,8 @@ public sealed class HomeAssistantAiService(
     public async Task<Result<string, string>> GenerateCompletionAsync(
         string systemPrompt,
         string userPrompt,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool jsonMode = true)
     {
         try
         {

@@ -15,9 +15,10 @@ public sealed class DirectAiService(
     public async Task<Result<string, string>> GenerateCompletionAsync(
         string systemPrompt,
         string userPrompt,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool jsonMode = true)
     {
-        var firstAttempt = await TrySendRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var firstAttempt = await TrySendRequestAsync(systemPrompt, userPrompt, jsonMode, cancellationToken);
         if (firstAttempt.IsSuccess)
         {
             return firstAttempt;
@@ -28,7 +29,7 @@ public sealed class DirectAiService(
         {
             logger.LogWarning("Retrying AI request after transient failure: {Error}", firstAttempt.Error);
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
-            return await TrySendRequestAsync(systemPrompt, userPrompt, cancellationToken);
+            return await TrySendRequestAsync(systemPrompt, userPrompt, jsonMode, cancellationToken);
         }
 
         return firstAttempt;
@@ -37,6 +38,7 @@ public sealed class DirectAiService(
     private async Task<Result<string, string>> TrySendRequestAsync(
         string systemPrompt,
         string userPrompt,
+        bool jsonMode,
         CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient();
@@ -46,17 +48,15 @@ public sealed class DirectAiService(
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
-        var requestBody = new
+        var messages = new object[]
         {
-            model,
-            messages = new object[]
-            {
-                new { role = "system", content = systemPrompt },
-                new { role = "user", content = userPrompt }
-            },
-            temperature = 0.7,
-            response_format = new { type = "json_object" }
+            new { role = "system", content = systemPrompt },
+            new { role = "user", content = userPrompt }
         };
+
+        object requestBody = jsonMode
+            ? new { model, messages, temperature = 0.7, response_format = new { type = "json_object" } }
+            : new { model, messages, temperature = 0.7 };
 
         var requestJson = JsonSerializer.Serialize(requestBody);
         var content = new StringContent(requestJson, Encoding.UTF8, "application/json");

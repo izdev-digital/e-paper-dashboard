@@ -3,20 +3,15 @@ using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Services.Ai;
 
-public sealed class AiPromptBuilder
+public sealed class AiPromptBuilder(IEnumerable<IAiDataSectionFormatter> sectionFormatters)
 {
     public (string systemPrompt, string userPrompt) BuildPrompt(
         Dashboard dashboard,
         LayoutConfig layoutConfig,
-        Dictionary<string, HassEntityState> entityStates,
-        Dictionary<string, List<TodoItem>> todoItems,
-        Dictionary<string, List<CalendarEvent>> calendarEvents,
-        Dictionary<string, List<object?>> weatherForecasts,
-        Dictionary<string, List<RssFeedEntry>> rssFeedEntries)
+        AiDataSnapshot aiData)
     {
         var systemPrompt = BuildSystemPrompt(layoutConfig);
-        var userPrompt = BuildUserPrompt(
-            dashboard, layoutConfig, entityStates, todoItems, calendarEvents, weatherForecasts, rssFeedEntries);
+        var userPrompt = BuildUserPrompt(dashboard, layoutConfig, aiData);
 
         return (systemPrompt, userPrompt);
     }
@@ -102,14 +97,10 @@ public sealed class AiPromptBuilder
             """;
     }
 
-    private static string BuildUserPrompt(
+    private string BuildUserPrompt(
         Dashboard dashboard,
         LayoutConfig layoutConfig,
-        Dictionary<string, HassEntityState> entityStates,
-        Dictionary<string, List<TodoItem>> todoItems,
-        Dictionary<string, List<CalendarEvent>> calendarEvents,
-        Dictionary<string, List<object?>> weatherForecasts,
-        Dictionary<string, List<RssFeedEntry>> rssFeedEntries)
+        AiDataSnapshot aiData)
     {
         var sb = new StringBuilder();
         var now = DateTimeOffset.Now;
@@ -130,89 +121,13 @@ public sealed class AiPromptBuilder
         sb.AppendLine("## Available Data");
         sb.AppendLine();
 
-        if (entityStates.Count > 0)
+        foreach (var formatter in sectionFormatters)
         {
-            sb.AppendLine("### Entity States");
-            foreach (var (entityId, state) in entityStates)
+            if (formatter.HasData(aiData))
             {
-                var friendlyName = state.Attributes.TryGetValue("friendly_name", out var fn)
-                    ? fn?.ToString() : null;
-                var unit = state.Attributes.TryGetValue("unit_of_measurement", out var u)
-                    ? u?.ToString() : null;
-
-                var display = !string.IsNullOrEmpty(friendlyName) ? $"{friendlyName} ({entityId})" : entityId;
-                var value = !string.IsNullOrEmpty(unit) ? $"{state.State} {unit}" : state.State;
-                sb.AppendLine($"- {display}: {value}");
+                sb.Append(formatter.FormatSection(aiData));
+                sb.AppendLine();
             }
-            sb.AppendLine();
-        }
-
-        if (calendarEvents.Count > 0)
-        {
-            sb.AppendLine("### Calendar Events");
-            foreach (var (entityId, events) in calendarEvents)
-            {
-                sb.AppendLine($"Calendar: {entityId} ({events.Count} events)");
-                foreach (var evt in events.Take(10))
-                {
-                    var time = evt.AllDay ? "All day" : evt.Start;
-                    sb.AppendLine($"  - {time}: {evt.Summary}");
-                }
-            }
-            sb.AppendLine();
-        }
-
-        if (todoItems.Count > 0)
-        {
-            sb.AppendLine("### Todo Lists");
-            foreach (var (entityId, items) in todoItems)
-            {
-                sb.AppendLine($"Todo: {entityId} ({items.Count} items)");
-                foreach (var item in items.Take(10))
-                {
-                    sb.AppendLine($"  - [{item.Status}] {item.Summary}");
-                }
-            }
-            sb.AppendLine();
-        }
-
-        if (weatherForecasts.Count > 0)
-        {
-            sb.AppendLine("### Weather Forecasts");
-            foreach (var (entityId, forecast) in weatherForecasts)
-            {
-                sb.AppendLine($"Forecast: {entityId} ({forecast.Count} entries)");
-                foreach (var entry in forecast.Take(5))
-                {
-                    if (entry is System.Text.Json.JsonElement je)
-                    {
-                        var parts = new List<string>();
-                        if (je.TryGetProperty("datetime", out var dt)) parts.Add(dt.GetString() ?? "");
-                        if (je.TryGetProperty("condition", out var cond)) parts.Add(cond.GetString() ?? "");
-                        if (je.TryGetProperty("temperature", out var temp)) parts.Add($"{temp}°");
-                        if (je.TryGetProperty("templow", out var tempLow)) parts.Add($"low {tempLow}°");
-                        if (je.TryGetProperty("precipitation_probability", out var precip)) parts.Add($"{precip}% precip");
-                        if (je.TryGetProperty("wind_speed", out var wind)) parts.Add($"wind {wind}");
-                        if (parts.Count > 0)
-                            sb.AppendLine($"  - {string.Join(", ", parts)}");
-                    }
-                }
-            }
-            sb.AppendLine();
-        }
-
-        if (rssFeedEntries.Count > 0)
-        {
-            sb.AppendLine("### RSS Feeds");
-            foreach (var (entityId, entries) in rssFeedEntries)
-            {
-                sb.AppendLine($"Feed: {entityId} ({entries.Count} entries)");
-                foreach (var entry in entries.Take(5))
-                {
-                    sb.AppendLine($"  - {entry.Title}");
-                }
-            }
-            sb.AppendLine();
         }
 
         return sb.ToString();
