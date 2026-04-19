@@ -44,6 +44,10 @@ namespace EPaperDashboard.Models
         public DateTimeOffset? LastAiGenerationTime { get; set; }
         public string? LastAiGenerationError { get; set; }
 
+        // AI content widget cache (widgetId → generated content)
+        public Dictionary<string, string>? AiContentCache { get; set; }
+        public DateTimeOffset? LastAiContentCacheTime { get; set; }
+
         public (int Width, int Height) GetEffectiveSize()
         {
             var w = ScreenWidth > 0 ? ScreenWidth : DashboardSizePreset.Default.Width;

@@ -207,7 +207,16 @@ public sealed class SsrDataProvider(
 
     private async Task FetchAiContentAsync(string dashboardId, string widgetId, string prompt, SsrData data)
     {
-        var result = await _aiContentProvider.GenerateContentAsync(dashboardId, prompt);
+        // Use cached content if available; fall back to live generation
+        var cached = _aiContentProvider.GetCachedContent(dashboardId, widgetId);
+        if (cached != null)
+        {
+            data.AiContent[widgetId] = cached;
+            _logger.LogDebug("SSR: Using cached AI content for widget {WidgetId}", widgetId);
+            return;
+        }
+
+        var result = await _aiContentProvider.GenerateAndCacheContentAsync(dashboardId, widgetId, prompt);
         if (result.IsSuccess)
         {
             data.AiContent[widgetId] = result.Value;

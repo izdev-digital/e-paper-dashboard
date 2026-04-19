@@ -29,6 +29,8 @@ import {
 import { HttpClient } from '@angular/common/http';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
 import { AuthService } from '../../services/auth.service';
+import { AiService } from '../../services/ai.service';
+import { ToastService } from '../../services/toast.service';
 import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 
 @Component({
@@ -50,6 +52,8 @@ export class WidgetConfigComponent implements OnChanges {
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly authService = inject(AuthService);
   private readonly http = inject(HttpClient);
+  private readonly aiService = inject(AiService);
+  private readonly toastService = inject(ToastService);
 
   imageUploading = false;
   imageUploadError: string | null = null;
@@ -125,6 +129,23 @@ export class WidgetConfigComponent implements OnChanges {
 
   get aiContentConfig(): AiContentConfig {
     return this.widget.config as AiContentConfig;
+  }
+
+  generatingAiContent = signal(false);
+
+  generateAiContent(): void {
+    if (!this.dashboard || !this.widget.id || this.generatingAiContent()) return;
+    this.generatingAiContent.set(true);
+    this.aiService.generateWidgetContent(this.dashboard.id, this.widget.id).subscribe({
+      next: () => {
+        this.generatingAiContent.set(false);
+        this.toastService.success('AI content generated and cached.');
+      },
+      error: (err) => {
+        this.generatingAiContent.set(false);
+        this.toastService.error(err.error?.message || 'Failed to generate AI content.');
+      }
+    });
   }
 
   onPropertyChanged(): void {
