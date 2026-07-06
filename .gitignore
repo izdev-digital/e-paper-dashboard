@@ -2,3 +2,7 @@
 .DS_Store
 # User specific files
 .vscode/
+.agents/
+.claude/
+agent/
+skills-lock.json
