@@ -5,7 +5,8 @@ namespace EPaperDashboard.Services.Ai;
 
 public sealed class AiPreGenerationService(
     ILogger<AiPreGenerationService> logger,
-    IServiceProvider serviceProvider) : BackgroundService
+    IServiceProvider serviceProvider,
+    TimeProvider timeProvider) : BackgroundService
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(1);
 
@@ -42,7 +43,7 @@ public sealed class AiPreGenerationService(
         var userService = scope.ServiceProvider.GetRequiredService<UserService>();
 
         var allDashboards = dashboardService.GetAllDashboards();
-        var now = DateTimeOffset.Now;
+        var now = timeProvider.GetLocalNow();
 
         foreach (var dashboard in allDashboards)
         {
@@ -117,7 +118,7 @@ public sealed class AiPreGenerationService(
         }
     }
 
-    private static bool ShouldPreGenerateDashboard(Dashboard dashboard, DateTimeOffset now)
+    internal static bool ShouldPreGenerateDashboard(Dashboard dashboard, DateTimeOffset now)
     {
         if (!dashboard.IsAiEnabled
             || dashboard.RenderingMode != RenderingMode.Custom
@@ -129,7 +130,7 @@ public sealed class AiPreGenerationService(
         return IsInPreGenerationWindow(dashboard, now, dashboard.LastAiGenerationTime);
     }
 
-    private static bool ShouldPreGenerateContentWidgets(Dashboard dashboard, DateTimeOffset now)
+    internal static bool ShouldPreGenerateContentWidgets(Dashboard dashboard, DateTimeOffset now)
     {
         if (dashboard.RenderingMode != RenderingMode.Custom)
             return false;
@@ -145,7 +146,7 @@ public sealed class AiPreGenerationService(
         return IsInPreGenerationWindow(dashboard, now, dashboard.LastAiContentCacheTime);
     }
 
-    private static bool IsInPreGenerationWindow(Dashboard dashboard, DateTimeOffset now, DateTimeOffset? lastGenerationTime)
+    internal static bool IsInPreGenerationWindow(Dashboard dashboard, DateTimeOffset now, DateTimeOffset? lastGenerationTime)
     {
         // Must have scheduled update times
         if (dashboard.UpdateTimes == null || dashboard.UpdateTimes.Count == 0)
@@ -185,7 +186,7 @@ public sealed class AiPreGenerationService(
         return false;
     }
 
-    private static double GetMinutesDifference(TimeOnly from, TimeOnly to)
+    internal static double GetMinutesDifference(TimeOnly from, TimeOnly to)
     {
         var diff = to.ToTimeSpan() - from.ToTimeSpan();
         if (diff.TotalMinutes < -720) // Handle midnight crossing
@@ -193,7 +194,7 @@ public sealed class AiPreGenerationService(
         return diff.TotalMinutes;
     }
 
-    private static bool HasEffectiveAiConfig(Dashboard dashboard, UserService userService)
+    internal static bool HasEffectiveAiConfig(Dashboard dashboard, UserService userService)
     {
         if (dashboard.AiConfig != null && dashboard.AiConfig.ConnectionMode == AiConnectionMode.HomeAssistant)
         {

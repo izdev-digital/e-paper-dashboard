@@ -12,6 +12,7 @@ public sealed class AiContentProvider(
     IAiServiceFactory aiServiceFactory,
     AiDataFetcher dataFetcher,
     IEnumerable<IAiDataSectionFormatter> sectionFormatters,
+    TimeProvider timeProvider,
     ILogger<AiContentProvider> logger) : IAiContentProvider
 {
     private const string SystemPrompt = """
@@ -130,7 +131,7 @@ public sealed class AiContentProvider(
 
         if (anyUpdated)
         {
-            dashboard.Value.LastAiContentCacheTime = DateTimeOffset.UtcNow;
+            dashboard.Value.LastAiContentCacheTime = timeProvider.GetUtcNow();
             dashboardService.UpdateDashboard(dashboard.Value);
         }
     }
@@ -172,14 +173,14 @@ public sealed class AiContentProvider(
     {
         dashboard.AiContentCache ??= new Dictionary<string, string>();
         dashboard.AiContentCache[widgetId] = content;
-        dashboard.LastAiContentCacheTime = DateTimeOffset.UtcNow;
+        dashboard.LastAiContentCacheTime = timeProvider.GetUtcNow();
         dashboardService.UpdateDashboard(dashboard);
     }
 
-    private static string BuildUserPrompt(string prompt, AiDataSnapshot data, IEnumerable<IAiDataSectionFormatter> formatters)
+    private string BuildUserPrompt(string prompt, AiDataSnapshot data, IEnumerable<IAiDataSectionFormatter> formatters)
     {
         var sb = new StringBuilder();
-        var now = DateTimeOffset.Now;
+        var now = timeProvider.GetLocalNow();
 
         sb.AppendLine($"Current date/time: {now:dddd, MMMM d, yyyy h:mm tt}");
         sb.AppendLine();

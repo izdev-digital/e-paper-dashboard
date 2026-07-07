@@ -93,6 +93,7 @@ builder.Services.AddSwaggerGen(options =>
 #endif
 
 builder.Services
+	.AddSingleton(TimeProvider.System)
 	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>()

@@ -3,7 +3,7 @@ using EPaperDashboard.Models;
 
 namespace EPaperDashboard.Services.Ai;
 
-public sealed class AiPromptBuilder(IEnumerable<IAiDataSectionFormatter> sectionFormatters)
+public sealed class AiPromptBuilder(IEnumerable<IAiDataSectionFormatter> sectionFormatters, TimeProvider timeProvider)
 {
     public (string systemPrompt, string userPrompt) BuildPrompt(
         Dashboard dashboard,
@@ -103,7 +103,7 @@ public sealed class AiPromptBuilder(IEnumerable<IAiDataSectionFormatter> section
         AiDataSnapshot aiData)
     {
         var sb = new StringBuilder();
-        var now = DateTimeOffset.Now;
+        var now = timeProvider.GetLocalNow();
 
         sb.AppendLine($"Current date/time: {now:dddd, MMMM d, yyyy h:mm tt}");
         sb.AppendLine();
