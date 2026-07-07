@@ -1,6 +1,6 @@
 # Multi-architecture support: linux/amd64, linux/arm64
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later" \
   org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
   org.opencontainers.image.title="izBoard" \
@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   curl \
   wget \
   fonts-liberation \
-  libasound2 \
-  libgtk-3-0 \
+  libasound2t64 \
+  libgtk-3-0t64 \
   libgbm1 \
   libx11-6 \
   libx11-xcb1 \
@@ -27,13 +27,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libnss3 \
   libnspr4 \
   libdbus-1-3 \
-  libcups2 \
+  libcups2t64 \
   && rm -rf /var/lib/apt/lists/*
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=0
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0-jammy AS playwright
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS playwright
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -45,7 +45,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
 RUN npm install -g playwright@1.52.0 && \
   PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS publish
 ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 ARG VERSION=1.0.0
