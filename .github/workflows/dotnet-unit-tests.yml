@@ -1,0 +1,36 @@
+name: .NET Unit Tests
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore software/EPaperDashboard.sln
+
+      - name: Run unit tests
+        run: |
+          dotnet test software/EPaperDashboard.UnitTests/EPaperDashboard.UnitTests.csproj \
+            --configuration Release \
+            --no-restore \
+            --logger trx \
+            --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: |
+            software/EPaperDashboard.UnitTests/**/TestResults/**

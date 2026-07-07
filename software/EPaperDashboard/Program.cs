@@ -1,3 +1,4 @@
+using EPaperDashboard.Authorization;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Providers.HomeAssistant;
@@ -15,32 +16,23 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register deployment strategy based on APP_MODE
-switch (EnvironmentConfiguration.AppMode)
-{
-	case DeploymentMode.Addon:
-		builder.Services.AddSingleton<IDeploymentStrategy, HomeAssistantAddonStrategy>();
-		break;
-	case DeploymentMode.Host:
-		builder.Services.AddSingleton<IDeploymentStrategy, HostModeStrategy>();
-		break;
-	default:
-		builder.Services.AddSingleton<IDeploymentStrategy, StandaloneStrategy>();
-		break;
-}
+var environmentConfiguration = new EnvironmentConfigurationWrapper();
+builder.Services.AddSingleton<IEnvironmentConfiguration>(environmentConfiguration);
 
-// Validate configuration using strategy
-IDeploymentStrategy validationStrategy = EnvironmentConfiguration.AppMode switch
-{
-	DeploymentMode.Addon => new HomeAssistantAddonStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HomeAssistantAddonStrategy>()),
-	DeploymentMode.Host => new HostModeStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HostModeStrategy>()),
-	_ => new StandaloneStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<StandaloneStrategy>())
-};
+// Register deployment strategy based on APP_MODE via a single shared factory (used again below
+// for pre-container validation, so the mode→type mapping only lives in one place).
+builder.Services.AddSingleton<IDeploymentStrategy>(sp =>
+	DeploymentStrategyFactory.Create(EnvironmentConfiguration.AppMode, environmentConfiguration, sp.GetRequiredService<ILoggerFactory>()));
+
+// Validate configuration using strategy (no DI container yet, so use a throwaway null logger)
+var validationStrategy = DeploymentStrategyFactory.Create(
+	EnvironmentConfiguration.AppMode, environmentConfiguration, NullLoggerFactory.Instance);
 
 var validationResult = validationStrategy.ValidateConfiguration();
 if (validationResult.IsFailure)
@@ -49,7 +41,7 @@ if (validationResult.IsFailure)
 	Environment.Exit(1);
 }
 
-var dataProtectionKeysDir = EnvironmentConfiguration.DataProtectionKeysDir;
+var dataProtectionKeysDir = environmentConfiguration.DataProtectionKeysDir;
 Directory.CreateDirectory(dataProtectionKeysDir);
 builder.Services.AddDataProtection()
 	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDir));
@@ -93,6 +85,7 @@ builder.Services.AddSwaggerGen(options =>
 #endif
 
 builder.Services
+	.AddSingleton(TimeProvider.System)
 	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<IImageFactory, ImageFactory>()
@@ -148,6 +141,8 @@ builder.Services
 	.AddSingleton<WidgetLayoutEngine>()
 	.AddSingleton<GridPacker>()
 	.AddSingleton<AiDashboardGenerationService>()
+	.AddSingleton<ApiKeyPolicyEvaluator>()
+	.AddSingleton<DeviceLastSeenTracker>()
 	.AddHostedService<DashboardScheduleMonitorService>()
 	.AddHostedService<AiPreGenerationService>();
 
@@ -212,24 +207,8 @@ builder.Services.AddAuthorizationBuilder()
 			var httpContext = context.Resource as HttpContext
 				?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
 
-			if (httpContext is null)
-			{
-				return false;
-			}
-
-			if (!httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
-			{
-				return false;
-			}
-
-			var deviceService = httpContext.RequestServices.GetService(typeof(DeviceService)) as DeviceService;
-
-			if (deviceService is null)
-			{
-				return false;
-			}
-
-			return deviceService.GetDeviceByApiKey(apiKey!).HasValue;
+			var evaluator = httpContext?.RequestServices.GetRequiredService<ApiKeyPolicyEvaluator>();
+			return evaluator?.Evaluate(httpContext) ?? false;
 		});
 	});
 
@@ -287,15 +266,14 @@ app.Use(async (context, next) =>
 	if (isDevicePort)
 	{
 		var endpoint = context.GetEndpoint();
-		var deviceAttr = endpoint?.Metadata.GetMetadata<EPaperDashboard.Guards.DeviceAccessibleAttribute>();
 
-		if (deviceAttr is null)
+		if (!EPaperDashboard.Guards.DeviceAccessGuard.IsAccessible(endpoint))
 		{
 			context.Response.StatusCode = 404;
 			return;
 		}
 
-		if (deviceAttr.RequireActivePairing)
+		if (EPaperDashboard.Guards.DeviceAccessGuard.RequiresActivePairing(endpoint))
 		{
 			var pairingService = context.RequestServices.GetRequiredService<PairingService>();
 			pairingService.CleanupExpiredSessions();
@@ -329,11 +307,10 @@ app.Use(async (context, next) =>
 			if (device.HasValue)
 			{
 				var fwStr = deviceFwVersion.ToString();
-				if (device.Value.FirmwareVersion != fwStr || device.Value.LastSeenAt is null
-					|| DateTimeOffset.UtcNow - device.Value.LastSeenAt > TimeSpan.FromMinutes(1))
+				var lastSeenTracker = context.RequestServices.GetRequiredService<DeviceLastSeenTracker>();
+				if (lastSeenTracker.ShouldUpdate(device.Value, fwStr))
 				{
-					device.Value.FirmwareVersion = fwStr;
-					device.Value.LastSeenAt = DateTimeOffset.UtcNow;
+					lastSeenTracker.Apply(device.Value, fwStr);
 					deviceService.UpdateDevice(device.Value);
 				}
 			}

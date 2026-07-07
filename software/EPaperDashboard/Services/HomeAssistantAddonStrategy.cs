@@ -11,14 +11,17 @@ namespace EPaperDashboard.Services;
 public class HomeAssistantAddonStrategy : IDeploymentStrategy
 {
     private readonly ILogger<HomeAssistantAddonStrategy> _logger;
+    private readonly IEnvironmentConfiguration _environmentConfiguration;
     private readonly string _supervisorToken;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _cachedIndexHtml = new();
 
     public HomeAssistantAddonStrategy(
-        ILogger<HomeAssistantAddonStrategy> logger)
+        ILogger<HomeAssistantAddonStrategy> logger,
+        IEnvironmentConfiguration environmentConfiguration)
     {
         _logger = logger;
-        _supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN") 
+        _environmentConfiguration = environmentConfiguration;
+        _supervisorToken = Environment.GetEnvironmentVariable("SUPERVISOR_TOKEN")
             ?? throw new InvalidOperationException("SUPERVISOR_TOKEN not found");
     }
 
@@ -30,7 +33,7 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public string WebSocketPath => "/websocket";
 
-    public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
+    public string GetConfigDirectory() => _environmentConfiguration.ConfigDir;
 
     public Task<string?> CreateAccessTokenAsync(string clientName)
     {

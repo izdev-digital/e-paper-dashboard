@@ -9,10 +9,11 @@ namespace EPaperDashboard.Services.Firmware;
 /// </summary>
 public sealed class GitHubFirmwareReleaseProvider(
     IHttpClientFactory httpClientFactory,
+    IEnvironmentConfiguration environmentConfiguration,
     ILogger<GitHubFirmwareReleaseProvider> logger) : IFirmwareReleaseProvider
 {
-    private readonly string _repository = EnvironmentConfiguration.FirmwareGitHubRepo;
-    private readonly string _assetPattern = EnvironmentConfiguration.FirmwareAssetPattern;
+    private readonly string _repository = environmentConfiguration.FirmwareGitHubRepo;
+    private readonly string _assetPattern = environmentConfiguration.FirmwareAssetPattern;
 
     public async Task<FirmwareReleaseInfo?> GetLatestReleaseAsync(CancellationToken cancellationToken = default)
     {
@@ -103,7 +104,7 @@ public sealed class GitHubFirmwareReleaseProvider(
         }
     }
 
-    private bool MatchesAssetPattern(string assetName)
+    internal bool MatchesAssetPattern(string assetName)
     {
         // Simple glob matching: *.bin matches any file ending in .bin
         if (_assetPattern.StartsWith("*."))

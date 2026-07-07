@@ -7,15 +7,18 @@ public class DashboardScheduleMonitorService : BackgroundService
 {
     private readonly ILogger<DashboardScheduleMonitorService> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _checkInterval;
     private readonly TimeSpan _missedScheduleTolerance;
 
     public DashboardScheduleMonitorService(
         ILogger<DashboardScheduleMonitorService> logger,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        TimeProvider timeProvider)
     {
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _timeProvider = timeProvider;
         _checkInterval = EnvironmentConfiguration.DashboardScheduleCheckInterval;
         _missedScheduleTolerance = EnvironmentConfiguration.DashboardMissedScheduleTolerance;
     }
@@ -50,7 +53,7 @@ public class DashboardScheduleMonitorService : BackgroundService
         var homeAssistantService = scope.ServiceProvider.GetRequiredService<HomeAssistantService>();
 
         var allDashboards = dashboardService.GetAllDashboards();
-        var now = DateTimeOffset.UtcNow;
+        var now = _timeProvider.GetUtcNow();
         var nowTimeOnly = TimeOnly.FromDateTime(now.DateTime);
 
         foreach (var dashboard in allDashboards)
@@ -92,7 +95,7 @@ public class DashboardScheduleMonitorService : BackgroundService
         }
     }
 
-    private static DateTimeOffset? CalculateExpectedUpdateTime(
+    internal static DateTimeOffset? CalculateExpectedUpdateTime(
         List<TimeOnly> updateTimes,
         DateTimeOffset now,
         TimeOnly nowTimeOnly)

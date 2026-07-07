@@ -11,11 +11,13 @@ namespace EPaperDashboard.Services;
 public class HomeAssistantAuthService(
     ILogger<HomeAssistantAuthService> logger,
     IHttpClientFactory httpClientFactory,
-    IDeploymentStrategy deploymentStrategy)
+    IDeploymentStrategy deploymentStrategy,
+    TimeProvider timeProvider)
 {
     private readonly ILogger<HomeAssistantAuthService> _logger = logger;
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
+    private readonly TimeProvider _timeProvider = timeProvider;
     private static readonly Lazy<byte[]> _stateSigningKey = new(() => 
     {
         var key = EnvironmentConfiguration.StateSigningKey;
@@ -44,7 +46,7 @@ public class HomeAssistantAuthService(
         }
 
         _activeAuthFlows[dashboardId] = true;
-        _authFlowTimestamps[dashboardId] = DateTime.UtcNow;
+        _authFlowTimestamps[dashboardId] = _timeProvider.GetUtcNow().UtcDateTime;
 
         try
         {
@@ -80,7 +82,7 @@ public class HomeAssistantAuthService(
                 DashboardId = dashboardId,
                 Host = internalHost?.TrimEnd('/') ?? hostUrl,
                 ClientId = clientId,
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                Timestamp = _timeProvider.GetUtcNow().ToUnixTimeSeconds()
             };
             var state = EncodeState(stateData);
 
@@ -118,7 +120,7 @@ public class HomeAssistantAuthService(
             return AuthCallbackResult.Failure(null, "Invalid or tampered state parameter");
         }
 
-        var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - stateData.Timestamp;
+        var age = _timeProvider.GetUtcNow().ToUnixTimeSeconds() - stateData.Timestamp;
         if (age > 300)
         {
             return AuthCallbackResult.Failure(stateData.DashboardId, "Authentication request expired");

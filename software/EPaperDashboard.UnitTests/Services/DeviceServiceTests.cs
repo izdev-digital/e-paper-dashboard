@@ -1,0 +1,74 @@
+using CSharpFunctionalExtensions;
+using EPaperDashboard.Data.Repositories;
+using EPaperDashboard.Models;
+using EPaperDashboard.Services;
+using FluentAssertions;
+using Moq;
+using Xunit;
+
+namespace EPaperDashboard.UnitTests.Services;
+
+public class DeviceServiceTests
+{
+    [Fact]
+    public void GetDeviceByApiKey_UnknownKey_ReturnsMaybeNone()
+    {
+        var repo = new Mock<IDeviceRepository>();
+        repo.Setup(r => r.FindByApiKey("nope")).Returns(Maybe<Device>.None);
+        var sut = new DeviceService(repo.Object);
+
+        var result = sut.GetDeviceByApiKey("nope");
+
+        result.HasValue.Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetDeviceByApiKey_KnownKey_ReturnsDevice()
+    {
+        var device = new Device { Id = DeviceId.New() };
+        var repo = new Mock<IDeviceRepository>();
+        repo.Setup(r => r.FindByApiKey("key123")).Returns(device);
+        var sut = new DeviceService(repo.Object);
+
+        var result = sut.GetDeviceByApiKey("key123");
+
+        result.HasValue.Should().BeTrue();
+        result.Value.Should().BeSameAs(device);
+    }
+
+    [Fact]
+    public void GetDeviceByIdentifier_CallsRepositoryWithGivenIdentifier()
+    {
+        var repo = new Mock<IDeviceRepository>();
+        repo.Setup(r => r.FindByIdentifier("dev-1")).Returns(Maybe<Device>.None);
+        var sut = new DeviceService(repo.Object);
+
+        sut.GetDeviceByIdentifier("dev-1");
+
+        repo.Verify(r => r.FindByIdentifier("dev-1"), Times.Once);
+    }
+
+    [Fact]
+    public void UpdateDevice_UpdatesRepository()
+    {
+        var device = new Device { Id = DeviceId.New() };
+        var repo = new Mock<IDeviceRepository>();
+        var sut = new DeviceService(repo.Object);
+
+        sut.UpdateDevice(device);
+
+        repo.Verify(r => r.Update(device), Times.Once);
+    }
+
+    [Fact]
+    public void DeleteDevice_DeletesFromRepositoryById()
+    {
+        var id = DeviceId.New();
+        var repo = new Mock<IDeviceRepository>();
+        var sut = new DeviceService(repo.Object);
+
+        sut.DeleteDevice(id);
+
+        repo.Verify(r => r.Delete(id), Times.Once);
+    }
+}

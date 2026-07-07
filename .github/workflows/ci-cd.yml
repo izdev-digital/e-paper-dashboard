@@ -41,6 +41,7 @@ jobs:
             software:
               - 'software/**'
               - '.github/workflows/docker-build.yml'
+              - '.github/workflows/dotnet-unit-tests.yml'
             packaging:
               - 'packaging/**'
               - '.github/workflows/freecad-export.yml'
@@ -56,13 +57,25 @@ jobs:
        github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.firmware == 'true')
     uses: ./.github/workflows/firmware-build.yml
     
-  # Run software build if changed or manually selected (or always on master push)
-  software:
+  # Run .NET unit tests if software changed or manually selected (or always on master push)
+  software-unit-tests:
     needs: changes
     if: |
       always() &&
       (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
-      (github.event_name == 'workflow_dispatch' && inputs.build_software || 
+      (github.event_name == 'workflow_dispatch' && inputs.build_software ||
+       github.event_name == 'push' && github.ref == 'refs/heads/master' ||
+       github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.software == 'true')
+    uses: ./.github/workflows/dotnet-unit-tests.yml
+
+  # Run software build if changed or manually selected (or always on master push)
+  software:
+    needs: [changes, software-unit-tests]
+    if: |
+      always() &&
+      (needs.changes.result == 'skipped' || needs.changes.result == 'success') &&
+      (needs.software-unit-tests.result == 'skipped' || needs.software-unit-tests.result == 'success') &&
+      (github.event_name == 'workflow_dispatch' && inputs.build_software ||
        github.event_name == 'push' && github.ref == 'refs/heads/master' ||
        github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.software == 'true')
     uses: ./.github/workflows/docker-build.yml

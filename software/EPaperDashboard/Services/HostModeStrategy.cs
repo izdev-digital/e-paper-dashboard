@@ -8,12 +8,14 @@ namespace EPaperDashboard.Services;
 public class HostModeStrategy : IDeploymentStrategy
 {
     private readonly ILogger<HostModeStrategy> _logger;
+    private readonly IEnvironmentConfiguration _environmentConfiguration;
     private readonly string _homeAssistantHost;
 
-    public HostModeStrategy(ILogger<HostModeStrategy> logger)
+    public HostModeStrategy(ILogger<HostModeStrategy> logger, IEnvironmentConfiguration environmentConfiguration)
     {
         _logger = logger;
-        _homeAssistantHost = EnvironmentConfiguration.HomeAssistantHost
+        _environmentConfiguration = environmentConfiguration;
+        _homeAssistantHost = environmentConfiguration.HomeAssistantHost
             ?? Constants.HomeAssistantCoreUrl;
     }
 
@@ -25,11 +27,11 @@ public class HostModeStrategy : IDeploymentStrategy
 
     public string WebSocketPath => "/api/websocket";
 
-    public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
+    public string GetConfigDirectory() => _environmentConfiguration.ConfigDir;
 
     public Uri? GetOAuthClientUri(HttpContext? context = null)
     {
-        return EnvironmentConfiguration.ClientUri;
+        return _environmentConfiguration.ClientUri;
     }
 
     public Task<string?> CreateAccessTokenAsync(string clientName)
@@ -46,16 +48,16 @@ public class HostModeStrategy : IDeploymentStrategy
     {
         var missingConfigs = new List<string>();
 
-        if (EnvironmentConfiguration.ClientUri is null)
+        if (_environmentConfiguration.ClientUri is null)
             missingConfigs.Add("CLIENT_URL");
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserUsername))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserUsername))
             missingConfigs.Add("SUPERUSER_USERNAME");
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserPassword))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserPassword))
             missingConfigs.Add("SUPERUSER_PASSWORD");
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.StateSigningKey))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.StateSigningKey))
             missingConfigs.Add("STATE_SIGNING_KEY");
 
         if (missingConfigs.Count > 0)
@@ -77,15 +79,15 @@ public class HostModeStrategy : IDeploymentStrategy
     {
         var userService = serviceProvider.GetRequiredService<UserService>();
         if (!userService.HasSuperUser()
-            && EnvironmentConfiguration.SuperUserUsername != null
-            && EnvironmentConfiguration.SuperUserPassword != null)
+            && _environmentConfiguration.SuperUserUsername != null
+            && _environmentConfiguration.SuperUserPassword != null)
         {
             userService.TryCreateUser(
-                EnvironmentConfiguration.SuperUserUsername,
-                EnvironmentConfiguration.SuperUserPassword,
+                _environmentConfiguration.SuperUserUsername,
+                _environmentConfiguration.SuperUserPassword,
                 isSuperUser: true);
 
-            _logger.LogInformation("Created superuser: {Username}", EnvironmentConfiguration.SuperUserUsername);
+            _logger.LogInformation("Created superuser: {Username}", _environmentConfiguration.SuperUserUsername);
         }
     }
 

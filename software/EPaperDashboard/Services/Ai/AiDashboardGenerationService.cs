@@ -13,6 +13,7 @@ public sealed class AiDashboardGenerationService(
     DashboardService dashboardService,
     UserService userService,
     AiPromptBuilder promptBuilder,
+    TimeProvider timeProvider,
     ILogger<AiDashboardGenerationService> logger)
 {
     public async Task<Result<AiGenerationResult, string>> GenerateAsync(
@@ -94,7 +95,7 @@ public sealed class AiDashboardGenerationService(
         }
 
         dashboard.AiGeneratedWidgets = placedWidgets;
-        dashboard.LastAiGenerationTime = DateTimeOffset.UtcNow;
+        dashboard.LastAiGenerationTime = timeProvider.GetUtcNow();
         dashboard.LastAiGenerationError = null;
         dashboardService.UpdateDashboard(dashboard);
 

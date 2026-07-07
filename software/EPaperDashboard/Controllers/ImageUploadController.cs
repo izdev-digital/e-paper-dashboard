@@ -9,7 +9,7 @@ namespace EPaperDashboard.Controllers;
 [Route("api/dashboards/{dashboardId}/images")]
 [Authorize]
 [DashboardOwner]
-public class ImageUploadController : BaseApiController
+public class ImageUploadController(IEnvironmentConfiguration environmentConfiguration) : BaseApiController
 {
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -23,8 +23,8 @@ public class ImageUploadController : BaseApiController
 
     private const long MaxFileSize = 10 * 1024 * 1024; // 10 MB
 
-    private static string GetUploadsDir(string dashboardId) =>
-        Path.Combine(EnvironmentConfiguration.ConfigDir, "uploads", dashboardId);
+    private string GetUploadsDir(string dashboardId) =>
+        Path.Combine(environmentConfiguration.ConfigDir, "uploads", dashboardId);
 
     [HttpPost]
     [RequestSizeLimit(MaxFileSize)]

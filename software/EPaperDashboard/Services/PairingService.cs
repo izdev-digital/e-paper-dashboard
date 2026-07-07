@@ -5,19 +5,20 @@ using System.Security.Cryptography;
 
 namespace EPaperDashboard.Services;
 
-public sealed class PairingService(IPairingSessionRepository pairingSessionRepository)
+public sealed class PairingService(IPairingSessionRepository pairingSessionRepository, TimeProvider timeProvider)
 {
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
 
     public PairingSession CreatePairingSession(UserId userId)
     {
+        var now = timeProvider.GetUtcNow();
         var session = new PairingSession
         {
             UserId = userId,
             Code = GenerateCode(),
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(ExpiryMinutes),
+            CreatedAt = now,
+            ExpiresAt = now.AddMinutes(ExpiryMinutes),
             Status = PairingStatus.Pending,
             IsCompleted = false
         };
@@ -54,10 +55,10 @@ public sealed class PairingService(IPairingSessionRepository pairingSessionRepos
     }
 
     public void CleanupExpiredSessions() =>
-        pairingSessionRepository.DeleteExpired(DateTimeOffset.UtcNow);
+        pairingSessionRepository.DeleteExpired(timeProvider.GetUtcNow());
 
     public bool HasActiveSessions() =>
-        pairingSessionRepository.HasActiveSessions(DateTimeOffset.UtcNow);
+        pairingSessionRepository.HasActiveSessions(timeProvider.GetUtcNow());
 
     private static string GenerateCode()
     {
