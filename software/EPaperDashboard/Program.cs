@@ -1,3 +1,4 @@
+using EPaperDashboard.Authorization;
 using EPaperDashboard.Services.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Providers.HomeAssistant;
@@ -140,6 +141,8 @@ builder.Services
 	.AddSingleton<WidgetLayoutEngine>()
 	.AddSingleton<GridPacker>()
 	.AddSingleton<AiDashboardGenerationService>()
+	.AddSingleton<ApiKeyPolicyEvaluator>()
+	.AddSingleton<DeviceLastSeenTracker>()
 	.AddHostedService<DashboardScheduleMonitorService>()
 	.AddHostedService<AiPreGenerationService>();
 
@@ -204,24 +207,8 @@ builder.Services.AddAuthorizationBuilder()
 			var httpContext = context.Resource as HttpContext
 				?? (context.Resource as Microsoft.AspNetCore.Mvc.Filters.AuthorizationFilterContext)?.HttpContext;
 
-			if (httpContext is null)
-			{
-				return false;
-			}
-
-			if (!httpContext.Request.Headers.TryGetValue("X-Api-Key", out var apiKey) || string.IsNullOrWhiteSpace(apiKey))
-			{
-				return false;
-			}
-
-			var deviceService = httpContext.RequestServices.GetService(typeof(DeviceService)) as DeviceService;
-
-			if (deviceService is null)
-			{
-				return false;
-			}
-
-			return deviceService.GetDeviceByApiKey(apiKey!).HasValue;
+			var evaluator = httpContext?.RequestServices.GetRequiredService<ApiKeyPolicyEvaluator>();
+			return evaluator?.Evaluate(httpContext) ?? false;
 		});
 	});
 
@@ -279,15 +266,14 @@ app.Use(async (context, next) =>
 	if (isDevicePort)
 	{
 		var endpoint = context.GetEndpoint();
-		var deviceAttr = endpoint?.Metadata.GetMetadata<EPaperDashboard.Guards.DeviceAccessibleAttribute>();
 
-		if (deviceAttr is null)
+		if (!EPaperDashboard.Guards.DeviceAccessGuard.IsAccessible(endpoint))
 		{
 			context.Response.StatusCode = 404;
 			return;
 		}
 
-		if (deviceAttr.RequireActivePairing)
+		if (EPaperDashboard.Guards.DeviceAccessGuard.RequiresActivePairing(endpoint))
 		{
 			var pairingService = context.RequestServices.GetRequiredService<PairingService>();
 			pairingService.CleanupExpiredSessions();
@@ -321,11 +307,10 @@ app.Use(async (context, next) =>
 			if (device.HasValue)
 			{
 				var fwStr = deviceFwVersion.ToString();
-				if (device.Value.FirmwareVersion != fwStr || device.Value.LastSeenAt is null
-					|| DateTimeOffset.UtcNow - device.Value.LastSeenAt > TimeSpan.FromMinutes(1))
+				var lastSeenTracker = context.RequestServices.GetRequiredService<DeviceLastSeenTracker>();
+				if (lastSeenTracker.ShouldUpdate(device.Value, fwStr))
 				{
-					device.Value.FirmwareVersion = fwStr;
-					device.Value.LastSeenAt = DateTimeOffset.UtcNow;
+					lastSeenTracker.Apply(device.Value, fwStr);
 					deviceService.UpdateDevice(device.Value);
 				}
 			}
