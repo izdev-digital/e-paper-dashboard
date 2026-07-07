@@ -25,7 +25,8 @@ public sealed class RenderToImageController(
 	DashboardService dashboardService,
 	DeviceService deviceService,
 	DashboardImageRenderingService dashboardImageRenderingService,
-	IDeploymentStrategy deploymentStrategy) : ControllerBase
+	IDeploymentStrategy deploymentStrategy,
+	IEnvironmentConfiguration environmentConfiguration) : ControllerBase
 {
 	[HttpGet("binary")]
 	public async Task<IActionResult> GetAsBinary(
@@ -143,7 +144,7 @@ public sealed class RenderToImageController(
 		string format,
 		Func<Dashboard, IImage, IImage>? transform = null)
 	{
-		var dashboardInfo = GetDashboardInfo(dashboard, deploymentStrategy);
+		var dashboardInfo = GetDashboardInfo(dashboard, deploymentStrategy, environmentConfiguration);
 		if (dashboardInfo.HasNoValue)
 		{
 			var hint = deploymentStrategy.IsAutoConnected
@@ -172,7 +173,8 @@ public sealed class RenderToImageController(
 			error => Task.FromResult<IActionResult>(BadRequest(error)));
 	}
 
-	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(Dashboard dashboard, IDeploymentStrategy deploymentStrategy)
+	private static Maybe<(Uri DashboardUri, HassTokens Tokens)> GetDashboardInfo(
+		Dashboard dashboard, IDeploymentStrategy deploymentStrategy, IEnvironmentConfiguration environmentConfiguration)
 	{
 		var (strategyHost, _) = deploymentStrategy.GetHomeAssistantConnection(dashboard);
 
@@ -203,7 +205,7 @@ public sealed class RenderToImageController(
 
 		// For OAuth-generated long-lived tokens, ClientId is not used for auth
 		// Use ClientUri if configured, otherwise use the HA host URL as a placeholder
-		var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
+		var clientId = environmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
 
 		return (new Uri(hostUri, pathUri), new HassTokens(accessToken, "Bearer", hassUrl, clientId));
 	}

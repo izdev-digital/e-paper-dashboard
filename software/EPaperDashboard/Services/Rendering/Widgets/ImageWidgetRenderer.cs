@@ -16,6 +16,7 @@ namespace EPaperDashboard.Services.Rendering.Widgets;
 public sealed partial class ImageWidgetRenderer(
     RenderingUtilities utils,
     IHttpClientFactory httpClientFactory,
+    Utilities.IEnvironmentConfiguration environmentConfiguration,
     ILogger<ImageWidgetRenderer> logger) : IWidgetRenderer
 {
     public string WidgetType => "image";
@@ -43,7 +44,7 @@ public sealed partial class ImageWidgetRenderer(
                 if (fileName.Contains("..") || fileName.Contains('/') || fileName.Contains('\\'))
                     return;
                 var uploadsDir = Path.GetFullPath(Path.Combine(
-                    Utilities.EnvironmentConfiguration.ConfigDir, "uploads", dashId));
+                    environmentConfiguration.ConfigDir, "uploads", dashId));
                 var filePath = Path.GetFullPath(Path.Combine(uploadsDir, fileName));
                 if (!filePath.StartsWith(uploadsDir + Path.DirectorySeparatorChar, StringComparison.Ordinal)
                     && filePath != uploadsDir)

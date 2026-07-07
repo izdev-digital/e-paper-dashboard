@@ -13,7 +13,7 @@ internal sealed class LiteDbContext : IDisposable
 {
     private readonly LiteDatabase _db;
 
-    public LiteDbContext()
+    public LiteDbContext(IEnvironmentConfiguration environmentConfiguration)
     {
         var mapper = new BsonMapper();
 
@@ -41,7 +41,7 @@ internal sealed class LiteDbContext : IDisposable
 
         var connectionString = new ConnectionString
         {
-            Filename = Path.Combine(EnvironmentConfiguration.ConfigDir, "epaperdashboard.db"),
+            Filename = Path.Combine(environmentConfiguration.ConfigDir, "epaperdashboard.db"),
             Connection = ConnectionType.Direct
         };
 

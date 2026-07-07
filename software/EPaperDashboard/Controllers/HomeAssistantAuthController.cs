@@ -13,11 +13,13 @@ public class HomeAssistantAuthController(
     HomeAssistantAuthService authService,
     IDeploymentStrategy deploymentStrategy,
     DashboardService dashboardService,
+    IEnvironmentConfiguration environmentConfiguration,
     ILogger<HomeAssistantAuthController> logger) : ControllerBase
 {
     private readonly HomeAssistantAuthService _authService = authService;
     private readonly IDeploymentStrategy _deploymentStrategy = deploymentStrategy;
     private readonly DashboardService _dashboardService = dashboardService;
+    private readonly IEnvironmentConfiguration _environmentConfiguration = environmentConfiguration;
     private readonly ILogger<HomeAssistantAuthController> _logger = logger;
 
     [HttpPost("start-auth")]
@@ -52,7 +54,7 @@ public class HomeAssistantAuthController(
         }
         else if (_deploymentStrategy.Mode == DeploymentMode.Host)
         {
-            var haHost = EnvironmentConfiguration.HomeAssistantHost ?? Constants.HomeAssistantCoreUrl;
+            var haHost = _environmentConfiguration.HomeAssistantHost ?? Constants.HomeAssistantCoreUrl;
             if (string.IsNullOrWhiteSpace(host))
             {
                 host = haHost;

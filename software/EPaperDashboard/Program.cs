@@ -15,32 +15,23 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register deployment strategy based on APP_MODE
-switch (EnvironmentConfiguration.AppMode)
-{
-	case DeploymentMode.Addon:
-		builder.Services.AddSingleton<IDeploymentStrategy, HomeAssistantAddonStrategy>();
-		break;
-	case DeploymentMode.Host:
-		builder.Services.AddSingleton<IDeploymentStrategy, HostModeStrategy>();
-		break;
-	default:
-		builder.Services.AddSingleton<IDeploymentStrategy, StandaloneStrategy>();
-		break;
-}
+var environmentConfiguration = new EnvironmentConfigurationWrapper();
+builder.Services.AddSingleton<IEnvironmentConfiguration>(environmentConfiguration);
 
-// Validate configuration using strategy
-IDeploymentStrategy validationStrategy = EnvironmentConfiguration.AppMode switch
-{
-	DeploymentMode.Addon => new HomeAssistantAddonStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HomeAssistantAddonStrategy>()),
-	DeploymentMode.Host => new HostModeStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<HostModeStrategy>()),
-	_ => new StandaloneStrategy(new Microsoft.Extensions.Logging.Abstractions.NullLogger<StandaloneStrategy>())
-};
+// Register deployment strategy based on APP_MODE via a single shared factory (used again below
+// for pre-container validation, so the mode→type mapping only lives in one place).
+builder.Services.AddSingleton<IDeploymentStrategy>(sp =>
+	DeploymentStrategyFactory.Create(EnvironmentConfiguration.AppMode, environmentConfiguration, sp.GetRequiredService<ILoggerFactory>()));
+
+// Validate configuration using strategy (no DI container yet, so use a throwaway null logger)
+var validationStrategy = DeploymentStrategyFactory.Create(
+	EnvironmentConfiguration.AppMode, environmentConfiguration, NullLoggerFactory.Instance);
 
 var validationResult = validationStrategy.ValidateConfiguration();
 if (validationResult.IsFailure)
@@ -49,7 +40,7 @@ if (validationResult.IsFailure)
 	Environment.Exit(1);
 }
 
-var dataProtectionKeysDir = EnvironmentConfiguration.DataProtectionKeysDir;
+var dataProtectionKeysDir = environmentConfiguration.DataProtectionKeysDir;
 Directory.CreateDirectory(dataProtectionKeysDir);
 builder.Services.AddDataProtection()
 	.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDir));

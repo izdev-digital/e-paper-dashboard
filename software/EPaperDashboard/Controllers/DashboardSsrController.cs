@@ -24,7 +24,8 @@ public class DashboardSsrController(
     DashboardService dashboardService,
     DashboardImageRenderingService dashboardImageRenderingService,
     IPageToImageRenderingService renderingService,
-    IDeploymentStrategy deploymentStrategy) : BaseApiController
+    IDeploymentStrategy deploymentStrategy,
+    IEnvironmentConfiguration environmentConfiguration) : BaseApiController
 {
     /// <summary>
     /// Returns the dashboard rendered directly to an image using ImageSharp.
@@ -113,7 +114,7 @@ public class DashboardSsrController(
         }
 
         var hassUrl = hostUri.AbsoluteUri.TrimEnd('/');
-        var clientId = EnvironmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
+        var clientId = environmentConfiguration.ClientUri?.AbsoluteUri.TrimEnd('/') ?? hassUrl;
 
         return (new Uri(hostUri, pathUri), new HassTokens(accessToken, "Bearer", hassUrl, clientId));
     }

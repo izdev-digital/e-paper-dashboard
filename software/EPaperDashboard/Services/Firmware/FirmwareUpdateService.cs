@@ -19,12 +19,13 @@ public sealed class FirmwareUpdateService : BackgroundService
 
     public FirmwareUpdateService(
         IFirmwareReleaseProvider provider,
+        IEnvironmentConfiguration environmentConfiguration,
         ILogger<FirmwareUpdateService> logger)
     {
         _provider = provider;
         _logger = logger;
-        _checkInterval = EnvironmentConfiguration.FirmwareCheckInterval;
-        _firmwareCacheDir = Path.Combine(EnvironmentConfiguration.ConfigDir, "firmware-cache");
+        _checkInterval = environmentConfiguration.FirmwareCheckInterval;
+        _firmwareCacheDir = Path.Combine(environmentConfiguration.ConfigDir, "firmware-cache");
         Directory.CreateDirectory(_firmwareCacheDir);
     }
 

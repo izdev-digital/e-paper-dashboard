@@ -8,10 +8,12 @@ namespace EPaperDashboard.Services;
 public class StandaloneStrategy : IDeploymentStrategy
 {
     private readonly ILogger<StandaloneStrategy> _logger;
+    private readonly IEnvironmentConfiguration _environmentConfiguration;
 
-    public StandaloneStrategy(ILogger<StandaloneStrategy> logger)
+    public StandaloneStrategy(ILogger<StandaloneStrategy> logger, IEnvironmentConfiguration environmentConfiguration)
     {
         _logger = logger;
+        _environmentConfiguration = environmentConfiguration;
     }
 
     public DeploymentMode Mode => DeploymentMode.Standalone;
@@ -22,11 +24,11 @@ public class StandaloneStrategy : IDeploymentStrategy
 
     public string WebSocketPath => "/api/websocket";
 
-    public string GetConfigDirectory() => EnvironmentConfiguration.ConfigDir;
+    public string GetConfigDirectory() => _environmentConfiguration.ConfigDir;
 
     public Uri? GetOAuthClientUri(HttpContext? context = null)
     {
-        return EnvironmentConfiguration.ClientUri;
+        return _environmentConfiguration.ClientUri;
     }
 
     public Task<string?> CreateAccessTokenAsync(string clientName)
@@ -44,22 +46,22 @@ public class StandaloneStrategy : IDeploymentStrategy
     {
         var missingConfigs = new List<string>();
 
-        if (EnvironmentConfiguration.ClientUri is null)
+        if (_environmentConfiguration.ClientUri is null)
         {
             missingConfigs.Add("CLIENT_URL");
         }
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserUsername))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserUsername))
         {
             missingConfigs.Add("SUPERUSER_USERNAME");
         }
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.SuperUserPassword))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserPassword))
         {
             missingConfigs.Add("SUPERUSER_PASSWORD");
         }
 
-        if (string.IsNullOrWhiteSpace(EnvironmentConfiguration.StateSigningKey))
+        if (string.IsNullOrWhiteSpace(_environmentConfiguration.StateSigningKey))
         {
             missingConfigs.Add("STATE_SIGNING_KEY");
         }
@@ -89,16 +91,16 @@ public class StandaloneStrategy : IDeploymentStrategy
     public void PerformInitialSetup(IServiceProvider serviceProvider)
     {
         var userService = serviceProvider.GetRequiredService<UserService>();
-        if (!userService.HasSuperUser() 
-            && EnvironmentConfiguration.SuperUserUsername != null 
-            && EnvironmentConfiguration.SuperUserPassword != null)
+        if (!userService.HasSuperUser()
+            && _environmentConfiguration.SuperUserUsername != null
+            && _environmentConfiguration.SuperUserPassword != null)
         {
             userService.TryCreateUser(
-                EnvironmentConfiguration.SuperUserUsername, 
-                EnvironmentConfiguration.SuperUserPassword, 
+                _environmentConfiguration.SuperUserUsername,
+                _environmentConfiguration.SuperUserPassword,
                 isSuperUser: true);
-            
-            _logger.LogInformation("Created superuser: {Username}", EnvironmentConfiguration.SuperUserUsername);
+
+            _logger.LogInformation("Created superuser: {Username}", _environmentConfiguration.SuperUserUsername);
         }
     }
 
