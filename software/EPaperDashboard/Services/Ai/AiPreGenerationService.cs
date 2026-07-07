@@ -155,25 +155,28 @@ public sealed class AiPreGenerationService(
         }
 
         var leadTimeMinutes = dashboard.AiLeadTimeMinutes > 0 ? dashboard.AiLeadTimeMinutes : 5;
-        var nowTimeOnly = TimeOnly.FromDateTime(now.LocalDateTime);
+        var nowLocal = now.LocalDateTime;
+        var nowTimeOnly = TimeOnly.FromDateTime(nowLocal);
 
         // Check if any scheduled time is within the lead time window
         foreach (var updateTime in dashboard.UpdateTimes)
         {
-            var preGenTime = updateTime.AddMinutes(-leadTimeMinutes);
             var minutesUntilUpdate = GetMinutesDifference(nowTimeOnly, updateTime);
 
             // We're in the pre-generation window: between [updateTime - leadTime] and [updateTime]
             if (minutesUntilUpdate >= 0 && minutesUntilUpdate <= leadTimeMinutes)
             {
-                // Check if we already generated for this window
+                // Check if we already generated for *this* occurrence of the window. Anchoring to
+                // today's date (not just time-of-day) matters: comparing only TimeOnly values would
+                // make a generation from any previous day at a similar time-of-day look like it
+                // already covered today's window, so a daily dashboard would stop regenerating for
+                // good after its first successful run.
                 if (lastGenerationTime.HasValue)
                 {
-                    var lastGenTime = TimeOnly.FromDateTime(lastGenerationTime.Value.LocalDateTime);
-                    var minutesSinceLastGen = GetMinutesDifference(preGenTime, lastGenTime);
+                    var windowEnd = new DateTimeOffset(nowLocal.Date.Add(updateTime.ToTimeSpan()), now.Offset);
+                    var windowStart = windowEnd.AddMinutes(-leadTimeMinutes);
 
-                    // Already generated within this window
-                    if (minutesSinceLastGen >= 0 && minutesSinceLastGen <= leadTimeMinutes)
+                    if (lastGenerationTime.Value >= windowStart && lastGenerationTime.Value <= windowEnd)
                     {
                         return false;
                     }

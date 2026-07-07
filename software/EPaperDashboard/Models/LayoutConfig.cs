@@ -39,10 +39,18 @@ namespace EPaperDashboard.Models
 
     public class WidgetConfig
     {
+        // A bare `JsonElement` defaults to ValueKind.Undefined, which System.Text.Json refuses to
+        // serialize (throws InvalidOperationException) — that would take down the whole dashboard
+        // render whenever a widget's Config was never explicitly set (e.g. a widget constructed
+        // without one, or deserialized from a document predating this field). Defaulting to a real
+        // empty object keeps Config always serializable. Clone() detaches the element from its
+        // parsing JsonDocument so it stays valid independent of that document's lifetime.
+        private static readonly JsonElement EmptyConfig = JsonDocument.Parse("{}").RootElement.Clone();
+
         public string Id { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public WidgetPosition Position { get; set; } = new();
-        public JsonElement Config { get; set; }
+        public JsonElement Config { get; set; } = EmptyConfig;
         public WidgetColorOverrides? ColorOverrides { get; set; }
         public string? TitleOverride { get; set; }
     }

@@ -77,15 +77,13 @@ public class AiPreGenerationServiceTests
         AiPreGenerationService.ShouldPreGenerateDashboard(dashboard, now).Should().BeFalse();
     }
 
-    // NOTE: the "already generated" check in IsInPreGenerationWindow compares only time-of-day
-    // (TimeOnly.FromDateTime drops the date), and LastAiGenerationTime is never date-reset
-    // (Services/Ai/AiDashboardGenerationService.cs:97 only ever advances it forward). So a
-    // generation from a PREVIOUS day at the same time-of-day still counts as "already generated"
-    // for every future occurrence of that window — this looks like an unintended bug that would
-    // silently stop daily AI dashboards from ever regenerating after their first successful run.
-    // This test documents the current (likely buggy) behavior rather than the probably-intended one.
+    // Regression test for a real bug: the "already generated" check in IsInPreGenerationWindow used
+    // to compare only time-of-day (TimeOnly.FromDateTime drops the date), so a generation from a
+    // PREVIOUS day at the same time-of-day still counted as "already generated" for every future
+    // occurrence of that window — silently stopping daily AI dashboards from ever regenerating after
+    // their first successful run. Fixed by anchoring the dedup window to today's date.
     [Fact]
-    public void ShouldPreGenerateDashboard_PreviousGenerationWasOnADifferentDayAtSameTimeOfDay_StillTreatedAsAlreadyGenerated()
+    public void ShouldPreGenerateDashboard_PreviousGenerationWasOnADifferentDayAtSameTimeOfDay_IsNotTreatedAsAlreadyGenerated()
     {
         var dashboard = CreateDashboard(
             updateTimes: [new TimeOnly(8, 0)],
@@ -93,7 +91,7 @@ public class AiPreGenerationServiceTests
             lastAiGenerationTime: Local(2026, 3, 16, 7, 56)); // yesterday
         var now = Local(2026, 3, 17, 7, 57);
 
-        AiPreGenerationService.ShouldPreGenerateDashboard(dashboard, now).Should().BeFalse();
+        AiPreGenerationService.ShouldPreGenerateDashboard(dashboard, now).Should().BeTrue();
     }
 
     [Fact]

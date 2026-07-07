@@ -57,29 +57,31 @@ public class DashboardImageRenderingServiceTests
         ]
     };
 
-    // NOTE: this documents a real production bug, not a desired behavior. ComputeLayoutHash does
-    // `JsonSerializer.Serialize(layoutConfig)` over the whole layout, including each widget's
-    // Config (a JsonElement). A widget whose Config was never assigned defaults to
-    // default(JsonElement) (ValueKind.Undefined), and serializing that throws InvalidOperationException
-    // — which means RenderDashboardImageAsync crashes instead of rendering a placeholder/error
-    // indicator for that one widget. Every other widget-config code path in this codebase happens to
-    // always assign a real JsonElement (e.g. AiResponseParser.Parse defaults to `{}`), so this may
-    // not be reachable today, but it's a latent crash if a widget is ever persisted without Config
-    // (e.g. a manual DB edit, a future code path, or a schema migration gap). Flagging rather than
-    // fixing since it's outside the scope of adding test coverage.
+    // Regression test for a real bug: ComputeLayoutHash serializes the whole layout, including each
+    // widget's Config (a JsonElement). Config previously had no field initializer, so it defaulted to
+    // ValueKind.Undefined for any widget constructed without explicitly setting it (e.g. deserialized
+    // from a document predating this field) — and System.Text.Json throws InvalidOperationException
+    // when asked to serialize an Undefined JsonElement, crashing the entire render instead of just
+    // that widget. Fixed by giving WidgetConfig.Config a real empty-object default (Models/LayoutConfig.cs).
     [Fact]
-    public async Task ComputeLayoutHash_WidgetWithUninitializedConfig_ThrowsInsteadOfDegrading()
+    public async Task RenderDashboardImageAsync_WidgetConstructedWithoutExplicitConfig_DoesNotThrow()
     {
         _ssrDataProvider
             .Setup(p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SsrData());
         var sut = CreateSut();
         var layout = SimpleLayout();
-        layout.Widgets[0].Config = default; // uninitialized JsonElement, as could come from a bare `new WidgetConfig()`
+        layout.Widgets[0] = new WidgetConfig
+        {
+            Id = "w1",
+            Type = "header",
+            Position = layout.Widgets[0].Position
+            // Config intentionally left unset.
+        };
 
         var act = async () => await sut.RenderDashboardImageAsync("dash1", layout);
 
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        await act.Should().NotThrowAsync();
     }
 
     [Fact]
