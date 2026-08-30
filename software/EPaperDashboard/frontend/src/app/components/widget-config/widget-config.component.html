@@ -540,6 +540,16 @@
   <small class="form-text text-muted">Describe what content the AI should generate</small>
 </div>
 <div class="mb-3">
+  <label class="form-label fw-semibold small">Data access</label>
+  <select class="form-select form-select-sm"
+    [ngModel]="aiContentConfig.dataScope || 'dashboard'"
+    (ngModelChange)="aiContentConfig.dataScope = $event; onPropertyChanged()">
+    <option value="dashboard">Dashboard data</option>
+    <option value="none">No smart-home data</option>
+  </select>
+  <small class="form-text text-muted">Choose whether entity states, calendars, tasks, weather, and feeds are sent with the prompt.</small>
+</div>
+<div class="mb-3">
   <button class="btn btn-sm btn-outline-primary" type="button"
     (click)="generateAiContent()"
     [disabled]="generatingAiContent() || !aiContentConfig.prompt">

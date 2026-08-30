@@ -17,7 +17,7 @@ public class DashboardEntityStateController(
     [HttpPost]
     public async Task<IActionResult> GetEntityStates(string dashboardId, [FromBody] EntityIdsRequest request)
     {
-        var result = await _entityStateProvider.FetchEntityStatesAsync(dashboardId, request.EntityIds ?? []);
+        var result = await _entityStateProvider.FetchEntityStatesAsync(dashboardId, request.EntityIds ?? [], HttpContext.RequestAborted);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });

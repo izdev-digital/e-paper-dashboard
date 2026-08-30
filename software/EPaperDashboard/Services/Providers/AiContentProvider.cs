@@ -55,7 +55,12 @@ public sealed class AiContentProvider(
         if (dashboard.HasNoValue)
             return Result.Failure<string, string>("Dashboard not found");
 
-        return await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+        return await CallAiAsync(
+            dashboard.Value,
+            dashboardId,
+            prompt,
+            includeDashboardData: true,
+            cancellationToken);
     }
 
     public async Task<Result<string, string>> GenerateAndCacheContentAsync(
@@ -68,7 +73,12 @@ public sealed class AiContentProvider(
         if (dashboard.HasNoValue)
             return Result.Failure<string, string>("Dashboard not found");
 
-        var result = await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+        var result = await CallAiAsync(
+            dashboard.Value,
+            dashboardId,
+            prompt,
+            ShouldIncludeDashboardData(dashboard.Value, widgetId),
+            cancellationToken);
         if (result.IsSuccess)
         {
             StoreInCache(dashboard.Value, widgetId, result.Value);
@@ -110,7 +120,12 @@ public sealed class AiContentProvider(
             if (string.IsNullOrWhiteSpace(prompt))
                 continue;
 
-            var result = await CallAiAsync(dashboard.Value, dashboardId, prompt, cancellationToken);
+            var result = await CallAiAsync(
+                dashboard.Value,
+                dashboardId,
+                prompt,
+                GetStringProp(widget.Config, "dataScope") != "none",
+                cancellationToken);
             if (result.IsSuccess)
             {
                 dashboard.Value.AiContentCache ??= new Dictionary<string, string>();
@@ -149,7 +164,11 @@ public sealed class AiContentProvider(
     }
 
     private async Task<Result<string, string>> CallAiAsync(
-        Dashboard dashboard, string dashboardId, string prompt, CancellationToken cancellationToken)
+        Dashboard dashboard,
+        string dashboardId,
+        string prompt,
+        bool includeDashboardData,
+        CancellationToken cancellationToken)
     {
         var effectiveConfig = ResolveAiConfig(dashboard);
         if (effectiveConfig == null || effectiveConfig.ConnectionMode == AiConnectionMode.None)
@@ -162,7 +181,9 @@ public sealed class AiContentProvider(
         if (aiServiceResult.IsFailure)
             return Result.Failure<string, string>(aiServiceResult.Error);
 
-        var aiData = await dataFetcher.FetchAsync(dashboardId);
+        var aiData = includeDashboardData
+            ? await dataFetcher.FetchAsync(dashboardId, cancellationToken)
+            : new AiDataSnapshot();
         var userPrompt = BuildUserPrompt(prompt, aiData, sectionFormatters);
 
         return await aiServiceResult.Value.GenerateCompletionAsync(
@@ -217,4 +238,10 @@ public sealed class AiContentProvider(
 
     private static string? GetStringProp(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
+
+    private static bool ShouldIncludeDashboardData(Dashboard dashboard, string widgetId)
+    {
+        var widget = dashboard.LayoutConfig?.Widgets.FirstOrDefault(item => item.Id == widgetId);
+        return widget is null || GetStringProp(widget.Config, "dataScope") != "none";
+    }
 }

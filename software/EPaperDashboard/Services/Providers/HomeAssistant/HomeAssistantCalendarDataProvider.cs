@@ -15,7 +15,7 @@ public class HomeAssistantCalendarDataProvider(
     private readonly HomeAssistantConnectionService _connection = connection;
     private readonly ILogger<HomeAssistantCalendarDataProvider> _logger = logger;
 
-    public async Task<Result<List<CalendarEvent>, string>> FetchCalendarEventsAsync(string dashboardId, string calendarEntityId, int durationHours = 168)
+    public async Task<Result<List<CalendarEvent>, string>> FetchCalendarEventsAsync(string dashboardId, string calendarEntityId, int durationHours = 168, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -28,7 +28,7 @@ public class HomeAssistantCalendarDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             var messageId = _connection.NextMessageId();
             var now = DateTime.UtcNow;
@@ -50,9 +50,9 @@ public class HomeAssistantCalendarDataProvider(
                     entity_id = calendarEntityId
                 },
                 return_response = true
-            });
+            }, cancellationToken);
 
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             _logger.LogDebug("HomeAssistant FetchCalendarEvents raw response: {Response}", response);
 
             var json = JsonSerializer.Deserialize<JsonElement>(response);
@@ -117,6 +117,7 @@ public class HomeAssistantCalendarDataProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return events;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             _logger.LogError("Unable to connect to Home Assistant WebSocket for calendar events");
@@ -198,16 +199,16 @@ public class HomeAssistantCalendarDataProvider(
         }
     }
 
-    public async Task<Result<Dictionary<string, List<CalendarEvent>>, string>> FetchAllCalendarEventsAsync(string dashboardId, int durationHours = 168)
+    public async Task<Result<Dictionary<string, List<CalendarEvent>>, string>> FetchAllCalendarEventsAsync(string dashboardId, int durationHours = 168, CancellationToken cancellationToken = default)
     {
-        var entityIds = await DiscoverEntitiesAsync(dashboardId, "calendar");
+        var entityIds = await DiscoverEntitiesAsync(dashboardId, "calendar", cancellationToken);
         if (entityIds.IsFailure)
             return entityIds.Error;
 
         var result = new Dictionary<string, List<CalendarEvent>>();
         foreach (var entityId in entityIds.Value)
         {
-            var eventsResult = await FetchCalendarEventsAsync(dashboardId, entityId, durationHours);
+            var eventsResult = await FetchCalendarEventsAsync(dashboardId, entityId, durationHours, cancellationToken);
             if (eventsResult.IsSuccess && eventsResult.Value.Count > 0)
                 result[entityId] = eventsResult.Value;
         }
@@ -216,7 +217,7 @@ public class HomeAssistantCalendarDataProvider(
         return result;
     }
 
-    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain)
+    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain, CancellationToken cancellationToken)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -226,10 +227,10 @@ public class HomeAssistantCalendarDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
-            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" }, cancellationToken);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var json = JsonSerializer.Deserialize<JsonElement>(response);
 
             var entityIds = new List<string>();
@@ -251,6 +252,7 @@ public class HomeAssistantCalendarDataProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             return $"Failed to discover {domain} entities: {ex.Message}";

@@ -51,10 +51,11 @@ public sealed class DashboardImageRenderingService
     public Task<SsrData> FetchDashboardDataAsync(
         string dashboardId,
         Models.LayoutConfig layoutConfig,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool bypassCache = false)
     {
         var layout = ConvertLayout(layoutConfig);
-        return _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken);
+        return _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken, bypassCache);
     }
 
     /// <summary>
@@ -83,7 +84,7 @@ public sealed class DashboardImageRenderingService
         }
 
         var layout = ConvertLayout(layoutConfig);
-        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken);
+        var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken, bypassCache);
         var image = await RenderToImageAsync(layout, data, cancellationToken);
 
         // Cache raw pixel data — avoids PNG encode on write + PNG decode on read

@@ -7,10 +7,10 @@ namespace EPaperDashboard.Services.Providers;
 /// </summary>
 public interface IWeatherForecastProvider
 {
-    Task<Result<Dictionary<string, object?>, string>> FetchWeatherForecastAsync(string dashboardId, string entityId, string forecastType = "daily");
+    Task<Result<List<WeatherForecast>, string>> FetchWeatherForecastAsync(string dashboardId, string entityId, string forecastType = "daily", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Discovers all available weather entities and fetches forecasts for each.
     /// </summary>
-    Task<Result<Dictionary<string, List<object?>>, string>> FetchAllWeatherForecastsAsync(string dashboardId, string forecastType = "daily");
+    Task<Result<Dictionary<string, List<WeatherForecast>>, string>> FetchAllWeatherForecastsAsync(string dashboardId, string forecastType = "daily", CancellationToken cancellationToken = default);
 }

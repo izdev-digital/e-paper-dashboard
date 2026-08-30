@@ -47,8 +47,16 @@ export interface DashboardPreviewData {
   rssFeedEntries: Record<string, RssFeedEntryData[]>;
   historyData: Record<string, HistoryStateData[]>;
   generatedContent: Record<string, string>;
+  sourceStatuses: Record<string, DataSourceStatus>;
   appVersion: string;
   fetchedAt: string;
+}
+
+export interface DataSourceStatus {
+  state: 'ready' | 'empty' | 'error';
+  error?: string;
+  fetchedAt: string;
+  fromCache: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -15,7 +15,7 @@ public class HomeAssistantWeatherForecastProvider(
     private readonly HomeAssistantConnectionService _connection = connection;
     private readonly ILogger<HomeAssistantWeatherForecastProvider> _logger = logger;
 
-    public async Task<Result<Dictionary<string, object?>, string>> FetchWeatherForecastAsync(string dashboardId, string weatherEntityId, string forecastType = "daily")
+    public async Task<Result<List<WeatherForecast>, string>> FetchWeatherForecastAsync(string dashboardId, string weatherEntityId, string forecastType = "daily", CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -28,7 +28,7 @@ public class HomeAssistantWeatherForecastProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             var messageId = _connection.NextMessageId();
 
@@ -47,13 +47,13 @@ public class HomeAssistantWeatherForecastProvider(
                     entity_id = weatherEntityId
                 },
                 return_response = true
-            });
+            }, cancellationToken);
 
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             _logger.LogDebug("HomeAssistant FetchWeatherForecast raw response: {Response}", response);
 
             var json = JsonSerializer.Deserialize<JsonElement>(response);
-            var forecastData = new Dictionary<string, object?>();
+            var forecastData = new List<WeatherForecast>();
 
             if (json.TryGetProperty("success", out var success) && success.GetBoolean() &&
                 json.TryGetProperty("result", out var result) && result.ValueKind == JsonValueKind.Object)
@@ -91,23 +91,15 @@ public class HomeAssistantWeatherForecastProvider(
 
                 if (foundForecast)
                 {
-                    var forecastList = new List<object?>();
                     foreach (var item in forecastArray.EnumerateArray())
                     {
-                        var forecastItem = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var prop in item.EnumerateObject())
-                        {
-                            forecastItem[prop.Name] = HomeAssistantConnectionService.ExtractJsonValue(prop.Value);
-                        }
-                        forecastList.Add(forecastItem);
+                        forecastData.Add(ParseForecast(item));
                     }
-                    forecastData["forecast"] = forecastList;
-                    _logger.LogDebug("Parsed {Count} forecast items from entity {EntityId}", forecastList.Count, weatherEntityId);
+                    _logger.LogDebug("Parsed {Count} forecast items from entity {EntityId}", forecastData.Count, weatherEntityId);
 
-                    if (forecastList.Count > 0)
+                    if (forecastData.Count > 0)
                     {
-                        var firstItem = forecastList[0] as Dictionary<string, object?>;
-                        _logger.LogDebug("First forecast item datetime: {DateTime}", firstItem?["datetime"] ?? "NOT FOUND");
+                        _logger.LogDebug("First forecast item datetime: {DateTime}", forecastData[0].Datetime ?? "NOT FOUND");
                     }
                 }
                 else
@@ -123,6 +115,7 @@ public class HomeAssistantWeatherForecastProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return forecastData;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
@@ -133,22 +126,19 @@ public class HomeAssistantWeatherForecastProvider(
         }
     }
 
-    public async Task<Result<Dictionary<string, List<object?>>, string>> FetchAllWeatherForecastsAsync(string dashboardId, string forecastType = "daily")
+    public async Task<Result<Dictionary<string, List<WeatherForecast>>, string>> FetchAllWeatherForecastsAsync(string dashboardId, string forecastType = "daily", CancellationToken cancellationToken = default)
     {
-        var entityIds = await DiscoverEntitiesAsync(dashboardId, "weather");
+        var entityIds = await DiscoverEntitiesAsync(dashboardId, "weather", cancellationToken);
         if (entityIds.IsFailure)
             return entityIds.Error;
 
-        var result = new Dictionary<string, List<object?>>();
+        var result = new Dictionary<string, List<WeatherForecast>>();
         foreach (var entityId in entityIds.Value)
         {
-            var forecastResult = await FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
-            if (forecastResult.IsSuccess
-                && forecastResult.Value.TryGetValue("forecast", out var forecastVal)
-                && forecastVal is List<object?> forecastList
-                && forecastList.Count > 0)
+            var forecastResult = await FetchWeatherForecastAsync(dashboardId, entityId, forecastType, cancellationToken);
+            if (forecastResult.IsSuccess && forecastResult.Value.Count > 0)
             {
-                result[entityId] = forecastList;
+                result[entityId] = forecastResult.Value;
             }
         }
 
@@ -156,7 +146,33 @@ public class HomeAssistantWeatherForecastProvider(
         return result;
     }
 
-    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain)
+    private static WeatherForecast ParseForecast(JsonElement item) => new()
+    {
+        Datetime = GetString(item, "datetime"),
+        Condition = GetString(item, "condition"),
+        Temperature = GetNumber(item, "temperature"),
+        TempLow = GetNumber(item, "templow"),
+        PrecipitationProbability = GetNumber(item, "precipitation_probability"),
+        WindSpeed = GetNumber(item, "wind_speed")
+    };
+
+    private static string? GetString(JsonElement item, string property) =>
+        item.TryGetProperty(property, out var value) ? value.ToString() : null;
+
+    private static double? GetNumber(JsonElement item, string property)
+    {
+        if (!item.TryGetProperty(property, out var value)) return null;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) return number;
+        return double.TryParse(
+            value.ToString(),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out number)
+                ? number
+                : null;
+    }
+
+    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain, CancellationToken cancellationToken)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -166,10 +182,10 @@ public class HomeAssistantWeatherForecastProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
-            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" }, cancellationToken);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var json = JsonSerializer.Deserialize<JsonElement>(response);
 
             var entityIds = new List<string>();
@@ -191,6 +207,7 @@ public class HomeAssistantWeatherForecastProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             return $"Failed to discover {domain} entities: {ex.Message}";

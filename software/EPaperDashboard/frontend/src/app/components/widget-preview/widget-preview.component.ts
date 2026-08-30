@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import type { TodoItem } from '../../services/todo.service';
 import type {
   CalendarEventData,
+  DataSourceStatus,
   HistoryStateData,
   RssFeedEntryData,
   WeatherForecastData,
@@ -56,9 +57,9 @@ import { getWidgetDefinition } from '../../models/widget-catalog';
   template: `
     <div class="widget-preview">
       @if (!dataFetched || !hasDataForWidget()) {
-        <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'">
+        <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'" [title]="getSourceError() || ''">
           <i class="fa {{ getWidgetIcon() }}" [style.color]="colorScheme.iconColor || colorScheme.accent || 'currentColor'"></i>
-          <p>{{ getWidgetLabel() }}</p>
+          <p>{{ getPlaceholderLabel() }}</p>
         </div>
       }
       @if (dataFetched && hasDataForWidget()) {
@@ -117,6 +118,7 @@ export class WidgetPreviewComponent {
   @Input() rssFeedEntriesByEntityId?: Record<string, RssFeedEntryData[]>;
   @Input() historyDataByEntityId?: Record<string, HistoryStateData[]>;
   @Input() generatedContentByWidgetId?: Record<string, string>;
+  @Input() sourceStatuses?: Record<string, DataSourceStatus>;
   @Input() appVersion = '';
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
@@ -141,6 +143,59 @@ export class WidgetPreviewComponent {
     return this.widget.titleOverride
       || definition.previewLabel
       || definition.label;
+  }
+
+  getPlaceholderLabel(): string {
+    if (!this.dataFetched) return this.getWidgetLabel();
+    const statuses = this.getWidgetSourceStatuses();
+    if (statuses.some(status => status.state === 'error')) return 'Data unavailable';
+    if (statuses.length > 0 && statuses.every(status => status.state === 'empty')) return 'No data';
+    return this.getWidgetLabel();
+  }
+
+  getSourceError(): string | undefined {
+    return this.getWidgetSourceStatuses().find(status => status.state === 'error')?.error;
+  }
+
+  private getWidgetSourceStatuses(): DataSourceStatus[] {
+    if (!this.sourceStatuses) return [];
+    const config = this.widget.config as any;
+    const entityId = config?.entityId as string | undefined;
+    const keys: string[] = [];
+
+    switch (this.widget.type) {
+      case 'header':
+        keys.push(...((config?.badges ?? []) as any[])
+          .map(badge => badge.entityId)
+          .filter(Boolean)
+          .map(id => `entity:${id}`));
+        break;
+      case 'weather':
+        if (entityId) keys.push(`entity:${entityId}`);
+        break;
+      case 'weather-forecast':
+        if (entityId) keys.push(`forecast:${entityId}:${config?.forecastMode === 'hourly' ? 'hourly' : 'daily'}`);
+        break;
+      case 'todo':
+        if (entityId) keys.push(`todo:${entityId}`);
+        break;
+      case 'calendar':
+        if (entityId) keys.push(`calendar:${entityId}`);
+        break;
+      case 'rss-feed':
+        if (entityId) keys.push(`rss:${entityId}`);
+        break;
+      case 'graph':
+        keys.push(...((config?.series ?? []) as GraphSeriesConfig[])
+          .map(series => series.entityId)
+          .filter(Boolean)
+          .map(id => `history:${id}`));
+        break;
+    }
+
+    return keys
+      .map(key => this.sourceStatuses?.[key])
+      .filter((status): status is DataSourceStatus => !!status);
   }
 
   asHeaderConfig(config: any): HeaderConfig {

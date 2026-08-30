@@ -6,10 +6,11 @@ public sealed record DashboardPreviewData(
     IReadOnlyDictionary<string, HassEntityState> EntityStates,
     IReadOnlyDictionary<string, List<TodoItem>> TodoItems,
     IReadOnlyDictionary<string, List<CalendarEvent>> CalendarEvents,
-    IReadOnlyDictionary<string, List<object?>> WeatherForecasts,
+    IReadOnlyDictionary<string, List<WeatherForecast>> WeatherForecasts,
     IReadOnlyDictionary<string, List<RssFeedEntry>> RssFeedEntries,
     IReadOnlyDictionary<string, List<HistoryState>> HistoryData,
     IReadOnlyDictionary<string, string> GeneratedContent,
+    IReadOnlyDictionary<string, DataSourceStatus> SourceStatuses,
     string AppVersion,
     DateTimeOffset FetchedAt)
 {
@@ -23,6 +24,7 @@ public sealed record DashboardPreviewData(
         data.RssFeedEntries,
         data.HistoryData,
         data.AiContent,
+        data.SourceStatuses,
         typeof(Services.Rendering.DashboardImageRenderingService).Assembly.GetName().Version?.ToString() ?? "?",
         timeProvider.GetUtcNow());
 }

@@ -148,7 +148,8 @@ public class DashboardSsrController(
         var data = await dashboardImageRenderingService.FetchDashboardDataAsync(
             dashboard.Value.Id.ToString(),
             layoutToResolve,
-            HttpContext.RequestAborted);
+            HttpContext.RequestAborted,
+            bypassCache: true);
 
         return Ok(DashboardPreviewData.FromSsrData(data, timeProvider));
     }

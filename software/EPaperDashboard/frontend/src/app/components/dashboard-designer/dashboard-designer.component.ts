@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
@@ -10,6 +11,7 @@ import type { TodoItem } from '../../services/todo.service';
 import { AiService } from '../../services/ai.service';
 import {
   CalendarEventData,
+  DataSourceStatus,
   DashboardPreviewDataService,
   HistoryStateData,
   RssFeedEntryData,
@@ -64,6 +66,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private readonly previewDataService = inject(DashboardPreviewDataService);
   private readonly aiService = inject(AiService);
   private readonly dialogService = inject(DialogService);
+  private previewDataSubscription?: Subscription;
 
   // Dashboard data
   dashboardId: string = '';
@@ -119,6 +122,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   rssFeedEntriesByEntityId = signal<Record<string, RssFeedEntryData[]>>({});
   historyDataByEntityId = signal<Record<string, HistoryStateData[]>>({});
   generatedContentByWidgetId = signal<Record<string, string>>({});
+  previewSourceStatuses = signal<Record<string, DataSourceStatus>>({});
   previewAppVersion = signal('');
   previewFetchedAt = signal<string | null>(null);
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
@@ -231,6 +235,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   ngOnDestroy(): void {
+    this.previewDataSubscription?.unsubscribe();
     if (this.longPressTimer) clearTimeout(this.longPressTimer);
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
     document.body.style.overflow = '';
@@ -1214,7 +1219,8 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }
 
     this.livePreviewLoading.set(true);
-    this.previewDataService.resolve(this.dashboardId, this.layout()).subscribe({
+    this.previewDataSubscription?.unsubscribe();
+    this.previewDataSubscription = this.previewDataService.resolve(this.dashboardId, this.layout()).subscribe({
       next: data => {
         this.entityStates.set(data.entityStates || {});
         this.todoItemsByEntityId.set(data.todoItems || {});
@@ -1223,6 +1229,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.rssFeedEntriesByEntityId.set(data.rssFeedEntries || {});
         this.historyDataByEntityId.set(data.historyData || {});
         this.generatedContentByWidgetId.set(data.generatedContent || {});
+        this.previewSourceStatuses.set(data.sourceStatuses || {});
         this.previewAppVersion.set(data.appVersion || '');
         this.previewFetchedAt.set(data.fetchedAt || null);
         this.livePreviewEverFetched.set(true);

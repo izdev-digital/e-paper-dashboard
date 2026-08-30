@@ -101,7 +101,7 @@ export const WIDGET_DEFINITIONS: readonly WidgetDefinition[] = [
   {
     type: 'ai-content', label: 'AI Content', icon: 'fa-wand-magic-sparkles', category: 'content',
     defaultSize: { w: 4, h: 3 }, minSize: { w: 2, h: 2 }, supportsTitle: true,
-    createDefaultConfig: () => ({ prompt: '' }),
+    createDefaultConfig: () => ({ prompt: '', dataScope: 'dashboard' }),
   },
 ];
 

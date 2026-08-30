@@ -197,6 +197,8 @@ export interface MarkdownConfig {
 
 export interface AiContentConfig {
   prompt: string;
+  /** Controls whether smart-home data is included with the generation request. */
+  dataScope?: 'none' | 'dashboard';
 }
 
 export type CalendarEventItemType = 'datetime' | 'title' | 'location' | 'description';

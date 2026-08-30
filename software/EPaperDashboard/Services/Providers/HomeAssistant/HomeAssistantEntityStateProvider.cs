@@ -25,7 +25,7 @@ public class HomeAssistantEntityStateProvider(
         "climate", "light", "switch", "lock", "cover", "fan"
     };
 
-    public async Task<Result<List<HassEntityState>, string>> FetchAllEntityStatesAsync(string dashboardId)
+    public async Task<Result<List<HassEntityState>, string>> FetchAllEntityStatesAsync(string dashboardId, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -37,15 +37,15 @@ public class HomeAssistantEntityStateProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             await HomeAssistantConnectionService.SendMessageAsync(ws, new
             {
                 id = 1,
                 type = "get_states"
-            });
+            }, cancellationToken);
 
-            var statesResponse = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var statesResponse = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var statesResult = JsonSerializer.Deserialize<JsonElement>(statesResponse);
 
             var entityStates = new List<HassEntityState>();
@@ -95,6 +95,7 @@ public class HomeAssistantEntityStateProvider(
             _logger.LogDebug("Fetched {Count} relevant entity states for dashboard {DashboardId}", entityStates.Count, dashboardId);
             return entityStates;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
@@ -105,7 +106,7 @@ public class HomeAssistantEntityStateProvider(
         }
     }
 
-    public async Task<Result<List<HassEntityState>, string>> FetchEntityStatesAsync(string dashboardId, string[] entityIds)
+    public async Task<Result<List<HassEntityState>, string>> FetchEntityStatesAsync(string dashboardId, string[] entityIds, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -119,15 +120,15 @@ public class HomeAssistantEntityStateProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             await HomeAssistantConnectionService.SendMessageAsync(ws, new
             {
                 id = 1,
                 type = "get_states"
-            });
+            }, cancellationToken);
 
-            var statesResponse = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var statesResponse = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var statesResult = JsonSerializer.Deserialize<JsonElement>(statesResponse);
 
             var entityStates = new List<HassEntityState>();
@@ -164,6 +165,7 @@ public class HomeAssistantEntityStateProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityStates;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";

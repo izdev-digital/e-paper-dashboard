@@ -59,11 +59,11 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
         for (int i = 0; i < items.Count; i++)
         {
-            if (items[i] is not Dictionary<string, object?> dict) continue;
+            var item = items[i];
             var colX = contentRect.X + i * (colWidth + colGap);
             float itemY = yOffset;
 
-            var dt = dict.TryGetValue("datetime", out var dtVal) ? dtVal?.ToString() : "";
+            var dt = item.Datetime ?? "";
             if (visibleFields.Contains("time"))
             {
                 var timeRect = new RectangleF(colX, itemY, colWidth, lineHeight);
@@ -73,7 +73,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
             if (visibleFields.Contains("condition") && !isTinyMode && widget.Position.H > 2)
             {
-                var condStr = dict.TryGetValue("condition", out var cv) ? RenderingUtilities.FormatCondition(cv?.ToString()) : "";
+                var condStr = RenderingUtilities.FormatCondition(item.Condition);
                 var condRect = new RectangleF(colX, itemY, colWidth, lineHeight);
                 TextDrawing.DrawTextCentered(image, condStr, utils.GetFont(textFontSize, textFontWeight), textColor, condRect);
                 itemY += lineHeight + rowGap;
@@ -81,7 +81,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
             if (visibleFields.Contains("tempHigh"))
             {
-                var temp = dict.TryGetValue("temperature", out var tVal) ? RenderingUtilities.RoundNum(tVal) : "";
+                var temp = item.Temperature is not null ? RenderingUtilities.RoundNum(item.Temperature) : "";
                 var tempRect = new RectangleF(colX, itemY, colWidth, lineHeight);
                 TextDrawing.DrawTextCentered(image, $"{temp}{tempUnit}", utils.GetFont(textFontSize, textFontWeight), textColor, tempRect);
                 itemY += lineHeight + rowGap;
@@ -89,7 +89,7 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
             if (visibleFields.Contains("tempLow") && forecastMode != "hourly")
             {
-                var tempLow = dict.TryGetValue("templow", out var tlVal) ? RenderingUtilities.RoundNum(tlVal) : "";
+                var tempLow = item.TempLow is not null ? RenderingUtilities.RoundNum(item.TempLow) : "";
                 if (!string.IsNullOrEmpty(tempLow))
                 {
                     var tlRect = new RectangleF(colX, itemY, colWidth, lineHeight);
@@ -100,7 +100,9 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
             if (visibleFields.Contains("precipitation"))
             {
-                var precip = dict.TryGetValue("precipitation_probability", out var ppVal) ? RenderingUtilities.RoundNum(ppVal) : null;
+                var precip = item.PrecipitationProbability is not null
+                    ? RenderingUtilities.RoundNum(item.PrecipitationProbability)
+                    : null;
                 if (!string.IsNullOrEmpty(precip))
                 {
                     var precipRect = new RectangleF(colX, itemY, colWidth, lineHeight);
@@ -111,7 +113,9 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
 
             if (visibleFields.Contains("wind"))
             {
-                var windSpeed = dict.TryGetValue("wind_speed", out var wsVal) ? RenderingUtilities.RoundNumOneDecimal(wsVal) : null;
+                var windSpeed = item.WindSpeed is not null
+                    ? RenderingUtilities.RoundNumOneDecimal(item.WindSpeed)
+                    : null;
                 if (!string.IsNullOrEmpty(windSpeed))
                 {
                     var windUnit = data.EntityStates.TryGetValue(entityId, out var wes) ? RenderingUtilities.GetEntityAttr(wes, "wind_speed_unit") ?? "" : "";
@@ -150,12 +154,12 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
         };
     }
 
-    private static List<object?> FilterHourlyForecast(List<object?> forecast)
+    private static List<WeatherForecast> FilterHourlyForecast(List<WeatherForecast> forecast)
     {
         if (forecast.Count < 2)
             return forecast;
 
-        var filtered = new List<object?> { forecast[0] };
+        var filtered = new List<WeatherForecast> { forecast[0] };
         if (!TryGetForecastDate(forecast[0], out var lastDate))
             return forecast;
 
@@ -174,11 +178,9 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
         return filtered;
     }
 
-    private static bool TryGetForecastDate(object? item, out DateTimeOffset date)
+    private static bool TryGetForecastDate(WeatherForecast item, out DateTimeOffset date)
     {
         date = default;
-        return item is Dictionary<string, object?> dict
-            && dict.TryGetValue("datetime", out var value)
-            && DateTimeOffset.TryParse(value?.ToString(), out date);
+        return DateTimeOffset.TryParse(item.Datetime, out date);
     }
 }

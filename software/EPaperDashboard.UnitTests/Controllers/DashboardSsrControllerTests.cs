@@ -33,7 +33,8 @@ public class DashboardSsrControllerTests
             .Setup(provider => provider.FetchSsrDataAsync(
                 It.IsAny<string>(),
                 It.IsAny<RenderingLayoutConfig>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new SsrData());
 
         var environment = Mock.Of<IWebHostEnvironment>();
@@ -142,6 +143,7 @@ public class DashboardSsrControllerTests
         _ssrDataProvider.Verify(provider => provider.FetchSsrDataAsync(
             dashboardId.Value,
             It.Is<RenderingLayoutConfig>(layout => layout.Width == 123 && layout.Height == 45),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>(),
+            true), Times.Once);
     }
 }

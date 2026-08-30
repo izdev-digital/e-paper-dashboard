@@ -67,7 +67,11 @@ public class DashboardImageRenderingServiceTests
     public async Task RenderDashboardImageAsync_WidgetConstructedWithoutExplicitConfig_DoesNotThrow()
     {
         _ssrDataProvider
-            .Setup(p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new SsrData());
         var sut = CreateSut();
         var layout = SimpleLayout();
@@ -119,7 +123,11 @@ public class DashboardImageRenderingServiceTests
     public async Task RenderDashboardImageAsync_BypassCache_RefetchesSsrData()
     {
         _ssrDataProvider
-            .Setup(p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new SsrData());
         var sut = CreateSut();
         var layout = SimpleLayout();
@@ -128,7 +136,11 @@ public class DashboardImageRenderingServiceTests
         using var second = await sut.RenderDashboardImageAsync("dash1", layout, bypassCache: true);
 
         _ssrDataProvider.Verify(
-            p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()),
+            p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()),
             Times.Exactly(2));
     }
 

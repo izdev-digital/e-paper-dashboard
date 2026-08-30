@@ -76,10 +76,35 @@ public class SsrData
     public ConcurrentDictionary<string, HassEntityState> EntityStates { get; set; } = new();
     public ConcurrentDictionary<string, List<TodoItem>> TodoItems { get; set; } = new();
     public ConcurrentDictionary<string, List<CalendarEvent>> CalendarEvents { get; set; } = new();
-    public ConcurrentDictionary<WeatherForecastDataKey, List<object?>> WeatherForecasts { get; set; } = new();
+    public ConcurrentDictionary<WeatherForecastDataKey, List<WeatherForecast>> WeatherForecasts { get; set; } = new();
     public ConcurrentDictionary<string, List<RssFeedEntry>> RssFeedEntries { get; set; } = new();
     public ConcurrentDictionary<string, List<HistoryState>> HistoryData { get; set; } = new();
     public ConcurrentDictionary<string, string> AiContent { get; set; } = new();
+    public ConcurrentDictionary<string, DataSourceStatus> SourceStatuses { get; set; } = new();
+}
+
+public sealed record DataSourceStatus(
+    string State,
+    string? Error,
+    DateTimeOffset FetchedAt,
+    bool FromCache = false)
+{
+    public static DataSourceStatus Success(int itemCount, DateTimeOffset fetchedAt, bool fromCache = false) =>
+        new(itemCount > 0 ? "ready" : "empty", null, fetchedAt, fromCache);
+
+    public static DataSourceStatus Failed(string error, DateTimeOffset fetchedAt) =>
+        new("error", error, fetchedAt);
+}
+
+public static class DataSourceKeys
+{
+    public static string Entity(string entityId) => $"entity:{entityId}";
+    public static string Todo(string entityId) => $"todo:{entityId}";
+    public static string Calendar(string entityId) => $"calendar:{entityId}";
+    public static string Forecast(WeatherForecastDataKey key) => $"forecast:{key.EntityId}:{key.ForecastType}";
+    public static string Rss(string entityId) => $"rss:{entityId}";
+    public static string History(string entityId) => $"history:{entityId}";
+    public static string Generated(string widgetId) => $"generated:{widgetId}";
 }
 
 /// <summary>
