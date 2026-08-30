@@ -1,0 +1,59 @@
+:host {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: block;
+  pointer-events: none;
+}
+
+.editable-element {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(0, 119, 255, 0.35);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+
+  &:hover {
+    border-color: rgba(0, 119, 255, 0.8);
+    background: rgba(0, 119, 255, 0.04);
+  }
+
+  &.selected {
+    z-index: 2;
+    border: 2px solid #0077ff;
+    background: rgba(0, 119, 255, 0.06);
+    cursor: grabbing;
+  }
+}
+
+.element-handle {
+  position: absolute;
+  z-index: 3;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #fff;
+  border-radius: 2px;
+  background: #0077ff;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.handle-nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.handle-ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.handle-sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.handle-se { right: -5px; bottom: -5px; cursor: nwse-resize; }
+.handle-n { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.handle-s { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.handle-e { top: 50%; right: -5px; transform: translateY(-50%); cursor: ew-resize; }
+.handle-w { top: 50%; left: -5px; transform: translateY(-50%); cursor: ew-resize; }
+
+.element-guide {
+  position: absolute;
+  z-index: 4;
+  background: rgba(0, 119, 255, 0.8);
+  pointer-events: none;
+
+  &.vertical { width: 1px; }
+  &.horizontal { height: 1px; }
+}

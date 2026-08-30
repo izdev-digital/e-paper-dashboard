@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import type { TodoItem } from '../../services/todo.service';
 import type {
   CalendarEventData,
@@ -70,18 +70,14 @@ import { getWidgetDefinition } from '../../models/widget-catalog';
         <app-widget-image [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-image>
       }
       @if (widget.type === 'header') {
-        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
-          [internalEdit]="headerInternalEdit"
-          (internalLayoutChanged)="headerLayoutChanged.emit($event)">
+        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings">
         </app-widget-header>
       }
       @if (widget.type === 'markdown') {
         <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-markdown>
       }
       @if (widget.type === 'weather') {
-        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
-          [internalEdit]="weatherInternalEdit"
-          (internalLayoutChanged)="weatherLayoutChanged.emit($event)">
+        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings">
         </app-widget-weather>
       }
       @if (widget.type === 'weather-forecast') {
@@ -127,13 +123,6 @@ export class WidgetPreviewComponent {
   @Input() dashboardId?: string;
   /** Whether live preview data has ever been fetched. When false, show icon+title placeholders. */
   @Input() dataFetched = true;
-  /** When true, the header widget will show its internal layout editor overlay. */
-  @Input() headerInternalEdit = false;
-  @Output() headerLayoutChanged = new EventEmitter<HeaderConfig>();
-  /** When true, the weather widget will show its internal layout editor overlay. */
-  @Input() weatherInternalEdit = false;
-  @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
-
   getWidgetIcon(): string {
     return getWidgetDefinition(this.widget.type).icon;
   }

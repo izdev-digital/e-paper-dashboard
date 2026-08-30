@@ -15,6 +15,17 @@ export interface WidgetRenderGeometry {
   type: string;
   bounds: RenderRectangle;
   contentBounds: RenderRectangle;
+  elements: EditableWidgetElementGeometry[];
+}
+
+export interface EditableWidgetElementGeometry {
+  id: string;
+  kind: string;
+  index: number | null;
+  bounds: RenderRectangle;
+  position: RenderRectangle;
+  movable: boolean;
+  resizable: boolean;
 }
 
 export interface DashboardRenderPreview {

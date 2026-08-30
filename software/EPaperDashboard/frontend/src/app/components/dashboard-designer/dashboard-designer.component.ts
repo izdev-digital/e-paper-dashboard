@@ -26,6 +26,11 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
+import { WidgetElementOverlayComponent } from '../widget-element-overlay/widget-element-overlay.component';
+import {
+  applyEditableElementChange,
+  EditableElementChange,
+} from '../../models/widget-element-layout';
 import {
   Dashboard,
   DashboardLayout,
@@ -37,8 +42,6 @@ import {
   DEFAULT_COLOR_SCHEMES,
   WidgetPosition,
   HassEntityState,
-  HeaderConfig,
-  WeatherConfig,
   DEFAULT_DASHBOARD_SIZE,
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
@@ -56,7 +59,7 @@ import {
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
@@ -147,9 +150,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   previewLoading = signal(false);
   previewError = signal('');
   previewImageUrl = signal('');
-  /** ID of the widget whose internal layout editor is currently active (header or weather). */
-  internalEditingWidgetId = signal<string | null>(null);
-
   // Mobile responsive state
   isMobile = signal(false);
   mobileWidgetDrawerOpen = signal(false);
@@ -559,15 +559,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   onWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
     event.stopPropagation();
-    // While a header widget is in internal-edit mode, swallow all outer drag/resize
-    // interactions for that specific widget so the inner editor gets full mouse control.
-    if (this.internalEditingWidgetId() === widget.id) {
-      return;
-    }
-    // Selecting any other widget exits internal-edit mode on the previous one.
-    if (this.internalEditingWidgetId() !== null) {
-      this.internalEditingWidgetId.set(null);
-    }
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
 
@@ -629,32 +620,32 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.startDrag(event, widget);
   }
 
-  toggleInternalEdit(widget: WidgetConfig): void {
-    const current = this.internalEditingWidgetId();
-    this.internalEditingWidgetId.set(current === widget.id ? null : widget.id);
+  getSelectedWidgetGeometry(): WidgetRenderGeometry | undefined {
+    const selected = this.selectedWidget();
+    return selected ? this.renderedWidgetGeometry()[selected.id] : undefined;
   }
 
-  onHeaderLayoutChanged(config: HeaderConfig, widgetId: string): void {
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w =>
-        w.id === widgetId ? { ...w, config: { ...config } } : w
-      ),
-    }));
-    // Also keep the selectedWidget signal in sync so the config panel reflects changes.
-    const updated = this.layout().widgets.find(w => w.id === widgetId);
-    if (updated) this.selectedWidget.set(updated);
+  getSelectedWidgetSnapStep(): number {
+    const config = this.selectedWidget()?.config as { snapStep?: number } | undefined;
+    return config?.snapStep ?? 2;
   }
 
-  onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w =>
-        w.id === widgetId ? { ...w, config: { ...config } } : w
-      ),
+  getSelectedWidgetShowGuides(): boolean {
+    const config = this.selectedWidget()?.config as { showGuides?: boolean } | undefined;
+    return config?.showGuides ?? true;
+  }
+
+  onEditableElementChange(change: EditableElementChange): void {
+    const selected = this.selectedWidget();
+    if (!selected) return;
+    const updated = applyEditableElementChange(selected, change);
+    if (updated === selected) return;
+
+    this.layout.update(layout => ({
+      ...layout,
+      widgets: layout.widgets.map(widget => widget.id === updated.id ? updated : widget),
     }));
-    const updated = this.layout().widgets.find(w => w.id === widgetId);
-    if (updated) this.selectedWidget.set(updated);
+    this.selectedWidget.set(updated);
   }
 
   private startDrag(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
@@ -1277,7 +1268,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     if (!this.dashboardId || this.isLoading()) return;
 
     this.forceRefreshOnNextRender ||= refreshData;
-    this.renderedWidgetGeometry.set({});
     if (this.renderPreviewTimer) clearTimeout(this.renderPreviewTimer);
     this.renderPreviewTimer = setTimeout(() => {
       this.renderPreviewTimer = null;
@@ -1450,8 +1440,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const width  = resolvedBounds?.width ?? p.w * cellW + (p.w - 1) * gap;
     const height = resolvedBounds?.height ?? p.h * cellH + (p.h - 1) * gap;
 
-    const isInternal = this.internalEditingWidgetId() === widget.id;
-
     return {
       position: 'absolute',
       left:   `${left}px`,
@@ -1459,7 +1447,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       width:  `${width}px`,
       height: `${height}px`,
       boxSizing: 'border-box',
-      pointerEvents: isInternal ? 'none' : 'auto',
+      pointerEvents: 'auto',
       zIndex: 100,
     };
   }

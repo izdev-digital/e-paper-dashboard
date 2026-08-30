@@ -72,12 +72,23 @@ public sealed class DashboardImageRenderingService
             var (x, y, width, height) = RenderingUtilities.ResolvePixelPosition(widget.Position, layout);
             var contentWidth = Math.Max(0, width - inset * 2);
             var contentHeight = Math.Max(0, height - inset * 2);
+            var contentBounds = new RenderRectangle(
+                x + inset, y + inset, contentWidth, contentHeight);
+            var elements = _renderers.TryGetValue(widget.Type, out var renderer)
+                && renderer is IEditableWidgetRenderer editableRenderer
+                ? editableRenderer.GetEditableElements(widget, new RectangleF(
+                    (float)contentBounds.X,
+                    (float)contentBounds.Y,
+                    (float)contentBounds.Width,
+                    (float)contentBounds.Height))
+                : [];
 
             return new WidgetRenderGeometry(
                 widget.Id,
                 widget.Type,
                 new RenderRectangle(x, y, width, height),
-                new RenderRectangle(x + inset, y + inset, contentWidth, contentHeight));
+                contentBounds,
+                elements);
         }).ToList();
     }
 

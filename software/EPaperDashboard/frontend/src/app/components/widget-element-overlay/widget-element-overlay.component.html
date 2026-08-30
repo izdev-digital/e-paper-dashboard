@@ -1,0 +1,17 @@
+@for (guide of guides; track $index) {
+  <div class="element-guide" [class.vertical]="guide.orientation === 'vertical'"
+    [class.horizontal]="guide.orientation === 'horizontal'" [ngStyle]="guideStyle(guide)"></div>
+}
+
+@for (element of geometry.elements; track element.id) {
+  <div class="editable-element" [class.selected]="selectedId === element.id"
+    [ngStyle]="elementStyle(element)" [title]="'Select and move ' + element.kind"
+    (pointerdown)="onElementPointerDown($event, element)">
+    @if (selectedId === element.id && element.resizable) {
+      @for (handle of handles; track handle) {
+        <span class="element-handle handle-{{ handle }}"
+          (pointerdown)="onHandlePointerDown($event, element, handle)"></span>
+      }
+    }
+  </div>
+}

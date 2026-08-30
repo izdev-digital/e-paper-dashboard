@@ -7,7 +7,7 @@ using RectangleF = SixLabors.ImageSharp.RectangleF;
 
 namespace EPaperDashboard.Services.Rendering.Widgets;
 
-public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRenderer
+public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableWidgetRenderer
 {
     public string WidgetType => "weather";
 
@@ -34,17 +34,14 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
         var items = GetWeatherItems(widget.Config);
         var iconSize = (float)textFontSize;
 
-        foreach (var item in items)
+        for (var itemIndex = 0; itemIndex < items.Count; itemIndex++)
         {
+            var item = items[itemIndex];
             var visible = item.Visible;
             if (item.Type == "title" && !widget.ShowTitle) visible = false;
             if (!visible) continue;
 
-            var itemRect = new RectangleF(
-                contentRect.X + (float)(item.X / 100.0 * contentRect.Width),
-                contentRect.Y + (float)(item.Y / 100.0 * contentRect.Height),
-                (float)(item.W / 100.0 * contentRect.Width),
-                (float)(item.H / 100.0 * contentRect.Height));
+            var itemRect = ToRectangle(CreateElement(item, itemIndex, contentRect).Bounds);
 
             switch (item.Type)
             {
@@ -96,6 +93,39 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IWidgetRen
 
         return Task.CompletedTask;
     }
+
+    public IReadOnlyList<EditableWidgetElementGeometry> GetEditableElements(
+        WidgetConfigEntry widget,
+        RectangleF contentRect)
+    {
+        var items = GetWeatherItems(widget.Config);
+        return items
+            .Select((item, index) => (item, index))
+            .Where(entry => entry.item.Visible && (entry.item.Type != "title" || widget.ShowTitle))
+            .Select(entry => CreateElement(entry.item, entry.index, contentRect))
+            .ToList();
+    }
+
+    private static EditableWidgetElementGeometry CreateElement(
+        WeatherItemEntry item,
+        int index,
+        RectangleF contentRect)
+    {
+        var position = new RenderRectangle(item.X, item.Y, item.W, item.H);
+        var bounds = new RenderRectangle(
+            contentRect.X + item.X / 100.0 * contentRect.Width,
+            contentRect.Y + item.Y / 100.0 * contentRect.Height,
+            item.W / 100.0 * contentRect.Width,
+            item.H / 100.0 * contentRect.Height);
+        return new EditableWidgetElementGeometry(
+            $"weather-item-{index}", "weather-item", index, bounds, position);
+    }
+
+    private static RectangleF ToRectangle(RenderRectangle rectangle) => new(
+        (float)rectangle.X,
+        (float)rectangle.Y,
+        (float)rectangle.Width,
+        (float)rectangle.Height);
 
     private (float TextX, float TextW) DrawWeatherItemIcon(Image<Rgba32> image, string? icon, Color iconColor, float iconSize, RectangleF itemRect)
     {

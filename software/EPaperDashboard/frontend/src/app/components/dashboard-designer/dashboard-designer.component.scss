@@ -344,44 +344,11 @@ html[data-bs-theme="dark"] .canvas-wrapper {
 
 /* No selection chrome on widget-container – handled by .sel-overlay */
 
-.header-edit-toggle-btn {
-  position: absolute;
-  top: -26px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border: none;
-  border-radius: 4px;
-  background: #0077ff;
-  color: #fff;
-  cursor: pointer;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  pointer-events: auto; /* always clickable even when overlay is pointer-events:none */
-
-  &.active {
-    background: #28a745;
-  }
-
-  &:hover {
-    background: #268fff;
-  }
-
-  &.active:hover {
-    background: #2fbd4e;
-  }
-}
-
 .widget-delete-btn {
   position: absolute;
   top: -26px;
   right: 0;
-  z-index: 20;
+  z-index: 50;
   padding: 2px 10px;
   font-size: 11px;
   font-weight: 600;
@@ -424,19 +391,14 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   overflow: hidden;
 }
 
-// Once a native image is available the widget containers remain as interaction shells. Their
-// HTML implementations are retained as a fallback and for the two internal layout editors.
-.dashboard-canvas.backend-preview-active .widget-container:not(.internal-editing) {
+// Once a native image is available the widget containers remain as interaction shells.
+.dashboard-canvas.backend-preview-active .widget-container {
   background: transparent !important;
   border-color: transparent !important;
 }
 
-.dashboard-canvas.backend-preview-active .widget-container:not(.internal-editing) .widget-content {
+.dashboard-canvas.backend-preview-active .widget-container .widget-content {
   visibility: hidden;
-}
-
-.dashboard-canvas.backend-preview-active .widget-container.internal-editing {
-  z-index: 3;
 }
 
 .widget-item {
@@ -519,10 +481,6 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   box-sizing: border-box;
   cursor: grab;
 
-  /* pointer-events controlled via [ngStyle] –
-     'auto' in normal mode, 'none' in internal-edit mode
-     (children with pointer-events:auto still receive events). */
-
   &.long-press-active {
     animation: longPressRing 0.3s ease-out forwards;
   }
@@ -546,7 +504,7 @@ $h-cor-off: -10px; /* corner square offset */
   background: rgba(0, 123, 255, 0.8);
   border-radius: 2px;
   pointer-events: auto;
-  z-index: 10;
+  z-index: 40;
 }
 
 .resize-handle.resize-e {

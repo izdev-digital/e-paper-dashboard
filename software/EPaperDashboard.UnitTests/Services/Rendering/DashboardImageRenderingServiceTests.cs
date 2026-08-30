@@ -3,6 +3,7 @@ using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Rendering;
+using EPaperDashboard.Services.Rendering.Widgets;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
@@ -219,5 +220,61 @@ public class DashboardImageRenderingServiceTests
             It.IsAny<SsrData>(),
             It.IsAny<SixLabors.ImageSharp.RectangleF>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_HeaderUsesRendererElementPositionsAndOriginalBadgeIndexes()
+    {
+        var sut = CreateSut(new HeaderWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("header");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            title = "Dashboard",
+            titleX = 10,
+            titleY = 12,
+            titleW = 60,
+            titleH = 24,
+            badges = new object[]
+            {
+                new { entityId = "", icon = "" },
+                new { entityId = "sensor.room", x = 20, y = 50, w = 30, h = 15 }
+            }
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
+
+        geometry.Elements.Should().HaveCount(2);
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "title"
+            && element.Kind == "title"
+            && element.Position == new RenderRectangle(10, 12, 60, 24));
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "badge-1"
+            && element.Kind == "badge"
+            && element.Index == 1
+            && element.Position == new RenderRectangle(20, 50, 30, 15));
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_WeatherReturnsOnlyVisibleEditableItems()
+    {
+        var sut = CreateSut(new WeatherWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("weather");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            entityId = "weather.home",
+            items = new object[]
+            {
+                new { type = "temperature", visible = false, x = 0, y = 0, w = 50, h = 20 },
+                new { type = "condition", visible = true, x = 12, y = 34, w = 56, h = 20 }
+            }
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
+
+        geometry.Elements.Should().ContainSingle();
+        geometry.Elements[0].Id.Should().Be("weather-item-1");
+        geometry.Elements[0].Index.Should().Be(1);
+        geometry.Elements[0].Position.Should().Be(new RenderRectangle(12, 34, 56, 20));
     }
 }

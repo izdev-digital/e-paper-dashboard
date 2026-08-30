@@ -22,6 +22,16 @@ public sealed record WidgetRenderGeometry(
     string Id,
     string Type,
     RenderRectangle Bounds,
-    RenderRectangle ContentBounds);
+    RenderRectangle ContentBounds,
+    IReadOnlyList<EditableWidgetElementGeometry> Elements);
+
+public sealed record EditableWidgetElementGeometry(
+    string Id,
+    string Kind,
+    int? Index,
+    RenderRectangle Bounds,
+    RenderRectangle Position,
+    bool Movable = true,
+    bool Resizable = true);
 
 public sealed record RenderRectangle(double X, double Y, double Width, double Height);
