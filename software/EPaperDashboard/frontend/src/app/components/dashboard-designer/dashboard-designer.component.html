@@ -132,8 +132,8 @@
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Canvas</h5>
-          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="livePreviewLoading() || renderedCanvasLoading()" title="Refresh rendered preview and source data">
-            @if (livePreviewLoading() || renderedCanvasLoading()) {
+          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="renderedCanvasLoading()" title="Refresh rendered preview and source data">
+            @if (renderedCanvasLoading()) {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             } @else {
             <i class="fa fa-sync"></i>
@@ -154,6 +154,12 @@
                   Rendering preview…
                 </div>
               }
+              @if (renderedCanvasLoading() && renderedCanvasImageUrl()) {
+                <div class="rendered-canvas-status rendered-canvas-status-updating">
+                  <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                  Updating…
+                </div>
+              }
               @if (renderedCanvasError()) {
                 <div class="rendered-canvas-status rendered-canvas-status-error" [title]="renderedCanvasError()">
                   <i class="fa fa-triangle-exclamation"></i>
@@ -164,42 +170,14 @@
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
                 (mousedown)="onWidgetMouseDown($event, widget)">
-                <div class="widget-content">
-                  <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
-                    [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
-                    [calendarEventsByEntityId]="calendarEventsByEntityId()"
-                    [weatherForecastsByKey]="weatherForecastsByKey()"
-                    [rssFeedEntriesByEntityId]="rssFeedEntriesByEntityId()"
-                    [historyDataByEntityId]="historyDataByEntityId()"
-                    [generatedContentByWidgetId]="generatedContentByWidgetId()"
-                    [sourceStatuses]="previewSourceStatuses()"
-                    [appVersion]="previewAppVersion()"
-                    [dashboardId]="dashboardId"
-                    [designerSettings]="layout()"
-                    [dataFetched]="livePreviewEverFetched()">
-                  </app-widget-preview>
-                </div>
+                <span class="widget-shell-label">{{ widget.type }}</span>
               </div>
               }
 
               <!-- AI-generated widgets (read-only overlay) -->
               @for (widget of aiGeneratedWidgets(); track widget.id) {
               <div class="widget-container ai-widget" [ngStyle]="getWidgetStyle(widget)">
-                <div class="widget-content">
-                  <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
-                    [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
-                    [calendarEventsByEntityId]="calendarEventsByEntityId()"
-                    [weatherForecastsByKey]="weatherForecastsByKey()"
-                    [rssFeedEntriesByEntityId]="rssFeedEntriesByEntityId()"
-                    [historyDataByEntityId]="historyDataByEntityId()"
-                    [generatedContentByWidgetId]="generatedContentByWidgetId()"
-                    [sourceStatuses]="previewSourceStatuses()"
-                    [appVersion]="previewAppVersion()"
-                    [dashboardId]="dashboardId"
-                    [designerSettings]="layout()"
-                    [dataFetched]="livePreviewEverFetched()">
-                  </app-widget-preview>
-                </div>
+                <span class="widget-shell-label">{{ widget.type }}</span>
               </div>
               }
 
@@ -242,6 +220,9 @@
                         <app-widget-element-overlay [geometry]="geometry"
                           [snapStep]="getSelectedWidgetSnapStep()"
                           [showGuides]="getSelectedWidgetShowGuides()"
+                          [previewImageUrl]="renderedCanvasImageUrl()"
+                          [previewWidth]="layout().width"
+                          [previewHeight]="layout().height"
                           (elementChange)="onEditableElementChange($event)" />
                       }
                     }

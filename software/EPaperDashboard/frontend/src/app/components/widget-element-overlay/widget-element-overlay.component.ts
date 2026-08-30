@@ -28,6 +28,7 @@ interface PointerInteraction {
   startClientX: number;
   startClientY: number;
   startPosition: RenderRectangle;
+  captureTarget: HTMLElement | null;
 }
 
 @Component({
@@ -41,6 +42,9 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) geometry!: WidgetRenderGeometry;
   @Input() snapStep = 2;
   @Input() showGuides = true;
+  @Input() previewImageUrl = '';
+  @Input() previewWidth = 0;
+  @Input() previewHeight = 0;
   @Output() elementChange = new EventEmitter<EditableElementChange>();
 
   readonly handles: readonly ResizeHandle[] = ['n', 's', 'e', 'w', 'nw', 'ne', 'sw', 'se'];
@@ -51,6 +55,10 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
   private interaction: PointerInteraction | null = null;
   private readonly pointerMove = (event: PointerEvent) => this.onPointerMove(event);
   private readonly pointerUp = (event: PointerEvent) => this.onPointerUp(event);
+  private readonly keyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') this.cancelInteraction();
+  };
+  private readonly windowBlur = () => this.cancelInteraction();
 
   constructor(
     private readonly host: ElementRef<HTMLElement>,
@@ -100,10 +108,23 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
   }
 
   elementLabel(element: EditableWidgetElementGeometry): string {
+    if (element.label) return element.label;
     if (element.kind === 'title') return 'Title';
     if (element.kind === 'badge') return `Badge ${(element.index ?? 0) + 1}`;
     if (element.kind === 'weather-item') return `Weather item ${(element.index ?? 0) + 1}`;
     return element.kind;
+  }
+
+  isInteracting(element: EditableWidgetElementGeometry): boolean {
+    return this.interaction?.element.id === element.id;
+  }
+
+  ghostStyle(element: EditableWidgetElementGeometry): Record<string, string> {
+    return {
+      backgroundImage: this.previewImageUrl ? `url("${this.previewImageUrl}")` : 'none',
+      backgroundSize: `${this.previewWidth}px ${this.previewHeight}px`,
+      backgroundPosition: `${-element.bounds.x}px ${-element.bounds.y}px`,
+    };
   }
 
   onElementPointerDown(event: PointerEvent, element: EditableWidgetElementGeometry): void {
@@ -126,6 +147,25 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     this.beginInteraction(event, element, 'resize', handle);
   }
 
+  onElementKeyDown(event: KeyboardEvent, element: EditableWidgetElementGeometry): void {
+    if (!element.movable || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.selectedId = element.id;
+    const current = this.getPosition(element);
+    const amount = event.altKey ? 0.5 : Math.max(this.snapStep, 1) * (event.shiftKey ? 5 : 1);
+    const next = {
+      ...current,
+      x: Math.max(0, Math.min(100 - current.width,
+        current.x + (event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : 0))),
+      y: Math.max(0, Math.min(100 - current.height,
+        current.y + (event.key === 'ArrowUp' ? -amount : event.key === 'ArrowDown' ? amount : 0))),
+    };
+    this.positions.set(element.id, next);
+    this.elementChange.emit({ element, position: next });
+    this.cdr.markForCheck();
+  }
+
   private beginInteraction(
     event: PointerEvent,
     element: EditableWidgetElementGeometry,
@@ -140,10 +180,14 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
       startClientX: event.clientX,
       startClientY: event.clientY,
       startPosition: { ...this.getPosition(element) },
+      captureTarget: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
     };
+    this.interaction.captureTarget?.setPointerCapture?.(event.pointerId);
     document.addEventListener('pointermove', this.pointerMove);
     document.addEventListener('pointerup', this.pointerUp);
     document.addEventListener('pointercancel', this.pointerUp);
+    document.addEventListener('keydown', this.keyDown);
+    window.addEventListener('blur', this.windowBlur);
     this.cdr.markForCheck();
   }
 
@@ -175,6 +219,9 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     const interaction = this.interaction;
     if (!interaction || interaction.pointerId !== event.pointerId) return;
     const position = { ...this.getPosition(interaction.element) };
+    if (interaction.captureTarget?.hasPointerCapture?.(interaction.pointerId)) {
+      interaction.captureTarget.releasePointerCapture(interaction.pointerId);
+    }
     this.interaction = null;
     this.guides = [];
     this.detachListeners();
@@ -190,8 +237,8 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     dx: number,
     dy: number,
   ): RenderRectangle {
-    let x = start.x + dx;
-    let y = start.y + dy;
+    let x = this.snap(start.x + dx);
+    let y = this.snap(start.y + dy);
     this.guides = [];
 
     if (this.showGuides) {
@@ -199,9 +246,6 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
       x = snapped.x;
       y = snapped.y;
     }
-    x = this.snap(x);
-    y = this.snap(y);
-
     return {
       ...start,
       x: Math.max(0, Math.min(100 - start.width, x)),
@@ -244,10 +288,8 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     height: number,
   ): { x: number; y: number } {
     const threshold = Math.max(this.snapStep, 2);
-    let resultX = x;
-    let resultY = y;
-    const vertical = new Set<number>();
-    const horizontal = new Set<number>();
+    let bestX: { distance: number; value: number; guide: number } | null = null;
+    let bestY: { distance: number; value: number; guide: number } | null = null;
 
     for (const element of this.geometry.elements) {
       if (element.id === id) continue;
@@ -257,8 +299,10 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
       for (const source of movingX) {
         for (const target of otherX) {
           if (Math.abs(source - target) < threshold) {
-            resultX = x + target - source;
-            vertical.add(target);
+            const distance = Math.abs(source - target);
+            if (!bestX || distance < bestX.distance) {
+              bestX = { distance, value: x + target - source, guide: target };
+            }
           }
         }
       }
@@ -267,18 +311,19 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
       for (const source of movingY) {
         for (const target of otherY) {
           if (Math.abs(source - target) < threshold) {
-            resultY = y + target - source;
-            horizontal.add(target);
+            const distance = Math.abs(source - target);
+            if (!bestY || distance < bestY.distance) {
+              bestY = { distance, value: y + target - source, guide: target };
+            }
           }
         }
       }
     }
 
-    this.guides = [
-      ...Array.from(vertical, position => ({ orientation: 'vertical' as const, position })),
-      ...Array.from(horizontal, position => ({ orientation: 'horizontal' as const, position })),
-    ];
-    return { x: resultX, y: resultY };
+    this.guides = [];
+    if (bestX) this.guides.push({ orientation: 'vertical', position: bestX.guide });
+    if (bestY) this.guides.push({ orientation: 'horizontal', position: bestY.guide });
+    return { x: bestX?.value ?? x, y: bestY?.value ?? y };
   }
 
   private snap(value: number): number {
@@ -300,5 +345,20 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     document.removeEventListener('pointermove', this.pointerMove);
     document.removeEventListener('pointerup', this.pointerUp);
     document.removeEventListener('pointercancel', this.pointerUp);
+    document.removeEventListener('keydown', this.keyDown);
+    window.removeEventListener('blur', this.windowBlur);
+  }
+
+  private cancelInteraction(): void {
+    const interaction = this.interaction;
+    if (!interaction) return;
+    this.positions.set(interaction.element.id, { ...interaction.startPosition });
+    if (interaction.captureTarget?.hasPointerCapture?.(interaction.pointerId)) {
+      interaction.captureTarget.releasePointerCapture(interaction.pointerId);
+    }
+    this.interaction = null;
+    this.guides = [];
+    this.detachListeners();
+    this.cdr.markForCheck();
   }
 }

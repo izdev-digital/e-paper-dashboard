@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace EPaperDashboard.Models.Rendering;
 
 /// <summary>
@@ -13,8 +15,7 @@ public sealed record DashboardDesignerPreviewResponse(
     long Revision,
     int Width,
     int Height,
-    string ContentType,
-    string ImageBase64,
+    string ImageUrl,
     DateTimeOffset RenderedAt,
     IReadOnlyList<WidgetRenderGeometry> Widgets);
 
@@ -32,7 +33,26 @@ public sealed record EditableWidgetElementGeometry(
     int? Index,
     RenderRectangle Bounds,
     RenderRectangle Position,
+    EditableElementLayoutBinding? LayoutBinding = null,
+    string? Label = null,
     bool Movable = true,
     bool Resizable = true);
+
+/// <summary>
+/// JSON Pointer paths into the transient layout. The browser applies these bindings generically,
+/// so adding an editable renderer does not require widget-type-specific persistence code.
+/// </summary>
+public sealed record EditableElementLayoutBinding(
+    string XPath,
+    string YPath,
+    string WidthPath,
+    string HeightPath,
+    JsonElement? SeedConfig = null);
+
+/// <summary>
+/// Renderer-owned layout plan shared by native drawing and designer geometry.
+/// </summary>
+public sealed record EditableWidgetRenderPlan(
+    IReadOnlyList<EditableWidgetElementGeometry> Elements);
 
 public sealed record RenderRectangle(double X, double Y, double Width, double Height);

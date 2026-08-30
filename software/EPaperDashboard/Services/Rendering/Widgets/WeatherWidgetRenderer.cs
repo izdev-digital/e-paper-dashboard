@@ -13,6 +13,7 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
+        var renderPlan = BuildRenderPlan(widget, contentRect);
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
@@ -41,7 +42,7 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
             if (item.Type == "title" && !widget.ShowTitle) visible = false;
             if (!visible) continue;
 
-            var itemRect = ToRectangle(CreateElement(item, itemIndex, contentRect).Bounds);
+            var itemRect = ToRectangle(renderPlan.Elements.First(element => element.Index == itemIndex).Bounds);
 
             switch (item.Type)
             {
@@ -94,22 +95,44 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
         return Task.CompletedTask;
     }
 
-    public IReadOnlyList<EditableWidgetElementGeometry> GetEditableElements(
+    public EditableWidgetRenderPlan BuildRenderPlan(
         WidgetConfigEntry widget,
         RectangleF contentRect)
     {
         var items = GetWeatherItems(widget.Config);
-        return items
+        JsonElement? seedConfig = widget.Config.TryGetProperty("items", out var configuredItems)
+            && configuredItems.ValueKind == JsonValueKind.Array
+            && configuredItems.GetArrayLength() > 0
+                ? null
+                : JsonSerializer.SerializeToElement(new
+                {
+                    items = items.Select(item => new
+                    {
+                        id = item.Id,
+                        type = item.Type,
+                        visible = item.Visible,
+                        x = item.X,
+                        y = item.Y,
+                        w = item.W,
+                        h = item.H,
+                        attributeKey = item.AttributeKey,
+                        label = item.Label,
+                        icon = item.Icon,
+                    })
+                });
+        var elements = items
             .Select((item, index) => (item, index))
             .Where(entry => entry.item.Visible && (entry.item.Type != "title" || widget.ShowTitle))
-            .Select(entry => CreateElement(entry.item, entry.index, contentRect))
+            .Select(entry => CreateElement(entry.item, entry.index, contentRect, seedConfig))
             .ToList();
+        return new EditableWidgetRenderPlan(elements);
     }
 
     private static EditableWidgetElementGeometry CreateElement(
         WeatherItemEntry item,
         int index,
-        RectangleF contentRect)
+        RectangleF contentRect,
+        JsonElement? seedConfig)
     {
         var position = new RenderRectangle(item.X, item.Y, item.W, item.H);
         var bounds = new RenderRectangle(
@@ -118,7 +141,18 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
             item.W / 100.0 * contentRect.Width,
             item.H / 100.0 * contentRect.Height);
         return new EditableWidgetElementGeometry(
-            $"weather-item-{index}", "weather-item", index, bounds, position);
+            string.IsNullOrWhiteSpace(item.Id) ? $"weather-item-{index}" : $"weather-item-{item.Id}",
+            "weather-item",
+            index,
+            bounds,
+            position,
+            new EditableElementLayoutBinding(
+                $"/config/items/{index}/x",
+                $"/config/items/{index}/y",
+                $"/config/items/{index}/w",
+                $"/config/items/{index}/h",
+                seedConfig),
+            item.Label ?? item.Type);
     }
 
     private static RectangleF ToRectangle(RenderRectangle rectangle) => new(
@@ -141,20 +175,22 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
         return (itemRect.X, itemRect.Width);
     }
 
-    private record WeatherItemEntry(string Type, bool Visible, double X, double Y, double W, double H, string? AttributeKey, string? Label, string? Icon);
+    private record WeatherItemEntry(string Type, bool Visible, double X, double Y, double W, double H, string? AttributeKey, string? Label, string? Icon, string? Id = null);
 
     private static List<WeatherItemEntry> GetWeatherItems(JsonElement config)
     {
         var defaults = new List<WeatherItemEntry>
         {
-            new("title", true, 0, 0, 100, 20, null, null, null),
-            new("temperature", true, 0, 22, 50, 20, null, null, "fa-temperature-half"),
-            new("condition", true, 50, 22, 50, 20, null, null, "fa-cloud-sun"),
-            new("pressure", true, 0, 44, 50, 20, null, null, "fa-gauge"),
-            new("attribute", true, 50, 44, 50, 20, "humidity", "Humidity", "fa-droplet"),
+            new("title", true, 0, 0, 100, 20, null, null, null, "weather-title"),
+            new("temperature", true, 0, 22, 50, 20, null, null, "fa-temperature-half", "weather-temperature"),
+            new("condition", true, 50, 22, 50, 20, null, null, "fa-cloud-sun", "weather-condition"),
+            new("pressure", true, 0, 44, 50, 20, null, null, "fa-gauge", "weather-pressure"),
+            new("attribute", true, 50, 44, 50, 20, "humidity", "Humidity", "fa-droplet", "weather-humidity"),
         };
 
-        if (config.TryGetProperty("items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
+        if (config.TryGetProperty("items", out var itemsEl)
+            && itemsEl.ValueKind == JsonValueKind.Array
+            && itemsEl.GetArrayLength() > 0)
         {
             var result = new List<WeatherItemEntry>();
             foreach (var el in itemsEl.EnumerateArray())
@@ -168,7 +204,8 @@ public sealed class WeatherWidgetRenderer(RenderingUtilities utils) : IEditableW
                 var attrKey = el.TryGetProperty("attributeKey", out var akProp) ? akProp.GetString() : null;
                 var label = el.TryGetProperty("label", out var lProp) ? lProp.GetString() : null;
                 var icon = el.TryGetProperty("icon", out var iProp) ? iProp.GetString() : null;
-                result.Add(new WeatherItemEntry(type, visible, x, y, w, h, attrKey, label, icon));
+                var id = el.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                result.Add(new WeatherItemEntry(type, visible, x, y, w, h, attrKey, label, icon, id));
             }
             return result;
         }

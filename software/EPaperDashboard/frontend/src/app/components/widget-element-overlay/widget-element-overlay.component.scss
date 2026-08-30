@@ -45,6 +45,17 @@
   pointer-events: none;
 }
 
+.element-image-ghost {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  overflow: hidden;
+  background-repeat: no-repeat;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .element-handle {
   position: absolute;
   z-index: 3;

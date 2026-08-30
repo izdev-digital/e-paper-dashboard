@@ -6,6 +6,8 @@ import { applyEditableElementChange } from './widget-element-layout';
 function element(
   kind: string,
   index: number | null,
+  paths: [string, string, string, string],
+  seedConfig?: Record<string, unknown>,
 ): EditableWidgetElementGeometry {
   return {
     id: index == null ? kind : `${kind}-${index}`,
@@ -13,12 +15,37 @@ function element(
     index,
     bounds: { x: 0, y: 0, width: 10, height: 10 },
     position: { x: 0, y: 0, width: 10, height: 10 },
+    layoutBinding: {
+      xPath: paths[0], yPath: paths[1], widthPath: paths[2], heightPath: paths[3], seedConfig,
+    },
+    label: null,
     movable: true,
     resizable: true,
   };
 }
 
 describe('applyEditableElementChange', () => {
+  it('applies renderer bindings without knowing the widget type', () => {
+    const widget = {
+      id: 'future-1',
+      type: 'future-widget',
+      position: { x: 0, y: 0, w: 2, h: 2 },
+      config: { regions: [{ placement: { x: 1, y: 2, w: 3, h: 4 } }] },
+    } as unknown as WidgetConfig;
+
+    const updated = applyEditableElementChange(widget, {
+      element: element('region', 0, [
+        '/config/regions/0/placement/x', '/config/regions/0/placement/y',
+        '/config/regions/0/placement/w', '/config/regions/0/placement/h',
+      ]),
+      position: { x: 10, y: 20, width: 30, height: 40 },
+    });
+
+    expect(updated.config).toMatchObject({
+      regions: [{ placement: { x: 10, y: 20, w: 30, h: 40 } }],
+    });
+  });
+
   it('updates a header title without mutating the widget', () => {
     const widget: WidgetConfig = {
       id: 'header-1',
@@ -28,7 +55,9 @@ describe('applyEditableElementChange', () => {
     };
 
     const updated = applyEditableElementChange(widget, {
-      element: element('title', null),
+      element: element('title', null, [
+        '/config/titleX', '/config/titleY', '/config/titleW', '/config/titleH',
+      ]),
       position: { x: 11.14, y: 12.26, width: 60.04, height: 24.08 },
     });
 
@@ -55,7 +84,10 @@ describe('applyEditableElementChange', () => {
     };
 
     const updated = applyEditableElementChange(widget, {
-      element: element('badge', 1),
+      element: element('badge', 1, [
+        '/config/badges/1/x', '/config/badges/1/y',
+        '/config/badges/1/w', '/config/badges/1/h',
+      ]),
       position: { x: 20, y: 30, width: 40, height: 15 },
     });
 
@@ -75,7 +107,18 @@ describe('applyEditableElementChange', () => {
     };
 
     const updated = applyEditableElementChange(widget, {
-      element: element('weather-item', 2),
+      element: element('weather-item', 2, [
+        '/config/items/2/x', '/config/items/2/y',
+        '/config/items/2/w', '/config/items/2/h',
+      ], {
+        items: [
+          { type: 'title', x: 0, y: 0, w: 100, h: 20 },
+          { type: 'temperature', x: 0, y: 22, w: 50, h: 20 },
+          { type: 'condition', x: 50, y: 22, w: 50, h: 20 },
+          { type: 'pressure', x: 0, y: 44, w: 50, h: 20 },
+          { type: 'attribute', x: 50, y: 44, w: 50, h: 20 },
+        ],
+      }),
       position: { x: 44, y: 25, width: 48, height: 18 },
     });
     const items = (updated.config as { items: Array<Record<string, unknown>> }).items;

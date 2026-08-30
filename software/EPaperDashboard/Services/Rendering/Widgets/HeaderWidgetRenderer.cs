@@ -17,6 +17,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
+        var renderPlan = BuildRenderPlan(widget, contentRect);
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
@@ -33,13 +34,8 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
 
         if (widget.ShowTitle && !string.IsNullOrEmpty(title))
         {
-            var titleX = RenderingUtilities.GetDoubleProp(widget.Config, "titleX") ?? (isIconOnLeft ? 58.0 : 0.0);
-            var titleY = RenderingUtilities.GetDoubleProp(widget.Config, "titleY") ?? 0.0;
-            var titleW = RenderingUtilities.GetDoubleProp(widget.Config, "titleW") ?? 42.0;
-            var titleH = RenderingUtilities.GetDoubleProp(widget.Config, "titleH") ?? 50.0;
-
-            var sectionRect = ToRectangle(CreateElement(
-                "title", "title", null, titleX, titleY, titleW, titleH, contentRect).Bounds);
+            var titleElement = renderPlan.Elements.First(element => element.Kind == "title");
+            var sectionRect = ToRectangle(titleElement.Bounds);
 
             var effectiveIconSize = Math.Min(iconSize, sectionRect.Height);
 
@@ -91,14 +87,9 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
                 bool hasContent = !string.IsNullOrWhiteSpace(bEntityId) || !string.IsNullOrWhiteSpace(bIcon);
                 if (!hasContent) { badgeIndex++; continue; }
 
-                var bx = RenderingUtilities.GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
-                var by = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
-                var bw = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
-                var bh = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
-
-                var badgeRect = ToRectangle(CreateElement(
-                    $"badge-{badgeIndex}", "badge", badgeIndex,
-                    bx, by, bw, bh, contentRect).Bounds);
+                var badgeElement = renderPlan.Elements.First(element =>
+                    element.Kind == "badge" && element.Index == badgeIndex);
+                var badgeRect = ToRectangle(badgeElement.Bounds);
 
                 float badgePadding = 4f;
                 float textStartX = badgeRect.X + badgePadding;
@@ -130,7 +121,7 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
         return Task.CompletedTask;
     }
 
-    public IReadOnlyList<EditableWidgetElementGeometry> GetEditableElements(
+    public EditableWidgetRenderPlan BuildRenderPlan(
         WidgetConfigEntry widget,
         RectangleF contentRect)
     {
@@ -142,7 +133,11 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
         var titleH = RenderingUtilities.GetDoubleProp(widget.Config, "titleH") ?? 50.0;
 
         if (widget.ShowTitle)
-            result.Add(CreateElement("title", "title", null, titleX, titleY, titleW, titleH, contentRect));
+            result.Add(CreateElement(
+                "title", "title", null, titleX, titleY, titleW, titleH, contentRect,
+                new EditableElementLayoutBinding(
+                    "/config/titleX", "/config/titleY", "/config/titleW", "/config/titleH"),
+                "Header title"));
 
         if (widget.Config.TryGetProperty("badges", out var badges) && badges.ValueKind == JsonValueKind.Array)
         {
@@ -153,14 +148,23 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
                 var y = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
                 var w = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
                 var h = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
+                var configuredId = badge.TryGetProperty("id", out var idProperty)
+                    ? idProperty.GetString()
+                    : null;
                 result.Add(CreateElement(
-                    $"badge-{badgeIndex}", "badge", badgeIndex,
-                    x, y, w, h, contentRect));
+                    string.IsNullOrWhiteSpace(configuredId) ? $"badge-{badgeIndex}" : $"badge-{configuredId}",
+                    "badge", badgeIndex, x, y, w, h, contentRect,
+                    new EditableElementLayoutBinding(
+                        $"/config/badges/{badgeIndex}/x",
+                        $"/config/badges/{badgeIndex}/y",
+                        $"/config/badges/{badgeIndex}/w",
+                        $"/config/badges/{badgeIndex}/h"),
+                    $"Badge {badgeIndex + 1}"));
                 badgeIndex++;
             }
         }
 
-        return result;
+        return new EditableWidgetRenderPlan(result);
     }
 
     private static EditableWidgetElementGeometry CreateElement(
@@ -171,7 +175,9 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
         double y,
         double width,
         double height,
-        RectangleF contentRect)
+        RectangleF contentRect,
+        EditableElementLayoutBinding layoutBinding,
+        string label)
     {
         var position = new RenderRectangle(x, y, width, height);
         var bounds = new RenderRectangle(
@@ -179,7 +185,8 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
             contentRect.Y + y / 100.0 * contentRect.Height,
             width / 100.0 * contentRect.Width,
             height / 100.0 * contentRect.Height);
-        return new EditableWidgetElementGeometry(id, kind, index, bounds, position);
+        return new EditableWidgetElementGeometry(
+            id, kind, index, bounds, position, layoutBinding, label);
     }
 
     private static RectangleF ToRectangle(RenderRectangle rectangle) => new(

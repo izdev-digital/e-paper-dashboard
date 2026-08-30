@@ -7,23 +7,13 @@ import { Subscription } from 'rxjs';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
-import type { TodoItem } from '../../services/todo.service';
 import { AiService } from '../../services/ai.service';
-import {
-  CalendarEventData,
-  DataSourceStatus,
-  DashboardPreviewDataService,
-  HistoryStateData,
-  RssFeedEntryData,
-  WeatherForecastData,
-} from '../../services/dashboard-preview-data.service';
 import {
   DashboardRenderPreviewService,
   WidgetRenderGeometry,
 } from '../../services/dashboard-render-preview.service';
 import { DialogService } from '../../services/dialog.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
-import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 import { WidgetElementOverlayComponent } from '../widget-element-overlay/widget-element-overlay.component';
@@ -41,7 +31,6 @@ import {
   ColorScheme,
   DEFAULT_COLOR_SCHEMES,
   WidgetPosition,
-  HassEntityState,
   DEFAULT_DASHBOARD_SIZE,
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
@@ -59,7 +48,7 @@ import {
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
+  imports: [CommonModule, FormsModule, RouterModule, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
@@ -70,11 +59,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private readonly dashboardService = inject(DashboardService);
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
-  private readonly previewDataService = inject(DashboardPreviewDataService);
   private readonly renderPreviewService = inject(DashboardRenderPreviewService);
   private readonly aiService = inject(AiService);
   private readonly dialogService = inject(DialogService);
-  private previewDataSubscription?: Subscription;
   private renderPreviewSubscription?: Subscription;
 
   // Dashboard data
@@ -118,22 +105,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   selectedWidget = signal<WidgetConfig | null>(null);
   ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
   isLoading = signal(false);
-  livePreviewLoading = signal(false);
-  /** Becomes true after the first successful refreshLivePreview(). */
-  livePreviewEverFetched = signal(false);
-  entityStates = signal<Record<string, HassEntityState>>({});
   availableEntities = signal<HassEntity[]>([]);
   entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
-  todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
-  calendarEventsByEntityId = signal<Record<string, CalendarEventData[]>>({});
-  weatherForecastsByKey = signal<Record<string, WeatherForecastData[]>>({});
-  rssFeedEntriesByEntityId = signal<Record<string, RssFeedEntryData[]>>({});
-  historyDataByEntityId = signal<Record<string, HistoryStateData[]>>({});
-  generatedContentByWidgetId = signal<Record<string, string>>({});
-  previewSourceStatuses = signal<Record<string, DataSourceStatus>>({});
-  previewAppVersion = signal('');
-  previewFetchedAt = signal<string | null>(null);
   renderedCanvasImageUrl = signal('');
   renderedCanvasLoading = signal(false);
   renderedCanvasError = signal('');
@@ -164,6 +138,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private resizeTimer: any = null;
   private renderPreviewTimer: ReturnType<typeof setTimeout> | null = null;
   private renderPreviewRevision = 0;
+  private renderedLayoutSignature = '';
   private forceRefreshOnNextRender = false;
   private viewportWidth = signal(typeof window !== 'undefined' ? window.innerWidth : 1024);
   private swipeStartY = 0;
@@ -263,7 +238,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   ngOnDestroy(): void {
-    this.previewDataSubscription?.unsubscribe();
     this.renderPreviewSubscription?.unsubscribe();
     if (this.longPressTimer) clearTimeout(this.longPressTimer);
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
@@ -625,6 +599,8 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   getSelectedWidgetGeometry(): WidgetRenderGeometry | undefined {
+    if (this.renderedCanvasLoading()
+        || this.renderedLayoutSignature !== JSON.stringify(this.getCompleteRenderLayout())) return undefined;
     const selected = this.selectedWidget();
     return selected ? this.renderedWidgetGeometry()[selected.id] : undefined;
   }
@@ -1244,34 +1220,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   refreshLivePreview(): void {
-    if (!this.dashboardId) {
-      return;
-    }
-
-    this.livePreviewLoading.set(true);
-    this.previewDataSubscription?.unsubscribe();
-    this.previewDataSubscription = this.previewDataService.resolve(this.dashboardId, this.layout()).subscribe({
-      next: data => {
-        this.entityStates.set(data.entityStates || {});
-        this.todoItemsByEntityId.set(data.todoItems || {});
-        this.calendarEventsByEntityId.set(data.calendarEvents || {});
-        this.weatherForecastsByKey.set(data.weatherForecasts || {});
-        this.rssFeedEntriesByEntityId.set(data.rssFeedEntries || {});
-        this.historyDataByEntityId.set(data.historyData || {});
-        this.generatedContentByWidgetId.set(data.generatedContent || {});
-        this.previewSourceStatuses.set(data.sourceStatuses || {});
-        this.previewAppVersion.set(data.appVersion || '');
-        this.previewFetchedAt.set(data.fetchedAt || null);
-        this.livePreviewEverFetched.set(true);
-        this.livePreviewLoading.set(false);
-        this.scheduleRenderedCanvas(true, 0);
-      },
-      error: (err) => {
-        this.livePreviewLoading.set(false);
-        const msg = err?.error?.error || err?.error || err?.message || 'Failed to resolve preview data';
-        this.toastService.show(msg, 'error');
-      }
-    });
+    if (this.dashboardId) this.scheduleRenderedCanvas(true, 0);
   }
 
   private scheduleRenderedCanvas(refreshData = false, delayMs = 300): void {
@@ -1288,18 +1237,21 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private renderRenderedCanvas(): void {
     const revision = ++this.renderPreviewRevision;
     const refreshData = this.forceRefreshOnNextRender;
+    const renderLayout = this.getCompleteRenderLayout();
+    const renderLayoutSignature = JSON.stringify(renderLayout);
     this.forceRefreshOnNextRender = false;
 
     this.renderPreviewSubscription?.unsubscribe();
     this.renderedCanvasLoading.set(true);
     this.renderedCanvasError.set('');
     this.renderPreviewSubscription = this.renderPreviewService
-      .render(this.dashboardId, this.getCompleteRenderLayout(), revision, refreshData)
+      .render(this.dashboardId, renderLayout, revision, refreshData)
       .subscribe({
         next: preview => {
           if (preview.revision !== this.renderPreviewRevision) return;
 
           this.renderedCanvasImageUrl.set(this.renderPreviewService.toImageUrl(preview));
+          this.renderedLayoutSignature = renderLayoutSignature;
           this.renderedCanvasAt.set(preview.renderedAt);
           this.renderedWidgetGeometry.set(Object.fromEntries(
             preview.widgets.map(widget => [widget.id, widget]),

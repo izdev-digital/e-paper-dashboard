@@ -54,6 +54,7 @@ public class DashboardSsrControllerTests
         return new DashboardSsrController(
             new DashboardService(_dashboardRepository.Object),
             imageRenderer,
+            new DesignerPreviewImageStore(TimeProvider.System),
             Mock.Of<IPageToImageRenderingService>(),
             Mock.Of<IDeploymentStrategy>(),
             Mock.Of<IEnvironmentConfiguration>(),
@@ -161,8 +162,11 @@ public class DashboardSsrControllerTests
         response.Revision.Should().Be(17);
         response.Width.Should().Be(120);
         response.Height.Should().Be(60);
-        response.ContentType.Should().Be("image/png");
-        Convert.FromBase64String(response.ImageBase64).Should().NotBeEmpty();
+        response.ImageUrl.Should().Contain($"/api/dashboards/{dashboardId.Value}/designer-preview/");
+        var token = response.ImageUrl.Split('/')[5];
+        var imageResult = sut.GetDesignerPreviewImage(dashboardId.Value, token);
+        imageResult.Should().BeOfType<FileContentResult>()
+            .Which.FileContents.Should().NotBeEmpty();
         response.Widgets.Should().ContainSingle(widget =>
             widget.Id == "widget-1"
             && widget.Bounds.Width > 0

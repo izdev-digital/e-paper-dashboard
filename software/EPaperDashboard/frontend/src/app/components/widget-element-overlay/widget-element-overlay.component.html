@@ -6,7 +6,12 @@
 @for (element of geometry.elements; track element.id) {
   <div class="editable-element" [class.selected]="selectedId === element.id"
     [ngStyle]="elementStyle(element)" [title]="'Select and move ' + elementLabel(element)"
+    tabindex="0" role="button" [attr.aria-label]="'Move ' + elementLabel(element)"
+    (keydown)="onElementKeyDown($event, element)"
     (pointerdown)="onElementPointerDown($event, element)">
+    @if (isInteracting(element) && previewImageUrl) {
+      <span class="element-image-ghost" [ngStyle]="ghostStyle(element)"></span>
+    }
     <span class="element-label">{{ elementLabel(element) }}</span>
     @if (selectedId === element.id && element.resizable) {
       @for (handle of handles; track handle) {

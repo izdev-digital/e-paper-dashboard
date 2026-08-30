@@ -23,6 +23,7 @@ namespace EPaperDashboard.Controllers;
 public class DashboardSsrController(
     DashboardService dashboardService,
     DashboardImageRenderingService dashboardImageRenderingService,
+    DesignerPreviewImageStore designerPreviewImageStore,
     IPageToImageRenderingService renderingService,
     IDeploymentStrategy deploymentStrategy,
     IEnvironmentConfiguration environmentConfiguration,
@@ -94,7 +95,7 @@ public class DashboardSsrController(
         if (dashboard.Value.UserId != CurrentUserId)
             return Forbid();
 
-        var validationError = ValidateTransientLayout(layout);
+        var validationError = TransientLayoutValidator.Validate(layout);
         if (validationError is not null)
             return BadRequest(validationError);
 
@@ -105,7 +106,8 @@ public class DashboardSsrController(
                 dashboard.Value.Id.ToString(),
                 layoutToRender,
                 HttpContext.RequestAborted,
-                bypassCache: refresh);
+                bypassCache: refresh,
+                cacheResult: false);
             using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 
             var (contentType, encoder) = GetEncoder(format);
@@ -144,7 +146,7 @@ public class DashboardSsrController(
         if (request.Layout is null)
             return BadRequest("A layout is required.");
 
-        var validationError = ValidateTransientLayout(request.Layout);
+        var validationError = TransientLayoutValidator.Validate(request.Layout);
         if (validationError is not null)
             return BadRequest(validationError);
 
@@ -158,17 +160,20 @@ public class DashboardSsrController(
                 dashboard.Value.Id.ToString(),
                 layoutToRender,
                 HttpContext.RequestAborted,
-                bypassCache: request.RefreshData);
+                bypassCache: request.RefreshData,
+                cacheResult: false);
 
             await using var stream = new MemoryStream();
             await image.SaveAsync(stream, new PngEncoder(), HttpContext.RequestAborted);
 
+            var png = stream.ToArray();
+            var token = designerPreviewImageStore.Add(
+                CurrentUserId.ToString(), dashboard.Value.Id.ToString(), png);
             return Ok(new DashboardDesignerPreviewResponse(
                 request.Revision,
                 image.Width,
                 image.Height,
-                "image/png",
-                Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)),
+                $"/api/dashboards/{id}/designer-preview/{token}/image",
                 timeProvider.GetUtcNow(),
                 dashboardImageRenderingService.ResolveWidgetGeometry(layoutToRender)));
         }
@@ -180,6 +185,22 @@ public class DashboardSsrController(
         {
             return StatusCode(500, $"Failed to render dashboard preview: {ex.Message}");
         }
+    }
+
+    [HttpGet("{id}/designer-preview/{token}/image")]
+    public IActionResult GetDesignerPreviewImage(string id, string token)
+    {
+        if (!DashboardId.TryParse(id, out var dashboardId))
+            return BadRequest("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
+        if (dashboard.HasNoValue) return NotFound();
+        if (dashboard.Value.UserId != CurrentUserId) return Forbid();
+
+        return designerPreviewImageStore.TryGet(
+            token, CurrentUserId.ToString(), dashboard.Value.Id.ToString(), out var png)
+                ? File(png, "image/png")
+                : NotFound();
     }
 
     /// <summary>
@@ -201,7 +222,7 @@ public class DashboardSsrController(
         if (dashboard.Value.UserId != CurrentUserId)
             return Forbid();
 
-        var validationError = ValidateTransientLayout(layout);
+        var validationError = TransientLayoutValidator.Validate(layout);
         if (validationError is not null)
             return BadRequest(validationError);
 
@@ -322,18 +343,6 @@ public class DashboardSsrController(
         await image.SaveAsync(outStream, encoder);
         outStream.Seek(0, SeekOrigin.Begin);
         return File(outStream, contentType);
-    }
-
-    private static string? ValidateTransientLayout(EPaperDashboard.Models.LayoutConfig layout)
-    {
-        if (layout.Width is < 1 or > 4096 || layout.Height is < 1 or > 4096)
-            return "Dashboard dimensions must be between 1 and 4096 pixels.";
-        if (layout.GridCols is < 1 or > 100 || layout.GridRows is < 1 or > 100)
-            return "Dashboard grid dimensions must be between 1 and 100.";
-        if (layout.Widgets.Count > 500)
-            return "Dashboard cannot contain more than 500 widgets.";
-
-        return null;
     }
 
     private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch

@@ -25,16 +25,25 @@ export interface EditableWidgetElementGeometry {
   index: number | null;
   bounds: RenderRectangle;
   position: RenderRectangle;
+  layoutBinding: EditableElementLayoutBinding | null;
+  label: string | null;
   movable: boolean;
   resizable: boolean;
+}
+
+export interface EditableElementLayoutBinding {
+  xPath: string;
+  yPath: string;
+  widthPath: string;
+  heightPath: string;
+  seedConfig?: Record<string, unknown> | null;
 }
 
 export interface DashboardRenderPreview {
   revision: number;
   width: number;
   height: number;
-  contentType: string;
-  imageBase64: string;
+  imageUrl: string;
   renderedAt: string;
   widgets: WidgetRenderGeometry[];
 }
@@ -56,6 +65,6 @@ export class DashboardRenderPreviewService {
   }
 
   toImageUrl(preview: DashboardRenderPreview): string {
-    return `data:${preview.contentType};base64,${preview.imageBase64}`;
+    return preview.imageUrl;
   }
 }

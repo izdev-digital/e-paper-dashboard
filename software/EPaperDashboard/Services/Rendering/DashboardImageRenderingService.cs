@@ -73,24 +73,37 @@ public sealed class DashboardImageRenderingService
             var contentWidth = Math.Max(0, width - inset * 2);
             var contentHeight = Math.Max(0, height - inset * 2);
             var contentBounds = new RenderRectangle(
-                x + inset, y + inset, contentWidth, contentHeight);
+                (int)(x + inset), (int)(y + inset), contentWidth, contentHeight);
             var editableRenderer = _renderers.TryGetValue(widget.Type, out var renderer)
                 ? renderer as IEditableWidgetRenderer
                 : null;
-            var elements = editableRenderer is not null
-                ? editableRenderer.GetEditableElements(widget, new RectangleF(
-                    (float)contentBounds.X,
-                    (float)contentBounds.Y,
-                    (float)contentBounds.Width,
-                    (float)contentBounds.Height))
-                : [];
+            IReadOnlyList<EditableWidgetElementGeometry> elements = [];
+            var editable = editableRenderer is not null;
+            if (editableRenderer is not null)
+            {
+                try
+                {
+                    elements = editableRenderer.BuildRenderPlan(widget, new RectangleF(
+                        (float)contentBounds.X,
+                        (float)contentBounds.Y,
+                        (float)contentBounds.Width,
+                        (float)contentBounds.Height)).Elements;
+                }
+                catch (Exception ex)
+                {
+                    editable = false;
+                    _logger.LogWarning(ex,
+                        "Failed to resolve editable geometry for widget {WidgetId} ({WidgetType})",
+                        widget.Id, widget.Type);
+                }
+            }
 
             return new WidgetRenderGeometry(
                 widget.Id,
                 widget.Type,
                 new RenderRectangle(x, y, width, height),
                 contentBounds,
-                editableRenderer is not null,
+                editable,
                 elements);
         }).ToList();
     }
@@ -98,13 +111,16 @@ public sealed class DashboardImageRenderingService
     /// <summary>
     /// Renders the dashboard to an ImageSharp image using the typed layout model and live HA data.
     /// Returns a cached result if the same dashboard was rendered within the last 30 seconds,
-    /// unless <paramref name="bypassCache"/> requests a fresh data snapshot.
+    /// unless <paramref name="bypassCache"/> requests a fresh data snapshot. Transient callers
+    /// should set <paramref name="cacheResult"/> to false so unsaved layouts do not retain raw
+    /// pixel buffers in the application cache.
     /// </summary>
     public async Task<Image<Rgba32>> RenderDashboardImageAsync(
         string dashboardId,
         Models.LayoutConfig layoutConfig,
         CancellationToken cancellationToken = default,
-        bool bypassCache = false)
+        bool bypassCache = false,
+        bool cacheResult = true)
     {
         var layoutHash = ComputeLayoutHash(layoutConfig);
         var cacheKey = $"ssr:{dashboardId}:{layoutHash}";
@@ -124,10 +140,14 @@ public sealed class DashboardImageRenderingService
         var data = await _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken, bypassCache);
         var image = await RenderToImageAsync(layout, data, cancellationToken);
 
-        // Cache raw pixel data — avoids PNG encode on write + PNG decode on read
-        var pixelData = new Rgba32[image.Width * image.Height];
-        image.CopyPixelDataTo(pixelData);
-        _cache.Set(cacheKey, new CachedRender(image.Width, image.Height, pixelData), CacheDuration);
+        if (cacheResult)
+        {
+            // Cache raw pixel data — avoids PNG encode on write + PNG decode on read.
+            // Transient designer renders deliberately skip this potentially large allocation.
+            var pixelData = new Rgba32[image.Width * image.Height];
+            image.CopyPixelDataTo(pixelData);
+            _cache.Set(cacheKey, new CachedRender(image.Width, image.Height, pixelData), CacheDuration);
+        }
 
         return image;
     }

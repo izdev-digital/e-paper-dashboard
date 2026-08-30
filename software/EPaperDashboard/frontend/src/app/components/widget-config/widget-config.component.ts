@@ -339,7 +339,11 @@ export class WidgetConfigComponent implements OnChanges {
 
   addBadge(): void {
     const config = this.headerConfig;
-    const newBadge = { entityId: undefined, icon: undefined };
+    const newBadge = {
+      id: `badge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      entityId: undefined,
+      icon: undefined,
+    };
     if (config.badges) {
       config.badges.push(newBadge);
     } else {
@@ -367,13 +371,13 @@ export class WidgetConfigComponent implements OnChanges {
   getWeatherItems(): WeatherItemConfig[] {
     const cfg = this.weatherConfig;
     if (!cfg.items || cfg.items.length === 0) {
-      cfg.items = [...DEFAULT_WEATHER_ITEMS];
+      cfg.items = DEFAULT_WEATHER_ITEMS.map(item => ({ ...item }));
     }
     return cfg.items;
   }
 
   trackByWeatherItem(index: number, item: WeatherItemConfig): string {
-    return item.type + '-' + (item.attributeKey ?? index);
+    return item.id ?? item.type + '-' + (item.attributeKey ?? index);
   }
 
   toggleWeatherItemVisibility(index: number): void {

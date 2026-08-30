@@ -27,7 +27,7 @@ public interface IWidgetRenderer
 /// </summary>
 public interface IEditableWidgetRenderer : IWidgetRenderer
 {
-    IReadOnlyList<EditableWidgetElementGeometry> GetEditableElements(
+    EditableWidgetRenderPlan BuildRenderPlan(
         WidgetConfigEntry widget,
         RectangleF contentRect);
 }

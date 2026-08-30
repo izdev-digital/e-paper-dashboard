@@ -45,22 +45,20 @@ describe('DashboardRenderPreviewService', () => {
       revision: 9,
       width: 800,
       height: 480,
-      contentType: 'image/png',
-      imageBase64: 'AA==',
+      imageUrl: '/api/dashboards/dashboard-1/designer-preview/token/image',
       renderedAt: '2026-08-30T00:00:00Z',
       widgets: [],
     });
   });
 
-  it('creates a browser image URL from the encoded response', () => {
+  it('uses the bounded binary image URL returned by the backend', () => {
     expect(service.toImageUrl({
       revision: 1,
       width: 1,
       height: 1,
-      contentType: 'image/png',
-      imageBase64: 'AA==',
+      imageUrl: '/api/dashboards/dashboard-1/designer-preview/token/image',
       renderedAt: '2026-08-30T00:00:00Z',
       widgets: [],
-    })).toBe('data:image/png;base64,AA==');
+    })).toBe('/api/dashboards/dashboard-1/designer-preview/token/image');
   });
 });

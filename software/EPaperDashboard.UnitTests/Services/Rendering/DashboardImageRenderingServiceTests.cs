@@ -146,6 +146,27 @@ public class DashboardImageRenderingServiceTests
     }
 
     [Fact]
+    public async Task RenderDashboardImageAsync_TransientResult_DoesNotPopulateRenderCache()
+    {
+        _ssrDataProvider
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+            .ReturnsAsync(new SsrData());
+        var sut = CreateSut();
+        var layout = SimpleLayout();
+
+        using var first = await sut.RenderDashboardImageAsync(
+            "dash1", layout, cacheResult: false);
+        using var second = await sut.RenderDashboardImageAsync(
+            "dash1", layout, cacheResult: false);
+
+        _ssrDataProvider.Verify(p => p.FetchSsrDataAsync(
+            It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task RenderDashboardImageAsync_DifferentLayout_BustsCacheAndRefetches()
     {
         _ssrDataProvider
@@ -283,5 +304,39 @@ public class DashboardImageRenderingServiceTests
         geometry.Elements[0].Id.Should().Be("weather-item-1");
         geometry.Elements[0].Index.Should().Be(1);
         geometry.Elements[0].Position.Should().Be(new RenderRectangle(12, 34, 56, 20));
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_EmptyWeatherItems_UsesCanonicalDefaults()
+    {
+        var sut = CreateSut(new WeatherWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("weather");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            entityId = "weather.home",
+            items = Array.Empty<object>()
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Single();
+
+        geometry.Elements.Should().HaveCount(5);
+        geometry.Elements[0].Id.Should().Be("weather-item-weather-title");
+        geometry.Elements[0].LayoutBinding!.SeedConfig.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_EditableRendererThrows_IsolatesWidgetFailure()
+    {
+        var renderer = new Mock<IEditableWidgetRenderer>();
+        renderer.SetupGet(value => value.WidgetType).Returns("header");
+        renderer.Setup(value => value.BuildRenderPlan(
+                It.IsAny<WidgetConfigEntry>(), It.IsAny<SixLabors.ImageSharp.RectangleF>()))
+            .Throws(new InvalidOperationException("bad geometry"));
+        var sut = CreateSut(renderer.Object);
+
+        var geometry = sut.ResolveWidgetGeometry(SimpleLayout()).Single();
+
+        geometry.Editable.Should().BeFalse();
+        geometry.Elements.Should().BeEmpty();
     }
 }
