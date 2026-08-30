@@ -33,6 +33,9 @@ import {
          [style.--iconColor]="getIconColor()"
          [style.--titleColor]="getTitleColor()"
          [style.--textColor]="getTextColor()"
+         [style.--widget-title-font-size]="getHeaderFontSize() + 'px'"
+         [style.--widget-title-font-weight]="getHeaderFontWeight()"
+         [style.--widget-title-color]="getTitleColor()"
          [style.color]="getTextColor()">
 
       @if (!isDataFetched()) {
@@ -44,7 +47,7 @@ import {
       @if (isDataFetched()) {
         <div class="calendar-content">
           @if (widget.showTitle !== false) {
-            <h4>{{ widget.titleOverride || 'Events' }}</h4>
+            <h4 class="widget-frame-title">{{ widget.titleOverride || 'Events' }}</h4>
           }
           @if (getUpcomingEvents(config.entityId).length > 0) {
             <div class="calendar-events"

@@ -13,11 +13,8 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
-        var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
-        var titleFontSize = ctx.TitleFontSize;
         var textFontSize = ctx.TextFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var textFontWeight = ctx.TextFontWeight;
 
         var entityId = RenderingUtilities.GetStringProp(widget.Config, "entityId") ?? "";
@@ -28,18 +25,15 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
             visibleFields = visibleFields.Where(f => f != "temperature").Concat(new[] { "tempHigh", "tempLow" }).Distinct().ToArray();
         var rowGap = RenderingUtilities.GetIntProp(widget.Config, "rowGap") ?? 0;
 
+        var isTinyMode = widget.Position.W <= 2 || widget.Position.H == 1;
+        if (!isTinyMode)
+            contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(
+                image, widget, layout, utils, contentRect, "Forecast");
         float yOffset = contentRect.Y;
 
-        var isTinyMode = widget.Position.W <= 2 || widget.Position.H == 1;
-        if (widget.ShowTitle && !isTinyMode)
-        {
-            var headerRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            TextDrawing.DrawTextEllipsis(image, widget.TitleOverride ?? "Forecast", utils.GetFont(titleFontSize, titleFontWeight), titleColor, headerRect);
-            yOffset += titleFontSize + 7;
-        }
-
+        var forecastKey = WeatherForecastDataKey.Create(entityId, forecastMode);
         if (string.IsNullOrEmpty(entityId)
-            || !data.WeatherForecasts.TryGetValue(entityId, out var forecastList)
+            || !data.WeatherForecasts.TryGetValue(forecastKey, out var forecastList)
             || forecastList.Count == 0)
         {
             return Task.CompletedTask;

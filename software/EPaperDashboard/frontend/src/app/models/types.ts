@@ -109,7 +109,7 @@ export interface WidgetPosition {
   y: number;
   w: number;
   h: number;
-  /** Computed pixel position/size – populated on save for SSR */
+  /** Legacy derived values retained when reading older saved layouts. */
   pixelX?: number;
   pixelY?: number;
   pixelWidth?: number;
@@ -257,6 +257,11 @@ export interface WeatherForecastConfig {
   maxItems?: number; // Max forecast items to display (auto if not specified)
   visibleFields?: ForecastField[]; // Which fields to show in each column (defaults to DEFAULT_FORECAST_FIELDS)
   rowGap?: number; // Gap between rows in each column in px (default 0)
+}
+
+export function getWeatherForecastDataKey(entityId: string, forecastMode?: string): string {
+  const forecastType = forecastMode === 'hourly' ? 'hourly' : 'daily';
+  return `${entityId}\u0000${forecastType}`;
 }
 
 export type WeatherItemType = 'title' | 'temperature' | 'condition' | 'pressure' | 'attribute';

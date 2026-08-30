@@ -2,7 +2,7 @@
 
 Hardware enclosure designs for the izBoard device.
 
-Current packaging revision: **0.3.3**
+Current packaging revision: **0.3.4**
 
 ## Contents
 

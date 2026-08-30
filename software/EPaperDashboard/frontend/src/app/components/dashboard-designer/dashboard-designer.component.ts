@@ -37,6 +37,7 @@ import {
   DASHBOARD_SIZE_PRESETS,
   AiConfig,
   AiDataSummary,
+  getWeatherForecastDataKey,
 } from '../../models/types';
 
 @Component({
@@ -112,6 +113,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
   calendarEventsByEntityId = signal<Record<string, any[]>>({});
+  weatherForecastsByKey = signal<Record<string, any[]>>({});
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
@@ -788,7 +790,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   saveDashboard(): void {
     if (!this.dashboard()) return;
 
-    const layoutConfig = this.computePixelPositions(this.layout());
+    const layoutConfig = this.layout();
     const payload: any = { layoutConfig, orientation: this.orientation() };
 
     // Include AI settings in every save
@@ -816,35 +818,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         }
       }
     });
-  }
-
-  /**
-   * Computes and stores pixel positions for every widget based on grid layout parameters.
-   * These stored pixel values are used by the server-side rendering to position widgets
-   * with absolute pixel coordinates, ensuring pixel-perfect rendering.
-   */
-  private computePixelPositions(layout: DashboardLayout): DashboardLayout {
-    const padding = layout.canvasPadding ?? 0;
-    const gap = layout.widgetGap ?? 0;
-    const cols = Math.max(1, layout.gridCols);
-    const rows = Math.max(1, layout.gridRows);
-    const innerWidth = Math.max(0, layout.width - padding * 2 - gap * (cols - 1));
-    const innerHeight = Math.max(0, layout.height - padding * 2 - gap * (rows - 1));
-    const cellWidth = innerWidth / cols;
-    const cellHeight = innerHeight / rows;
-
-    const widgets = layout.widgets.map(widget => ({
-      ...widget,
-      position: {
-        ...widget.position,
-        pixelX: Math.round((padding + widget.position.x * (cellWidth + gap)) * 100) / 100,
-        pixelY: Math.round((padding + widget.position.y * (cellHeight + gap)) * 100) / 100,
-        pixelWidth: Math.round((widget.position.w * cellWidth + (widget.position.w - 1) * gap) * 100) / 100,
-        pixelHeight: Math.round((widget.position.h * cellHeight + (widget.position.h - 1) * gap) * 100) / 100,
-      }
-    }));
-
-    return { ...layout, widgets };
   }
 
   goBack(): void {
@@ -904,7 +877,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
     const url = `/api/dashboards/${this.dashboardId}/render-image?format=png&refresh=true`;
 
-    this.http.get(url, {
+    this.http.post(url, this.layout(), {
       responseType: 'blob'
     }).subscribe({
       next: (blob) => {
@@ -1064,12 +1037,12 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   updateTitleFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    this.layout.update(layout => ({ ...layout, titleFontWeight: weight }));
+    this.layout.update(layout => ({ ...layout, titleFontWeight: this.normalizeFontWeight(weight) }));
   }
 
   updateTextFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    this.layout.update(layout => ({ ...layout, textFontWeight: weight }));
+    this.layout.update(layout => ({ ...layout, textFontWeight: this.normalizeFontWeight(weight) }));
   }
 
   updateCanvasBackgroundColor(color: string): void {
@@ -1249,7 +1222,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.entityStates.set(map);
         this.livePreviewEverFetched.set(true);
 
-        const todoEntityIds = this.layout().widgets
+        const todoEntityIds = this.getPreviewWidgets()
           .filter(w => w.type === 'todo' && (w.config as any).entityId)
           .map(w => (w.config as any).entityId)
           .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
@@ -1292,7 +1265,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   private fetchCalendarEvents() {
-    const calendarEntityIds = this.layout().widgets
+    const calendarEntityIds = this.getPreviewWidgets()
       .filter(w => w.type === 'calendar' && (w.config as any).entityId)
       .map(w => (w.config as any).entityId)
       .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
@@ -1328,49 +1301,42 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   private fetchWeatherForecasts() {
-    const weatherEntityIds = this.layout().widgets
-      .filter(w => w.type === 'weather-forecast' && (w.config as any).entityId)
-      .map(w => (w.config as any).entityId)
-      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+    const requests = new Map<string, { entityId: string; forecastType: string }>();
+    this.getPreviewWidgets()
+      .filter(widget => widget.type === 'weather-forecast')
+      .forEach(widget => {
+        const config = widget.config as any;
+        const entityId = config?.entityId as string | undefined;
+        if (!entityId) return;
 
-    if (weatherEntityIds.length === 0) {
+        const forecastType = this.mapForecastModeToServiceType(config.forecastMode || 'daily');
+        const key = getWeatherForecastDataKey(entityId, forecastType);
+        requests.set(key, { entityId, forecastType });
+      });
+
+    if (requests.size === 0) {
+      this.weatherForecastsByKey.set({});
       this.livePreviewLoading.set(false);
       return;
     }
 
     let completed = 0;
-    weatherEntityIds.forEach(entityId => {
-      const forecastMode = this.layout().widgets
-        .find(w => w.type === 'weather-forecast' && (w.config as any).entityId === entityId)
-        ?.config as any;
-      const forecastType = this.mapForecastModeToServiceType(forecastMode?.forecastMode || 'daily');
-      
+    const forecastMap: Record<string, any[]> = {};
+    requests.forEach(({ entityId, forecastType }, key) => {
       this.weatherService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
         next: (forecast: any) => {
-          // Keep signal state immutable so all widget previews observe the update.
-          this.entityStates.update(states => {
-            const state = states[entityId];
-            if (!state) return states;
-
-            return {
-              ...states,
-              [entityId]: {
-                ...state,
-                attributes: {
-                  ...(state.attributes ?? {}),
-                  forecast: forecast?.forecast || []
-                }
-              }
-            };
-          });
+          forecastMap[key] = forecast?.forecast || [];
           completed++;
-          if (completed === weatherEntityIds.length) {
+          if (completed === requests.size) {
+            this.weatherForecastsByKey.set(forecastMap);
             this.livePreviewLoading.set(false);
           }
         },
         error: () => {
+          forecastMap[key] = [];
           completed++;
-          if (completed === weatherEntityIds.length) {
+          if (completed === requests.size) {
+            this.weatherForecastsByKey.set(forecastMap);
             this.livePreviewLoading.set(false);
           }
         }
@@ -1389,7 +1355,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   private collectEntityIds(): string[] {
     const ids = new Set<string>();
-    for (const widget of this.layout().widgets) {
+    for (const widget of this.getPreviewWidgets()) {
       switch (widget.type) {
         case 'calendar':
           if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
@@ -1423,6 +1389,10 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       }
     }
     return Array.from(ids);
+  }
+
+  private getPreviewWidgets(): WidgetConfig[] {
+    return [...this.layout().widgets, ...this.aiGeneratedWidgets()];
   }
 
   getCanvasStyle(): any {
@@ -1620,9 +1590,15 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       widgetPadding: typeof parsedLayout?.widgetPadding === 'number' ? parsedLayout.widgetPadding : baseLayout.widgetPadding,
       titleFontSize: typeof parsedLayout?.titleFontSize === 'number' ? parsedLayout.titleFontSize : baseLayout.titleFontSize,
       textFontSize: typeof parsedLayout?.textFontSize === 'number' ? parsedLayout.textFontSize : baseLayout.textFontSize,
-      titleFontWeight: typeof parsedLayout?.titleFontWeight === 'number' ? parsedLayout.titleFontWeight : baseLayout.titleFontWeight,
-      textFontWeight: typeof parsedLayout?.textFontWeight === 'number' ? parsedLayout.textFontWeight : baseLayout.textFontWeight
+      titleFontWeight: this.normalizeFontWeight(
+        typeof parsedLayout?.titleFontWeight === 'number' ? parsedLayout.titleFontWeight : baseLayout.titleFontWeight),
+      textFontWeight: this.normalizeFontWeight(
+        typeof parsedLayout?.textFontWeight === 'number' ? parsedLayout.textFontWeight : baseLayout.textFontWeight)
     };
+  }
+
+  private normalizeFontWeight(weight: number): 400 | 700 {
+    return weight >= 700 ? 700 : 400;
   }
 
   private normalizeWidget(widget: any): WidgetConfig {

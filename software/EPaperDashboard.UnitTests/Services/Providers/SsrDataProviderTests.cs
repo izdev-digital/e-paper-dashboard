@@ -96,8 +96,9 @@ public class SsrDataProviderTests
 
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
-        result.WeatherForecasts.Should().ContainKey("weather.home");
-        result.WeatherForecasts["weather.home"].Should().BeSameAs(forecastList);
+        var key = WeatherForecastDataKey.Create("weather.home", "daily");
+        result.WeatherForecasts.Should().ContainKey(key);
+        result.WeatherForecasts[key].Should().BeSameAs(forecastList);
     }
 
     [Fact]
@@ -113,6 +114,48 @@ public class SsrDataProviderTests
         await sut.FetchSsrDataAsync("dash1", layout);
 
         _weatherForecastProvider.Verify(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "hourly"), Times.Once);
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_SameWeatherEntityWithDifferentModes_KeepsBothForecasts()
+    {
+        var daily = new List<object?> { "daily" };
+        var hourly = new List<object?> { "hourly" };
+        _weatherForecastProvider
+            .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "daily"))
+            .ReturnsAsync(Result.Success<Dictionary<string, object?>, string>(
+                new Dictionary<string, object?> { ["forecast"] = daily }));
+        _weatherForecastProvider
+            .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "hourly"))
+            .ReturnsAsync(Result.Success<Dictionary<string, object?>, string>(
+                new Dictionary<string, object?> { ["forecast"] = hourly }));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("weather-forecast", new { entityId = "weather.home", forecastMode = "daily" }, "daily"),
+            Widget("weather-forecast", new { entityId = "weather.home", forecastMode = "hourly" }, "hourly"));
+
+        var result = await sut.FetchSsrDataAsync("dash1", layout);
+
+        result.WeatherForecasts[WeatherForecastDataKey.Create("weather.home", "daily")]
+            .Should().BeSameAs(daily);
+        result.WeatherForecasts[WeatherForecastDataKey.Create("weather.home", "hourly")]
+            .Should().BeSameAs(hourly);
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_DuplicateTodoEntity_FetchesOnce()
+    {
+        _todoDataProvider
+            .Setup(p => p.FetchTodoItemsAsync("dash1", "todo.list"))
+            .ReturnsAsync(Result.Success<List<TodoItem>, string>([]));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("todo", new { entityId = "todo.list" }, "todo-1"),
+            Widget("todo", new { entityId = "todo.list" }, "todo-2"));
+
+        await sut.FetchSsrDataAsync("dash1", layout);
+
+        _todoDataProvider.Verify(p => p.FetchTodoItemsAsync("dash1", "todo.list"), Times.Once);
     }
 
     [Fact]
@@ -152,6 +195,31 @@ public class SsrDataProviderTests
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
         result.HistoryData.Should().ContainKey("sensor.temp");
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_SameGraphEntityWithDifferentPeriods_FetchesLongestPeriodOnce()
+    {
+        _entityHistoryProvider
+            .Setup(p => p.FetchEntityHistoryAsync("dash1", It.IsAny<IEnumerable<string>>(), 720))
+            .ReturnsAsync(Result.Success<Dictionary<string, List<HistoryState>>, string>(
+                new Dictionary<string, List<HistoryState>> { ["sensor.temp"] = [] }));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("graph", new { series = new[] { new { entityId = "sensor.temp" } }, period = "1h" }, "graph-1"),
+            Widget("graph", new { series = new[] { new { entityId = "sensor.temp" } }, period = "30d" }, "graph-2"));
+
+        await sut.FetchSsrDataAsync("dash1", layout);
+
+        _entityHistoryProvider.Verify(
+            p => p.FetchEntityHistoryAsync(
+                "dash1",
+                It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "sensor.temp" })),
+                720),
+            Times.Once);
+        _entityHistoryProvider.Verify(
+            p => p.FetchEntityHistoryAsync("dash1", It.IsAny<IEnumerable<string>>(), It.Is<int>(hours => hours != 720)),
+            Times.Never);
     }
 
     [Fact]

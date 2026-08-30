@@ -82,23 +82,11 @@
 .todo-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   overflow: hidden;
   flex: 1;
   min-height: 0;
 
-  h4 {
-    margin: 0;
-    padding: 0;
-    font-size: var(--headerFontSize);
-    font-weight: var(--headerFontWeight);
-    color: var(--titleColor);
-    opacity: 0.9;
-    letter-spacing: 0.3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 }
 
 .todo-count {

@@ -76,17 +76,17 @@ public class RenderingUtilitiesTests
     }
 
     [Fact]
-    public void ResolvePixelPosition_ExplicitPixelValuesProvided_UsesThemDirectly()
+    public void ResolvePixelPosition_StaleExplicitPixelValuesProvided_ComputesFromGrid()
     {
-        var pos = new WidgetPositionConfig(0, 0, 1, 1, PixelX: 10, PixelY: 20, PixelWidth: 30, PixelHeight: 40);
+        var pos = new WidgetPositionConfig(1, 0, 2, 1, PixelX: 10, PixelY: 20, PixelWidth: 30, PixelHeight: 40);
         var layout = new LayoutConfig(100, 100, 4, 4, null!, [], 0, 0, 0, 0, 0, 0, 0, 0);
 
         var (x, y, w, h) = RenderingUtilities.ResolvePixelPosition(pos, layout);
 
-        x.Should().Be(10);
-        y.Should().Be(20);
-        w.Should().Be(30);
-        h.Should().Be(40);
+        x.Should().Be(25);
+        y.Should().Be(0);
+        w.Should().Be(50);
+        h.Should().Be(25);
     }
 
     [Fact]

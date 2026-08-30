@@ -24,6 +24,7 @@ import {
   TodoConfig,
   HassEntityState,
   DashboardLayout,
+  getWeatherForecastDataKey,
 } from '../../models/types';
 
 @Component({
@@ -75,7 +76,7 @@ import {
         </app-widget-weather>
       }
       @if (widget.type === 'weather-forecast') {
-        <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-weather-forecast>
+        <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [weatherForecastsByKey]="weatherForecastsByKey" [designerSettings]="designerSettings"></app-widget-weather-forecast>
       }
       @if (widget.type === 'graph') {
         <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings" [dashboardId]="dashboardId"></app-widget-graph>
@@ -104,6 +105,7 @@ import {
 export class WidgetPreviewComponent {
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
   @Input() calendarEventsByEntityId?: Record<string, any[]>;
+  @Input() weatherForecastsByKey?: Record<string, any[]>;
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
@@ -216,8 +218,8 @@ export class WidgetPreviewComponent {
     }
 
     if (type === 'weather-forecast') {
-      const state = this.entityStates?.[entityId];
-      return !!(state?.attributes?.['forecast']);
+      const key = getWeatherForecastDataKey(entityId, config?.forecastMode);
+      return !!(this.weatherForecastsByKey && key in this.weatherForecastsByKey);
     }
 
     return !!(this.entityStates && this.entityStates[entityId]);

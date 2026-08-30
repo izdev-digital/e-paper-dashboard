@@ -73,6 +73,54 @@ public class DashboardSsrController(
     }
 
     /// <summary>
+    /// Renders a transient layout without persisting it. The designer uses this endpoint so the
+    /// rendered preview includes the user's current unsaved changes.
+    /// </summary>
+    [HttpPost("{id}/render-image")]
+    public async Task<IActionResult> RenderTransientDashboardImage(
+        string id,
+        [FromBody] EPaperDashboard.Models.LayoutConfig layout,
+        [FromQuery] string format = "png",
+        [FromQuery] bool refresh = true)
+    {
+        if (!DashboardId.TryParse(id, out var dashboardId))
+            return BadRequest("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
+        if (dashboard.HasNoValue)
+            return NotFound("Dashboard not found");
+
+        if (dashboard.Value.UserId != CurrentUserId)
+            return Forbid();
+
+        var validationError = ValidateTransientLayout(layout);
+        if (validationError is not null)
+            return BadRequest(validationError);
+
+        try
+        {
+            var layoutToRender = dashboard.Value.GetMergedLayoutConfig(layout);
+            using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
+                dashboard.Value.Id.ToString(),
+                layoutToRender,
+                HttpContext.RequestAborted,
+                bypassCache: refresh);
+            using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
+
+            var (contentType, encoder) = GetEncoder(format);
+            return await ConvertToResult(image, encoder, contentType);
+        }
+        catch (NotSupportedException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Renders a preview of the dashboard. Supports both Custom (ImageSharp) and
     /// HomeAssistant (Playwright) rendering modes. Protected by cookie auth.
     /// </summary>
@@ -179,6 +227,18 @@ public class DashboardSsrController(
         await image.SaveAsync(outStream, encoder);
         outStream.Seek(0, SeekOrigin.Begin);
         return File(outStream, contentType);
+    }
+
+    private static string? ValidateTransientLayout(EPaperDashboard.Models.LayoutConfig layout)
+    {
+        if (layout.Width is < 1 or > 4096 || layout.Height is < 1 or > 4096)
+            return "Dashboard dimensions must be between 1 and 4096 pixels.";
+        if (layout.GridCols is < 1 or > 100 || layout.GridRows is < 1 or > 100)
+            return "Dashboard grid dimensions must be between 1 and 100.";
+        if (layout.Widgets.Count > 500)
+            return "Dashboard cannot contain more than 500 widgets.";
+
+        return null;
     }
 
     private static (string contentType, IImageEncoder encoder) GetEncoder(string format) => format switch

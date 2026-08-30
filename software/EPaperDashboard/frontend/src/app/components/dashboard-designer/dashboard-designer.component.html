@@ -145,6 +145,7 @@
                   <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
+                    [weatherForecastsByKey]="weatherForecastsByKey()"
                     [dashboardId]="dashboardId"
                     [designerSettings]="layout()"
                     [dataFetched]="livePreviewEverFetched()"
@@ -164,6 +165,7 @@
                   <app-widget-preview [widget]="widget" [colorScheme]="layout().colorScheme"
                     [entityStates]="entityStates()" [todoItemsByEntityId]="todoItemsByEntityId()"
                     [calendarEventsByEntityId]="calendarEventsByEntityId()"
+                    [weatherForecastsByKey]="weatherForecastsByKey()"
                     [dashboardId]="dashboardId"
                     [designerSettings]="layout()"
                     [dataFetched]="livePreviewEverFetched()">
@@ -577,13 +579,8 @@
         <label class="form-label small">Widget Title Font Weight</label>
         <select class="form-select form-select-sm" [ngModel]="layout().titleFontWeight || 700"
           (ngModelChange)="updateTitleFontWeight($event)">
-          <option [value]="300">Light (300)</option>
           <option [value]="400">Regular (400)</option>
-          <option [value]="500">Medium (500)</option>
-          <option [value]="600">Semi Bold (600)</option>
           <option [value]="700">Bold (700)</option>
-          <option [value]="800">Extra Bold (800)</option>
-          <option [value]="900">Black (900)</option>
         </select>
       </div>
       <div class="mb-2">
@@ -595,13 +592,8 @@
         <label class="form-label small">Widget Text Font Weight</label>
         <select class="form-select form-select-sm" [ngModel]="layout().textFontWeight || 400"
           (ngModelChange)="updateTextFontWeight($event)">
-          <option [value]="300">Light (300)</option>
           <option [value]="400">Regular (400)</option>
-          <option [value]="500">Medium (500)</option>
-          <option [value]="600">Semi Bold (600)</option>
           <option [value]="700">Bold (700)</option>
-          <option [value]="800">Extra Bold (800)</option>
-          <option [value]="900">Black (900)</option>
         </select>
       </div>
     </div>

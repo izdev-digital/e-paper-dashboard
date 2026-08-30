@@ -59,56 +59,61 @@ public sealed class SsrDataProvider(
 
         if (widgetsByType.TryGetValue("todo", out var todoWidgets))
         {
-            foreach (var widget in todoWidgets)
+            foreach (var entityId in todoWidgets
+                .Select(widget => GetStringProp(widget.Config, "entityId"))
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal))
             {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchTodoAsync(dashboardId, entityId, data));
-                }
+                tasks.Add(FetchTodoAsync(dashboardId, entityId, data));
             }
         }
 
         if (widgetsByType.TryGetValue("calendar", out var calendarWidgets))
         {
-            foreach (var widget in calendarWidgets)
+            foreach (var entityId in calendarWidgets
+                .Select(widget => GetStringProp(widget.Config, "entityId"))
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal))
             {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchCalendarAsync(dashboardId, entityId, data));
-                }
+                tasks.Add(FetchCalendarAsync(dashboardId, entityId, data));
             }
         }
 
         if (widgetsByType.TryGetValue("weather-forecast", out var forecastWidgets))
         {
-            foreach (var widget in forecastWidgets)
-            {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
-                var forecastType = forecastMode == "hourly" ? "hourly" : "daily";
-                if (!string.IsNullOrEmpty(entityId))
+            var requests = forecastWidgets
+                .Select(widget => new
                 {
-                    tasks.Add(FetchWeatherAsync(dashboardId, entityId, forecastType, data));
-                }
+                    EntityId = GetStringProp(widget.Config, "entityId"),
+                    ForecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily"
+                })
+                .Where(request => !string.IsNullOrEmpty(request.EntityId))
+                .Select(request => WeatherForecastDataKey.Create(request.EntityId!, request.ForecastMode))
+                .Distinct();
+
+            foreach (var request in requests)
+            {
+                tasks.Add(FetchWeatherAsync(dashboardId, request, data));
             }
         }
 
         if (widgetsByType.TryGetValue("rss-feed", out var rssWidgets))
         {
-            foreach (var widget in rssWidgets)
+            foreach (var entityId in rssWidgets
+                .Select(widget => GetStringProp(widget.Config, "entityId"))
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Cast<string>()
+                .Distinct(StringComparer.Ordinal))
             {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchRssAsync(dashboardId, entityId, data));
-                }
+                tasks.Add(FetchRssAsync(dashboardId, entityId, data));
             }
         }
 
         if (widgetsByType.TryGetValue("graph", out var graphWidgets))
         {
+            var hoursByEntityId = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var widget in graphWidgets)
             {
                 if (widget.Config.TryGetProperty("series", out var series) && series.ValueKind == JsonValueKind.Array)
@@ -132,9 +137,23 @@ public sealed class SsrDataProvider(
                             _ => 24
                         };
 
-                        tasks.Add(FetchGraphHistoryAsync(dashboardId, graphEntityIds, hours, data));
+                        foreach (var entityId in graphEntityIds.Distinct(StringComparer.Ordinal))
+                        {
+                            hoursByEntityId[entityId] = Math.Max(
+                                hours,
+                                hoursByEntityId.GetValueOrDefault(entityId));
+                        }
                     }
                 }
+            }
+
+            foreach (var group in hoursByEntityId.GroupBy(entry => entry.Value))
+            {
+                tasks.Add(FetchGraphHistoryAsync(
+                    dashboardId,
+                    group.Select(entry => entry.Key).ToList(),
+                    group.Key,
+                    data));
             }
         }
 
@@ -170,14 +189,17 @@ public sealed class SsrDataProvider(
             data.CalendarEvents[entityId] = result.Value;
     }
 
-    private async Task FetchWeatherAsync(string dashboardId, string entityId, string forecastType, SsrData data)
+    private async Task FetchWeatherAsync(string dashboardId, WeatherForecastDataKey request, SsrData data)
     {
-        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
+        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(
+            dashboardId,
+            request.EntityId,
+            request.ForecastType);
         if (result.IsSuccess
             && result.Value.TryGetValue("forecast", out var forecastVal)
             && forecastVal is List<object?> forecastList)
         {
-            data.WeatherForecasts[entityId] = forecastList;
+            data.WeatherForecasts[request] = forecastList;
         }
     }
 

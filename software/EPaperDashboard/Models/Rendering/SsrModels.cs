@@ -62,6 +62,12 @@ public record WidgetConfigEntry(
     string? TitleOverride = null,
     bool ShowTitle = true);
 
+public readonly record struct WeatherForecastDataKey(string EntityId, string ForecastType)
+{
+    public static WeatherForecastDataKey Create(string entityId, string forecastMode) =>
+        new(entityId, forecastMode == "hourly" ? "hourly" : "daily");
+}
+
 /// <summary>
 /// Aggregated Home Assistant data used for server-side rendering.
 /// </summary>
@@ -70,7 +76,7 @@ public class SsrData
     public ConcurrentDictionary<string, HassEntityState> EntityStates { get; set; } = new();
     public ConcurrentDictionary<string, List<TodoItem>> TodoItems { get; set; } = new();
     public ConcurrentDictionary<string, List<CalendarEvent>> CalendarEvents { get; set; } = new();
-    public ConcurrentDictionary<string, List<object?>> WeatherForecasts { get; set; } = new();
+    public ConcurrentDictionary<WeatherForecastDataKey, List<object?>> WeatherForecasts { get; set; } = new();
     public ConcurrentDictionary<string, List<RssFeedEntry>> RssFeedEntries { get; set; } = new();
     public ConcurrentDictionary<string, List<HistoryState>> HistoryData { get; set; } = new();
     public ConcurrentDictionary<string, string> AiContent { get; set; } = new();

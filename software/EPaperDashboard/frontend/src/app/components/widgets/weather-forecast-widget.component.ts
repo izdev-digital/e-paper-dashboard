@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS, getWeatherForecastDataKey } from '../../models/types';
 
 interface ForecastItem {
   id: number;
@@ -35,6 +35,9 @@ interface ForecastItem {
       [style.--textColor]="getTextColor()"
       [style.--iconColor]="getIconColor()"
       [style.--rowGap]="getRowGap() + 'px'"
+      [style.--widget-title-font-size]="getTitleFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getTitleFontWeight()"
+      [style.--widget-title-color]="getTitleColor()"
       [style.color]="getTextColor()">
       
       @if (!isDataFetched()) {
@@ -46,7 +49,7 @@ interface ForecastItem {
       
       @if (isDataFetched()) {
         @if (!isTinyMode() && widget.showTitle !== false) {
-          <div class="forecast-header">
+          <div class="widget-frame-title">
             {{ widget.titleOverride || 'Forecast' }}
           </div>
         }
@@ -87,6 +90,7 @@ export class WeatherForecastWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() weatherForecastsByKey: Record<string, any[]> | null | undefined = null;
   @Input() designerSettings?: DashboardLayout;
 
   get config(): WeatherForecastConfig {
@@ -105,11 +109,7 @@ export class WeatherForecastWidgetComponent {
     const entityId = this.config.entityId;
     if (!entityId) return false;
 
-    const state = this.getEntityState(entityId);
-    if (!state || !state.attributes) return false;
-
-    // Check if we have forecast data in attributes
-    return !!state.attributes['forecast'];
+    return this.getForecast().length > 0;
   }
 
   getWindSpeedUnit(): string {
@@ -143,10 +143,7 @@ export class WeatherForecastWidgetComponent {
   }
 
   getForecastItems(): ForecastItem[] {
-    const state = this.getEntityState(this.config.entityId);
-    if (!state?.attributes?.['forecast']) return [];
-    
-    let forecast = state.attributes['forecast'] as any[];
+    let forecast = this.getForecast();
     const maxItems = this.getMaxForecastItems();
     const mode = this.getForecastMode();
 
@@ -171,6 +168,19 @@ export class WeatherForecastWidgetComponent {
     }));
 
     return items;
+  }
+
+  private getForecast(): any[] {
+    const entityId = this.config.entityId;
+    if (!entityId) return [];
+
+    const key = getWeatherForecastDataKey(entityId, this.getForecastMode());
+    if (this.weatherForecastsByKey && key in this.weatherForecastsByKey) {
+      return this.weatherForecastsByKey[key] || [];
+    }
+
+    const state = this.getEntityState(entityId);
+    return (state?.attributes?.['forecast'] as any[] | undefined) || [];
   }
 
   private filterHourlyForecast(forecast: any[]): any[] {

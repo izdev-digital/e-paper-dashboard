@@ -19,9 +19,7 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
-        var titleFontSize = ctx.TitleFontSize;
         var textFontSize = ctx.TextFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var textFontWeight = ctx.TextFontWeight;
         var widgetBg = widget.ColorOverrides?.WidgetBackgroundColor ?? layout.ColorScheme.WidgetBackgroundColor;
 
@@ -36,15 +34,9 @@ public sealed class RssFeedWidgetRenderer(RenderingUtilities utils, ILogger<RssF
         }
 
         var entry = entries[0];
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(
+            image, widget, layout, utils, contentRect, feedTitle);
         float yOffset = contentRect.Y;
-
-        if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride ?? feedTitle))
-        {
-            var feedTitleHeight = (int)Math.Ceiling(titleFontSize * 1.2f);
-            var feedTitleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, feedTitleHeight);
-            TextDrawing.DrawTextEllipsis(image, widget.TitleOverride ?? feedTitle!, utils.GetFont(titleFontSize, titleFontWeight), titleColor, feedTitleRect);
-            yOffset += feedTitleHeight + 8;
-        }
 
         var entryTitleFont = utils.GetFont(textFontSize, textFontWeight);
         var entryGlyphHeight = TextMeasurer.MeasureSize("Ay", new TextOptions(entryTitleFont)).Height;

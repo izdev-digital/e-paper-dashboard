@@ -27,6 +27,9 @@ interface RssEntry {
       [style.--textColor]="getTextColor()"
       [style.--qrCodeDarkColor]="getTextColor()"
       [style.--qrCodeLightColor]="getQrCodeBackgroundColor()"
+      [style.--widget-title-font-size]="getTitleFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getTitleFontWeight()"
+      [style.--widget-title-color]="getTitleColor()"
       [style.color]="getTextColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
@@ -37,7 +40,7 @@ interface RssEntry {
       @if (isDataFetched()) {
         <div class="rss-feed-content">
           @if (widget.showTitle !== false && (widget.titleOverride || config.title)) {
-            <h3 class="feed-title">{{ widget.titleOverride || config.title }}</h3>
+            <h3 class="widget-frame-title">{{ widget.titleOverride || config.title }}</h3>
           }
           @if (getCurrentEntry()) {
             <div class="rss-entry">
