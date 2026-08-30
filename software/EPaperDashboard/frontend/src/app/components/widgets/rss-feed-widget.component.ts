@@ -1,15 +1,9 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, RssFeedConfig, DashboardLayout } from '../../models/types';
+import { WidgetConfig, ColorScheme, RssFeedConfig, DashboardLayout } from '../../models/types';
+import type { RssFeedEntryData } from '../../services/dashboard-preview-data.service';
 import QRCode from 'qrcode';
 import { resolveWidgetRenderContext } from './widget-render-context';
-
-interface RssEntry {
-  title: string;
-  link: string;
-  published?: string;
-  summary?: string;
-}
 
 @Component({
   selector: 'app-widget-rss-feed',
@@ -63,7 +57,7 @@ interface RssEntry {
 export class RssFeedWidgetComponent implements OnInit, OnChanges {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
-  @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() rssFeedEntriesByEntityId?: Record<string, RssFeedEntryData[]>;
   @Input() designerSettings?: DashboardLayout;
 
   qrCodeDataUrl: string | null = null;
@@ -77,7 +71,7 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['entityStates'] || changes['widget']) {
+    if (changes['rssFeedEntriesByEntityId'] || changes['widget'] || changes['colorScheme'] || changes['designerSettings']) {
       this.generateQRCode();
     }
   }
@@ -105,12 +99,7 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
     const entityId = this.config.entityId;
     if (!entityId) return false;
 
-    const state = this.getEntityState(entityId);
-    if (!state || !state.attributes) return false;
-
-    // Check if we have RSS entry data in attributes
-    const attrs = state.attributes;
-    return !!(attrs['title'] || attrs['link'] || attrs['description']);
+    return !!this.rssFeedEntriesByEntityId && entityId in this.rssFeedEntriesByEntityId;
   }
 
   getIconColor(): string {
@@ -133,38 +122,12 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
     return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
-  getEntityState(entityId?: string): HassEntityState | null {
-    if (!entityId || !this.entityStates) return null;
-    return this.entityStates[entityId] ?? null;
+  getRssEntries(entityId?: string): RssFeedEntryData[] {
+    if (!entityId || !this.rssFeedEntriesByEntityId) return [];
+    return this.rssFeedEntriesByEntityId[entityId] ?? [];
   }
 
-  getRssEntries(entityId?: string): RssEntry[] {
-    if (!entityId) return [];
-
-    const state = this.getEntityState(entityId);
-    if (!state) return [];
-
-    const attrs = state.attributes || {};
-
-    // Home Assistant feedreader event entities store the latest entry data directly in attributes
-    // with keys: title, link, description, content
-    // We return a single-item array since event entities only store the latest entry
-    const title = attrs['title'];
-    const link = attrs['link'];
-
-    if (!title && !link) {
-      return [];
-    }
-
-    return [{
-      title: (title || 'No Title') as string,
-      link: (link || '') as string,
-      published: attrs['published'] as string | undefined,
-      summary: (attrs['description'] || attrs['summary'] || attrs['content']) as string | undefined
-    }];
-  }
-
-  getCurrentEntry(): RssEntry | null {
+  getCurrentEntry(): RssFeedEntryData | null {
     const entries = this.getRssEntries(this.config.entityId);
     if (entries.length === 0) return null;
 

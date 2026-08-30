@@ -53,7 +53,8 @@ public class DashboardSsrControllerTests
             imageRenderer,
             Mock.Of<IPageToImageRenderingService>(),
             Mock.Of<IDeploymentStrategy>(),
-            Mock.Of<IEnvironmentConfiguration>());
+            Mock.Of<IEnvironmentConfiguration>(),
+            TimeProvider.System);
     }
 
     [Fact]
@@ -112,5 +113,35 @@ public class DashboardSsrControllerTests
             refresh: true);
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetTransientPreviewData_UsesPostedUnsavedLayout()
+    {
+        var userId = UserId.New();
+        var dashboardId = DashboardId.New();
+        _dashboardRepository.Setup(repository => repository.FindById(dashboardId)).Returns(
+            new Dashboard
+            {
+                Id = dashboardId,
+                UserId = userId,
+                LayoutConfig = new LayoutConfig { Width = 10, Height = 10 }
+            });
+        var sut = CreateSut().WithUser(userId);
+        var transientLayout = new LayoutConfig
+        {
+            Width = 123,
+            Height = 45,
+            GridCols = 4,
+            GridRows = 2
+        };
+
+        var result = await sut.GetTransientPreviewData(dashboardId.Value, transientLayout);
+
+        result.Should().BeOfType<OkObjectResult>();
+        _ssrDataProvider.Verify(provider => provider.FetchSsrDataAsync(
+            dashboardId.Value,
+            It.Is<RenderingLayoutConfig>(layout => layout.Width == 123 && layout.Height == 45),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 }

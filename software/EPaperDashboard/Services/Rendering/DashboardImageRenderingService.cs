@@ -48,6 +48,15 @@ public sealed class DashboardImageRenderingService
     /// </summary>
     public RenderingUtilities Utils => _utils;
 
+    public Task<SsrData> FetchDashboardDataAsync(
+        string dashboardId,
+        Models.LayoutConfig layoutConfig,
+        CancellationToken cancellationToken = default)
+    {
+        var layout = ConvertLayout(layoutConfig);
+        return _ssrDataProvider.FetchSsrDataAsync(dashboardId, layout, cancellationToken);
+    }
+
     /// <summary>
     /// Renders the dashboard to an ImageSharp image using the typed layout model and live HA data.
     /// Returns a cached result if the same dashboard was rendered within the last 30 seconds,

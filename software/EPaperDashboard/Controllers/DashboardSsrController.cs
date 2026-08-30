@@ -25,7 +25,8 @@ public class DashboardSsrController(
     DashboardImageRenderingService dashboardImageRenderingService,
     IPageToImageRenderingService renderingService,
     IDeploymentStrategy deploymentStrategy,
-    IEnvironmentConfiguration environmentConfiguration) : BaseApiController
+    IEnvironmentConfiguration environmentConfiguration,
+    TimeProvider timeProvider) : BaseApiController
 {
     /// <summary>
     /// Returns the dashboard rendered directly to an image using ImageSharp.
@@ -118,6 +119,38 @@ public class DashboardSsrController(
         {
             return StatusCode(500, $"Failed to render dashboard image: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Resolves all data needed by a transient designer layout through the production data
+    /// collector. The designer consumes this snapshot instead of calling each source separately.
+    /// </summary>
+    [HttpPost("{id}/preview-data")]
+    public async Task<IActionResult> GetTransientPreviewData(
+        string id,
+        [FromBody] EPaperDashboard.Models.LayoutConfig layout)
+    {
+        if (!DashboardId.TryParse(id, out var dashboardId))
+            return BadRequest("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
+        if (dashboard.HasNoValue)
+            return NotFound("Dashboard not found");
+
+        if (dashboard.Value.UserId != CurrentUserId)
+            return Forbid();
+
+        var validationError = ValidateTransientLayout(layout);
+        if (validationError is not null)
+            return BadRequest(validationError);
+
+        var layoutToResolve = dashboard.Value.GetMergedLayoutConfig(layout);
+        var data = await dashboardImageRenderingService.FetchDashboardDataAsync(
+            dashboard.Value.Id.ToString(),
+            layoutToResolve,
+            HttpContext.RequestAborted);
+
+        return Ok(DashboardPreviewData.FromSsrData(data, timeProvider));
     }
 
     /// <summary>

@@ -86,6 +86,7 @@ export class AiContentWidgetComponent implements OnChanges, OnDestroy {
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
   @Input() dashboardId?: string;
+  @Input() generatedContent = '';
 
   content = '';
   private readonly generatedSubscription: Subscription;
@@ -99,8 +100,8 @@ export class AiContentWidgetComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['dashboardId'] || changes['widget']) {
-      this.loadCachedContent();
+    if (changes['generatedContent'] || changes['widget']) {
+      this.content = this.generatedContent;
     }
   }
 
@@ -132,17 +133,5 @@ export class AiContentWidgetComponent implements OnChanges, OnDestroy {
 
   get renderContext() {
     return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
-  }
-
-  private loadCachedContent(): void {
-    if (!this.dashboardId || !this.widget?.id) {
-      this.content = '';
-      return;
-    }
-
-    this.aiService.getWidgetContent(this.dashboardId, this.widget.id).subscribe({
-      next: result => { this.content = result.content || ''; },
-      error: () => { this.content = ''; }
-    });
   }
 }

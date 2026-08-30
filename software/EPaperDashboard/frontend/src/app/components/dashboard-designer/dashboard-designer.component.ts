@@ -6,11 +6,15 @@ import { HttpClient } from '@angular/common/http';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
-import { EntityStateService } from '../../services/entity-state.service';
-import { TodoService, type TodoItem } from '../../services/todo.service';
-import { CalendarService } from '../../services/calendar.service';
-import { WeatherService } from '../../services/weather.service';
+import type { TodoItem } from '../../services/todo.service';
 import { AiService } from '../../services/ai.service';
+import {
+  CalendarEventData,
+  DashboardPreviewDataService,
+  HistoryStateData,
+  RssFeedEntryData,
+  WeatherForecastData,
+} from '../../services/dashboard-preview-data.service';
 import { DialogService } from '../../services/dialog.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
@@ -34,7 +38,6 @@ import {
   DASHBOARD_SIZE_PRESETS,
   AiConfig,
   AiDataSummary,
-  getWeatherForecastDataKey,
 } from '../../models/types';
 import {
   createDefaultWidgetConfig,
@@ -58,10 +61,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private readonly dashboardService = inject(DashboardService);
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
-  private readonly entityStateService = inject(EntityStateService);
-  private readonly todoService = inject(TodoService);
-  private readonly calendarService = inject(CalendarService);
-  private readonly weatherService = inject(WeatherService);
+  private readonly previewDataService = inject(DashboardPreviewDataService);
   private readonly aiService = inject(AiService);
   private readonly dialogService = inject(DialogService);
 
@@ -114,8 +114,13 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
   todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
-  calendarEventsByEntityId = signal<Record<string, any[]>>({});
-  weatherForecastsByKey = signal<Record<string, any[]>>({});
+  calendarEventsByEntityId = signal<Record<string, CalendarEventData[]>>({});
+  weatherForecastsByKey = signal<Record<string, WeatherForecastData[]>>({});
+  rssFeedEntriesByEntityId = signal<Record<string, RssFeedEntryData[]>>({});
+  historyDataByEntityId = signal<Record<string, HistoryStateData[]>>({});
+  generatedContentByWidgetId = signal<Record<string, string>>({});
+  previewAppVersion = signal('');
+  previewFetchedAt = signal<string | null>(null);
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
@@ -1208,193 +1213,27 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       return;
     }
 
-    const ids = this.collectEntityIds();
-
-    if (ids.length === 0) {
-      this.entityStates.set({});
-      this.livePreviewEverFetched.set(true);
-      return;
-    }
-
     this.livePreviewLoading.set(true);
-    this.entityStateService.getEntityStates(this.dashboardId, ids).subscribe({
-      next: (states) => {
-        const map: Record<string, HassEntityState> = {};
-        states.forEach(s => { map[s.entityId] = s; });
-        this.entityStates.set(map);
+    this.previewDataService.resolve(this.dashboardId, this.layout()).subscribe({
+      next: data => {
+        this.entityStates.set(data.entityStates || {});
+        this.todoItemsByEntityId.set(data.todoItems || {});
+        this.calendarEventsByEntityId.set(data.calendarEvents || {});
+        this.weatherForecastsByKey.set(data.weatherForecasts || {});
+        this.rssFeedEntriesByEntityId.set(data.rssFeedEntries || {});
+        this.historyDataByEntityId.set(data.historyData || {});
+        this.generatedContentByWidgetId.set(data.generatedContent || {});
+        this.previewAppVersion.set(data.appVersion || '');
+        this.previewFetchedAt.set(data.fetchedAt || null);
         this.livePreviewEverFetched.set(true);
-
-        const todoEntityIds = this.getPreviewWidgets()
-          .filter(w => w.type === 'todo' && (w.config as any).entityId)
-          .map(w => (w.config as any).entityId)
-          .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
-
-        if (todoEntityIds.length === 0) {
-          this.todoItemsByEntityId.set({});
-          this.fetchCalendarEvents();
-          return;
-        }
-
-        let completed = 0;
-        const todoMap: Record<string, TodoItem[]> = {};
-        todoEntityIds.forEach(entityId => {
-          this.todoService.getTodoItems(this.dashboardId, entityId).subscribe({
-            next: (items) => {
-              todoMap[entityId] = items || [];
-              completed++;
-              if (completed === todoEntityIds.length) {
-                this.todoItemsByEntityId.set(todoMap);
-                this.fetchCalendarEvents();
-              }
-            },
-            error: () => {
-              todoMap[entityId] = [];
-              completed++;
-              if (completed === todoEntityIds.length) {
-                this.todoItemsByEntityId.set(todoMap);
-                this.fetchCalendarEvents();
-              }
-            }
-          });
-        });
+        this.livePreviewLoading.set(false);
       },
       error: (err) => {
         this.livePreviewLoading.set(false);
-        const msg = err?.error?.error || err?.message || 'Failed to fetch entity data';
+        const msg = err?.error?.error || err?.error || err?.message || 'Failed to resolve preview data';
         this.toastService.show(msg, 'error');
       }
     });
-  }
-
-  private fetchCalendarEvents() {
-    const calendarEntityIds = this.getPreviewWidgets()
-      .filter(w => w.type === 'calendar' && (w.config as any).entityId)
-      .map(w => (w.config as any).entityId)
-      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
-
-    if (calendarEntityIds.length === 0) {
-      this.calendarEventsByEntityId.set({});
-      this.fetchWeatherForecasts();
-      return;
-    }
-
-    let completed = 0;
-    const calendarMap: Record<string, any[]> = {};
-    calendarEntityIds.forEach(entityId => {
-      this.calendarService.getCalendarEvents(this.dashboardId, entityId).subscribe({
-        next: (events: any[]) => {
-          calendarMap[entityId] = events || [];
-          completed++;
-          if (completed === calendarEntityIds.length) {
-            this.calendarEventsByEntityId.set(calendarMap);
-            this.fetchWeatherForecasts();
-          }
-        },
-        error: () => {
-          calendarMap[entityId] = [];
-          completed++;
-          if (completed === calendarEntityIds.length) {
-            this.calendarEventsByEntityId.set(calendarMap);
-            this.fetchWeatherForecasts();
-          }
-        }
-      });
-    });
-  }
-
-  private fetchWeatherForecasts() {
-    const requests = new Map<string, { entityId: string; forecastType: string }>();
-    this.getPreviewWidgets()
-      .filter(widget => widget.type === 'weather-forecast')
-      .forEach(widget => {
-        const config = widget.config as any;
-        const entityId = config?.entityId as string | undefined;
-        if (!entityId) return;
-
-        const forecastType = this.mapForecastModeToServiceType(config.forecastMode || 'daily');
-        const key = getWeatherForecastDataKey(entityId, forecastType);
-        requests.set(key, { entityId, forecastType });
-      });
-
-    if (requests.size === 0) {
-      this.weatherForecastsByKey.set({});
-      this.livePreviewLoading.set(false);
-      return;
-    }
-
-    let completed = 0;
-    const forecastMap: Record<string, any[]> = {};
-    requests.forEach(({ entityId, forecastType }, key) => {
-      this.weatherService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
-        next: (forecast: any) => {
-          forecastMap[key] = forecast?.forecast || [];
-          completed++;
-          if (completed === requests.size) {
-            this.weatherForecastsByKey.set(forecastMap);
-            this.livePreviewLoading.set(false);
-          }
-        },
-        error: () => {
-          forecastMap[key] = [];
-          completed++;
-          if (completed === requests.size) {
-            this.weatherForecastsByKey.set(forecastMap);
-            this.livePreviewLoading.set(false);
-          }
-        }
-      });
-    });
-  }
-
-  private mapForecastModeToServiceType(mode: string): string {
-    switch (mode) {
-      case 'hourly': return 'hourly';
-      case 'weekly': return 'daily';
-      case 'daily':
-      default: return 'daily';
-    }
-  }
-
-  private collectEntityIds(): string[] {
-    const ids = new Set<string>();
-    for (const widget of this.getPreviewWidgets()) {
-      switch (widget.type) {
-        case 'calendar':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'weather':
-        case 'weather-forecast':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'todo':
-        case 'rss-feed':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'graph': {
-          const graphCfg = widget.config as any;
-          if (Array.isArray(graphCfg?.series)) {
-            graphCfg.series.forEach((s: any) => {
-              if (s?.entityId) ids.add(s.entityId);
-            });
-          }
-          break;
-        }
-        case 'header': {
-          const cfg = widget.config as any;
-          if (cfg?.badges?.length) {
-            cfg.badges.forEach((b: any) => {
-              if (b?.entityId) ids.add(b.entityId);
-            });
-          }
-          break;
-        }
-      }
-    }
-    return Array.from(ids);
-  }
-
-  private getPreviewWidgets(): WidgetConfig[] {
-    return [...this.layout().widgets, ...this.aiGeneratedWidgets()];
   }
 
   getCanvasStyle(): any {

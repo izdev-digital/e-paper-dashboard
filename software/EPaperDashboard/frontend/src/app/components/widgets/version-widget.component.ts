@@ -1,6 +1,5 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
 import { resolveWidgetRenderContext } from './widget-render-context';
 
@@ -11,34 +10,16 @@ import { resolveWidgetRenderContext } from './widget-render-context';
   styleUrls: ['./version-widget.component.scss'],
   template: `
     <div class="version-widget" [style.color]="getTextColor()" [style.fontSize.px]="getTextFontSize()" [style.fontWeight]="getTextFontWeight()">
-      v{{ version || 'Loading...' }}
+      v{{ version || '?' }}
     </div>
   `
 })
-export class VersionWidgetComponent implements OnInit {
+export class VersionWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
 
-  version: string | null = null;
-
-  constructor(private httpClient: HttpClient) { }
-
-  ngOnInit(): void {
-    this.loadVersion();
-  }
-
-  private loadVersion(): void {
-    this.httpClient.get<{ version: string }>('/api/app/version')
-      .subscribe({
-        next: (response) => {
-          this.version = response.version;
-        },
-        error: (error) => {
-          this.version = 'Unknown';
-        }
-      });
-  }
+  @Input() version = '';
 
   getTextFontSize(): number {
     return this.renderContext.textFontSize;

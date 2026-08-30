@@ -1,7 +1,7 @@
-import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, GraphSeriesConfig, DashboardLayout } from '../../models/types';
-import { EntityHistoryService } from '../../services/entity-history.service';
+import { WidgetConfig, ColorScheme, GraphConfig, DashboardLayout } from '../../models/types';
+import type { HistoryStateData } from '../../services/dashboard-preview-data.service';
 import { Chart, ChartConfiguration, LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler } from 'chart.js';
 import { resolveWidgetRenderContext } from './widget-render-context';
 
@@ -46,20 +46,19 @@ interface ChartDataPoint {
 export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
-  @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() historyDataByEntityId?: Record<string, HistoryStateData[]>;
   @Input() designerSettings?: DashboardLayout;
-  @Input() dashboardId?: string;
-  @ViewChild('chartCanvas') canvasRef?: ElementRef<HTMLCanvasElement>;
+  private canvasRef?: ElementRef<HTMLCanvasElement>;
+
+  @ViewChild('chartCanvas')
+  set chartCanvas(value: ElementRef<HTMLCanvasElement> | undefined) {
+    this.canvasRef = value;
+    if (value) this.updateChart();
+  }
 
   private chart: Chart | null = null;
   chartDataByEntity: Map<string, ChartDataPoint[]> = new Map();
   lastChartUpdate = 0;
-
-  constructor(private haService: EntityHistoryService) {
-    effect(() => {
-      this.loadChartData();
-    });
-  }
 
   get config(): GraphConfig { 
     const cfg = (this.widget?.config as GraphConfig) || ({} as GraphConfig);
@@ -75,7 +74,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['entityStates'] || changes['widget'] || changes['dashboardId']) {
+    if (changes['historyDataByEntityId'] || changes['widget']) {
       this.loadChartData();
     } else if (changes['colorScheme'] || changes['designerSettings']) {
       this.updateChart();
@@ -88,7 +87,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
 
   hasValidEntities(): boolean {
     return this.config.series && this.config.series.length > 0 && 
-           this.config.series.some(e => e.entityId && this.getEntityState(e.entityId));
+           this.config.series.some(e => e.entityId && this.chartDataByEntity.has(e.entityId));
   }
 
   /**
@@ -107,51 +106,22 @@ export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private loadChartData(): void {
-    if (!this.config.series || this.config.series.length === 0 || !this.dashboardId) {
+    if (!this.config.series || this.config.series.length === 0) {
       this.chartDataByEntity.clear();
       this.updateChart();
       return;
     }
 
-    // Fetch real data from Home Assistant
-    const entityIds = this.config.series
-      .filter(e => e.entityId)
-      .map(e => e.entityId);
-
-    if (entityIds.length === 0) {
-      this.chartDataByEntity.clear();
-      this.updateChart();
-      return;
+    this.chartDataByEntity.clear();
+    for (const series of this.config.series) {
+      if (!series.entityId || !this.historyDataByEntityId || !(series.entityId in this.historyDataByEntityId)) continue;
+      const points = this.historyDataByEntityId[series.entityId].map(state => ({
+        timestamp: new Date(state.lastChanged),
+        value: state.numericValue
+      }));
+      this.chartDataByEntity.set(series.entityId, points);
     }
-
-    const hoursMap: Record<string, number> = {
-      '1h': 1,
-      '6h': 6,
-      '24h': 24,
-      '7d': 24 * 7,
-      '30d': 24 * 30
-    };
-
-    const hours = hoursMap[this.config.period || '24h'] || 24;
-
-    this.haService.getEntityHistory(this.dashboardId, entityIds, hours).subscribe({
-      next: (historyData) => {
-        this.chartDataByEntity.clear();
-        // Convert API response to chart data format
-        Object.entries(historyData).forEach(([entityId, states]) => {
-          const dataPoints: ChartDataPoint[] = states.map(state => ({
-            timestamp: new Date(state.lastChanged),
-            value: state.numericValue
-          }));
-          this.chartDataByEntity.set(entityId, dataPoints);
-        });
-        this.updateChart();
-      },
-      error: () => {
-        this.chartDataByEntity.clear();
-        this.updateChart();
-      }
-    });
+    this.updateChart();
   }
 
   private updateChart(): void {
@@ -280,11 +250,6 @@ export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
     // Fallback colors if palette is empty
     const fallbackColors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
     return fallbackColors[index % fallbackColors.length];
-  }
-
-  getEntityState(entityId?: string) {
-    if (!entityId || !this.entityStates) return null;
-    return this.entityStates[entityId] ?? null;
   }
 
   getTitleColor(): string {
