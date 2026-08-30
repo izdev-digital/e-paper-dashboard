@@ -105,15 +105,22 @@
         </div>
         <div class="card-body p-2">
           <div class="widget-list">
-            @for (widget of availableWidgets; track widget.type) {
-            <div class="widget-item toolbox-drag-item" [class.icon-only]="toolboxCollapsed()"
-              (mousedown)="onToolboxWidgetMouseDown($event, widget)"
-              tabindex="0" [title]="toolboxCollapsed() ? widget.label : 'Drag to canvas'">
-              <i class="fa {{ widget.icon }}"></i>
+            @for (category of widgetCategories; track category.type) {
               @if (!toolboxCollapsed()) {
-                <span>{{ widget.label }}</span>
+                <div class="text-uppercase text-muted fw-semibold px-2 pt-2" style="font-size: 0.65rem; letter-spacing: 0.04em;">
+                  {{ category.label }}
+                </div>
               }
-            </div>
+              @for (widget of widgetsInCategory(category.type); track widget.type) {
+              <div class="widget-item toolbox-drag-item" [class.icon-only]="toolboxCollapsed()"
+                (mousedown)="onToolboxWidgetMouseDown($event, widget)"
+                tabindex="0" [title]="toolboxCollapsed() ? widget.label : 'Drag to canvas'">
+                <i class="fa {{ widget.icon }}"></i>
+                @if (!toolboxCollapsed()) {
+                  <span>{{ widget.label }}</span>
+                }
+              </div>
+              }
             }
           </div>
         </div>
@@ -342,11 +349,14 @@
       </button>
     </div>
     <div class="bottom-sheet-body">
-      @for (widget of availableWidgets; track widget.type) {
-        <button class="widget-grid-item" (click)="addWidgetToFirstSlot(widget)">
-          <i class="fa {{ widget.icon }}"></i>
-          <span>{{ widget.label }}</span>
-        </button>
+      @for (category of widgetCategories; track category.type) {
+        <div class="w-100 text-uppercase text-muted fw-semibold mt-2" style="font-size: 0.7rem;">{{ category.label }}</div>
+        @for (widget of widgetsInCategory(category.type); track widget.type) {
+          <button class="widget-grid-item" (click)="addWidgetToFirstSlot(widget)">
+            <i class="fa {{ widget.icon }}"></i>
+            <span>{{ widget.label }}</span>
+          </button>
+        }
       }
     </div>
   </div>

@@ -29,9 +29,6 @@ import {
   HassEntityState,
   HeaderConfig,
   WeatherConfig,
-  DEFAULT_WEATHER_ITEMS,
-  DEFAULT_CALENDAR_EVENT_ITEMS,
-  DEFAULT_FORECAST_FIELDS,
   DEFAULT_DASHBOARD_SIZE,
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
@@ -39,6 +36,13 @@ import {
   AiDataSummary,
   getWeatherForecastDataKey,
 } from '../../models/types';
+import {
+  createDefaultWidgetConfig,
+  getWidgetDefaultSize,
+  WidgetCategory,
+  WidgetDefinition,
+  WIDGET_DEFINITIONS,
+} from '../../models/widget-catalog';
 
 @Component({
   selector: 'app-dashboard-designer',
@@ -86,20 +90,18 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   // UI State
   colorSchemes = DEFAULT_COLOR_SCHEMES;
-  availableWidgets: { type: WidgetType; label: string; icon: string }[] = [
-    { type: 'header', label: 'Header', icon: 'fa-heading' },
-    { type: 'markdown', label: 'Markdown', icon: 'fa-align-left' },
-    { type: 'calendar', label: 'Calendar', icon: 'fa-calendar' },
-    { type: 'weather', label: 'Weather', icon: 'fa-cloud-sun' },
-    { type: 'weather-forecast', label: 'Weather Forecast', icon: 'fa-cloud-sun-rain' },
-    { type: 'graph', label: 'Graph', icon: 'fa-chart-line' },
-    { type: 'todo', label: 'Todo List', icon: 'fa-list-check' },
-    { type: 'rss-feed', label: 'RSS Feed', icon: 'fa-rss' },
-    { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
-    { type: 'image', label: 'Image', icon: 'fa-image' },
-    { type: 'version', label: 'Version', icon: 'fa-code-branch' },
-    { type: 'ai-content', label: 'AI Content', icon: 'fa-wand-magic-sparkles' }
+  availableWidgets = WIDGET_DEFINITIONS;
+  readonly widgetCategories: ReadonlyArray<{ type: WidgetCategory; label: string }> = [
+    { type: 'content', label: 'Content' },
+    { type: 'home-assistant', label: 'Home Assistant' },
+    { type: 'chart', label: 'Charts' },
+    { type: 'asset', label: 'Assets' },
+    { type: 'system', label: 'System' },
   ];
+
+  widgetsInCategory(category: WidgetCategory): readonly WidgetDefinition[] {
+    return this.availableWidgets.filter(widget => widget.category === category);
+  }
 
   selectedWidget = signal<WidgetConfig | null>(null);
   ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
@@ -358,7 +360,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }
   }
 
-  onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: { type: WidgetType; label: string; icon: string }): void {
+  onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetDefinition): void {
     event.preventDefault();
     const layout = this.layout();
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
@@ -399,8 +401,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         const relY = e.clientY - rect.top - padding;
         const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relX / slotWidth)));
         const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relY / slotHeight)));
-        const w = Math.min(4, layout.gridCols - x);
-        const h = Math.min(2, layout.gridRows - y);
+        const defaultSize = getWidgetDefaultSize(widget.type, layout.gridCols, layout.gridRows);
+        const w = Math.min(defaultSize.w, layout.gridCols - x);
+        const h = Math.min(defaultSize.h, layout.gridRows - y);
         this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
       } else {
         this.ghost.set(null);
@@ -421,7 +424,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
           id: this.generateId(),
           type: widget.type,
           position: { ...g.position },
-          config: this.getDefaultConfig(widget.type)
+          config: createDefaultWidgetConfig(widget.type)
         };
         this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
       }
@@ -437,12 +440,11 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   /** Add a widget to the first available grid position (used on mobile). */
-  addWidgetToFirstSlot(widget: { type: WidgetType; label: string; icon: string }): void {
+  addWidgetToFirstSlot(widget: WidgetDefinition): void {
     const layout = this.layout();
     const cols = layout.gridCols;
     const rows = layout.gridRows;
-    const defaultW = Math.min(4, cols);
-    const defaultH = Math.min(2, rows);
+    const { w: defaultW, h: defaultH } = getWidgetDefaultSize(widget.type, cols, rows);
 
     // Build occupancy grid
     const occupied = new Set<string>();
@@ -469,7 +471,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
             id: this.generateId(),
             type: widget.type,
             position: { x, y, w: defaultW, h: defaultH },
-            config: this.getDefaultConfig(widget.type)
+            config: createDefaultWidgetConfig(widget.type)
           };
           this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
           this.selectedWidget.set(newWidget);
@@ -1603,7 +1605,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   private normalizeWidget(widget: any): WidgetConfig {
     const type = widget?.type as WidgetType;
-    const defaultConfig = this.getDefaultConfig(type);
+    const defaultConfig = createDefaultWidgetConfig(type);
     const config = {
       ...defaultConfig,
       ...(widget?.config ?? {})
@@ -1649,41 +1651,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
 
-
-  private getDefaultConfig(type: WidgetType): any {
-    switch (type) {
-      case 'header':
-        return { title: 'New Header', badges: [] };
-      case 'markdown':
-        return { content: '# Markdown Content' };
-      case 'calendar':
-        return { entityId: '', maxEvents: 7, items: [...DEFAULT_CALENDAR_EVENT_ITEMS] };
-      case 'weather':
-        return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
-      case 'weather-forecast':
-        return {
-          entityId: '',
-          forecastMode: 'daily',
-          visibleFields: [...DEFAULT_FORECAST_FIELDS]
-        };
-      case 'graph':
-        return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };
-      case 'todo':
-        return { entityId: '' };
-      case 'rss-feed':
-        return { entityId: '', title: 'Topic of the day' };
-      case 'app-icon':
-        return { size: 48 };
-      case 'image':
-        return { imageUrl: '', fit: 'contain' };
-      case 'version':
-        return {};
-      case 'ai-content':
-        return { prompt: '' };
-      default:
-        return {};
-    }
-  }
 
   getCanvasScaleStyle(): any {
     const scale = this.canvasScale();

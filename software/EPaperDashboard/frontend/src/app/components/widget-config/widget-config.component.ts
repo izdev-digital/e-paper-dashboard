@@ -32,11 +32,14 @@ import { AuthService } from '../../services/auth.service';
 import { AiService } from '../../services/ai.service';
 import { ToastService } from '../../services/toast.service';
 import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
+import { isEntityCompatible } from '../../models/widget-catalog';
+import { EntitySourceSelectorComponent } from './entity-source-selector.component';
+import { WidgetTitleConfigComponent } from './widget-title-config.component';
 
 @Component({
   selector: 'app-widget-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, ResolveUrlPipe],
+  imports: [CommonModule, FormsModule, ResolveUrlPipe, EntitySourceSelectorComponent, WidgetTitleConfigComponent],
   templateUrl: './widget-config.component.html',
   styleUrls: ['./widget-config.component.scss']
 })
@@ -152,6 +155,25 @@ export class WidgetConfigComponent implements OnChanges {
     this.widgetChanged.emit(this.widget);
   }
 
+  applyWidgetChange(widget: WidgetConfig): void {
+    if (widget.type === 'weather' && widget.showTitle !== this.widget.showTitle) {
+      const config = widget.config as WeatherConfig;
+      const items = (config.items ?? DEFAULT_WEATHER_ITEMS).map(item =>
+        item.type === 'title' ? { ...item, visible: widget.showTitle !== false } : item);
+      widget = { ...widget, config: { ...config, items } };
+    }
+    this.widget = widget;
+    this.widgetChanged.emit(widget);
+  }
+
+  updateEntityId(entityId: string): void {
+    this.widget = {
+      ...this.widget,
+      config: { ...this.widget.config, entityId } as WidgetConfig['config'],
+    };
+    this.widgetChanged.emit(this.widget);
+  }
+
   // ---- Weather Forecast field visibility helpers ----
   readonly allForecastFields = ALL_FORECAST_FIELDS;
 
@@ -212,57 +234,16 @@ export class WidgetConfigComponent implements OnChanges {
   }
 
   getFilteredEntities(): any[] {
-    const allEntities = this.entities();
-
-    const getDomain = (entity: any): string => {
-      if (entity?.domain) {
-        return String(entity.domain).toLowerCase();
-      }
-      const id = entity?.entity_id?.toLowerCase() || '';
-      return id.includes('.') ? id.split('.')[0] : id;
-    };
-
-    // Filter entities based on widget type
-    switch (this.widget.type) {
-      case 'todo':
-        return allEntities.filter(e => getDomain(e) === 'todo');
-      case 'calendar':
-        return allEntities.filter(e => getDomain(e) === 'calendar');
-      case 'weather':
-      case 'weather-forecast':
-        return allEntities.filter(e => getDomain(e) === 'weather');
-      case 'rss-feed':
-        // Feedreader creates event entities with names like event.feed_name_latest_feed
-        // Show all event entities and let user select the appropriate feedreader entity
-        return allEntities.filter(e => getDomain(e) === 'event');
-      case 'graph':
-        // Graph can work with any entity that has numeric state values
-        // Include sensors, counters, numbers, climate (temperature), light (brightness), etc.
-        const filtered = allEntities.filter(e => {
-          const domain = getDomain(e);
-          return (
-            domain === 'sensor' ||
-            domain === 'binary_sensor' ||
-            domain === 'input_number' ||
-            domain === 'number' ||
-            domain === 'counter' ||
-            domain === 'climate' ||
-            domain === 'light' ||
-            domain === 'cover' ||
-            domain === 'fan' ||
-            domain === 'humidifier' ||
-            domain === 'water_heater' ||
-            domain === 'weather' ||
-            domain === 'person' ||
-            domain === 'device_tracker' ||
-            domain === 'sun' ||
-            domain === 'zone'
-          );
-        });
-        return filtered;
-      default:
-        return allEntities;
-    }
+    return this.entities().filter(entity => isEntityCompatible(this.widget.type, {
+      entityId: entity.entity_id,
+      friendlyName: entity.friendly_name,
+      domain: entity.domain || entity.entity_id?.split('.')[0] || '',
+      deviceClass: entity.device_class,
+      unitOfMeasurement: entity.unit_of_measurement,
+      icon: entity.icon,
+      state: entity.state,
+      supportedFeatures: entity.supported_features,
+    }));
   }
 
   loadEntities(): void {

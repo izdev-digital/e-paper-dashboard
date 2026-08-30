@@ -126,36 +126,9 @@
 }
 
 @case ('calendar') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Data Source</label>
-  @if (entities().length === 0) {
-    <div class="alert alert-warning mb-0">
-      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
-    </div>
-  } @else {
-    <select class="form-select" [(ngModel)]="calendarConfig.entityId" (ngModelChange)="onPropertyChanged()">
-      <option value="">Select entity...</option>
-      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-      }
-    </select>
-  }
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
+<app-entity-source-selector [value]="calendarConfig.entityId" [entities]="getFilteredEntities()"
+  [loading]="loadingEntities()" (valueChange)="updateEntityId($event)" />
 <label class="form-label fw-semibold small">Event Fields</label>
 <small class="form-text text-muted d-block mb-2">
   Select which fields to show for each event entry.
@@ -205,36 +178,9 @@
 }
 
 @case ('weather') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Data Source</label>
-  @if (entities().length === 0) {
-    <div class="alert alert-warning mb-0">
-      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
-    </div>
-  } @else {
-    <select class="form-select" [(ngModel)]="weatherConfig.entityId" (ngModelChange)="onPropertyChanged()">
-      <option value="">Select entity...</option>
-      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-      }
-    </select>
-  }
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
+<app-entity-source-selector [value]="weatherConfig.entityId" [entities]="getFilteredEntities()"
+  [loading]="loadingEntities()" (valueChange)="updateEntityId($event)" />
 <label class="form-label fw-semibold small">Visible Items</label>
 <small class="form-text text-muted d-block mb-2">
   Select which items to show; drag to position them in the layout editor on the canvas.
@@ -287,36 +233,9 @@
 }
 
 @case ('weather-forecast') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Data Source</label>
-  @if (entities().length === 0) {
-    <div class="alert alert-warning mb-0">
-      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
-    </div>
-  } @else {
-    <select class="form-select" [(ngModel)]="weatherForecastConfig.entityId" (ngModelChange)="onPropertyChanged()">
-      <option value="">Select entity...</option>
-      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-      }
-    </select>
-  }
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
+<app-entity-source-selector [value]="weatherForecastConfig.entityId" [entities]="getFilteredEntities()"
+  [loading]="loadingEntities()" (valueChange)="updateEntityId($event)" />
 <div class="mb-3">
   <label class="form-label fw-semibold small">Forecast Type</label>
   <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode" (ngModelChange)="onPropertyChanged()">
@@ -365,20 +284,7 @@
 }
 
 @case ('graph') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
 <label class="form-label fw-semibold small">Data Series</label>
 <small class="form-text text-muted d-block mb-3">Add multiple entities to compare over time</small>
 @if (graphConfig.series && graphConfig.series.length > 0) {
@@ -469,36 +375,9 @@
 }
 
 @case ('todo') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Data Source</label>
-  @if (entities().length === 0) {
-    <div class="alert alert-warning mb-0">
-      <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
-    </div>
-  } @else {
-    <select class="form-select" [(ngModel)]="todoConfig.entityId" (ngModelChange)="onPropertyChanged()">
-      <option value="">Select entity...</option>
-      @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-      <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-      }
-    </select>
-  }
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
+<app-entity-source-selector [value]="todoConfig.entityId" [entities]="getFilteredEntities()"
+  [loading]="loadingEntities()" (valueChange)="updateEntityId($event)" />
 <label class="form-label fw-semibold small">Display</label>
 <div class="form-check form-switch mb-2">
   <input class="form-check-input" type="checkbox" [(ngModel)]="todoConfig.showCompleted" id="showCompleted"
@@ -544,33 +423,9 @@
 }
 
 @case ('rss-feed') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
-<label class="form-label fw-semibold small">Data Source</label>
-@if (entities().length === 0) {
-  <div class="alert alert-warning mb-0">
-    <i class="fa fa-exclamation-triangle"></i> No entities available. Configure Home Assistant connection first.
-  </div>
-} @else {
-  <select class="form-select" [(ngModel)]="$any(widget.config).entityId" (ngModelChange)="onPropertyChanged()">
-    <option value="">Select entity...</option>
-    @for (entity of getFilteredEntities(); track trackByEntityId($index, entity)) {
-    <option [value]="entity.entity_id">{{ formatEntityLabel(entity) }}</option>
-    }
-  </select>
-}
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
+<app-entity-source-selector [value]="rssFeedConfig.entityId" [entities]="getFilteredEntities()"
+  [loading]="loadingEntities()" (valueChange)="updateEntityId($event)" />
 }
 
 @case ('app-icon') {
@@ -590,20 +445,7 @@
 
 @case ('image') {
 @if (widget.config && 'imageUrl' in widget.config) {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
 <label class="form-label fw-semibold small">Image Source</label>
 <div class="d-flex gap-2 mb-2">
   <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
@@ -689,20 +531,7 @@
 }
 
 @case ('ai-content') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
+<app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
 <div class="mb-3">
   <label class="form-label fw-semibold small">AI Prompt</label>
   <textarea class="form-control" rows="4" [(ngModel)]="aiContentConfig.prompt"

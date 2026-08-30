@@ -27,6 +27,7 @@ import {
   DashboardLayout,
   getWeatherForecastDataKey,
 } from '../../models/types';
+import { getWidgetDefinition } from '../../models/widget-catalog';
 
 @Component({
   selector: 'app-widget-preview',
@@ -121,30 +122,15 @@ export class WidgetPreviewComponent {
   @Input() weatherInternalEdit = false;
   @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
 
-  // ─── widget type → icon / label ──────────────────────────────────────────
-  private static readonly WIDGET_META: Record<string, { icon: string; label: string }> = {
-    'header':           { icon: 'fa-heading',       label: 'Header' },
-    'markdown':         { icon: 'fa-align-left',    label: 'Markdown' },
-    'calendar':         { icon: 'fa-calendar',      label: 'Calendar' },
-    'weather':          { icon: 'fa-cloud-sun',     label: 'Weather' },
-    'weather-forecast': { icon: 'fa-cloud-sun-rain', label: 'Forecast' },
-    'graph':            { icon: 'fa-chart-line',    label: 'Graph' },
-    'todo':             { icon: 'fa-list-check',    label: 'Tasks' },
-    'rss-feed':         { icon: 'fa-rss',           label: 'RSS Feed' },
-    'app-icon':         { icon: 'fa-rocket',        label: 'App Icon' },
-    'image':            { icon: 'fa-image',         label: 'Image' },
-    'version':          { icon: 'fa-code-branch',   label: 'Version' },
-    'ai-content':       { icon: 'fa-wand-magic-sparkles', label: 'AI Content' },
-  };
-
   getWidgetIcon(): string {
-    return WidgetPreviewComponent.WIDGET_META[this.widget.type]?.icon || 'fa-puzzle-piece';
+    return getWidgetDefinition(this.widget.type).icon;
   }
 
   getWidgetLabel(): string {
+    const definition = getWidgetDefinition(this.widget.type);
     return this.widget.titleOverride
-      || WidgetPreviewComponent.WIDGET_META[this.widget.type]?.label
-      || this.widget.type;
+      || definition.previewLabel
+      || definition.label;
   }
 
   asHeaderConfig(config: any): HeaderConfig {
