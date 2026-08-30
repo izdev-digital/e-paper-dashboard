@@ -21,6 +21,7 @@ import {
   CalendarConfig,
   WeatherConfig,
   GraphConfig,
+  GraphSeriesConfig,
   TodoConfig,
   HassEntityState,
   DashboardLayout,
@@ -186,6 +187,11 @@ export class WidgetPreviewComponent {
       return entityBadges.some((b: any) =>
         this.entityStates && this.entityStates[b.entityId]
       );
+    }
+
+    if (type === 'graph') {
+      const series = (config?.series ?? []) as GraphSeriesConfig[];
+      return series.some(item => !!item.entityId);
     }
 
     if (!entityId) {

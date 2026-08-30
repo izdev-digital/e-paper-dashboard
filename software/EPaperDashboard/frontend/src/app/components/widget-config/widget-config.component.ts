@@ -297,11 +297,13 @@ export class WidgetConfigComponent implements OnChanges {
       this.graphConfig.series = [];
     }
     this.graphConfig.series.push({ entityId: '', label: '', color: this.getDefaultGraphColor(this.graphConfig.series.length) });
+    this.onPropertyChanged();
   }
 
   removeGraphSeries(index: number): void {
     if (this.graphConfig.series) {
       this.graphConfig.series.splice(index, 1);
+      this.onPropertyChanged();
     }
   }
 

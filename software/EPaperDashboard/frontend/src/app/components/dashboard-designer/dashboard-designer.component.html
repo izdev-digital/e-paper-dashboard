@@ -22,7 +22,7 @@
               </label>
             </div>
           </div>
-          <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" [disabled]="isDirty()" [title]="isDirty() ? 'Save your changes before previewing' : 'Open rendered preview'">
+          <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" title="Render the current layout, including unsaved changes">
             <i class="fa fa-external-link-alt me-1"></i>Rendered Preview
           </button>
           @if (isDirty()) {
@@ -66,7 +66,7 @@
                 <button (click)="mobilePropertiesOpen.set(true); mobileOverflowOpen.set(false)">
                   <i class="fa fa-sliders"></i> Settings / Properties
                 </button>
-                <button (click)="previewServerSideRendered(); mobileOverflowOpen.set(false)" [disabled]="isDirty()">
+                <button (click)="previewServerSideRendered(); mobileOverflowOpen.set(false)">
                   <i class="fa fa-external-link-alt"></i> Rendered Preview
                 </button>
               </div>

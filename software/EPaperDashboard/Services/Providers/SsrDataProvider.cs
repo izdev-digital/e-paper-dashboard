@@ -165,7 +165,7 @@ public sealed class SsrDataProvider(
                 if (!string.IsNullOrWhiteSpace(prompt))
                 {
                     var widgetId = widget.Id;
-                    tasks.Add(FetchAiContentAsync(dashboardId, widgetId, prompt, data));
+                    FetchCachedAiContent(dashboardId, widgetId, data);
                 }
             }
         }
@@ -227,25 +227,13 @@ public sealed class SsrDataProvider(
         }
     }
 
-    private async Task FetchAiContentAsync(string dashboardId, string widgetId, string prompt, SsrData data)
+    private void FetchCachedAiContent(string dashboardId, string widgetId, SsrData data)
     {
-        // Use cached content if available; fall back to live generation
         var cached = _aiContentProvider.GetCachedContent(dashboardId, widgetId);
         if (cached != null)
         {
             data.AiContent[widgetId] = cached;
             _logger.LogDebug("SSR: Using cached AI content for widget {WidgetId}", widgetId);
-            return;
-        }
-
-        var result = await _aiContentProvider.GenerateAndCacheContentAsync(dashboardId, widgetId, prompt);
-        if (result.IsSuccess)
-        {
-            data.AiContent[widgetId] = result.Value;
-        }
-        else
-        {
-            _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widgetId, result.Error);
         }
     }
 

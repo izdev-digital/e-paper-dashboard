@@ -238,18 +238,18 @@ public class SsrDataProviderTests
     }
 
     [Fact]
-    public async Task FetchSsrDataAsync_AiContentWidgetNoCache_GeneratesAndStoresContent()
+    public async Task FetchSsrDataAsync_AiContentWidgetNoCache_DoesNotGenerateDuringRender()
     {
         _aiContentProvider.Setup(p => p.GetCachedContent("dash1", "w1")).Returns((string?)null);
-        _aiContentProvider
-            .Setup(p => p.GenerateAndCacheContentAsync("dash1", "w1", "summarize", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<string, string>("freshly generated"));
         var sut = CreateSut();
         var layout = LayoutWith(Widget("ai-content", new { prompt = "summarize" }));
 
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
-        result.AiContent["w1"].Should().Be("freshly generated");
+        result.AiContent.Should().NotContainKey("w1");
+        _aiContentProvider.Verify(
+            p => p.GenerateAndCacheContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

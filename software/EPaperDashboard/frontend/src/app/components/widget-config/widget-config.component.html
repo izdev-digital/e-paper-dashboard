@@ -121,6 +121,7 @@
 
 @case ('markdown') {
 <textarea class="form-control" rows="6" [(ngModel)]="markdownConfig.content"
+  (ngModelChange)="onPropertyChanged()"
   placeholder="# Markdown content here"></textarea>
 }
 
@@ -318,7 +319,7 @@
 <hr class="my-2" />
 <div class="mb-3">
   <label class="form-label fw-semibold small">Forecast Type</label>
-  <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode">
+  <select class="form-select" [(ngModel)]="weatherForecastConfig.forecastMode" (ngModelChange)="onPropertyChanged()">
     <option value="daily">Daily</option>
     <option value="hourly">Hourly</option>
     <option value="weekly">Weekly</option>
@@ -396,7 +397,7 @@
             <!-- Entity Selection -->
             <div class="col-12">
               <label class="form-label small mb-1">Entity</label>
-              <select class="form-select form-select-sm" [(ngModel)]="series.entityId">
+              <select class="form-select form-select-sm" [(ngModel)]="series.entityId" (ngModelChange)="onPropertyChanged()">
                 <option value="">Select entity...</option>
                 @for (ent of getFilteredEntities(); track trackByEntityId($index, ent)) {
                   <option [value]="ent.entity_id">{{ formatEntityLabel(ent) }}</option>
@@ -407,13 +408,13 @@
             <!-- Label and Color -->
             <div class="col-8">
               <label class="form-label small mb-1">Label</label>
-              <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" [placeholder]="series.entityId || 'Optional label'" />
+              <input type="text" class="form-control form-control-sm" [(ngModel)]="series.label" (ngModelChange)="onPropertyChanged()" [placeholder]="series.entityId || 'Optional label'" />
               <small class="form-text text-muted d-block mt-1">Leave empty to use entity ID</small>
             </div>
             
             <div class="col-4">
               <label class="form-label small mb-1">Color</label>
-              <select class="form-select form-select-sm" [(ngModel)]="series.color">
+              <select class="form-select form-select-sm" [(ngModel)]="series.color" (ngModelChange)="onPropertyChanged()">
                 <option [value]="null">Auto</option>
                 @for (color of colorScheme?.palette; track color) {
                   <option [value]="color">{{ getColorName(color) }}</option>
@@ -435,7 +436,7 @@
 <div class="row g-2 mb-2">
   <div class="col">
     <label class="form-label small mb-1">Period</label>
-    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.period">
+    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.period" (ngModelChange)="onPropertyChanged()">
       <option value="1h">1 Hour</option>
       <option value="6h">6 Hours</option>
       <option value="24h">24 Hours</option>
@@ -445,7 +446,7 @@
   </div>
   <div class="col">
     <label class="form-label small mb-1">Plot Type</label>
-    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.plotType">
+    <select class="form-select form-select-sm" [(ngModel)]="graphConfig.plotType" (ngModelChange)="onPropertyChanged()">
       <option value="line">Line Chart</option>
       <option value="bar">Bar Chart</option>
     </select>
@@ -454,14 +455,14 @@
 @if (graphConfig.plotType === 'line') {
 <div>
   <label class="form-label small mb-1">Line Width (px)</label>
-  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.lineWidth" min="1" max="10" placeholder="2" />
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.lineWidth" (ngModelChange)="onPropertyChanged()" min="1" max="10" placeholder="2" />
   <small class="form-text text-muted">Default: 2px</small>
 </div>
 }
 @if (graphConfig.plotType === 'bar') {
 <div>
   <label class="form-label small mb-1">Bar Width</label>
-  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.barWidth" min="1" max="20" placeholder="Auto" />
+  <input type="number" class="form-control form-control-sm" [(ngModel)]="graphConfig.barWidth" (ngModelChange)="onPropertyChanged()" min="1" max="20" placeholder="Auto" />
   <small class="form-text text-muted">Leave empty for automatic width</small>
 </div>
 }
@@ -573,20 +574,6 @@
 }
 
 @case ('app-icon') {
-<div class="mb-3">
-  <label class="form-label fw-semibold small">Widget Title</label>
-  <div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="showTitle-{{widget.id}}"
-      [checked]="widget.showTitle !== false"
-      (change)="toggleTitleVisibility()" />
-    <label class="form-check-label" for="showTitle-{{widget.id}}">Show title</label>
-  </div>
-  <input type="text" class="form-control" [(ngModel)]="widget.titleOverride"
-    (ngModelChange)="onPropertyChanged()"
-    placeholder="Override widget title" />
-  <small class="form-text text-muted">Leave empty to use default title</small>
-</div>
-<hr class="my-2" />
 <div class="mb-2">
   <label class="form-label small mb-1">Size (px)</label>
   <input type="number" class="form-control form-control-sm" [(ngModel)]="appIconConfig.size" min="16" max="256"
