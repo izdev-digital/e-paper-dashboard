@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
 import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-markdown',
@@ -10,7 +11,12 @@ import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
   imports: [CommonModule],
   styleUrls: ['./markdown-widget.component.scss'],
   template: `
-    <div class="markdown-widget" [style.color]="getTextColor()">
+    <div class="markdown-widget"
+      [style.color]="renderContext.textColor"
+      [style.--markdown-title-font-size]="renderContext.titleFontSize + 'px'"
+      [style.--markdown-text-font-size]="renderContext.textFontSize + 'px'"
+      [style.--markdown-title-font-weight]="renderContext.titleFontWeight"
+      [style.--markdown-text-font-weight]="renderContext.textFontWeight">
       <div class="markdown-content" [innerHTML]="parsedContent"></div>
     </div>
   `
@@ -30,10 +36,7 @@ export class MarkdownWidgetComponent {
 
   asMarkdownConfig(config: any) { return config as any; }
 
-  getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+  get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

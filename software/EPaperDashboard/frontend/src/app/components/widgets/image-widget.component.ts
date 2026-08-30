@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, ImageConfig, DashboardLayout } from '../../models/types';
 import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-image',
@@ -9,9 +10,9 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
   imports: [CommonModule, ResolveUrlPipe],
   template: `
     <div class="image-widget-wrapper"
-      [style.--widget-title-font-size]="(designerSettings?.titleFontSize ?? 16) + 'px'"
-      [style.--widget-title-font-weight]="designerSettings?.titleFontWeight ?? 700"
-      [style.--widget-title-color]="widget.colorOverrides?.widgetTitleTextColor || colorScheme.widgetTitleTextColor || colorScheme.text">
+      [style.--widget-title-font-size]="renderContext.titleFontSize + 'px'"
+      [style.--widget-title-font-weight]="renderContext.titleFontWeight"
+      [style.--widget-title-color]="renderContext.titleColor">
       @if (widget.showTitle !== false && widget.titleOverride) {
         <h4 class="widget-frame-title">{{ widget.titleOverride }}</h4>
       }
@@ -57,5 +58,9 @@ export class ImageWidgetComponent {
 
   get cfg(): ImageConfig {
     return this.widget.config as ImageConfig;
+  }
+
+  get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

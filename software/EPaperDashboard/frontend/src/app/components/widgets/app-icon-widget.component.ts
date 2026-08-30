@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges, ChangeDetectorRef }
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-app-icon',
@@ -57,9 +58,6 @@ export class AppIconWidgetComponent implements OnInit, OnChanges {
   asAppIconConfig(config: any) { return config as any; }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return resolveWidgetRenderContext(this.widget, this.colorScheme).iconColor;
   }
 }

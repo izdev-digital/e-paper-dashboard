@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { WidgetConfig, ColorScheme, DashboardLayout, AiContentConfig } from '../../models/types';
 import { AiService } from '../../services/ai.service';
 import { MarkdownWidgetComponent } from './markdown-widget.component';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-ai-content',
@@ -12,8 +13,8 @@ import { MarkdownWidgetComponent } from './markdown-widget.component';
   template: `
     <div class="ai-content-widget"
       [style.color]="getTextColor()"
-      [style.--widget-title-font-size]="(designerSettings?.titleFontSize ?? 16) + 'px'"
-      [style.--widget-title-font-weight]="designerSettings?.titleFontWeight ?? 700"
+      [style.--widget-title-font-size]="renderContext.titleFontSize + 'px'"
+      [style.--widget-title-font-weight]="renderContext.titleFontWeight"
       [style.--widget-title-color]="getTitleColor()">
       @if (widget.showTitle !== false) {
         <h4 class="widget-frame-title">{{ widget.titleOverride || 'AI Content' }}</h4>
@@ -122,17 +123,15 @@ export class AiContentWidgetComponent implements OnChanges, OnDestroy {
   }
 
   getTextColor(): string {
-    return this.widget.colorOverrides?.widgetTextColor
-      || this.colorScheme?.widgetTextColor
-      || this.colorScheme?.text
-      || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getTitleColor(): string {
-    return this.widget.colorOverrides?.widgetTitleTextColor
-      || this.colorScheme?.widgetTitleTextColor
-      || this.colorScheme?.text
-      || 'currentColor';
+    return this.renderContext.titleColor;
+  }
+
+  get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   private loadCachedContent(): void {

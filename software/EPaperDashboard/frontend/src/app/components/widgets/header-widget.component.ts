@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { resolveWidgetRenderContext } from './widget-render-context';
 import {
   WidgetConfig,
   HeaderConfig,
@@ -478,22 +479,23 @@ export class HeaderWidgetComponent implements OnInit, OnChanges, OnDestroy {
   private autoY(i: number): number { return Math.floor(i / 4) * 30; }
 
   // ─── style helpers ────────────────────────────────────────────────────────
-  getTitleFontSize():   number { return this.designerSettings?.titleFontSize   ?? 16; }
-  getTextFontSize():    number { return this.designerSettings?.textFontSize    ?? 14; }
-  getTitleFontWeight(): number { return this.designerSettings?.titleFontWeight ?? 700; }
-  getTextFontWeight():  number { return this.designerSettings?.textFontWeight  ?? 400; }
+  getTitleFontSize():   number { return this.renderContext.titleFontSize; }
+  getTextFontSize():    number { return this.renderContext.textFontSize; }
+  getTitleFontWeight(): number { return this.renderContext.titleFontWeight; }
+  getTextFontWeight():  number { return this.renderContext.textFontWeight; }
 
   getTitleColor(): string {
-    return this.widget.colorOverrides?.widgetTitleTextColor
-      || this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
   getTextColor(): string {
-    return this.widget.colorOverrides?.widgetTextColor
-      || this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
   getIconColor(): string {
-    return this.widget.colorOverrides?.iconColor
-      || this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   isIconOnLeft(): boolean {

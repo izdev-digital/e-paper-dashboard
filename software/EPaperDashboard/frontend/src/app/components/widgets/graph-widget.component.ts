@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, GraphSeriesConfig, DashboardLayout } from '../../models/types';
 import { EntityHistoryService } from '../../services/entity-history.service';
 import { Chart, ChartConfiguration, LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler } from 'chart.js';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 // Register Chart.js components
 Chart.register(LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler);
@@ -281,39 +282,34 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getHeaderFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getHeaderFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { TodoItem } from '../../services/todo.service';
 import { WidgetConfig, ColorScheme, HassEntityState, TodoConfig, DashboardLayout } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-todo',
@@ -71,23 +72,23 @@ export class TodoWidgetComponent {
   get config(): TodoConfig { return (this.widget?.config || {}) as TodoConfig; }
 
   getHeaderFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getItemFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getHeaderFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getItemFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   getSmallFontSize(): number {
-    return Math.round((this.designerSettings?.textFontSize ?? 12) * 0.75);
+    return Math.round(this.renderContext.textFontSize * 0.75);
   }
 
   /**
@@ -164,23 +165,18 @@ export class TodoWidgetComponent {
   trackByItemId(index: number, item: any) { return item.id || index; }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

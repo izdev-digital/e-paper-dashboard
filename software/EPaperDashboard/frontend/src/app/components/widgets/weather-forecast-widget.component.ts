@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS, getWeatherForecastDataKey } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 interface ForecastItem {
   id: number;
@@ -345,23 +346,23 @@ export class WeatherForecastWidgetComponent {
   }
 
   getTitleFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getTitleFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   getSmallFontSize(): number {
-    return Math.round((this.designerSettings?.textFontSize ?? 12) * 0.75);
+    return Math.round(this.renderContext.textFontSize * 0.75);
   }
 
   getRowGap(): number {
@@ -369,24 +370,19 @@ export class WeatherForecastWidgetComponent {
   }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   isTinyMode(): boolean {

@@ -22,6 +22,7 @@ import {
   defaultWeatherItemIcon,
   DashboardLayout,
 } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 // ─── edit-mode types ──────────────────────────────────────────────────────────
 
@@ -458,40 +459,35 @@ export class WeatherWidgetComponent implements OnChanges, OnDestroy {
 
   // ─── style helpers ────────────────────────────────────────────────────────
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getTitleFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getTitleFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   /** Resolve the icon for a weather item: use custom icon if set, otherwise fall back to default. */

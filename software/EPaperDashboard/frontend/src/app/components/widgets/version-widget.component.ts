@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-version',
@@ -40,17 +41,18 @@ export class VersionWidgetComponent implements OnInit {
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 14;
+    return this.renderContext.textFontSize;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

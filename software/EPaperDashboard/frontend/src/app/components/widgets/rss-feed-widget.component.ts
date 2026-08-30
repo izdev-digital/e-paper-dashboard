@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, HassEntityState, RssFeedConfig, DashboardLayout } from '../../models/types';
 import QRCode from 'qrcode';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 interface RssEntry {
   title: string;
@@ -82,19 +83,19 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   }
 
   getTitleFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 16;
+    return this.renderContext.titleFontSize;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getTitleFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   /**
@@ -113,27 +114,23 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   }
 
   getIconColor(): string {
-    return this.widget.colorOverrides?.iconColor ||
-      this.colorScheme.iconColor ||
-      this.colorScheme.accent;
+    return this.renderContext.iconColor;
   }
 
   getTitleColor(): string {
-    return this.widget.colorOverrides?.widgetTitleTextColor ||
-      this.colorScheme.widgetTitleTextColor ||
-      this.colorScheme.text;
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    return this.widget.colorOverrides?.widgetTextColor ||
-      this.colorScheme.widgetTextColor ||
-      this.colorScheme.text;
+    return this.renderContext.textColor;
   }
 
   getQrCodeBackgroundColor(): string {
-    return this.widget.colorOverrides?.widgetBackgroundColor ||
-      this.colorScheme.widgetBackgroundColor ||
-      this.colorScheme.background;
+    return this.renderContext.backgroundColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   getEntityState(entityId?: string): HassEntityState | null {
