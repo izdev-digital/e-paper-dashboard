@@ -2,6 +2,8 @@
 
 Hardware enclosure designs for the izBoard device.
 
+Current packaging revision: **0.3.3**
+
 ## Contents
 
 This directory contains CAD files for 3D-printable enclosures and mounting solutions for the izBoard hardware.

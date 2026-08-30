@@ -31,7 +31,10 @@ public class DashboardSsrController(
     /// Returns the dashboard rendered directly to an image using ImageSharp.
     /// </summary>
     [HttpGet("{id}/render-image")]
-    public async Task<IActionResult> RenderDashboardImage(string id, [FromQuery] string format = "jpeg")
+    public async Task<IActionResult> RenderDashboardImage(
+        string id,
+        [FromQuery] string format = "jpeg",
+        [FromQuery] bool refresh = false)
     {
         if (!DashboardId.TryParse(id, out var dashboardId))
         {
@@ -55,7 +58,8 @@ public class DashboardSsrController(
             using var rawImage = await dashboardImageRenderingService.RenderDashboardImageAsync(
                 dashboard.Value.Id.ToString(),
                 layoutToRender,
-                HttpContext.RequestAborted);
+                HttpContext.RequestAborted,
+                bypassCache: refresh);
 
             using IImage image = ImageAdapter<SixLabors.ImageSharp.PixelFormats.Rgba32>.Wrap(rawImage);
 

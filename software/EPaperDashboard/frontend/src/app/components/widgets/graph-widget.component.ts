@@ -18,7 +18,10 @@ interface ChartDataPoint {
   imports: [CommonModule],
   styleUrls: ['./graph-widget.component.scss'],
   template: `
-    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()">
+    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()"
+      [style.--widget-title-font-size]="getHeaderFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getHeaderFontWeight()"
+      [style.--widget-title-color]="getTitleColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
           <i class="fa fa-chart-line"></i>
@@ -27,7 +30,7 @@ interface ChartDataPoint {
       }
       @if (isDataFetched()) {
         @if (widget.showTitle !== false && widget.titleOverride) {
-          <h4 class="graph-title">{{ widget.titleOverride }}</h4>
+          <h4 class="widget-frame-title">{{ widget.titleOverride }}</h4>
         }
         <canvas 
           #chartCanvas 
@@ -98,15 +101,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
 
   private loadChartData(): void {
     if (!this.config.series || this.config.series.length === 0 || !this.dashboardId) {
-      console.log('[Graph Widget] Using mock data. Series:', this.config.series?.length || 0, 'dashboardId:', this.dashboardId);
-      // Fallback to mock data if no series or dashboard ID
-      if (this.config.series && this.config.series.length > 0) {
-        this.config.series.forEach(s => {
-          if (s.entityId) {
-            this.generateMockHistoricalData(s.entityId);
-          }
-        });
-      }
+      this.chartDataByEntity.clear();
       this.updateChart();
       return;
     }
@@ -117,6 +112,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
       .map(e => e.entityId);
 
     if (entityIds.length === 0) {
+      this.chartDataByEntity.clear();
       this.updateChart();
       return;
     }
@@ -131,13 +127,8 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
 
     const hours = hoursMap[this.config.period || '24h'] || 24;
 
-    console.log('[Graph Widget] Fetching history for entities:', entityIds, 'period:', this.config.period, 'dashboardId:', this.dashboardId);
     this.haService.getEntityHistory(this.dashboardId, entityIds, hours).subscribe({
       next: (historyData) => {
-        console.log('[Graph Widget] Received history data:', Object.keys(historyData).length, 'entities');
-        Object.entries(historyData).forEach(([id, states]) => {
-          console.log(`  - ${id}: ${states.length} data points`);
-        });
         this.chartDataByEntity.clear();
         // Convert API response to chart data format
         Object.entries(historyData).forEach(([entityId, states]) => {
@@ -149,52 +140,21 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
         });
         this.updateChart();
       },
-      error: (error) => {
-        console.warn('Failed to fetch entity history, falling back to mock data:', error);
-        // Fallback to mock data on error
+      error: () => {
         this.chartDataByEntity.clear();
-        this.config.series.forEach(s => {
-          if (s.entityId) {
-            this.generateMockHistoricalData(s.entityId);
-          }
-        });
         this.updateChart();
       }
     });
   }
 
-  private generateMockHistoricalData(entityId: string): void {
-    const now = new Date();
-    const period = this.config.period || '24h';
-    let hoursBack = 24;
-
-    switch (period) {
-      case '1h': hoursBack = 1; break;
-      case '6h': hoursBack = 6; break;
-      case '24h': hoursBack = 24; break;
-      case '7d': hoursBack = 24 * 7; break;
-      case '30d': hoursBack = 24 * 30; break;
-    }
-
-    const currentEntityState = this.getEntityState(entityId);
-    const baseValue = parseFloat(currentEntityState?.state || '0');
-
-    const dataPoints: ChartDataPoint[] = [];
-    const interval = Math.max(1, Math.floor(hoursBack / 20)); // Max 20 data points
-
-    for (let i = hoursBack; i >= 0; i -= interval) {
-      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-      // Add some variation to the data
-      const noise = (Math.random() - 0.5) * (baseValue * 0.2);
-      const value = Math.max(0, baseValue + noise);
-      dataPoints.push({ timestamp, value });
-    }
-
-    this.chartDataByEntity.set(entityId, dataPoints);
-  }
-
   private updateChart(): void {
-    if (!this.canvasRef?.nativeElement || this.chartDataByEntity.size === 0) return;
+    if (this.chartDataByEntity.size === 0) {
+      this.chart?.destroy();
+      this.chart = null;
+      return;
+    }
+
+    if (!this.canvasRef?.nativeElement) return;
 
     const canvas = this.canvasRef.nativeElement;
     const plotType = this.config.plotType || 'line';

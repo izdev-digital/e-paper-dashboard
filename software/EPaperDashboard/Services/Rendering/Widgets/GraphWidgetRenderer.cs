@@ -22,17 +22,9 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var textColor = ctx.TextColor;
         var titleColor = ctx.TitleColor;
         var textFontSize = ctx.TextFontSize;
-        var titleFontSize = ctx.TitleFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var gridColorStr = widget.ColorOverrides?.WidgetBorderColor ?? layout.ColorScheme.WidgetBorderColor;
 
-        // Render title if configured — match frontend .graph-title { padding: 8px 12px 4px 12px }
-        if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride))
-        {
-            var titleRect = new RectangleF(contentRect.X + 12, contentRect.Y, contentRect.Width - 24, titleFontSize + 8);
-            TextDrawing.DrawTextCentered(image, widget.TitleOverride, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
-            contentRect = new RectangleF(contentRect.X, contentRect.Y + titleFontSize + 8, contentRect.Width, contentRect.Height - titleFontSize - 8);
-        }
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(image, widget, layout, utils, contentRect);
 
         var plotType = RenderingUtilities.GetStringProp(widget.Config, "plotType") ?? "line";
         var lineWidth = RenderingUtilities.GetIntProp(widget.Config, "lineWidth") ?? 2;

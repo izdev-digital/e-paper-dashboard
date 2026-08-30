@@ -116,6 +116,23 @@ public class DashboardImageRenderingServiceTests
     }
 
     [Fact]
+    public async Task RenderDashboardImageAsync_BypassCache_RefetchesSsrData()
+    {
+        _ssrDataProvider
+            .Setup(p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SsrData());
+        var sut = CreateSut();
+        var layout = SimpleLayout();
+
+        using var first = await sut.RenderDashboardImageAsync("dash1", layout);
+        using var second = await sut.RenderDashboardImageAsync("dash1", layout, bypassCache: true);
+
+        _ssrDataProvider.Verify(
+            p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task RenderDashboardImageAsync_DifferentLayout_BustsCacheAndRefetches()
     {
         _ssrDataProvider
@@ -178,12 +195,14 @@ public class DashboardImageRenderingServiceTests
                 It.IsAny<SsrData>(), It.IsAny<SixLabors.ImageSharp.RectangleF>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         var sut = CreateSut(renderer.Object);
+        var layout = SimpleLayout("header");
+        layout.Widgets[0].ShowTitle = false;
 
-        using var image = await sut.RenderDashboardImageAsync("dash1", SimpleLayout("header"));
+        using var image = await sut.RenderDashboardImageAsync("dash1", layout);
 
         renderer.Verify(r => r.RenderAsync(
             It.IsAny<SixLabors.ImageSharp.Image<Rgba32>>(),
-            It.Is<WidgetConfigEntry>(w => w.Id == "w1"),
+            It.Is<WidgetConfigEntry>(w => w.Id == "w1" && !w.ShowTitle),
             It.IsAny<RenderingLayoutConfig>(),
             It.IsAny<SsrData>(),
             It.IsAny<SixLabors.ImageSharp.RectangleF>(),

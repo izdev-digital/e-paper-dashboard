@@ -48,7 +48,10 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
         var w = widget.Position.W;
         var h = widget.Position.H;
         var itemCount = maxItems ?? GetDefaultMaxItems(w, h, forecastMode);
-        var items = forecastList.Take(itemCount).ToList();
+        var sourceItems = forecastMode == "hourly"
+            ? FilterHourlyForecast(forecastList)
+            : forecastList;
+        var items = sourceItems.Take(itemCount).ToList();
 
         var tempUnit = "°C";
         if (data.EntityStates.TryGetValue(entityId, out var es))
@@ -151,5 +154,37 @@ public sealed class WeatherForecastWidgetRenderer(RenderingUtilities utils) : IW
             "weekly" => w switch { 1 => 1, 2 => 2, _ => 4 },
             _ => 3
         };
+    }
+
+    private static List<object?> FilterHourlyForecast(List<object?> forecast)
+    {
+        if (forecast.Count < 2)
+            return forecast;
+
+        var filtered = new List<object?> { forecast[0] };
+        if (!TryGetForecastDate(forecast[0], out var lastDate))
+            return forecast;
+
+        foreach (var item in forecast.Skip(1))
+        {
+            if (!TryGetForecastDate(item, out var currentDate))
+                continue;
+
+            if (currentDate - lastDate >= TimeSpan.FromHours(1))
+            {
+                filtered.Add(item);
+                lastDate = currentDate;
+            }
+        }
+
+        return filtered;
+    }
+
+    private static bool TryGetForecastDate(object? item, out DateTimeOffset date)
+    {
+        date = default;
+        return item is Dictionary<string, object?> dict
+            && dict.TryGetValue("datetime", out var value)
+            && DateTimeOffset.TryParse(value?.ToString(), out date);
     }
 }

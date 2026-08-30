@@ -902,7 +902,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       this.previewObjectUrl = null;
     }
 
-    const url = `/api/dashboards/${this.dashboardId}/render-image?format=png`;
+    const url = `/api/dashboards/${this.dashboardId}/render-image?format=png&refresh=true`;
 
     this.http.get(url, {
       responseType: 'blob'
@@ -1256,7 +1256,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
         if (todoEntityIds.length === 0) {
           this.todoItemsByEntityId.set({});
-          this.livePreviewLoading.set(false);
+          this.fetchCalendarEvents();
           return;
         }
 
@@ -1339,7 +1339,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }
 
     let completed = 0;
-    const weatherMap: Record<string, any> = {};
     weatherEntityIds.forEach(entityId => {
       const forecastMode = this.layout().widgets
         .find(w => w.type === 'weather-forecast' && (w.config as any).entityId === entityId)
@@ -1348,11 +1347,22 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       
       this.weatherService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
         next: (forecast: any) => {
-          // Merge forecast data into entity state attributes
-          const state = this.entityStates()[entityId];
-          if (state && state.attributes) {
-            state.attributes['forecast'] = forecast?.forecast || [];
-          }
+          // Keep signal state immutable so all widget previews observe the update.
+          this.entityStates.update(states => {
+            const state = states[entityId];
+            if (!state) return states;
+
+            return {
+              ...states,
+              [entityId]: {
+                ...state,
+                attributes: {
+                  ...(state.attributes ?? {}),
+                  forecast: forecast?.forecast || []
+                }
+              }
+            };
+          });
           completed++;
           if (completed === weatherEntityIds.length) {
             this.livePreviewLoading.set(false);
@@ -1636,7 +1646,8 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       position,
       config,
       colorOverrides: widget?.colorOverrides,
-      titleOverride: widget?.titleOverride
+      titleOverride: widget?.titleOverride,
+      showTitle: widget?.showTitle !== false
     } as WidgetConfig;
   }
 

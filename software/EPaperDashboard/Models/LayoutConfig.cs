@@ -53,6 +53,7 @@ namespace EPaperDashboard.Models
         public JsonElement Config { get; set; } = EmptyConfig;
         public WidgetColorOverrides? ColorOverrides { get; set; }
         public string? TitleOverride { get; set; }
+        public bool ShowTitle { get; set; } = true;
     }
 
     public class WidgetPosition

@@ -1,66 +1,149 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription } from 'rxjs';
 import { WidgetConfig, ColorScheme, DashboardLayout, AiContentConfig } from '../../models/types';
+import { AiService } from '../../services/ai.service';
+import { MarkdownWidgetComponent } from './markdown-widget.component';
 
 @Component({
   selector: 'app-widget-ai-content',
   standalone: true,
-  imports: [CommonModule],
-  styleUrls: ['./markdown-widget.component.scss'],
+  imports: [CommonModule, MarkdownWidgetComponent],
   template: `
-    <div class="markdown-widget" [style.color]="getTextColor()">
-      <div class="ai-content-empty">
-        <i class="fa fa-wand-magic-sparkles"></i>
-        @if (config.prompt.trim()) {
-          <p class="ai-prompt-preview">{{ config.prompt }}</p>
-        } @else {
-          <p>Configure a prompt to generate AI content</p>
-        }
-      </div>
+    <div class="ai-content-widget"
+      [style.color]="getTextColor()"
+      [style.--widget-title-font-size]="(designerSettings?.titleFontSize ?? 16) + 'px'"
+      [style.--widget-title-font-weight]="designerSettings?.titleFontWeight ?? 700"
+      [style.--widget-title-color]="getTitleColor()">
+      @if (widget.showTitle !== false) {
+        <h4 class="widget-frame-title">{{ widget.titleOverride || 'AI Content' }}</h4>
+      }
+
+      @if (content) {
+        <app-widget-markdown
+          [widget]="contentWidget"
+          [colorScheme]="colorScheme"
+          [designerSettings]="designerSettings">
+        </app-widget-markdown>
+      } @else {
+        <div class="ai-content-empty">
+          <i class="fa fa-wand-magic-sparkles"></i>
+          @if (config.prompt.trim()) {
+            <p class="ai-prompt-preview">No generated content cached</p>
+          } @else {
+            <p>Configure a prompt to generate AI content</p>
+          }
+        </div>
+      }
     </div>
   `,
   styles: [`
+    .ai-content-widget {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    app-widget-markdown {
+      display: block;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .ai-content-empty {
       display: flex;
+      flex: 1;
+      min-height: 0;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100%;
       opacity: 0.5;
       text-align: center;
       font-size: 0.8rem;
 
-      i {
-        font-size: 1.5rem;
-        margin-bottom: 0.5rem;
-      }
+    }
 
-      p {
-        margin: 0;
-      }
+    .ai-content-empty i {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
 
-      .ai-prompt-preview {
-        font-style: italic;
-        max-height: 3.6em;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
+    .ai-content-empty p {
+      margin: 0;
+    }
+
+    .ai-prompt-preview {
+      font-style: italic;
     }
   `]
 })
-export class AiContentWidgetComponent {
+export class AiContentWidgetComponent implements OnChanges, OnDestroy {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
+  @Input() dashboardId?: string;
+
+  content = '';
+  private readonly generatedSubscription: Subscription;
+
+  constructor(private readonly aiService: AiService) {
+    this.generatedSubscription = this.aiService.widgetContentGenerated$.subscribe(event => {
+      if (event.dashboardId === this.dashboardId && event.widgetId === this.widget?.id) {
+        this.content = event.content;
+      }
+    });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['dashboardId'] || changes['widget']) {
+      this.loadCachedContent();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.generatedSubscription.unsubscribe();
+  }
 
   get config(): AiContentConfig {
     return this.widget.config as AiContentConfig;
   }
 
+  get contentWidget(): WidgetConfig {
+    return {
+      ...this.widget,
+      type: 'markdown',
+      showTitle: false,
+      titleOverride: undefined,
+      config: { content: this.content }
+    };
+  }
+
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
+    return this.widget.colorOverrides?.widgetTextColor
+      || this.colorScheme?.widgetTextColor
+      || this.colorScheme?.text
+      || 'currentColor';
+  }
+
+  getTitleColor(): string {
+    return this.widget.colorOverrides?.widgetTitleTextColor
+      || this.colorScheme?.widgetTitleTextColor
+      || this.colorScheme?.text
+      || 'currentColor';
+  }
+
+  private loadCachedContent(): void {
+    if (!this.dashboardId || !this.widget?.id) {
+      this.content = '';
+      return;
     }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+
+    this.aiService.getWidgetContent(this.dashboardId, this.widget.id).subscribe({
+      next: result => { this.content = result.content || ''; },
+      error: () => { this.content = ''; }
+    });
   }
 }

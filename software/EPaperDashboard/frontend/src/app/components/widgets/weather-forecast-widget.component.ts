@@ -69,10 +69,10 @@ interface ForecastItem {
                   <div class="item-temp item-temp-low">{{ item.tempLow }}{{ getTemperatureUnit() }}</div>
                 }
                 
-                @if (isFieldVisible('precipitation') && item.precip) {
+                @if (isFieldVisible('precipitation') && item.precip !== undefined) {
                   <div class="item-precip">{{ item.precip }}%</div>
                 }
-                @if (isFieldVisible('wind') && item.wind) {
+                @if (isFieldVisible('wind') && item.wind !== undefined) {
                   <div class="item-wind">{{ item.wind }} {{ getWindSpeedUnit() }}</div>
                 }
               </div>
@@ -150,16 +150,6 @@ export class WeatherForecastWidgetComponent {
     const maxItems = this.getMaxForecastItems();
     const mode = this.getForecastMode();
 
-    // Log raw forecast data for debugging
-    if (forecast.length > 0) {
-      console.debug('Raw forecast from Home Assistant:', {
-        mode,
-        count: forecast.length,
-        firstItem: forecast[0],
-        datetimeField: forecast[0]?.datetime || 'NOT FOUND'
-      });
-    }
-
     // For hourly mode, filter to show at least 1 hour apart
     if (mode === 'hourly') {
       forecast = this.filterHourlyForecast(forecast);
@@ -172,8 +162,12 @@ export class WeatherForecastWidgetComponent {
       temp: this.roundTemp(item.temperature),
       tempHigh: this.roundTemp(item.temperature),
       tempLow: this.roundTemp(item.templow),
-      precip: item.precipitation_probability ? String(Math.round(Number(item.precipitation_probability))) : undefined,
-      wind: item.wind_speed ? this.roundWind(item.wind_speed) : undefined
+      precip: item.precipitation_probability !== undefined && item.precipitation_probability !== null
+        ? String(Math.round(Number(item.precipitation_probability)))
+        : undefined,
+      wind: item.wind_speed !== undefined && item.wind_speed !== null
+        ? this.roundWind(item.wind_speed)
+        : undefined
     }));
 
     return items;
@@ -196,15 +190,6 @@ export class WeatherForecastWidgetComponent {
         filtered.push(forecast[i]);
       }
     }
-    
-    // Log the filtering result for debugging
-    console.debug(
-      `Weather forecast filtering: ${forecast.length} items from Home Assistant → ${filtered.length} items after 1-hour spacing`,
-      {
-        original: forecast.slice(0, 3).map(f => f.datetime),
-        filtered: filtered.slice(0, 3).map(f => f.datetime)
-      }
-    );
     
     return filtered;
   }

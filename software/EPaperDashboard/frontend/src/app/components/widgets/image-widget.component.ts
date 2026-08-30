@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, ImageConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, ImageConfig, DashboardLayout } from '../../models/types';
 import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 
 @Component({
@@ -8,9 +8,12 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
   standalone: true,
   imports: [CommonModule, ResolveUrlPipe],
   template: `
-    <div class="image-widget-wrapper">
+    <div class="image-widget-wrapper"
+      [style.--widget-title-font-size]="(designerSettings?.titleFontSize ?? 16) + 'px'"
+      [style.--widget-title-font-weight]="designerSettings?.titleFontWeight ?? 700"
+      [style.--widget-title-color]="widget.colorOverrides?.widgetTitleTextColor || colorScheme.widgetTitleTextColor || colorScheme.text">
       @if (widget.showTitle !== false && widget.titleOverride) {
-        <h4 class="image-title">{{ widget.titleOverride }}</h4>
+        <h4 class="widget-frame-title">{{ widget.titleOverride }}</h4>
       }
       <div class="image-widget-container">
         <img
@@ -33,16 +36,6 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
       flex-direction: column;
     }
     
-    .image-title {
-      margin: 0;
-      padding: 8px 12px 4px 12px;
-      font-size: 15px;
-      font-weight: 600;
-      text-align: center;
-      line-height: 1.2;
-      flex-shrink: 0;
-    }
-    
     .image-widget-container {
       width: 100%;
       flex: 1;
@@ -60,6 +53,7 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 export class ImageWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
+  @Input() designerSettings?: DashboardLayout;
 
   get cfg(): ImageConfig {
     return this.widget.config as ImageConfig;

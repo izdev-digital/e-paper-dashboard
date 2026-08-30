@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject, tap } from 'rxjs';
 import { AiConfig, AiGenerationResult, ConversationAgent } from '../models/types';
 
 @Injectable({
@@ -8,6 +8,8 @@ import { AiConfig, AiGenerationResult, ConversationAgent } from '../models/types
 })
 export class AiService {
   private readonly http = inject(HttpClient);
+  private readonly widgetContentGenerated = new Subject<{ dashboardId: string; widgetId: string; content: string }>();
+  readonly widgetContentGenerated$ = this.widgetContentGenerated.asObservable();
 
   getGlobalConfig(): Observable<AiConfig> {
     return this.http.get<AiConfig>('/api/ai/config');
@@ -42,7 +44,13 @@ export class AiService {
   }
 
   generateWidgetContent(dashboardId: string, widgetId: string): Observable<{ content: string }> {
-    return this.http.post<{ content: string }>(`/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/generate-content`, {});
+    return this.http.post<{ content: string }>(`/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/generate-content`, {}).pipe(
+      tap(result => this.widgetContentGenerated.next({ dashboardId, widgetId, content: result.content }))
+    );
+  }
+
+  getWidgetContent(dashboardId: string, widgetId: string): Observable<{ content: string | null }> {
+    return this.http.get<{ content: string | null }>(`/api/ai/dashboards/${dashboardId}/widgets/${widgetId}/content`);
   }
 
   getAvailableModels(endpoint: string, apiKey?: string): Observable<{ id: string }[]> {

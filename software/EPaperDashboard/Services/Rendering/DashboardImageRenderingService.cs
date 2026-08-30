@@ -50,14 +50,19 @@ public sealed class DashboardImageRenderingService
 
     /// <summary>
     /// Renders the dashboard to an ImageSharp image using the typed layout model and live HA data.
-    /// Returns a cached result if the same dashboard was rendered within the last 30 seconds.
+    /// Returns a cached result if the same dashboard was rendered within the last 30 seconds,
+    /// unless <paramref name="bypassCache"/> requests a fresh data snapshot.
     /// </summary>
-    public async Task<Image<Rgba32>> RenderDashboardImageAsync(string dashboardId, Models.LayoutConfig layoutConfig, CancellationToken cancellationToken = default)
+    public async Task<Image<Rgba32>> RenderDashboardImageAsync(
+        string dashboardId,
+        Models.LayoutConfig layoutConfig,
+        CancellationToken cancellationToken = default,
+        bool bypassCache = false)
     {
         var layoutHash = ComputeLayoutHash(layoutConfig);
         var cacheKey = $"ssr:{dashboardId}:{layoutHash}";
 
-        if (_cache.TryGetValue<CachedRender>(cacheKey, out var cached) && cached is not null)
+        if (!bypassCache && _cache.TryGetValue<CachedRender>(cacheKey, out var cached) && cached is not null)
         {
             _logger.LogDebug("SSR: Returning cached render for dashboard {DashboardId}", dashboardId);
             var img = new Image<Rgba32>(cached.Width, cached.Height);
@@ -121,7 +126,7 @@ public sealed class DashboardImageRenderingService
                         co.WidgetTitleTextColor, co.WidgetTextColor, co.IconColor)
                     : null,
                 TitleOverride: w.TitleOverride,
-                ShowTitle: true))
+                ShowTitle: w.ShowTitle))
             .ToList();
 
         return new LayoutConfig(

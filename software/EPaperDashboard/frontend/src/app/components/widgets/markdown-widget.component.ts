@@ -1,6 +1,6 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, SecurityContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
 import { WidgetConfig, ColorScheme, DashboardLayout } from '../../models/types';
 
@@ -20,10 +20,10 @@ export class MarkdownWidgetComponent {
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
 
-  get parsedContent(): SafeHtml {
+  get parsedContent(): string {
     const content = this.asMarkdownConfig(this.widget.config).content || '';
     const html = marked(content) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    return this.sanitizer.sanitize(SecurityContext.HTML, html) || '';
   }
 
   constructor(private sanitizer: DomSanitizer) { }

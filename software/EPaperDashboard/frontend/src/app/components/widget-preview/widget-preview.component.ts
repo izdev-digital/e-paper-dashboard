@@ -57,7 +57,7 @@ import {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
       @if (widget.type === 'image') {
-        <app-widget-image [widget]="widget" [colorScheme]="colorScheme"></app-widget-image>
+        <app-widget-image [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-image>
       }
       @if (widget.type === 'header') {
         <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
@@ -94,7 +94,7 @@ import {
         <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-rss-feed>
       }
       @if (widget.type === 'ai-content') {
-        <app-widget-ai-content [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-ai-content>
+        <app-widget-ai-content [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings" [dashboardId]="dashboardId"></app-widget-ai-content>
       }
       }
     </div>
