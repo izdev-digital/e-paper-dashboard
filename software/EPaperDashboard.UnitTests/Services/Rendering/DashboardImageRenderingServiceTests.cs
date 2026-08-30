@@ -243,11 +243,17 @@ public class DashboardImageRenderingServiceTests
 
         var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
 
-        geometry.Elements.Should().HaveCount(2);
+        geometry.Editable.Should().BeTrue();
+        geometry.Elements.Should().HaveCount(3);
         geometry.Elements.Should().ContainSingle(element =>
             element.Id == "title"
             && element.Kind == "title"
             && element.Position == new RenderRectangle(10, 12, 60, 24));
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "badge-0"
+            && element.Kind == "badge"
+            && element.Index == 0
+            && element.Position == new RenderRectangle(0, 0, 22, 30));
         geometry.Elements.Should().ContainSingle(element =>
             element.Id == "badge-1"
             && element.Kind == "badge"
@@ -272,6 +278,7 @@ public class DashboardImageRenderingServiceTests
 
         var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
 
+        geometry.Editable.Should().BeTrue();
         geometry.Elements.Should().ContainSingle();
         geometry.Elements[0].Id.Should().Be("weather-item-1");
         geometry.Elements[0].Index.Should().Be(1);

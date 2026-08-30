@@ -74,8 +74,10 @@ public sealed class DashboardImageRenderingService
             var contentHeight = Math.Max(0, height - inset * 2);
             var contentBounds = new RenderRectangle(
                 x + inset, y + inset, contentWidth, contentHeight);
-            var elements = _renderers.TryGetValue(widget.Type, out var renderer)
-                && renderer is IEditableWidgetRenderer editableRenderer
+            var editableRenderer = _renderers.TryGetValue(widget.Type, out var renderer)
+                ? renderer as IEditableWidgetRenderer
+                : null;
+            var elements = editableRenderer is not null
                 ? editableRenderer.GetEditableElements(widget, new RectangleF(
                     (float)contentBounds.X,
                     (float)contentBounds.Y,
@@ -88,6 +90,7 @@ public sealed class DashboardImageRenderingService
                 widget.Type,
                 new RenderRectangle(x, y, width, height),
                 contentBounds,
+                editableRenderer is not null,
                 elements);
         }).ToList();
     }

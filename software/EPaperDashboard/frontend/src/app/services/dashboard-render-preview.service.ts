@@ -15,6 +15,7 @@ export interface WidgetRenderGeometry {
   type: string;
   bounds: RenderRectangle;
   contentBounds: RenderRectangle;
+  editable: boolean;
   elements: EditableWidgetElementGeometry[];
 }
 

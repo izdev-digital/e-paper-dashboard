@@ -23,6 +23,7 @@ public sealed record WidgetRenderGeometry(
     string Type,
     RenderRectangle Bounds,
     RenderRectangle ContentBounds,
+    bool Editable,
     IReadOnlyList<EditableWidgetElementGeometry> Elements);
 
 public sealed record EditableWidgetElementGeometry(

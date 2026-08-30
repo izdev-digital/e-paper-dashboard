@@ -99,6 +99,13 @@ export class WidgetElementOverlayComponent implements OnChanges, OnDestroy {
     };
   }
 
+  elementLabel(element: EditableWidgetElementGeometry): string {
+    if (element.kind === 'title') return 'Title';
+    if (element.kind === 'badge') return `Badge ${(element.index ?? 0) + 1}`;
+    if (element.kind === 'weather-item') return `Weather item ${(element.index ?? 0) + 1}`;
+    return element.kind;
+  }
+
   onElementPointerDown(event: PointerEvent, element: EditableWidgetElementGeometry): void {
     if (event.button !== 0 || !element.movable) return;
     event.preventDefault();

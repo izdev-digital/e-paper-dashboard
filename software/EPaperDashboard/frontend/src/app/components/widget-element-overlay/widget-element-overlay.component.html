@@ -5,8 +5,9 @@
 
 @for (element of geometry.elements; track element.id) {
   <div class="editable-element" [class.selected]="selectedId === element.id"
-    [ngStyle]="elementStyle(element)" [title]="'Select and move ' + element.kind"
+    [ngStyle]="elementStyle(element)" [title]="'Select and move ' + elementLabel(element)"
     (pointerdown)="onElementPointerDown($event, element)">
+    <span class="element-label">{{ elementLabel(element) }}</span>
     @if (selectedId === element.id && element.resizable) {
       @for (handle of handles; track handle) {
         <span class="element-handle handle-{{ handle }}"

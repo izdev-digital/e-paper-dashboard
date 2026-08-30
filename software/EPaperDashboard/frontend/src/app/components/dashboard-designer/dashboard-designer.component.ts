@@ -139,6 +139,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   renderedCanvasError = signal('');
   renderedCanvasAt = signal<string | null>(null);
   renderedWidgetGeometry = signal<Record<string, WidgetRenderGeometry>>({});
+  elementEditingWidgetId = signal<string | null>(null);
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
@@ -396,6 +397,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }));
     if (this.selectedWidget()?.id === widget.id) {
       this.selectedWidget.set(null);
+      this.elementEditingWidgetId.set(null);
     }
   }
 
@@ -559,6 +561,8 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   onWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
     event.stopPropagation();
+    if (this.elementEditingWidgetId() === widget.id) return;
+    if (this.elementEditingWidgetId()) this.elementEditingWidgetId.set(null);
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
 
@@ -623,6 +627,11 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   getSelectedWidgetGeometry(): WidgetRenderGeometry | undefined {
     const selected = this.selectedWidget();
     return selected ? this.renderedWidgetGeometry()[selected.id] : undefined;
+  }
+
+  toggleElementEditing(widget: WidgetConfig): void {
+    const editingId = this.elementEditingWidgetId();
+    this.elementEditingWidgetId.set(editingId === widget.id ? null : widget.id);
   }
 
   getSelectedWidgetSnapStep(): number {
@@ -868,6 +877,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.aiPrompt.set(snapshot.aiPrompt);
     this.aiLeadTimeMinutes.set(snapshot.aiLeadTimeMinutes);
     this.selectedWidget.set(null);
+    this.elementEditingWidgetId.set(null);
   }
 
   private computeCurrentSnapshot(): string {
@@ -1439,6 +1449,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const top    = resolvedBounds?.y ?? padding + p.y * (cellH + gap);
     const width  = resolvedBounds?.width ?? p.w * cellW + (p.w - 1) * gap;
     const height = resolvedBounds?.height ?? p.h * cellH + (p.h - 1) * gap;
+    const editingElements = this.elementEditingWidgetId() === widget.id;
 
     return {
       position: 'absolute',
@@ -1447,7 +1458,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       width:  `${width}px`,
       height: `${height}px`,
       boxSizing: 'border-box',
-      pointerEvents: 'auto',
+      pointerEvents: editingElements ? 'none' : 'auto',
       zIndex: 100,
     };
   }
@@ -1627,6 +1638,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const target = event.target as HTMLElement;
     if (target.classList.contains('dashboard-canvas') || target.classList.contains('grid-overlay')) {
       this.selectedWidget.set(null);
+      this.elementEditingWidgetId.set(null);
       this.mobileSelectionToolbar.set(false);
     }
   }

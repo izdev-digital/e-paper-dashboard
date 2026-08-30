@@ -149,18 +149,13 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWi
             var badgeIndex = 0;
             foreach (var badge in badges.EnumerateArray())
             {
-                var entityId = badge.TryGetProperty("entityId", out var entity) ? entity.GetString() : null;
-                var icon = badge.TryGetProperty("icon", out var iconProperty) ? iconProperty.GetString() : null;
-                if (!string.IsNullOrWhiteSpace(entityId) || !string.IsNullOrWhiteSpace(icon))
-                {
-                    var x = RenderingUtilities.GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
-                    var y = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
-                    var w = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
-                    var h = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
-                    result.Add(CreateElement(
-                        $"badge-{badgeIndex}", "badge", badgeIndex,
-                        x, y, w, h, contentRect));
-                }
+                var x = RenderingUtilities.GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
+                var y = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
+                var w = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
+                var h = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
+                result.Add(CreateElement(
+                    $"badge-{badgeIndex}", "badge", badgeIndex,
+                    x, y, w, h, contentRect));
                 badgeIndex++;
             }
         }

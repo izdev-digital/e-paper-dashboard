@@ -207,34 +207,55 @@
               @if (selectedWidget()) {
                 <div class="sel-overlay"
                      [class.long-press-active]="longPressActive()"
+                     [class.element-editing]="elementEditingWidgetId() === selectedWidget()!.id"
                      [ngStyle]="getSelectionOverlayStyle()"
                      (mousedown)="onWidgetMouseDown($event, selectedWidget()!)">
 
-                  <div class="resize-handle resize-n" data-direction="n"></div>
-                  <div class="resize-handle resize-e" data-direction="e"></div>
-                  <div class="resize-handle resize-s" data-direction="s"></div>
-                  <div class="resize-handle resize-w" data-direction="w"></div>
-                  <div class="resize-handle resize-nw" data-direction="nw"></div>
-                  <div class="resize-handle resize-ne" data-direction="ne"></div>
-                  <div class="resize-handle resize-sw" data-direction="sw"></div>
-                  <div class="resize-handle resize-se" data-direction="se"></div>
+                  @if (elementEditingWidgetId() !== selectedWidget()!.id) {
+                    <div class="resize-handle resize-n" data-direction="n"></div>
+                    <div class="resize-handle resize-e" data-direction="e"></div>
+                    <div class="resize-handle resize-s" data-direction="s"></div>
+                    <div class="resize-handle resize-w" data-direction="w"></div>
+                    <div class="resize-handle resize-nw" data-direction="nw"></div>
+                    <div class="resize-handle resize-ne" data-direction="ne"></div>
+                    <div class="resize-handle resize-sw" data-direction="sw"></div>
+                    <div class="resize-handle resize-se" data-direction="se"></div>
+                  }
 
                   @if (getSelectedWidgetGeometry(); as geometry) {
-                    @if (geometry.elements.length > 0) {
-                      <app-widget-element-overlay [geometry]="geometry"
-                        [snapStep]="getSelectedWidgetSnapStep()"
-                        [showGuides]="getSelectedWidgetShowGuides()"
-                        (elementChange)="onEditableElementChange($event)" />
+                    @if (geometry.editable) {
+                      <button class="widget-edit-toggle-btn"
+                        [class.active]="elementEditingWidgetId() === selectedWidget()!.id"
+                        (mousedown)="$event.stopPropagation()"
+                        (click)="toggleElementEditing(selectedWidget()!)"
+                        [title]="elementEditingWidgetId() === selectedWidget()!.id ? 'Finish editing widget elements' : 'Edit widget elements'">
+                        @if (elementEditingWidgetId() === selectedWidget()!.id) {
+                          <i class="fa fa-check"></i> Done
+                        } @else {
+                          <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
+                        }
+                      </button>
+                    }
+
+                    @if (elementEditingWidgetId() === selectedWidget()!.id) {
+                      @if (geometry.elements.length > 0) {
+                        <app-widget-element-overlay [geometry]="geometry"
+                          [snapStep]="getSelectedWidgetSnapStep()"
+                          [showGuides]="getSelectedWidgetShowGuides()"
+                          (elementChange)="onEditableElementChange($event)" />
+                      }
                     }
                   }
 
                   <!-- Delete widget button -->
-                  <button class="widget-delete-btn"
-                    (mousedown)="$event.stopPropagation()"
-                    (click)="deleteWidget(selectedWidget()!)"
-                    title="Delete widget">
-                    <i class="fa fa-trash"></i>
-                  </button>
+                  @if (elementEditingWidgetId() !== selectedWidget()!.id) {
+                    <button class="widget-delete-btn"
+                      (mousedown)="$event.stopPropagation()"
+                      (click)="deleteWidget(selectedWidget()!)"
+                      title="Delete widget">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  }
                 </div>
               }
 
