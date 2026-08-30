@@ -17,6 +17,10 @@ import {
   RssFeedEntryData,
   WeatherForecastData,
 } from '../../services/dashboard-preview-data.service';
+import {
+  DashboardRenderPreviewService,
+  WidgetRenderGeometry,
+} from '../../services/dashboard-render-preview.service';
 import { DialogService } from '../../services/dialog.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
@@ -64,9 +68,11 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
   private readonly previewDataService = inject(DashboardPreviewDataService);
+  private readonly renderPreviewService = inject(DashboardRenderPreviewService);
   private readonly aiService = inject(AiService);
   private readonly dialogService = inject(DialogService);
   private previewDataSubscription?: Subscription;
+  private renderPreviewSubscription?: Subscription;
 
   // Dashboard data
   dashboardId: string = '';
@@ -125,6 +131,11 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   previewSourceStatuses = signal<Record<string, DataSourceStatus>>({});
   previewAppVersion = signal('');
   previewFetchedAt = signal<string | null>(null);
+  renderedCanvasImageUrl = signal('');
+  renderedCanvasLoading = signal(false);
+  renderedCanvasError = signal('');
+  renderedCanvasAt = signal<string | null>(null);
+  renderedWidgetGeometry = signal<Record<string, WidgetRenderGeometry>>({});
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
@@ -150,6 +161,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private mobileBreakpoint = 768;
   private isTouchDevice = false;
   private resizeTimer: any = null;
+  private renderPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  private renderPreviewRevision = 0;
+  private forceRefreshOnNextRender = false;
   private viewportWidth = signal(typeof window !== 'undefined' ? window.innerWidth : 1024);
   private swipeStartY = 0;
   private swipeStartX = 0;
@@ -200,6 +214,19 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       const lock = this.mobileWidgetDrawerOpen() || this.mobilePropertiesOpen();
       document.body.style.overflow = lock ? 'hidden' : '';
     });
+
+    // The native renderer is the canonical visual source. Layout changes are rendered after a
+    // short quiet period so controls remain immediate while obsolete HTTP requests are cancelled.
+    effect(() => {
+      this.layout();
+      this.aiGeneratedWidgets();
+      this.aiEnabled();
+      const dashboard = this.dashboard();
+      const loading = this.isLoading();
+      if (!loading && dashboard && this.dashboardId) {
+        this.scheduleRenderedCanvas();
+      }
+    });
   }
 
   @HostListener('window:resize')
@@ -236,8 +263,10 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   ngOnDestroy(): void {
     this.previewDataSubscription?.unsubscribe();
+    this.renderPreviewSubscription?.unsubscribe();
     if (this.longPressTimer) clearTimeout(this.longPressTimer);
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    if (this.renderPreviewTimer) clearTimeout(this.renderPreviewTimer);
     document.body.style.overflow = '';
   }
 
@@ -1234,6 +1263,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.previewFetchedAt.set(data.fetchedAt || null);
         this.livePreviewEverFetched.set(true);
         this.livePreviewLoading.set(false);
+        this.scheduleRenderedCanvas(true, 0);
       },
       error: (err) => {
         this.livePreviewLoading.set(false);
@@ -1241,6 +1271,77 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.toastService.show(msg, 'error');
       }
     });
+  }
+
+  private scheduleRenderedCanvas(refreshData = false, delayMs = 300): void {
+    if (!this.dashboardId || this.isLoading()) return;
+
+    this.forceRefreshOnNextRender ||= refreshData;
+    this.renderedWidgetGeometry.set({});
+    if (this.renderPreviewTimer) clearTimeout(this.renderPreviewTimer);
+    this.renderPreviewTimer = setTimeout(() => {
+      this.renderPreviewTimer = null;
+      this.renderRenderedCanvas();
+    }, delayMs);
+  }
+
+  private renderRenderedCanvas(): void {
+    const revision = ++this.renderPreviewRevision;
+    const refreshData = this.forceRefreshOnNextRender;
+    this.forceRefreshOnNextRender = false;
+
+    this.renderPreviewSubscription?.unsubscribe();
+    this.renderedCanvasLoading.set(true);
+    this.renderedCanvasError.set('');
+    this.renderPreviewSubscription = this.renderPreviewService
+      .render(this.dashboardId, this.getCompleteRenderLayout(), revision, refreshData)
+      .subscribe({
+        next: preview => {
+          if (preview.revision !== this.renderPreviewRevision) return;
+
+          this.renderedCanvasImageUrl.set(this.renderPreviewService.toImageUrl(preview));
+          this.renderedCanvasAt.set(preview.renderedAt);
+          this.renderedWidgetGeometry.set(Object.fromEntries(
+            preview.widgets.map(widget => [widget.id, widget]),
+          ));
+          this.renderedCanvasLoading.set(false);
+        },
+        error: async error => {
+          if (revision !== this.renderPreviewRevision) return;
+
+          const message = await this.getRenderErrorMessage(error);
+          if (revision !== this.renderPreviewRevision) return;
+
+          this.renderedCanvasLoading.set(false);
+          this.renderedCanvasError.set(message);
+        },
+      });
+  }
+
+  private getCompleteRenderLayout(): DashboardLayout {
+    const layout = this.layout();
+    const generatedWidgets = this.aiEnabled() ? this.aiGeneratedWidgets() : [];
+    return generatedWidgets.length === 0
+      ? layout
+      : { ...layout, widgets: [...layout.widgets, ...generatedWidgets] };
+  }
+
+  private async getRenderErrorMessage(error: any): Promise<string> {
+    if (error?.error instanceof Blob) {
+      const text = await error.error.text();
+      try {
+        const value = JSON.parse(text);
+        return value.title || value.error || value.message || text;
+      } catch {
+        return text || `HTTP Error ${error.status}`;
+      }
+    }
+
+    return error?.error?.title
+      || error?.error?.error
+      || error?.error?.message
+      || error?.message
+      || 'Failed to render dashboard preview';
   }
 
   getCanvasStyle(): any {
@@ -1341,10 +1442,13 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const ghost = this.ghost();
     const p = (ghost?.id === widget.id ? ghost.position : null) ?? widget.position;
 
-    const left   = padding + p.x * (cellW + gap);
-    const top    = padding + p.y * (cellH + gap);
-    const width  = p.w * cellW + (p.w - 1) * gap;
-    const height = p.h * cellH + (p.h - 1) * gap;
+    const resolvedBounds = ghost?.id === widget.id
+      ? null
+      : this.renderedWidgetGeometry()[widget.id]?.bounds;
+    const left   = resolvedBounds?.x ?? padding + p.x * (cellW + gap);
+    const top    = resolvedBounds?.y ?? padding + p.y * (cellH + gap);
+    const width  = resolvedBounds?.width ?? p.w * cellW + (p.w - 1) * gap;
+    const height = resolvedBounds?.height ?? p.h * cellH + (p.h - 1) * gap;
 
     const isInternal = this.internalEditingWidgetId() === widget.id;
 

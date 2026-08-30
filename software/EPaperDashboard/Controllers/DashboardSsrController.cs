@@ -122,6 +122,67 @@ public class DashboardSsrController(
     }
 
     /// <summary>
+    /// Produces the canonical image used beneath the dashboard designer interaction layer.
+    /// The response also contains renderer-resolved widget geometry and echoes the client
+    /// revision so out-of-order renders can be discarded safely.
+    /// </summary>
+    [HttpPost("{id}/designer-preview")]
+    public async Task<IActionResult> RenderDesignerPreview(
+        string id,
+        [FromBody] DashboardDesignerPreviewRequest request)
+    {
+        if (!DashboardId.TryParse(id, out var dashboardId))
+            return BadRequest("Invalid dashboard ID");
+
+        var dashboard = dashboardService.GetDashboardById(dashboardId);
+        if (dashboard.HasNoValue)
+            return NotFound("Dashboard not found");
+
+        if (dashboard.Value.UserId != CurrentUserId)
+            return Forbid();
+
+        if (request.Layout is null)
+            return BadRequest("A layout is required.");
+
+        var validationError = ValidateTransientLayout(request.Layout);
+        if (validationError is not null)
+            return BadRequest(validationError);
+
+        try
+        {
+            // The designer posts its complete transient state, including generated widgets. Do
+            // not merge the persisted layout here or unsaved enable/disable changes could be
+            // ignored and generated widgets could be duplicated.
+            var layoutToRender = request.Layout;
+            using var image = await dashboardImageRenderingService.RenderDashboardImageAsync(
+                dashboard.Value.Id.ToString(),
+                layoutToRender,
+                HttpContext.RequestAborted,
+                bypassCache: request.RefreshData);
+
+            await using var stream = new MemoryStream();
+            await image.SaveAsync(stream, new PngEncoder(), HttpContext.RequestAborted);
+
+            return Ok(new DashboardDesignerPreviewResponse(
+                request.Revision,
+                image.Width,
+                image.Height,
+                "image/png",
+                Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)),
+                timeProvider.GetUtcNow(),
+                dashboardImageRenderingService.ResolveWidgetGeometry(layoutToRender)));
+        }
+        catch (NotSupportedException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Failed to render dashboard preview: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Resolves all data needed by a transient designer layout through the production data
     /// collector. The designer consumes this snapshot instead of calling each source separately.
     /// </summary>

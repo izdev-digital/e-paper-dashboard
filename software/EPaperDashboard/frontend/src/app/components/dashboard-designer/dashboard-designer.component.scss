@@ -295,6 +295,40 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   display: grid;
 }
 
+.rendered-canvas-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rendered-canvas-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100% - 16px);
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.3rem;
+  background: rgba(33, 37, 41, 0.86);
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.rendered-canvas-status-error {
+  background: rgba(176, 42, 55, 0.9);
+}
+
 .widget-container {
   position: relative;
   display: grid;
@@ -388,6 +422,21 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   box-sizing: border-box;
   // Native output is clipped to the widget rectangle; scrollbars are never rendered.
   overflow: hidden;
+}
+
+// Once a native image is available the widget containers remain as interaction shells. Their
+// HTML implementations are retained as a fallback and for the two internal layout editors.
+.dashboard-canvas.backend-preview-active .widget-container:not(.internal-editing) {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+.dashboard-canvas.backend-preview-active .widget-container:not(.internal-editing) .widget-content {
+  visibility: hidden;
+}
+
+.dashboard-canvas.backend-preview-active .widget-container.internal-editing {
+  z-index: 3;
 }
 
 .widget-item {

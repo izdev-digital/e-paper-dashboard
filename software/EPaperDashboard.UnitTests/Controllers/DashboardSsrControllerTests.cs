@@ -17,6 +17,8 @@ using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
+using DashboardDesignerPreviewRequest = EPaperDashboard.Models.Rendering.DashboardDesignerPreviewRequest;
+using DashboardDesignerPreviewResponse = EPaperDashboard.Models.Rendering.DashboardDesignerPreviewResponse;
 using RenderingLayoutConfig = EPaperDashboard.Models.Rendering.LayoutConfig;
 using SsrData = EPaperDashboard.Models.Rendering.SsrData;
 
@@ -114,6 +116,57 @@ public class DashboardSsrControllerTests
             refresh: true);
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RenderDesignerPreview_EchoesRevisionAndReturnsRendererGeometry()
+    {
+        var userId = UserId.New();
+        var dashboardId = DashboardId.New();
+        _dashboardRepository.Setup(repository => repository.FindById(dashboardId)).Returns(
+            new Dashboard
+            {
+                Id = dashboardId,
+                UserId = userId,
+                LayoutConfig = new LayoutConfig { Width = 10, Height = 10 }
+            });
+        var sut = CreateSut().WithUser(userId);
+        var transientLayout = new LayoutConfig
+        {
+            Width = 120,
+            Height = 60,
+            GridCols = 4,
+            GridRows = 2,
+            CanvasPadding = 4,
+            WidgetGap = 2,
+            WidgetBorder = 1,
+            WidgetPadding = 2,
+            Widgets =
+            [
+                new WidgetConfig
+                {
+                    Id = "widget-1",
+                    Type = "version",
+                    Position = new WidgetPosition { X = 1, Y = 0, W = 2, H = 1 }
+                }
+            ]
+        };
+
+        var result = await sut.RenderDesignerPreview(
+            dashboardId.Value,
+            new DashboardDesignerPreviewRequest(transientLayout, Revision: 17));
+
+        var response = result.Should().BeOfType<OkObjectResult>().Subject.Value
+            .Should().BeOfType<DashboardDesignerPreviewResponse>().Subject;
+        response.Revision.Should().Be(17);
+        response.Width.Should().Be(120);
+        response.Height.Should().Be(60);
+        response.ContentType.Should().Be("image/png");
+        Convert.FromBase64String(response.ImageBase64).Should().NotBeEmpty();
+        response.Widgets.Should().ContainSingle(widget =>
+            widget.Id == "widget-1"
+            && widget.Bounds.Width > 0
+            && widget.ContentBounds.Width < widget.Bounds.Width);
     }
 
     [Fact]

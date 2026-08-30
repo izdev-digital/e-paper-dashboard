@@ -59,6 +59,29 @@ public sealed class DashboardImageRenderingService
     }
 
     /// <summary>
+    /// Resolves the same widget and content rectangles used by the image renderer. The designer
+    /// uses these values for interaction overlays without duplicating rendering geometry rules.
+    /// </summary>
+    public IReadOnlyList<WidgetRenderGeometry> ResolveWidgetGeometry(Models.LayoutConfig layoutConfig)
+    {
+        var layout = ConvertLayout(layoutConfig);
+        var inset = layout.WidgetBorder + layout.WidgetPadding;
+
+        return layout.Widgets.Select(widget =>
+        {
+            var (x, y, width, height) = RenderingUtilities.ResolvePixelPosition(widget.Position, layout);
+            var contentWidth = Math.Max(0, width - inset * 2);
+            var contentHeight = Math.Max(0, height - inset * 2);
+
+            return new WidgetRenderGeometry(
+                widget.Id,
+                widget.Type,
+                new RenderRectangle(x, y, width, height),
+                new RenderRectangle(x + inset, y + inset, contentWidth, contentHeight));
+        }).ToList();
+    }
+
+    /// <summary>
     /// Renders the dashboard to an ImageSharp image using the typed layout model and live HA data.
     /// Returns a cached result if the same dashboard was rendered within the last 30 seconds,
     /// unless <paramref name="bypassCache"/> requests a fresh data snapshot.

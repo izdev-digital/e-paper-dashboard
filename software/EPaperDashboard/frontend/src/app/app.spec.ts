@@ -21,7 +21,7 @@ describe('App', () => {
         },
         {
           provide: VersionService,
-          useValue: { version: signal('0.3.4') }
+          useValue: { version: signal('0.3.5') }
         }
       ]
     }).compileComponents();
