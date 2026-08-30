@@ -386,7 +386,8 @@ html[data-bs-theme="dark"] .canvas-wrapper {
   min-width: 0;
   min-height: 0;
   box-sizing: border-box;
-  overflow: auto;
+  // Native output is clipped to the widget rectangle; scrollbars are never rendered.
+  overflow: hidden;
 }
 
 .widget-item {
@@ -1133,4 +1134,3 @@ $h-cor-off: -10px; /* corner square offset */
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   }
 }
-

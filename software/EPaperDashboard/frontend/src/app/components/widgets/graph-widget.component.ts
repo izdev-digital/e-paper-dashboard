@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, GraphSeriesConfig, DashboardLayout } from '../../models/types';
 import { EntityHistoryService } from '../../services/entity-history.service';
@@ -43,7 +43,7 @@ interface ChartDataPoint {
     </div>
   `
 })
-export class GraphWidgetComponent implements OnInit, OnChanges {
+export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
@@ -75,9 +75,15 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['entityStates']) {
+    if (changes['entityStates'] || changes['widget'] || changes['dashboardId']) {
       this.loadChartData();
+    } else if (changes['colorScheme'] || changes['designerSettings']) {
+      this.updateChart();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.chart?.destroy();
   }
 
   hasValidEntities(): boolean {
@@ -202,7 +208,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
             display: this.config.series && this.config.series.length > 1,
             labels: {
               color: this.getTextColor(),
-              font: { size: 10 },
+              font: { size: this.getChartLabelFontSize() },
               boxWidth: 8,
               padding: 8
             }
@@ -221,22 +227,22 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
             display: true,
             grid: {
               display: false,
-              color: `${this.colorScheme?.widgetBorderColor || '#000'}20`
+              color: `${this.renderContext.borderColor}20`
             },
             ticks: {
               color: this.getTextColor(),
-              font: { size: this.getTextFontSize() },
+              font: { size: this.getChartLabelFontSize() },
               maxTicksLimit: 5
             }
           },
           y: {
             display: true,
             grid: {
-              color: `${this.colorScheme?.widgetBorderColor || '#000'}20`
+              color: `${this.renderContext.borderColor}20`
             },
             ticks: {
               color: this.getTextColor(),
-              font: { size: this.getTextFontSize() },
+              font: { size: this.getChartLabelFontSize() },
               maxTicksLimit: 4
             }
           }
@@ -307,6 +313,10 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
 
   getTextFontWeight(): number {
     return this.renderContext.textFontWeight;
+  }
+
+  private getChartLabelFontSize(): number {
+    return Math.max(8, this.renderContext.textFontSize - 2);
   }
 
   private get renderContext() {
