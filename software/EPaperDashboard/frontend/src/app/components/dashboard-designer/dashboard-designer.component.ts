@@ -107,6 +107,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   selectedWidget = signal<WidgetConfig | null>(null);
   ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
   isLoading = signal(false);
+  loadError = signal('');
   availableEntities = signal<HassEntity[]>([]);
   entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
@@ -242,7 +243,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       this.isLoading.set(true);
       this.loadDashboard();
     } else {
-      this.toastService.show('No dashboard ID provided', 'error');
+      this.loadError.set('The dashboard address is incomplete. Return to the dashboard list and try again.');
       this.isLoading.set(false);
     }
   }
@@ -257,6 +258,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   // Dashboard loading
   loadDashboard(): void {
+    this.loadError.set('');
     this.dashboardService.getDashboard(this.dashboardId).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
@@ -297,12 +299,23 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.aiEnabled.set(effectiveMode !== 'None' && (dashboard.isAiEnabled ?? false));
 
         this.markAsPristine();
+        this.isLoading.set(false);
       },
       error: (err) => {
-        this.toastService.show('Failed to load dashboard', 'error');
+        this.dashboard.set(null);
+        this.loadError.set(err.error?.message || 'Check the server connection and try again.');
         this.isLoading.set(false);
       }
     });
+  }
+
+  retryLoadDashboard(): void {
+    if (!this.dashboardId) {
+      this.router.navigate(['/dashboards']);
+      return;
+    }
+    this.isLoading.set(true);
+    this.loadDashboard();
   }
 
   loadAvailableEntities(): void {
@@ -375,6 +388,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   deleteWidget(widget: WidgetConfig): void {
+    const originalIndex = this.layout().widgets.findIndex(item => item.id === widget.id);
+    if (originalIndex < 0) return;
+
     this.layout.update(layout => ({
       ...layout,
       widgets: layout.widgets.filter(w => w.id !== widget.id)
@@ -383,6 +399,21 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       this.selectedWidget.set(null);
       this.elementEditingWidgetId.set(null);
     }
+
+    this.toastService.showWithAction(
+      'Widget removed from the layout',
+      'Undo',
+      () => {
+        this.layout.update(layout => {
+          const widgets = [...layout.widgets];
+          widgets.splice(Math.min(originalIndex, widgets.length), 0, widget);
+          return { ...layout, widgets };
+        });
+        this.selectedWidget.set(widget);
+      },
+      'info',
+      5000
+    );
   }
 
   onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetDefinition): void {
@@ -537,6 +568,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       const tabBtns = Array.from(tabBar.querySelectorAll('.tab-btn')) as HTMLElement[];
       const activeBtn = tabBtns[newIdx];
       if (activeBtn) {
+        activeBtn.focus();
         const barRect = tabBar.getBoundingClientRect();
         const btnRect = activeBtn.getBoundingClientRect();
         if (btnRect.left < barRect.left) {
@@ -546,6 +578,23 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         }
       }
     }, 0);
+  }
+
+  onDesignerTabKeydown(event: KeyboardEvent): void {
+    const current = this.tabOrder.indexOf(this.activeTab());
+    let newIndex = current;
+
+    if (event.key === 'ArrowLeft') newIndex = (current - 1 + this.tabOrder.length) % this.tabOrder.length;
+    else if (event.key === 'ArrowRight') newIndex = (current + 1) % this.tabOrder.length;
+    else if (event.key === 'Home') newIndex = 0;
+    else if (event.key === 'End') newIndex = this.tabOrder.length - 1;
+    else return;
+
+    event.preventDefault();
+    this.activeTab.set(this.tabOrder[newIndex]);
+    const tabList = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    const tabs = tabList?.querySelectorAll<HTMLElement>('[role="tab"]');
+    setTimeout(() => tabs?.item(newIndex).focus());
   }
 
 

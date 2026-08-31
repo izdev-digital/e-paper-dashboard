@@ -82,7 +82,8 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!dashboardForm.dirty || isSaving()">
               <i class="fa-solid fa-rotate-left"></i><span class="d-none d-sm-inline"> Discard</span>
             </button>
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="!dashboardForm.dirty || isSaving()">
+            <button type="submit" class="btn btn-sm btn-primary"
+              [disabled]="!dashboardForm.dirty || isSaving() || dashboardForm.invalid || !dashboardForm.get('name')?.value?.trim()">
               <i class="fa-solid fa-floppy-disk"></i><span class="d-none d-sm-inline"> Save</span>
             </button>
           </div>
@@ -101,8 +102,12 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                     type="text" 
                     class="form-control" 
                     formControlName="name"
+                    [class.is-invalid]="dashboardForm.get('name')?.touched && !dashboardForm.get('name')?.value?.trim()"
                     required 
                   />
+                  @if (dashboardForm.get('name')?.touched && !dashboardForm.get('name')?.value?.trim()) {
+                    <div class="invalid-feedback">Name is required.</div>
+                  }
                 </div>
                 <div class="mb-3">
                   <label class="form-label fw-semibold" for="editDashboardDescription">Description</label>
@@ -120,7 +125,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                   @if (isLoadingDevices()) {
                     <div class="text-center py-3">
                       <div class="spinner-border spinner-border-sm" role="status">
-                        <span class="visually-hidden">Loading devices...</span>
+                        <span class="visually-hidden">Loading devices</span>
                       </div>
                     </div>
                   } @else if (devices().length > 0) {
@@ -171,7 +176,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                       type="password" 
                       class="form-control" 
                       formControlName="accessToken"
-                      [placeholder]="isAddonMode() ? 'Paste a Long-Lived Access Token...' : 'Paste token or click Fetch Token...'" 
+                      [placeholder]="isAddonMode() ? 'Paste a long-lived access token…' : 'Paste a token or select Fetch…'"
                     />
                     @if (!isAddonMode()) {
                       <button 
@@ -181,7 +186,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                         [disabled]="isAuthenticating()"
                         title="Authenticate via Home Assistant"
                       >
-                        <i class="fa-solid fa-key"></i> {{ isAuthenticating() ? 'Authenticating...' : 'Fetch' }}
+                        <i class="fa-solid fa-key" aria-hidden="true"></i> {{ isAuthenticating() ? 'Authenticating…' : 'Fetch' }}
                       </button>
                     }
                     @if (dashboard()?.hasAccessToken || dashboardForm.get('accessToken')?.value) {
@@ -310,25 +315,25 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
             <h2 class="h5 mb-3">AI provider override</h2>
             <p class="text-muted small mb-3">By default, this dashboard uses the <a routerLink="/ai/config">global AI provider</a>. You can override it to use a Home Assistant conversation agent for this dashboard.</p>
             <div class="mb-3">
-              <label class="form-label fw-semibold">AI Provider</label>
+                <label class="form-label fw-semibold">AI provider</label>
               <select class="form-select"
                 [ngModel]="aiConfig().connectionMode"
                 (ngModelChange)="onAiConnectionModeChange($event)"
                 [ngModelOptions]="{standalone: true}">
                 <option value="None">Default (use global AI provider)</option>
-                <option value="HomeAssistant">Home Assistant Conversation Agent</option>
+                <option value="HomeAssistant">Home Assistant conversation agent</option>
               </select>
             </div>
 
             @if (aiConfig().connectionMode === 'HomeAssistant') {
               <hr>
-              <h6 class="mb-3">Home Assistant Settings</h6>
+              <h3 class="h6 mb-3">Home Assistant settings</h3>
               <div class="mb-3">
-                <label class="form-label">Conversation Agent</label>
+                <label class="form-label">Conversation agent</label>
                 @if (isLoadingAgents()) {
                   <div class="d-flex align-items-center gap-2 mb-2">
                     <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span class="text-muted">Loading agents...</span>
+                    <span class="text-muted">Loading agents…</span>
                   </div>
                 } @else {
                   <select class="form-select"
@@ -655,20 +660,21 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
       return;
     }
 
-    if (!this.dashboardForm.valid) {
+    const formValue = this.dashboardForm.getRawValue();
+    if (!this.dashboardForm.valid || !formValue.name.trim()) {
+      this.dashboardForm.markAllAsTouched();
       this.toastService.error('Please fill in all required fields.');
       return;
     }
 
     this.isSaving.set(true);
 
-    const formValue = this.dashboardForm.getRawValue();
     const selectedSize = this.sizePresets[this.selectedSizeIndex] ?? DEFAULT_DASHBOARD_SIZE;
     const updatePayload: any = {
-      name: formValue.name || undefined,
-      description: formValue.description || undefined,
-      host: formValue.host || undefined,
-      path: formValue.path || undefined,
+      name: formValue.name.trim(),
+      description: formValue.description?.trim() || undefined,
+      host: formValue.host?.trim() || undefined,
+      path: formValue.path?.trim() || undefined,
       updateTimes: this.updateTimes().length > 0 ? this.updateTimes() : undefined,
       renderingMode: this.previewModeValue === 'homeassistant' ? 'HomeAssistant' : 'Custom',
       orientation: this.orientationValue,
@@ -768,7 +774,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
     await this.dialogService.confirm({
       title: 'Clear Access Token',
       message: 'Are you sure you want to clear the Home Assistant access token? The dashboard will no longer be able to render until you authenticate again.',
-      confirmLabel: 'Clear Token',
+      confirmLabel: 'Clear token',
       isDangerous: true,
       onConfirm: () => {
         this.shouldClearAccessToken.set(true);

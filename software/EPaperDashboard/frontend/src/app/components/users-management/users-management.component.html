@@ -4,7 +4,8 @@
       <h1 class="app-page-title">Users</h1>
       <p class="app-page-description">Manage who can access and configure izBoard.</p>
     </div>
-    <button type="button" (click)="toggleAddForm()" class="btn btn-primary" [class.btn-outline-primary]="showAddForm()"
+    <button type="button" (click)="toggleAddForm()" class="btn"
+      [ngClass]="showAddForm() ? 'btn-outline-secondary' : 'btn-primary'"
       [disabled]="isAddingUser()">
       <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'" aria-hidden="true"></i>
       <span>{{ showAddForm() ? 'Cancel' : 'Add user' }}</span>
@@ -21,16 +22,17 @@
           <i class="fa-solid fa-user me-2" aria-hidden="true"></i>Username
         </label>
         <input type="text" id="username" class="form-control" formControlName="username"
-          placeholder="Enter username (min 3 characters)" required />
-        @if (addUserForm.get('username')?.hasError('required')) {
-        <small>
+          placeholder="At least 3 characters" autocomplete="username" required
+          [class.is-invalid]="showError('username')" [attr.aria-describedby]="showError('username') ? 'usernameError' : null" />
+        @if (showError('username', 'required')) {
+        <div id="usernameError" class="invalid-feedback">
           Username is required
-        </small>
+        </div>
         }
-        @if (addUserForm.get('username')?.hasError('minlength')) {
-        <small>
+        @if (showError('username', 'minlength')) {
+        <div id="usernameError" class="invalid-feedback">
           Username must be at least 3 characters
-        </small>
+        </div>
         }
       </div>
 
@@ -39,16 +41,17 @@
           <i class="fa-solid fa-lock me-2" aria-hidden="true"></i>Password
         </label>
         <input type="password" id="password" class="form-control" formControlName="password"
-          placeholder="Enter password (min 6 characters)" required />
-        @if (addUserForm.get('password')?.hasError('required')) {
-        <small>
+          placeholder="At least 6 characters" autocomplete="new-password" required
+          [class.is-invalid]="showError('password')" [attr.aria-describedby]="showError('password') ? 'passwordError' : null" />
+        @if (showError('password', 'required')) {
+        <div id="passwordError" class="invalid-feedback">
           Password is required
-        </small>
+        </div>
         }
-        @if (addUserForm.get('password')?.hasError('minlength')) {
-        <small>
+        @if (showError('password', 'minlength')) {
+        <div id="passwordError" class="invalid-feedback">
           Password must be at least 6 characters
-        </small>
+        </div>
         }
       </div>
 
@@ -69,6 +72,14 @@
     <div class="spinner-border" role="status">
       <span class="visually-hidden">Loading users</span>
     </div>
+  </div>
+  } @else if (loadError()) {
+  <div class="app-empty-state" role="alert">
+    <span class="app-empty-state-icon text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+    <div><h2 class="h5 mb-1">Users could not be loaded</h2><p class="text-muted mb-0">{{ loadError() }}</p></div>
+    <button type="button" class="btn btn-outline-primary" (click)="loadUsers()">
+      <i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Try again
+    </button>
   </div>
   } @else if (getFilteredUsers().length > 0) {
   <div class="users-list">

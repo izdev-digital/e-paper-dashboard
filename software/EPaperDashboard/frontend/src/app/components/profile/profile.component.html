@@ -41,20 +41,31 @@
       <p class="app-section-description">Use a unique password that you do not use elsewhere.</p>
       <div class="mb-3">
         <label for="currentPassword" class="form-label">Current password</label>
-        <input type="password" class="form-control" id="currentPassword" [value]="currentPassword()"
-          (input)="currentPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="current-password" required />
+        <div class="input-group">
+          <input [type]="showPasswords() ? 'text' : 'password'" class="form-control" id="currentPassword" [value]="currentPassword()"
+            (input)="currentPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="current-password" required />
+          <button type="button" class="btn btn-outline-secondary app-icon-button" (click)="showPasswords.set(!showPasswords())"
+            [attr.aria-label]="showPasswords() ? 'Hide passwords' : 'Show passwords'" [attr.aria-pressed]="showPasswords()">
+            <i class="fa-solid" [ngClass]="showPasswords() ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
       <div class="mb-3">
         <label for="newPassword" class="form-label">New password</label>
-        <input type="password" class="form-control" id="newPassword" [value]="newPassword()"
-          (input)="newPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="new-password" required />
+        <input [type]="showPasswords() ? 'text' : 'password'" class="form-control" id="newPassword" [value]="newPassword()"
+          (input)="newPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="new-password"
+          minlength="6" aria-describedby="newPasswordHelp" required />
+        <small id="newPasswordHelp" class="form-text text-muted">At least 6 characters</small>
       </div>
       <div class="mb-3">
         <label for="confirmNewPassword" class="form-label">Confirm password</label>
-        <input type="password" class="form-control" id="confirmNewPassword" [value]="confirmNewPassword()"
+        <input [type]="showPasswords() ? 'text' : 'password'" class="form-control" id="confirmNewPassword" [value]="confirmNewPassword()"
           (input)="confirmNewPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="new-password" required />
+        @if (confirmNewPassword() && newPassword() !== confirmNewPassword()) {
+          <div class="form-text text-danger" role="alert">Passwords do not match.</div>
+        }
       </div>
-      <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword()">
+      <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword() || !canChangePassword()">
         @if (isChangingPassword()) {
         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
         }

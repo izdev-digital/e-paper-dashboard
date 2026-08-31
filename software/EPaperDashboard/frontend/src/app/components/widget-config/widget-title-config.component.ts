@@ -8,13 +8,13 @@ import { WidgetConfig } from '../../models/types';
   imports: [FormsModule],
   template: `
     <div class="mb-3">
-      <label class="form-label fw-semibold small">Widget Title</label>
+      <label class="form-label fw-semibold small" [for]="'widgetTitle-' + widget.id">Widget title</label>
       <div class="form-check form-switch mb-2">
         <input class="form-check-input" type="checkbox" [id]="'showTitle-' + widget.id"
           [checked]="widget.showTitle !== false" (change)="setVisible($event)" />
         <label class="form-check-label" [for]="'showTitle-' + widget.id">Show title</label>
       </div>
-      <input type="text" class="form-control" [ngModel]="widget.titleOverride ?? ''"
+      <input type="text" class="form-control" [id]="'widgetTitle-' + widget.id" [ngModel]="widget.titleOverride ?? ''"
         (ngModelChange)="setTitle($event)" placeholder="Override widget title" />
       <small class="form-text text-muted">Leave empty to use the default title</small>
     </div>

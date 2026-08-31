@@ -4,7 +4,7 @@
       <h1 class="app-page-title">AI configuration</h1>
       <p class="app-page-description">Choose the default provider used to generate dashboard content. A dashboard can override this provider when needed.</p>
     </div>
-    @if (!isLoading()) {
+    @if (!isLoading() && !loadError()) {
       <span class="app-status-chip" [ngClass]="isDirty() ? 'app-status-chip-warning' : 'app-status-chip-success'">
         {{ isDirty() ? 'Unsaved changes' : 'Saved' }}
       </span>
@@ -14,8 +14,16 @@
     @if (isLoading()) {
       <div class="app-loading-state">
         <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">Loading AI configuration</span>
         </div>
+      </div>
+    } @else if (loadError()) {
+      <div class="app-empty-state" role="alert">
+        <span class="app-empty-state-icon text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <div><h2 class="h5 mb-1">AI configuration could not be loaded</h2><p class="text-muted mb-0">{{ loadError() }}</p></div>
+        <button type="button" class="btn btn-outline-primary" (click)="loadConfig()">
+          <i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Try again
+        </button>
       </div>
     } @else {
       <div class="card shadow-sm app-form-shell app-form-shell-wide">
@@ -42,7 +50,7 @@
                   [value]="aiConfig().directEndpoint || ''"
                   (input)="updateField('directEndpoint', $any($event.target).value)"
                   autocomplete="url"
-                  placeholder="https://api.openai.com" />
+                  placeholder="https://api.openai.com" required />
                 <small class="form-text text-muted">OpenAI, Ollama, LM Studio, or any compatible endpoint</small>
               </div>
               <div class="mb-3">
@@ -66,7 +74,7 @@
                     <select id="aiModel" class="form-select"
                       [ngModel]="aiConfig().directModel || ''"
                       (ngModelChange)="updateField('directModel', $event)"
-                      [ngModelOptions]="{standalone: true}">
+                      [ngModelOptions]="{standalone: true}" required>
                       <option value="" disabled>Select a model</option>
                       @for (model of availableModels(); track model.id) {
                         <option [value]="model.id">{{ model.id }}</option>
@@ -76,7 +84,7 @@
                     <input id="aiModel" type="text" class="form-control"
                       [value]="aiConfig().directModel || ''"
                       (input)="updateField('directModel', $any($event.target).value)"
-                      placeholder="gpt-4o-mini" />
+                      placeholder="gpt-4o-mini" required />
                   }
                 </div>
                 <small class="form-text text-muted">Select from available models or enter manually</small>
@@ -99,11 +107,14 @@
             }
 
             <hr>
+            @if (!isConfigValid()) {
+              <div class="alert alert-warning py-2" role="status">Enter both an API endpoint and model before saving.</div>
+            }
             <div class="d-flex flex-column-reverse flex-sm-row justify-content-end gap-2">
               <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty() || isSaving()">
                 <i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Discard
               </button>
-              <button type="submit" class="btn btn-primary" [disabled]="!isDirty() || isSaving()">
+              <button type="submit" class="btn btn-primary" [disabled]="!isDirty() || isSaving() || !isConfigValid()">
                 @if (isSaving()) {
                   <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                 }

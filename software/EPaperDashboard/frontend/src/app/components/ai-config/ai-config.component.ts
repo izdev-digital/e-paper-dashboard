@@ -21,6 +21,7 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   readonly aiConfig = signal<AiConfig>(AiConfigComponent.DEFAULT_CONFIG);
   private originalAiConfig = JSON.stringify(AiConfigComponent.DEFAULT_CONFIG);
   readonly isLoading = signal(false);
+  readonly loadError = signal('');
   readonly isSaving = signal(false);
   readonly availableModels = signal<{ id: string }[]>([]);
   readonly isLoadingModels = signal(false);
@@ -28,6 +29,11 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   readonly connectionStatus = signal<'success' | 'error' | null>(null);
   readonly connectionMessage = signal('');
   readonly isDirty = computed(() => JSON.stringify(this.aiConfig()) !== this.originalAiConfig);
+  readonly isConfigValid = computed(() => {
+    const config = this.aiConfig();
+    if (config.connectionMode !== 'Direct') return true;
+    return !!config.directEndpoint?.trim() && !!config.directModel?.trim();
+  });
 
   ngOnInit(): void {
     this.loadConfig();
@@ -35,6 +41,7 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
 
   loadConfig(): void {
     this.isLoading.set(true);
+    this.loadError.set('');
     this.aiService.getGlobalConfig().subscribe({
       next: (config) => {
         this.aiConfig.set(config);
@@ -44,8 +51,8 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
           this.fetchModels();
         }
       },
-      error: () => {
-        this.originalAiConfig = JSON.stringify(this.aiConfig());
+      error: (err) => {
+        this.loadError.set(err.error?.message || 'Check the server connection and try again.');
         this.isLoading.set(false);
       }
     });
@@ -96,6 +103,7 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   }
 
   save(): void {
+    if (!this.isConfigValid()) return;
     this.toastService.clear();
     this.isSaving.set(true);
     this.aiService.updateGlobalConfig(this.aiConfig()).subscribe({

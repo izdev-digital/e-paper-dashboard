@@ -216,7 +216,7 @@ export class SearchableSelectComponent implements OnDestroy {
   readonly value = input<string>('');
   readonly emptyLabel = input<string>('— None —');
   readonly showEmptyOption = input<boolean>(true);
-  readonly searchPlaceholder = input<string>('Search...');
+  readonly searchPlaceholder = input<string>('Search…');
   readonly ariaLabel = input<string>('Select an option');
   readonly disabled = input<boolean>(false);
   readonly selectionChange = output<string>();

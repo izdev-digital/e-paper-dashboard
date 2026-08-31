@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -25,10 +25,21 @@ import { Dashboard } from '../../models/types';
     </div>
 
     @if (isLoading()) {
-      <div class="text-center my-5">
+      <div class="app-loading-state">
         <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">Loading dashboards</span>
         </div>
+      </div>
+    } @else if (errorMessage()) {
+      <div class="app-empty-state" role="alert">
+        <span class="app-empty-state-icon text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <div>
+          <h2 class="h5 mb-1">Dashboards could not be loaded</h2>
+          <p class="text-muted mb-0">{{ errorMessage() }}</p>
+        </div>
+        <button type="button" class="btn btn-outline-primary" (click)="loadDashboards()">
+          <i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Try again
+        </button>
       </div>
     } @else if (dashboards().length > 0) {
       <div class="dashboard-list">
@@ -70,10 +81,6 @@ import { Dashboard } from '../../models/types';
         </div>
         <a routerLink="/dashboards/create" class="btn btn-primary"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Create dashboard</a>
       </div>
-    }
-
-    @if (errorMessage()) {
-      <div class="alert alert-danger">{{ errorMessage() }}</div>
     }
     </div>
   `,
@@ -182,7 +189,7 @@ import { Dashboard } from '../../models/types';
     }
   `]
 })
-export class DashboardListComponent implements OnInit {
+export class DashboardListComponent {
   private readonly dashboardService = inject(DashboardService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
@@ -191,22 +198,17 @@ export class DashboardListComponent implements OnInit {
 
   // Signal-based state
   readonly dashboards = signal<Dashboard[]>([]);
-  readonly isLoading = signal(false);
+  readonly isLoading = signal(true);
   readonly errorMessage = signal('');
+  private hasLoaded = false;
 
-  ngOnInit(): void {
-    // With signals, we can synchronously check auth state
-    if (this.authService.isAuthReady()) {
-      this.loadDashboards();
-    } else {
-      // Wait for auth to be ready
-      const checkInterval = setInterval(() => {
-        if (this.authService.isAuthReady()) {
-          clearInterval(checkInterval);
-          this.loadDashboards();
-        }
-      }, 10);
-    }
+  constructor() {
+    effect(() => {
+      if (!this.hasLoaded && this.authService.isAuthReady()) {
+        this.hasLoaded = true;
+        this.loadDashboards();
+      }
+    });
   }
 
   loadDashboards(): void {
@@ -233,7 +235,7 @@ export class DashboardListComponent implements OnInit {
     if (!dashboard) return;
 
     await this.dialogService.confirm({
-      title: 'Delete Dashboard?',
+      title: 'Delete dashboard?',
       message: `Are you sure you want to delete "${dashboard.name}"? This action cannot be undone.`,
       confirmLabel: 'Delete',
       isDangerous: true,

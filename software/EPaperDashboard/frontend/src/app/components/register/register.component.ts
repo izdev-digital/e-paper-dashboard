@@ -18,13 +18,15 @@ import { AuthService } from '../../services/auth.service';
         <div class="mb-3">
           <label class="form-label fw-semibold" for="registerUsername">Username</label>
           <input id="registerUsername" type="text" class="form-control" [(ngModel)]="username" name="username"
-            autocomplete="username" required autofocus>
+            autocomplete="username" minlength="3" aria-describedby="registerUsernameHelp" required autofocus>
+          <small id="registerUsernameHelp" class="form-text text-muted">At least 3 characters</small>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold" for="registerPassword">Password</label>
           <div class="input-group">
             <input id="registerPassword" [type]="showPassword ? 'text' : 'password'" class="form-control"
-              [(ngModel)]="password" name="password" autocomplete="new-password" required>
+              [(ngModel)]="password" name="password" autocomplete="new-password" minlength="6"
+              aria-describedby="registerPasswordHelp" required>
             <button type="button" class="btn btn-outline-secondary app-icon-button"
               (click)="showPassword = !showPassword"
               [attr.aria-label]="showPassword ? 'Hide passwords' : 'Show passwords'"
@@ -32,6 +34,7 @@ import { AuthService } from '../../services/auth.service';
               <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
             </button>
           </div>
+          <small id="registerPasswordHelp" class="form-text text-muted">At least 6 characters</small>
         </div>
         <div class="mb-3">
           <label class="form-label fw-semibold" for="registerPasswordConfirm">Confirm password</label>
@@ -45,10 +48,10 @@ import { AuthService } from '../../services/auth.service';
           @if (isLoading()) {
             <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
           }
-          {{ isLoading() ? 'Registering...' : 'Register' }}
+          {{ isLoading() ? 'Creating account…' : 'Create account' }}
         </button>
         <div class="mt-3 text-center">
-          <span class="text-muted">Already have an account?</span> <a routerLink="/login">Sign in</a>
+          <span class="text-muted">Already have an account?</span><a class="ms-1" routerLink="/login">Sign in</a>
         </div>
         </form>
       </div>
@@ -76,8 +79,19 @@ export class RegisterComponent {
   }
 
   onSubmit(): void {
-    if (!this.username || !this.password) {
+    const username = this.username.trim();
+    if (!username || !this.password || !this.confirmPassword) {
       this.errorMessage.set('Please fill in all fields.');
+      return;
+    }
+
+    if (username.length < 3) {
+      this.errorMessage.set('Username must be at least 3 characters.');
+      return;
+    }
+
+    if (this.password.length < 6) {
+      this.errorMessage.set('Password must be at least 6 characters.');
       return;
     }
 
@@ -89,7 +103,7 @@ export class RegisterComponent {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.authService.register({ username: this.username, password: this.password }).subscribe({
+    this.authService.register({ username, password: this.password }).subscribe({
       next: () => {
         this.router.navigate(['/dashboards']);
       },

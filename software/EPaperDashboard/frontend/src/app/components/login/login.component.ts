@@ -40,10 +40,10 @@ import { AuthService } from '../../services/auth.service';
           @if (isLoading()) {
             <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
           }
-          {{ isLoading() ? 'Signing in...' : 'Sign in' }}
+          {{ isLoading() ? 'Signing in…' : 'Sign in' }}
         </button>
         <div class="mt-3 text-center">
-          <span class="text-muted">New to izBoard?</span> <a routerLink="/register">Create an account</a>
+          <span class="text-muted">New to izBoard?</span><a class="ms-1" routerLink="/register">Create an account</a>
         </div>
         </form>
       </div>
@@ -82,7 +82,8 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (!this.username || !this.password) {
+    const username = this.username.trim();
+    if (!username || !this.password) {
       this.errorMessage.set('Please fill in all fields.');
       return;
     }
@@ -90,7 +91,7 @@ export class LoginComponent implements OnInit {
     this.isLoading.set(true);
     this.errorMessage.set('');
 
-    this.authService.login({ username: this.username, password: this.password }).subscribe({
+    this.authService.login({ username, password: this.password }).subscribe({
       next: () => {
         this.router.navigate([this.returnUrl]);
       },

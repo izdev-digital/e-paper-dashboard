@@ -58,7 +58,7 @@ import { DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFA
             @if (isLoading()) {
               <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
             }
-            {{ isLoading() ? 'Creating...' : 'Create and open designer' }}
+            {{ isLoading() ? 'Creating dashboard…' : 'Create and open designer' }}
           </button>
         </div>
         </form>
@@ -83,7 +83,9 @@ export class DashboardCreateComponent {
   }
 
   onSubmit(): void {
-    if (!this.name) {
+    const name = this.name.trim();
+    const description = this.description.trim();
+    if (!name) {
       this.errorMessage.set('Name is required.');
       return;
     }
@@ -93,8 +95,8 @@ export class DashboardCreateComponent {
 
     const size = this.selectedSize;
     this.dashboardService.createDashboard({
-      name: this.name,
-      description: this.description || undefined,
+      name,
+      description: description || undefined,
       orientation: this.orientation,
       screenWidth: size.width,
       screenHeight: size.height
