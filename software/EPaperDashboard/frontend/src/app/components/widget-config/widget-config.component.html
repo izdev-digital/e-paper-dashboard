@@ -48,23 +48,24 @@
   @for (badge of headerConfig.badges ?? []; track trackByBadgeLabel($index, badge); let i = $index) {
     <div class="list-group-item px-2 py-2">
       <div class="d-flex align-items-center gap-2">
-        <i class="fa {{ badge.icon || 'fa-tag' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <span class="flex-grow-1 text-truncate" style="min-width:0">
+        <i class="fa {{ badge.icon || 'fa-tag' }} text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+        <span class="flex-grow-1 text-truncate widget-config-grow">
           {{ getBadgeEntityLabel(badge) || 'No entity' }}
         </span>
-        <button class="btn btn-sm btn-outline-danger flex-shrink-0 py-0 px-1" (click)="removeBadge(i)">
-          <i class="fa fa-trash"></i>
+        <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 py-0 px-1" (click)="removeBadge(i)"
+          [attr.aria-label]="'Remove badge ' + (getBadgeEntityLabel(badge) || (i + 1))">
+          <i class="fa fa-trash" aria-hidden="true"></i>
         </button>
       </div>
       <div class="d-flex align-items-center gap-2 mt-1">
-        <i class="fa fa-icons text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+        <i class="fa fa-icons text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1 widget-config-grow"
           placeholder="Icon (e.g., fa-thermometer)"
           [(ngModel)]="badge.icon" (ngModelChange)="onPropertyChanged()" />
       </div>
       <div class="d-flex align-items-center gap-2 mt-1">
-        <i class="fa fa-link text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <select class="form-select form-select-sm flex-grow-1" style="min-width:0;"
+        <i class="fa fa-link text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+        <select class="form-select form-select-sm flex-grow-1 widget-config-grow"
           [(ngModel)]="badge.entityId" (ngModelChange)="onPropertyChanged()">
           <option [ngValue]="undefined">No Entity</option>
           @for (entity of entities(); track trackByEntityId($index, entity)) {
@@ -78,7 +79,7 @@
     <div class="list-group-item px-2 py-2 text-muted small">No badges configured.</div>
   }
 </div>
-<button class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="addBadge()">
+<button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" (click)="addBadge()">
   <i class="fa fa-plus"></i> Add Badge
 </button>
 
@@ -129,14 +130,14 @@
             [disabled]="isCalendarItemAlwaysVisible(item)"
             (change)="toggleCalendarEventItemVisibility(i)" />
         </div>
-        <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'citem-' + widget.id + '-' + i">
+        <label class="form-check-label text-capitalize flex-grow-1 mb-0 widget-config-grow" [for]="'citem-' + widget.id + '-' + i">
           {{ getCalendarEventItemLabel(item) }}
         </label>
       </div>
       @if (getDefaultCalendarEventItemIcon(item)) {
         <div class="d-flex align-items-center gap-2 mt-1">
-          <i class="fa {{ item.icon || getDefaultCalendarEventItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-          <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+          <i class="fa {{ item.icon || getDefaultCalendarEventItemIcon(item) }} text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+          <input type="text" class="form-control form-control-sm flex-grow-1 widget-config-grow"
             placeholder="{{ getDefaultCalendarEventItemIcon(item) }}"
             [(ngModel)]="item.icon"
             (ngModelChange)="onPropertyChanged()" />
@@ -180,13 +181,13 @@
             [checked]="item.visible !== false"
             (change)="toggleWeatherNonTitleItemVisibility(i)" />
         </div>
-        <label class="form-check-label text-capitalize flex-grow-1 mb-0" style="min-width:0" [for]="'witem-' + widget.id + '-' + i">
+        <label class="form-check-label text-capitalize flex-grow-1 mb-0 widget-config-grow" [for]="'witem-' + widget.id + '-' + i">
           {{ getWeatherItemLabel(item) }}
         </label>
       </div>
       <div class="d-flex align-items-center gap-2 mt-1">
-        <i class="fa {{ item.icon || getDefaultWeatherItemIcon(item) }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-        <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+        <i class="fa {{ item.icon || getDefaultWeatherItemIcon(item) }} text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+        <input type="text" class="form-control form-control-sm flex-grow-1 widget-config-grow"
           placeholder="{{ getDefaultWeatherItemIcon(item) }}"
           [(ngModel)]="item.icon"
           (ngModelChange)="onPropertyChanged()" />
@@ -245,7 +246,7 @@
             [checked]="isForecastFieldVisible(field)"
             (change)="toggleForecastField(field)" />
         </div>
-        <label class="form-check-label flex-grow-1 mb-0" style="min-width:0" [for]="'forecast-field-' + widget.id + '-' + field">
+        <label class="form-check-label flex-grow-1 mb-0 widget-config-grow" [for]="'forecast-field-' + widget.id + '-' + field">
           {{ getForecastFieldLabel(field) }}
         </label>
       </div>
@@ -383,11 +384,11 @@
 <div class="list-group list-group-flush border rounded">
   <div class="list-group-item px-2 py-2">
     <div class="d-flex align-items-center gap-2">
-      <span class="flex-grow-1 mb-0" style="min-width:0">Pending</span>
+      <span class="flex-grow-1 mb-0 widget-config-grow">Pending</span>
     </div>
     <div class="d-flex align-items-center gap-2 mt-1">
-      <i class="fa {{ todoConfig.pendingIcon || 'fa-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-      <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+      <i class="fa {{ todoConfig.pendingIcon || 'fa-circle' }} text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+      <input type="text" class="form-control form-control-sm flex-grow-1 widget-config-grow"
         placeholder="fa-circle"
         [(ngModel)]="todoConfig.pendingIcon"
         (ngModelChange)="onPropertyChanged()" />
@@ -395,11 +396,11 @@
   </div>
   <div class="list-group-item px-2 py-2">
     <div class="d-flex align-items-center gap-2">
-      <span class="flex-grow-1 mb-0" style="min-width:0">Completed</span>
+      <span class="flex-grow-1 mb-0 widget-config-grow">Completed</span>
     </div>
     <div class="d-flex align-items-center gap-2 mt-1">
-      <i class="fa {{ todoConfig.completedIcon || 'fa-check-circle' }} text-muted flex-shrink-0" style="width:1.2em;text-align:center"></i>
-      <input type="text" class="form-control form-control-sm flex-grow-1" style="min-width:0;"
+      <i class="fa {{ todoConfig.completedIcon || 'fa-check-circle' }} text-muted flex-shrink-0 widget-config-icon" aria-hidden="true"></i>
+      <input type="text" class="form-control form-control-sm flex-grow-1 widget-config-grow"
         placeholder="fa-check-circle"
         [(ngModel)]="todoConfig.completedIcon"
         (ngModelChange)="onPropertyChanged()" />
@@ -434,15 +435,15 @@
 <app-widget-title-config [widget]="widget" (widgetChange)="applyWidgetChange($event)" />
 <label class="form-label fw-semibold small">Image Source</label>
 <div class="d-flex gap-2 mb-2">
-  <button class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
+  <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" (click)="imageFileInput.click()">
     <i class="fa fa-upload"></i> From File
   </button>
-  <button class="btn btn-sm btn-outline-secondary flex-grow-1" (click)="showImageUrlInput = !showImageUrlInput">
+  <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1" (click)="showImageUrlInput = !showImageUrlInput">
     <i class="fa fa-link"></i> From URL
   </button>
   @if (widget.config.imageUrl) {
-  <button class="btn btn-sm btn-outline-danger" (click)="clearUploadedImage()" title="Clear image">
-    <i class="fa fa-trash"></i>
+  <button type="button" class="btn btn-sm btn-outline-danger app-icon-button" (click)="clearUploadedImage()" aria-label="Clear image">
+    <i class="fa fa-trash" aria-hidden="true"></i>
   </button>
   }
 </div>
@@ -452,7 +453,7 @@
 <div class="input-group input-group-sm mb-2">
   <input type="text" class="form-control" [(ngModel)]="imageUrlValue"
     placeholder="https://example.com/image.png" />
-  <button class="btn btn-outline-primary" [disabled]="!imageUrlValue || imageUploading"
+  <button type="button" class="btn btn-outline-primary" [disabled]="!imageUrlValue || imageUploading"
     (click)="uploadImageFromUrl()">
     <i class="fa fa-download"></i> Fetch
   </button>
@@ -465,9 +466,8 @@
 <div class="alert alert-danger py-1 px-2 small mb-2">{{ imageUploadError }}</div>
 }
 @if (widget.config.imageUrl) {
-<div class="mt-2 border rounded p-1 text-center" style="height: 120px; overflow: hidden;">
-  <img [src]="widget.config.imageUrl | resolveUrl" alt="Preview"
-    style="width: 100%; height: 100%; object-fit: contain;" />
+<div class="widget-image-preview mt-2 border rounded p-1 text-center">
+  <img [src]="widget.config.imageUrl | resolveUrl" alt="Image preview" />
 </div>
 }
 <hr class="my-2" />
@@ -484,7 +484,7 @@
   <input type="range" class="form-range" min="-1" max="1" step="0.05"
     [ngModel]="widget.config.offsetX ?? 0"
     (ngModelChange)="widget.config.offsetX = $event; onPropertyChanged()" />
-  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+  <div class="range-scale d-flex justify-content-between text-muted">
     <span>Left</span><span>Center</span><span>Right</span>
   </div>
 </div>
@@ -493,7 +493,7 @@
   <input type="range" class="form-range" min="-1" max="1" step="0.05"
     [ngModel]="widget.config.offsetY ?? 0"
     (ngModelChange)="widget.config.offsetY = $event; onPropertyChanged()" />
-  <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+  <div class="range-scale d-flex justify-content-between text-muted">
     <span>Top</span><span>Center</span><span>Bottom</span>
   </div>
 </div>

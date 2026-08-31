@@ -12,13 +12,13 @@
   </div>
 
     @if (isLoading()) {
-      <div class="text-center py-5">
+      <div class="app-loading-state">
         <div class="spinner-border" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
       </div>
     } @else {
-      <div class="card shadow-sm app-form-shell" style="max-width: 46rem;">
+      <div class="card shadow-sm app-form-shell app-form-shell-wide">
         <div class="card-body">
           <form (ngSubmit)="save()">
             <div class="mb-3">

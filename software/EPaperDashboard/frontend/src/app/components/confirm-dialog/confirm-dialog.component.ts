@@ -10,7 +10,6 @@ import { DialogService } from '../../services/dialog.service';
   template: `
     @if (dialogService.isOpen()) {
       <div class="modal-backdrop position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-           style="background-color: rgba(0,0,0,0.5); z-index: 2000;"
            (click)="onBackdropClick($event)">
         <div class="card confirm-dialog" role="alertdialog" aria-modal="true"
           aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage"
@@ -47,6 +46,8 @@ import { DialogService } from '../../services/dialog.service';
   `,
   styles: [`
     .modal-backdrop {
+      z-index: 2000;
+      background-color: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(2px);
       padding: 1rem;
     }

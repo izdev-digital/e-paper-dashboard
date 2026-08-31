@@ -6,7 +6,7 @@
     </div>
   </div>
 
-  <div class="app-form-shell d-grid gap-3" style="max-width: 46rem;">
+  <div class="app-form-shell app-form-shell-wide d-grid gap-3">
     <section class="app-section-card" aria-labelledby="accountDetailsTitle">
       <h2 id="accountDetailsTitle" class="app-section-title">Account details</h2>
       <p class="app-section-description">Signed in as <strong>{{ currentUser?.username }}</strong>.</p>
@@ -40,17 +40,17 @@
       <h2 id="changePasswordTitle" class="app-section-title">Change password</h2>
       <p class="app-section-description">Use a unique password that you do not use elsewhere.</p>
       <div class="mb-3">
-        <label for="currentPassword" class="form-label">Current Password</label>
+        <label for="currentPassword" class="form-label">Current password</label>
         <input type="password" class="form-control" id="currentPassword" [value]="currentPassword()"
           (input)="currentPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="current-password" required />
       </div>
       <div class="mb-3">
-        <label for="newPassword" class="form-label">New Password</label>
+        <label for="newPassword" class="form-label">New password</label>
         <input type="password" class="form-control" id="newPassword" [value]="newPassword()"
           (input)="newPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="new-password" required />
       </div>
       <div class="mb-3">
-        <label for="confirmNewPassword" class="form-label">Confirm Password</label>
+        <label for="confirmNewPassword" class="form-label">Confirm password</label>
         <input type="password" class="form-control" id="confirmNewPassword" [value]="confirmNewPassword()"
           (input)="confirmNewPassword.set($any($event.target).value)" [disabled]="isChangingPassword()" autocomplete="new-password" required />
       </div>
@@ -58,7 +58,7 @@
         @if (isChangingPassword()) {
         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
         }
-        Change Password
+        Change password
       </button>
     </form>
     </section>
@@ -71,7 +71,7 @@
         @if (isDeletingProfile()) {
         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
         }
-        Delete My Profile
+        Delete my profile
       </button>
     </form>
     </section>

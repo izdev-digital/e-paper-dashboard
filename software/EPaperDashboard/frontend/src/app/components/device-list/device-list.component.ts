@@ -183,6 +183,10 @@ import { Dashboard } from '../../models/types';
     .release-notes a {
       color: var(--bs-primary);
     }
+
+    .release-notes-summary {
+      cursor: pointer;
+    }
   `],
   template: `
     <div class="app-page">
@@ -371,7 +375,7 @@ import { Dashboard } from '../../models/types';
                   }
                   @if (firmwareInfo()!.releaseNotes) {
                     <details class="mt-1">
-                      <summary class="small text-muted" style="cursor:pointer">Release Notes</summary>
+                      <summary class="release-notes-summary small text-muted">Release notes</summary>
                       <div class="release-notes small mt-1" [innerHTML]="renderMarkdown(firmwareInfo()!.releaseNotes!)"></div>
                     </details>
                   }
@@ -390,7 +394,7 @@ import { Dashboard } from '../../models/types';
           <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2"
             (click)="refreshFirmware()" [disabled]="isFirmwareLoading()">
             <i class="fa-solid fa-rotate"></i>
-            {{ isFirmwareLoading() ? 'Checking...' : 'Check for Updates' }}
+            {{ isFirmwareLoading() ? 'Checking…' : 'Check for updates' }}
           </button>
         </div>
       </div>

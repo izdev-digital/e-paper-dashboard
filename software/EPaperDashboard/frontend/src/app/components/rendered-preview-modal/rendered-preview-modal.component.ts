@@ -13,7 +13,7 @@ import { A11yModule } from '@angular/cdk/a11y';
           role="dialog" aria-modal="true" aria-labelledby="renderedPreviewTitle"
           cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <!-- Modal Header -->
-          <div class="d-flex justify-content-between align-items-center p-3" style="border-bottom: 1px solid var(--bs-border-color);">
+          <div class="preview-header d-flex justify-content-between align-items-center p-3">
             <h2 id="renderedPreviewTitle" class="h5 mb-0">{{ title }}</h2>
             <div class="d-flex gap-2 align-items-center">
               <button type="button" class="btn btn-sm app-icon-button" aria-label="Reload preview" (click)="onReloadClick()">
@@ -23,15 +23,15 @@ import { A11yModule } from '@angular/cdk/a11y';
             </div>
           </div>
           <!-- Modal Body -->
-          <div class="flex-grow-1 overflow-auto p-3 d-flex justify-content-center align-items-flex-start" style="background-color: var(--bs-secondary-bg);">
+          <div class="preview-body flex-grow-1 overflow-auto p-3 d-flex justify-content-center align-items-flex-start">
             @if (isLoading()) {
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">Rendering preview</span>
               </div>
             } @else if (error()) {
               <div class="alert alert-danger mb-0" role="alert">{{ error() }}</div>
             } @else if (imageUrl()) {
-              <img [src]="imageUrl()" style="max-width: 100%; height: auto; object-fit: contain;" [alt]="title" />
+              <img class="preview-image" [src]="imageUrl()" [alt]="title" />
             }
           </div>
         </div>
@@ -55,6 +55,17 @@ import { A11yModule } from '@angular/cdk/a11y';
       background: var(--bs-body-bg);
       border: 1px solid var(--bs-border-color);
       box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);
+    }
+    .preview-header {
+      border-bottom: 1px solid var(--bs-border-color);
+    }
+    .preview-body {
+      background-color: var(--bs-secondary-bg);
+    }
+    .preview-image {
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
     }
   `]
 })

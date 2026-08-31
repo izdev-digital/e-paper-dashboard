@@ -109,7 +109,7 @@
           <div class="widget-list">
             @for (category of widgetCategories; track category.type) {
               @if (!toolboxCollapsed()) {
-                <div class="text-uppercase text-muted fw-semibold px-2 pt-2" style="font-size: 0.65rem; letter-spacing: 0.04em;">
+                <div class="designer-menu-label text-uppercase text-muted fw-semibold px-2 pt-2">
                   {{ category.label }}
                 </div>
               }
@@ -143,7 +143,7 @@
             }
           </button>
         </div>
-        <div class="card-body" style="overflow: auto;">
+        <div class="card-body overflow-auto">
           <div class="canvas-wrapper">
             <div class="canvas-scale-wrapper" [ngStyle]="getCanvasScaleStyle()">
             <div class="dashboard-canvas" [class.backend-preview-active]="!!renderedCanvasImageUrl()" [ngStyle]="getCanvasStyle()" (mousedown)="onCanvasMouseDown($event)">
@@ -364,7 +364,7 @@
     </div>
     <div class="bottom-sheet-body">
       @for (category of widgetCategories; track category.type) {
-        <div class="w-100 text-uppercase text-muted fw-semibold mt-2" style="font-size: 0.7rem;">{{ category.label }}</div>
+        <div class="widget-category-label w-100 text-uppercase text-muted fw-semibold mt-2">{{ category.label }}</div>
         @for (widget of widgetsInCategory(category.type); track widget.type) {
           <button class="widget-grid-item" (click)="addWidgetToFirstSlot(widget)">
             <i class="fa {{ widget.icon }}"></i>
@@ -424,18 +424,21 @@
 
 <ng-template #dashboardSettingsContent>
   <div class="collapsible-section" [class.collapsed]="colorSchemeCollapsed()">
-    <div class="collapsible-header" (click)="colorSchemeCollapsed.set(!colorSchemeCollapsed())">
-      <span class="section-title">Color Scheme</span>
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides(); $event.stopPropagation()"
+    <div class="collapsible-header">
+      <button type="button" class="collapsible-trigger" (click)="colorSchemeCollapsed.set(!colorSchemeCollapsed())"
+        [attr.aria-expanded]="!colorSchemeCollapsed()" aria-controls="colorSchemePanel">
+        <span class="section-title">Color scheme</span>
+        <i class="fa" [ngClass]="colorSchemeCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'" aria-hidden="true"></i>
+      </button>
+      <div class="collapsible-actions">
+        <button type="button" class="btn btn-sm btn-outline-danger" (click)="resetAllColorOverrides()"
           title="Reset all color overrides (layout + widgets) to the selected scheme defaults">
-          <i class="fa fa-undo"></i> Reset All
+          <i class="fa fa-undo" aria-hidden="true"></i> Reset all
         </button>
-        <i class="fa" [ngClass]="colorSchemeCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
       </div>
     </div>
     @if (!colorSchemeCollapsed()) {
-    <div class="collapsible-body">
+    <div id="colorSchemePanel" class="collapsible-body">
       <select class="form-select" [ngModel]="layout().colorScheme"
         [compareWith]="compareColorSchemes"
         (ngModelChange)="updateColorScheme($event)">
@@ -447,25 +450,28 @@
     }
   </div>
   <div class="collapsible-section" [class.collapsed]="colorOverridesCollapsed()">
-    <div class="collapsible-header" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())">
-      <div class="d-flex align-items-center">
-        <span class="section-title">Color Overrides</span>
+    <div class="collapsible-header">
+      <button type="button" class="collapsible-trigger" (click)="colorOverridesCollapsed.set(!colorOverridesCollapsed())"
+        [attr.aria-expanded]="!colorOverridesCollapsed()" aria-controls="layoutColorOverridesPanel">
+        <span class="d-flex align-items-center">
+          <span class="section-title">Color overrides</span>
         @if (hasLayoutColorOverrides()) {
-        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+          <span class="badge bg-warning text-dark ms-2 override-badge" title="Some colors are overridden">Custom</span>
         }
-      </div>
-      <div class="d-flex align-items-center gap-2">
+        </span>
+        <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'" aria-hidden="true"></i>
+      </button>
+      <div class="collapsible-actions">
         @if (hasLayoutColorOverrides()) {
-        <button class="btn btn-sm btn-outline-secondary" (click)="resetLayoutColorOverrides(); $event.stopPropagation()"
-          title="Reset layout colors to scheme defaults">
-          <i class="fa fa-undo"></i>
+        <button type="button" class="btn btn-sm btn-outline-secondary app-icon-button" (click)="resetLayoutColorOverrides()"
+          title="Reset layout colors to scheme defaults" aria-label="Reset layout colors to scheme defaults">
+          <i class="fa fa-undo" aria-hidden="true"></i>
         </button>
         }
-        <i class="fa" [ngClass]="colorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
       </div>
     </div>
     @if (!colorOverridesCollapsed()) {
-    <div class="collapsible-body">
+    <div id="layoutColorOverridesPanel" class="collapsible-body">
       <div class="mb-2">
         <label class="form-label small">Canvas Background @if (isLayoutColorOverridden('canvasBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
         <select class="form-select form-select-sm" [ngModel]="layout().colorScheme.canvasBackgroundColor"
@@ -524,12 +530,13 @@
     }
   </div>
   <div class="collapsible-section" [class.collapsed]="layoutCollapsed()">
-    <div class="collapsible-header" (click)="layoutCollapsed.set(!layoutCollapsed())">
+    <button type="button" class="collapsible-header collapsible-trigger" (click)="layoutCollapsed.set(!layoutCollapsed())"
+      [attr.aria-expanded]="!layoutCollapsed()" aria-controls="layoutPanel">
       <span class="section-title">Layout</span>
-      <i class="fa" [ngClass]="layoutCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-    </div>
+      <i class="fa" [ngClass]="layoutCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'" aria-hidden="true"></i>
+    </button>
     @if (!layoutCollapsed()) {
-    <div class="collapsible-body">
+    <div id="layoutPanel" class="collapsible-body">
       <div class="mb-2">
         <label class="form-label small">Orientation</label>
         <div class="btn-group d-flex" role="group">
@@ -589,12 +596,13 @@
     }
   </div>
   <div class="collapsible-section" [class.collapsed]="fontsCollapsed()">
-    <div class="collapsible-header" (click)="fontsCollapsed.set(!fontsCollapsed())">
+    <button type="button" class="collapsible-header collapsible-trigger" (click)="fontsCollapsed.set(!fontsCollapsed())"
+      [attr.aria-expanded]="!fontsCollapsed()" aria-controls="typographyPanel">
       <span class="section-title">Typography</span>
-      <i class="fa" [ngClass]="fontsCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-    </div>
+      <i class="fa" [ngClass]="fontsCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'" aria-hidden="true"></i>
+    </button>
     @if (!fontsCollapsed()) {
-    <div class="collapsible-body">
+    <div id="typographyPanel" class="collapsible-body">
       <div class="mb-2">
         <label class="form-label small">Widget Title Font Size (px)</label>
         <input type="number" class="form-control form-control-sm" [ngModel]="layout().titleFontSize"
@@ -628,12 +636,13 @@
   <!-- AI Section -->
   @if (aiEnabled()) {
   <div class="collapsible-section mt-2">
-    <div class="collapsible-header" (click)="aiSectionCollapsed.set(!aiSectionCollapsed())">
-      <span><i class="fa fa-wand-magic-sparkles me-2"></i>AI Generation</span>
-      <i class="fa" [class.fa-chevron-down]="aiSectionCollapsed()" [class.fa-chevron-up]="!aiSectionCollapsed()"></i>
-    </div>
+    <button type="button" class="collapsible-header collapsible-trigger" (click)="aiSectionCollapsed.set(!aiSectionCollapsed())"
+      [attr.aria-expanded]="!aiSectionCollapsed()" aria-controls="aiGenerationPanel">
+      <span><i class="fa fa-wand-magic-sparkles me-2" aria-hidden="true"></i>AI generation</span>
+      <i class="fa" [class.fa-chevron-down]="aiSectionCollapsed()" [class.fa-chevron-up]="!aiSectionCollapsed()" aria-hidden="true"></i>
+    </button>
     @if (!aiSectionCollapsed()) {
-    <div class="collapsible-body">
+    <div id="aiGenerationPanel" class="collapsible-body">
       @if (aiConfigMode() === 'None') {
         <div class="alert alert-warning py-2 small mb-3">
           <i class="fa fa-triangle-exclamation me-1"></i>
@@ -745,17 +754,18 @@
   }
   <hr />
   <div class="collapsible-section" [class.collapsed]="widgetColorOverridesCollapsed()">
-    <div class="collapsible-header" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())">
-      <div class="d-flex align-items-center">
-        <span class="section-title">Color Overrides</span>
+    <button type="button" class="collapsible-header collapsible-trigger" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())"
+      [attr.aria-expanded]="!widgetColorOverridesCollapsed()" aria-controls="widgetColorOverridesPanel">
+      <span class="d-flex align-items-center">
+        <span class="section-title">Color overrides</span>
         @if (hasWidgetColorOverrides(selectedWidget())) {
-        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.65em; line-height: 1; padding: 0.25em 0.5em;" title="Some colors are overridden">Custom</span>
+        <span class="badge bg-warning text-dark ms-2 override-badge" title="Some colors are overridden">Custom</span>
         }
-      </div>
-      <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
-    </div>
+      </span>
+      <i class="fa" [ngClass]="widgetColorOverridesCollapsed() ? 'fa-chevron-down' : 'fa-chevron-up'" aria-hidden="true"></i>
+    </button>
     @if (!widgetColorOverridesCollapsed()) {
-    <div class="collapsible-body">
+    <div id="widgetColorOverridesPanel" class="collapsible-body">
       <div class="mb-2">
         <label class="form-label small">Widget Background Color @if (isWidgetColorOverridden(selectedWidget(), 'widgetBackgroundColor')) { <span class="badge bg-warning text-dark" title="Overridden">Custom</span> }</label>
         <div class="input-group">

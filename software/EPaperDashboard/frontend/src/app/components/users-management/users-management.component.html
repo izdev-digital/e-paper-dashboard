@@ -1,20 +1,24 @@
 <div class="users-management-container app-page">
   <div class="app-page-header">
-    <div><h1 class="app-page-title">Users</h1><p class="app-page-description">Manage who can access and configure izBoard.</p></div>
-    <button (click)="toggleAddForm()" class="btn btn-sm btn-primary" [class.btn-outline-primary]="showAddForm()"
+    <div>
+      <h1 class="app-page-title">Users</h1>
+      <p class="app-page-description">Manage who can access and configure izBoard.</p>
+    </div>
+    <button type="button" (click)="toggleAddForm()" class="btn btn-primary" [class.btn-outline-primary]="showAddForm()"
       [disabled]="isAddingUser()">
-      <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'"></i>
-      <span class="d-none d-sm-inline">{{ showAddForm() ? 'Cancel' : 'Add New User' }}</span><span class="d-sm-none">{{ showAddForm() ? 'Cancel' : 'New' }}</span>
+      <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'" aria-hidden="true"></i>
+      <span>{{ showAddForm() ? 'Cancel' : 'Add user' }}</span>
     </button>
   </div>
 
   @if (showAddForm()) {
-  <div class="add-user-form mb-4 p-4 rounded">
-    <h6>Add New User</h6>
+  <section class="add-user-form app-section-card mb-4" aria-labelledby="addUserTitle">
+    <h2 id="addUserTitle" class="app-section-title">Add user</h2>
+    <p class="app-section-description">Create credentials for someone who needs dashboard access.</p>
     <form [formGroup]="addUserForm" (ngSubmit)="addUser()">
       <div class="mb-3">
         <label for="username" class="form-label">
-          <i class="fa-solid fa-user me-2"></i>Username
+          <i class="fa-solid fa-user me-2" aria-hidden="true"></i>Username
         </label>
         <input type="text" id="username" class="form-control" formControlName="username"
           placeholder="Enter username (min 3 characters)" required />
@@ -32,7 +36,7 @@
 
       <div class="mb-3">
         <label for="password" class="form-label">
-          <i class="fa-solid fa-lock me-2"></i>Password
+          <i class="fa-solid fa-lock me-2" aria-hidden="true"></i>Password
         </label>
         <input type="password" id="password" class="form-control" formControlName="password"
           placeholder="Enter password (min 6 characters)" required />
@@ -48,17 +52,22 @@
         }
       </div>
 
-      <button type="submit" class="btn btn-primary btn-sm" [disabled]="addUserForm.invalid || isAddingUser()">
-        <i class="fa-solid fa-plus me-2"></i>{{ isAddingUser() ? 'Adding...' : 'Add User' }}
+      <button type="submit" class="btn btn-primary" [disabled]="addUserForm.invalid || isAddingUser()">
+        @if (isAddingUser()) {
+        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+        } @else {
+        <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>
+        }
+        Add user
       </button>
     </form>
-  </div>
+  </section>
   }
 
   @if (loading()) {
-  <div class="text-center my-5">
+  <div class="app-loading-state">
     <div class="spinner-border" role="status">
-      <span class="visually-hidden">Loading...</span>
+      <span class="visually-hidden">Loading users</span>
     </div>
   </div>
   } @else if (getFilteredUsers().length > 0) {
@@ -75,7 +84,7 @@
         @if (!user.isSuperUser) {
         <button (click)="deleteUser(user.id, user.username)" class="btn btn-sm btn-outline-danger"
           [disabled]="isDeletingUser()[user.id]" [attr.aria-label]="'Delete user ' + user.username">
-          <i class="fa-solid fa-trash"></i>
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
         </button>
         }
       </div>

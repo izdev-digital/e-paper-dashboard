@@ -34,6 +34,15 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
       min-width: 0;
     }
 
+    .action-bar-title,
+    .min-width-0 {
+      min-width: 0;
+    }
+
+    .update-time-input {
+      width: 9.375rem;
+    }
+
     h2 {
       min-width: 0;
       overflow: hidden;
@@ -45,15 +54,15 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
 
     @if (isLoading()) {
-      <div class="text-center my-5">
+      <div class="app-loading-state">
         <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">Loading dashboard</span>
         </div>
       </div>
     } @else if (dashboard()) {
       <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm" class="app-page">
         <div class="app-action-bar">
-          <div class="d-flex align-items-center gap-2 gap-sm-3" style="min-width:0">
+          <div class="action-bar-title d-flex align-items-center gap-2 gap-sm-3">
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onCancel()" aria-label="Back to dashboards">
               <i class="fa-solid fa-arrow-left"></i><span class="d-none d-sm-inline"> Back</span>
             </button>
@@ -270,8 +279,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                   <div class="d-flex align-items-center mb-2">
                     <input 
                       type="time" 
-                      class="form-control me-2" 
-                      style="width: 150px;"
+                      class="form-control me-2 update-time-input"
                       [(ngModel)]="newUpdateTime"
                       [ngModelOptions]="{standalone: true}"
                       name="newUpdateTime"

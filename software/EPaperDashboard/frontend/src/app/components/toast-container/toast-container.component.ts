@@ -7,7 +7,7 @@ import { ToastService, Toast } from '../../services/toast.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
       @for (toast of toastService.toasts(); track toast.id) {
         <div 
           class="toast show" 
@@ -21,16 +21,16 @@ import { ToastService, Toast } from '../../services/toast.service';
         >
           <div class="d-flex align-items-center gap-2">
             @if (toast.type === 'success') {
-              <i class="fa-solid fa-check-circle text-success"></i>
+              <i class="fa-solid fa-check-circle text-success" aria-hidden="true"></i>
             }
             @if (toast.type === 'error') {
-              <i class="fa-solid fa-exclamation-circle text-danger"></i>
+              <i class="fa-solid fa-exclamation-circle text-danger" aria-hidden="true"></i>
             }
             @if (toast.type === 'warning') {
-              <i class="fa-solid fa-exclamation-triangle text-warning"></i>
+              <i class="fa-solid fa-exclamation-triangle text-warning" aria-hidden="true"></i>
             }
             @if (toast.type === 'info') {
-              <i class="fa-solid fa-info-circle text-info"></i>
+              <i class="fa-solid fa-info-circle text-info" aria-hidden="true"></i>
             }
             <span>{{ toast.message }}</span>
             @if (toast.actionLabel) {
@@ -50,6 +50,9 @@ import { ToastService, Toast } from '../../services/toast.service';
     </div>
   `,
   styles: [`
+    .toast-container {
+      z-index: 9999;
+    }
     .toast {
       min-width: 300px;
       max-width: 500px;

@@ -11,15 +11,48 @@ app-dashboard-designer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
     user-select: none;
     font-weight: 600;
     font-size: 0.9rem;
-    border-bottom: 1px solid transparent;
 
-    &:hover {
+    &.collapsible-trigger,
+    .collapsible-trigger {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 0;
+      padding: 0.625rem 0.75rem;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &.collapsible-trigger:hover,
+    .collapsible-trigger:hover {
       background: var(--bs-tertiary-bg, rgba(0, 0, 0, 0.02));
+    }
+
+    &.collapsible-trigger:focus-visible,
+    .collapsible-trigger:focus-visible {
+      z-index: 1;
+      outline: 2px solid var(--bs-primary);
+      outline-offset: -2px;
+    }
+
+    .collapsible-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-right: 0.5rem;
     }
 
     .section-title {
@@ -39,6 +72,12 @@ app-dashboard-designer {
       border-bottom: none;
     }
   }
+}
+
+.override-badge {
+  padding: 0.25em 0.5em;
+  font-size: 0.65em;
+  line-height: 1;
 }
 
 .designer-panel-right .card>.card-body {

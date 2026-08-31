@@ -25,9 +25,9 @@ export interface DashboardOption {
               @if (isLoading()) {
                 <div class="text-center py-4">
                   <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading dashboards...</span>
+                    <span class="visually-hidden">Loading dashboards</span>
                   </div>
-                  <p class="mt-2 text-muted">Fetching available dashboards...</p>
+                  <p class="mt-2 text-muted">Loading available dashboards…</p>
                 </div>
               } @else if (error()) {
                 <div class="alert alert-danger mb-0">
@@ -48,11 +48,11 @@ export interface DashboardOption {
                       <div class="d-flex justify-content-between align-items-center">
                         <div>
                           <h6 class="mb-1">{{ dashboard.title }}</h6>
-                          <small class="d-block" style="color: var(--bs-secondary-color); font-size: 0.8rem;">
-                            <code style="background-color: var(--bs-secondary-bg); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">{{ dashboard.url_path }}</code>
+                          <small class="dashboard-path d-block">
+                            <code>{{ dashboard.url_path }}</code>
                           </small>
                         </div>
-                        <i class="fa-solid fa-chevron-right text-muted"></i>
+                        <i class="fa-solid fa-chevron-right text-muted" aria-hidden="true"></i>
                       </div>
                     </button>
                   }
@@ -79,6 +79,15 @@ export interface DashboardOption {
       transition: background-color 0.15s ease-in-out;
     }
     .list-group-item:hover {
+      background-color: var(--bs-secondary-bg);
+    }
+    .dashboard-path {
+      color: var(--bs-secondary-color);
+      font-size: 0.8rem;
+    }
+    .dashboard-path code {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
       background-color: var(--bs-secondary-bg);
     }
   `]

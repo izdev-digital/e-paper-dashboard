@@ -9,7 +9,7 @@ import { RouterModule } from '@angular/router';
       <div class="hero-content px-3">
         <!-- Logo -->
         <div class="mb-4 text-center">
-          <img src="icon.svg" alt="izBoard Logo" class="hero-logo">
+          <img src="icon.svg" alt="" class="hero-logo">
         </div>
 
         <!-- Headline -->
@@ -25,22 +25,22 @@ import { RouterModule } from '@angular/router';
         <!-- Core features -->
         <div class="hero-features mb-4">
           <div class="feature-item">
-            <i class="fa-solid fa-house"></i>
+            <i class="fa-solid fa-house" aria-hidden="true"></i>
             <div>
               Works with your existing Home Assistant dashboard views and cards
-              <i class="fa-solid fa-circle-info" style="font-size:0.875rem;color:var(--bs-secondary-color);margin-left:0.35rem;cursor:help;" title="Dashboards and cards should follow sizing and color guidelines for optimal E‑Paper display"></i>
+              <i class="fa-solid fa-circle-info feature-info" aria-hidden="true" title="Dashboards and cards should follow sizing and color guidelines for optimal E-Paper display"></i>
             </div>
           </div>
           <div class="feature-item">
-            <i class="fa-solid fa-palette"></i>
+            <i class="fa-solid fa-palette" aria-hidden="true"></i>
             <div>Drag-and-drop designer to create custom dashboard layouts</div>
           </div>
           <div class="feature-item">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
             <div>AI-powered dashboard generation from natural language prompts</div>
           </div>
           <div class="feature-item">
-            <i class="fa-solid fa-clock"></i>
+            <i class="fa-solid fa-clock" aria-hidden="true"></i>
             <div>Automatic updates on your schedule for long battery life</div>
           </div>
         </div>
@@ -48,7 +48,7 @@ import { RouterModule } from '@angular/router';
         <!-- CTA Buttons -->
         <div class="d-flex gap-3 justify-content-center flex-wrap">
           <a class="btn btn-primary btn-lg px-5 hero-btn-primary" routerLink="/dashboards">
-            Get Started
+            Get started
           </a>
           <a class="btn btn-outline-primary btn-lg px-5 hero-btn-github" href="https://github.com/izdev-digital/e-paper-dashboard" target="_blank" rel="noopener noreferrer">
             GitHub
@@ -118,6 +118,13 @@ import { RouterModule } from '@angular/router';
       color: var(--bs-body-color);
       font-size: 1rem;
       line-height: 1.5;
+    }
+
+    .feature-info {
+      margin-left: 0.35rem;
+      color: var(--bs-secondary-color);
+      font-size: 0.875rem;
+      cursor: help;
     }
     
     /* Light mode - subtle neutral gradient */

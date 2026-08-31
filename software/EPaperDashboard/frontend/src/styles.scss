@@ -68,6 +68,17 @@ body {
   margin-inline: auto;
 }
 
+.app-form-shell-wide {
+  --app-form-max-width: 46rem;
+}
+
+.app-loading-state {
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  color: var(--bs-secondary-color);
+}
+
 .app-form-card,
 .app-section-card {
   border: 1px solid var(--bs-border-color);

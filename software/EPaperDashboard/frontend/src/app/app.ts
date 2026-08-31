@@ -16,11 +16,9 @@ export class App implements OnInit {
   protected readonly authService = inject(AuthService);
   protected readonly versionService = inject(VersionService);
   private readonly router = inject(Router);
+  protected readonly currentYear = new Date().getFullYear();
 
   private readonly theme = signal<string>(this.getInitialTheme());
-  readonly themeIcon = computed(() =>
-    this.theme() === 'dark' ? 'fa-regular fa-sun' : 'fa-regular fa-moon'
-  );
   readonly isDark = computed(() => this.theme() === 'dark');
 
   constructor() {
@@ -43,13 +41,15 @@ export class App implements OnInit {
     });
   }
 
-  toggleTheme(): void {
-    const newTheme = this.theme() === 'dark' ? 'light' : 'dark';
-    this.theme.set(newTheme);
-  }
-
   setTheme(checked: boolean): void {
     this.theme.set(checked ? 'dark' : 'light');
+  }
+
+  closeMobileNavigation(): void {
+    const navigation = document.getElementById('navbarNav');
+    if (!navigation?.classList.contains('show')) return;
+
+    document.querySelector<HTMLButtonElement>('.navbar-toggler')?.click();
   }
 
   private getInitialTheme(): string {
