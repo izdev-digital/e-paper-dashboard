@@ -28,7 +28,7 @@ services:
     volumes:
       - <host-path>/data:/data:rw
     environment:
-      - CLIENT_URL=<url>:<port>
+      - CLIENT_URL=http://dashboard.local:<port>
       - STATE_SIGNING_KEY=<random-secret>
       - SUPERUSER_USERNAME=<admin-username>
       - SUPERUSER_PASSWORD=<admin-password>
@@ -37,13 +37,13 @@ services:
 
 ### Home Assistant Add-on
 
-Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). In add-on mode, authentication is handled through Home Assistant ingress and the server auto-connects to Home Assistant via the Supervisor API.
+Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). In add-on mode, authentication is handled through Home Assistant ingress and the server auto-connects to Home Assistant via the Supervisor API. Configure `CLIENT_URL` as the LAN device endpoint, normally `http://homeassistant.local:8129`; do not use an ingress or cloud URL.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `CLIENT_URL` | Yes (standalone) | Public URL of the server |
+| `CLIENT_URL` | Yes | URL entered during device setup. It must be reachable from the display network. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode OAuth continues to use ingress and this value is the LAN device endpoint. Paths, custom ports, DNS names, and IPv4 addresses are supported by current firmware. |
 | `STATE_SIGNING_KEY` | Yes (standalone) | Random secret for signing auth state |
 | `SUPERUSER_USERNAME` | Yes (standalone) | Initial superuser account username |
 | `SUPERUSER_PASSWORD` | Yes (standalone) | Initial superuser account password |
@@ -56,7 +56,9 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | Port | Purpose |
 |---|---|
 | `8128` | Web UI and API |
-| `8129` | Device communication (firmware image retrieval) |
+| `8129` | Device communication (pairing, firmware image retrieval, and configuration) |
+
+`CLIENT_URL` must describe the externally reachable URL after port mappings or a reverse proxy are applied. If displays are isolated on a VLAN, allow them to reach this URL. In standalone/host mode, expose the same URL to both the browser OAuth callback and the display API (normally through port `8128` or a reverse proxy). In add-on mode, use the exposed device port (`8129` by default), not the browser-only ingress URL.
 
 ### Data
 

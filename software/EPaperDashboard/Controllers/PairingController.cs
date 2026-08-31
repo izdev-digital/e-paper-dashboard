@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using EPaperDashboard.Services;
 using EPaperDashboard.Guards;
 using EPaperDashboard.Models;
+using EPaperDashboard.Utilities;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EPaperDashboard.Controllers;
 
@@ -10,10 +12,26 @@ namespace EPaperDashboard.Controllers;
 [Route("api/pairing")]
 public class PairingController(
     PairingService pairingService,
-    DeviceService deviceService) : BaseApiController
+    DeviceService deviceService,
+    IEnvironmentConfiguration environmentConfiguration) : BaseApiController
 {
     private readonly PairingService _pairingService = pairingService;
     private readonly DeviceService _deviceService = deviceService;
+    private readonly IEnvironmentConfiguration _environmentConfiguration = environmentConfiguration;
+
+    [HttpGet("configuration")]
+    [Authorize]
+    public IActionResult GetPairingConfiguration()
+    {
+        if (_environmentConfiguration.ClientUri is null)
+        {
+            return Problem(
+                "CLIENT_URL is not configured. Set it to a URL that the display can reach on the local network.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        return Ok(new PairingConfigurationResponse(_environmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/')));
+    }
 
     [HttpPost("start")]
     [Authorize]
@@ -31,6 +49,7 @@ public class PairingController(
     [HttpPost("register")]
     [AllowAnonymous]
     [DeviceAccessible(RequireActivePairing = true)]
+    [EnableRateLimiting("PairingAnnounce")]
     public IActionResult RegisterDevice([FromBody] RegisterDeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.DeviceIdentifier))
@@ -56,6 +75,11 @@ public class PairingController(
 
         var existingDevice = _deviceService.GetDeviceByIdentifier(request.DeviceIdentifier);
 
+        if (existingDevice.HasValue && existingDevice.Value.UserId != session.Value.UserId)
+        {
+            return Conflict("Device is owned by another user and must be released before it can be paired");
+        }
+
         var registered = _pairingService.RegisterDevice(
             request.Code, request.DeviceIdentifier, request.ScreenWidth, request.ScreenHeight);
 
@@ -66,21 +90,10 @@ public class PairingController(
 
         if (existingDevice.HasValue)
         {
-            var isNewOwner = existingDevice.Value.UserId != registered.Value.UserId;
-
-            existingDevice.Value.UserId = registered.Value.UserId;
             existingDevice.Value.ApiKey = registered.Value.ApiKey;
             existingDevice.Value.PairedAt = DateTimeOffset.UtcNow;
             existingDevice.Value.ScreenWidth = registered.Value.ScreenWidth;
             existingDevice.Value.ScreenHeight = registered.Value.ScreenHeight;
-
-            if (isNewOwner)
-            {
-                existingDevice.Value.DashboardId = DashboardId.Empty;
-                existingDevice.Value.Name = request.DeviceName ?? registered.Value.DeviceIdentifier!;
-                existingDevice.Value.LastSeenAt = null;
-                existingDevice.Value.FirmwareVersion = null;
-            }
 
             _deviceService.UpdateDevice(existingDevice.Value);
         }
@@ -103,6 +116,64 @@ public class PairingController(
         {
             ApiKey = registered.Value.ApiKey
         });
+    }
+
+    [HttpPost("announce")]
+    [AllowAnonymous]
+    [DeviceAccessible]
+    [EnableRateLimiting("PairingAnnounce")]
+    public IActionResult AnnounceDevice([FromBody] AnnounceDeviceRequest request)
+    {
+        var result = _pairingService.AnnounceDevice(
+            request.Code,
+            request.RegistrationToken,
+            request.DeviceIdentifier,
+            request.DeviceName,
+            request.ScreenWidth,
+            request.ScreenHeight);
+
+        if (!result.IsSuccess)
+        {
+            return PairingError(result.Failure, result.Message!);
+        }
+
+        return Accepted(new AnnounceDeviceResponse(result.Value!.ExpiresAt));
+    }
+
+    [HttpPost("claim")]
+    [Authorize]
+    [EnableRateLimiting("PairingClaim")]
+    public IActionResult ClaimDevice([FromBody] ClaimDeviceRequest request)
+    {
+        var result = _pairingService.ClaimDevice(request.Code, CurrentUserId);
+        if (!result.IsSuccess)
+        {
+            return PairingError(result.Failure, result.Message!);
+        }
+
+        return Ok(new ClaimDeviceResponse(
+            result.Value!.Id.Value,
+            result.Value.DeviceIdentifier,
+            result.Value.Name));
+    }
+
+    [HttpPost("device-status")]
+    [AllowAnonymous]
+    [DeviceAccessible]
+    [EnableRateLimiting("PairingStatus")]
+    public IActionResult GetDeviceClaimStatus([FromBody] DeviceClaimStatusRequest request)
+    {
+        var result = _pairingService.GetDeviceClaimStatus(request.Code, request.RegistrationToken);
+        if (!result.IsSuccess)
+        {
+            return PairingError(result.Failure, result.Message!);
+        }
+
+        var session = result.Value!;
+        return Ok(new DeviceClaimStatusResponse(
+            session.Status == PairingStatus.Completed ? "completed" : "pending",
+            session.Status == PairingStatus.Completed ? session.ApiKey : null,
+            session.ExpiresAt));
     }
 
     [HttpGet("status")]
@@ -129,6 +200,7 @@ public class PairingController(
         {
             PairingStatus.Pending => "pending",
             PairingStatus.Completed => "completed",
+            PairingStatus.Claimed => "completed",
             _ => "unknown"
         };
 
@@ -138,7 +210,25 @@ public class PairingController(
             DeviceIdentifier = session.Value.DeviceIdentifier
         });
     }
+
+    private ObjectResult PairingError(PairingFailure failure, string message)
+    {
+        var statusCode = failure switch
+        {
+            PairingFailure.InvalidRequest => StatusCodes.Status400BadRequest,
+            PairingFailure.InvalidRegistrationToken => StatusCodes.Status401Unauthorized,
+            PairingFailure.NotFound => StatusCodes.Status404NotFound,
+            PairingFailure.Expired => StatusCodes.Status410Gone,
+            PairingFailure.Conflict or PairingFailure.AlreadyClaimed or PairingFailure.DeviceOwnedByAnotherUser
+                => StatusCodes.Status409Conflict,
+            _ => StatusCodes.Status500InternalServerError
+        };
+
+        return StatusCode(statusCode, new ProblemDetails { Status = statusCode, Detail = message });
+    }
 }
+
+public record PairingConfigurationResponse(string ClientUrl);
 
 public record StartPairingResponse
 {
@@ -147,6 +237,24 @@ public record StartPairingResponse
 }
 
 public record RegisterDeviceRequest(string Code, string DeviceIdentifier, string? DeviceName, int? ScreenWidth, int? ScreenHeight);
+
+public record AnnounceDeviceRequest(
+    string Code,
+    string RegistrationToken,
+    string DeviceIdentifier,
+    string? DeviceName,
+    int? ScreenWidth,
+    int? ScreenHeight);
+
+public record AnnounceDeviceResponse(DateTimeOffset ExpiresAt);
+
+public record ClaimDeviceRequest(string Code);
+
+public record ClaimDeviceResponse(string Id, string DeviceIdentifier, string Name);
+
+public record DeviceClaimStatusRequest(string Code, string RegistrationToken);
+
+public record DeviceClaimStatusResponse(string Status, string? ApiKey, DateTimeOffset ExpiresAt);
 
 public record RegisterDeviceResponse
 {

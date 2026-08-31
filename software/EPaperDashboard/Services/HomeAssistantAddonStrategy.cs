@@ -59,8 +59,13 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
 
     public UnitResult<string> ValidateConfiguration()
     {
-        // In HA add-on mode, all configuration is optional
-        // Authentication is handled via ingress, supervisor token is available
+        // Ingress is a browser-only URL. The display needs an explicit LAN URL
+        // for the device-facing API served on the add-on's exposed port.
+        if (_environmentConfiguration.ClientUri is null)
+        {
+            return UnitResult.Failure("Missing required configuration: CLIENT_URL");
+        }
+
         return UnitResult.Success<string>();
     }
 

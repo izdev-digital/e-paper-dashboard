@@ -73,6 +73,36 @@ import { Dashboard } from '../../models/types';
       font-size: 0.85rem;
     }
 
+    .pairing-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      counter-reset: pairing-step;
+    }
+
+    .pairing-step {
+      position: relative;
+      padding-left: 2.25rem;
+      min-height: 2rem;
+      color: var(--bs-secondary-color);
+      font-size: 0.875rem;
+    }
+
+    .pairing-step::before {
+      counter-increment: pairing-step;
+      content: counter(pairing-step);
+      position: absolute;
+      left: 0;
+      display: grid;
+      place-items: center;
+      width: 1.65rem;
+      height: 1.65rem;
+      border-radius: 50%;
+      color: var(--bs-primary-text-emphasis);
+      background: var(--bs-primary-bg-subtle);
+      font-weight: 700;
+    }
+
     @media (max-width: 768px) {
       .device-header {
         flex-direction: column;
@@ -88,6 +118,10 @@ import { Dashboard } from '../../models/types';
       .dashboard-select {
         max-width: 100%;
         width: 100%;
+      }
+
+      .pairing-steps {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -136,9 +170,10 @@ import { Dashboard } from '../../models/types';
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h1 class="mb-0">Devices</h1>
       @if (!isPairingActive()) {
-        <button class="btn btn-sm btn-primary" (click)="startPairing()" [disabled]="isStartingPairing()">
-          <i class="fa-solid fa-plus"></i>
-          <span class="d-none d-sm-inline">{{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}</span><span class="d-sm-none">{{ isStartingPairing() ? '...' : 'New' }}</span>
+        <button type="button" class="btn btn-primary" (click)="startPairing()">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="d-none d-sm-inline">Pair device</span>
+          <span class="visually-hidden d-sm-none">Pair device</span>
         </button>
       }
     </div>
@@ -149,25 +184,66 @@ import { Dashboard } from '../../models/types';
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="mb-2">
-                <strong>Pairing Code:</strong>
+                <strong>Pair a new device</strong>
               </div>
-              <div class="d-flex align-items-center gap-2">
-                <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
-                <button type="button" class="btn btn-sm btn-outline-primary" (click)="copyPairingCode()" title="Copy to clipboard">
-                  <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'"></i>
-                </button>
-              </div>
+              <p class="text-muted mb-0">
+                {{ pairingMode() === 'device'
+                  ? 'The display creates the claim code. Keep this page open while you configure it.'
+                  : 'Legacy pairing for firmware older than 0.4.0.' }}
+              </p>
             </div>
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelPairing()">
               <i class="fa-solid fa-times"></i> Cancel
             </button>
           </div>
 
-          <div class="text-muted small">
-            <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
-            <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device setup page along with the server URL</div>
-            <div class="mt-1"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for device to register...</div>
-          </div>
+          @if (pairingMode() === 'device') {
+            <div class="pairing-steps mt-3">
+              <div class="pairing-step">
+                Copy the server URL before leaving this network:
+                @if (serverUrl()) {
+                  <code>{{ serverUrl() }}</code>
+                } @else {
+                  <span class="text-danger">CLIENT_URL is not configured</span>
+                }
+                <button type="button" class="btn btn-sm btn-link p-1" (click)="copyServerUrl()" aria-label="Copy server URL">
+                  <i class="fa-solid" [ngClass]="serverUrlCopied() ? 'fa-check' : 'fa-copy'" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="pairing-step">Scan the Wi-Fi QR on the display, open its setup page, then enter your home Wi-Fi and paste the server URL. Submit once.</div>
+              <div class="pairing-step">
+                After submitting, reconnect to your normal network. Enter the code shown on the display, then claim it.
+                <div class="input-group mt-2">
+                  <input type="text" class="form-control font-monospace text-uppercase"
+                    aria-label="Device claim code" placeholder="ABC123" maxlength="6"
+                    autocomplete="one-time-code" [value]="pairingCode()" (input)="updateClaimCode($event)">
+                  <button type="button" class="btn btn-primary" (click)="claimDevice()"
+                    [disabled]="pairingCode().length !== 6 || isClaiming() || !serverUrl()">
+                    {{ isClaiming() ? 'Claiming…' : 'Claim device' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-link align-self-start px-0" (click)="startLegacyPairing()">
+              Pair a display running firmware older than 0.4.0
+            </button>
+          } @else {
+            <div class="alert alert-warning mb-2" role="status">
+              Enter code <strong class="font-monospace fs-5">{{ pairingCode() }}</strong> in the display setup portal.
+              <button type="button" class="btn btn-sm btn-link" (click)="copyPairingCode()" aria-label="Copy legacy pairing code">
+                <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'" aria-hidden="true"></i>
+              </button>
+              The code expires in {{ formattedPairingTime() }}.
+            </div>
+            <div class="pairing-steps">
+              <div class="pairing-step">Copy server URL <code>{{ serverUrl() }}</code> and pairing code <strong>{{ pairingCode() }}</strong>.</div>
+              <div class="pairing-step">Connect to the display setup Wi-Fi and enter home Wi-Fi, the server URL, and pairing code.</div>
+              <div class="pairing-step"><i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>Waiting for the display to register.</div>
+            </div>
+            <button type="button" class="btn btn-sm btn-link align-self-start px-0" (click)="useCurrentPairing()">
+              Back to current pairing
+            </button>
+          }
         </div>
       </div>
     }
@@ -331,13 +407,19 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly devices = signal<Device[]>([]);
   readonly dashboards = signal<Dashboard[]>([]);
   readonly isLoading = signal(false);
+  readonly serverUrl = signal('');
 
   readonly isPairingActive = signal(false);
   readonly pairingCode = signal('');
-  readonly pairingStatus = signal<'pending' | 'completed'>('pending');
-  readonly pairingTimeRemaining = signal(0);
-  readonly isStartingPairing = signal(false);
+  readonly pairingMode = signal<'device' | 'legacy'>('device');
+  readonly isClaiming = signal(false);
   readonly pairingCodeCopied = signal(false);
+  readonly pairingTimeRemaining = signal(0);
+  readonly serverUrlCopied = signal(false);
+
+  private pairingTimer: ReturnType<typeof setInterval> | null = null;
+  private pairingStatusTimer: ReturnType<typeof setInterval> | null = null;
+  private pairingExpiresAt: Date | null = null;
 
   readonly firmwareInfo = this.firmwareService.firmwareInfo;
   readonly isFirmwareLoading = this.firmwareService.isLoading;
@@ -368,10 +450,6 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     return { total: devs.length, upToDate, outdated, unknown, latest };
   });
 
-  private pairingTimer: any = null;
-  private pairingStatusTimer: any = null;
-  private pairingExpiresAt: Date | null = null;
-
   ngOnInit(): void {
     if (this.authService.isAuthReady()) {
       this.loadData();
@@ -389,6 +467,14 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.loadDevices();
     this.loadDashboards();
     this.firmwareService.loadLatestFirmware();
+    this.loadPairingConfiguration();
+  }
+
+  private loadPairingConfiguration(): void {
+    this.deviceService.getPairingConfiguration().subscribe({
+      next: (configuration) => this.serverUrl.set(configuration.clientUrl),
+      error: () => this.serverUrl.set('')
+    });
   }
 
   loadDevices(): void {
@@ -458,44 +544,87 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   }
 
   startPairing(): void {
-    this.isStartingPairing.set(true);
-    this.deviceService.startPairing().subscribe({
-      next: (response) => {
-        this.pairingCode.set(response.code);
-        this.pairingStatus.set('pending');
-        this.pairingExpiresAt = new Date(response.expiresAt);
-        this.isPairingActive.set(true);
-        this.isStartingPairing.set(false);
-        this.startPairingTimer();
-        this.startPairingStatusPolling();
-      },
-      error: () => {
-        this.isStartingPairing.set(false);
-        this.toastService.error('Failed to start pairing');
-      }
-    });
+    this.stopLegacyPairingTimers();
+    this.pairingMode.set('device');
+    this.pairingCode.set('');
+    this.isPairingActive.set(true);
+    if (!this.serverUrl()) this.loadPairingConfiguration();
   }
 
   cancelPairing(): void {
+    this.stopLegacyPairingTimers();
     this.isPairingActive.set(false);
     this.pairingCode.set('');
-    this.pairingStatus.set('pending');
+    this.pairingMode.set('device');
     this.pairingCodeCopied.set(false);
-    this.stopPairingTimer();
-    this.stopPairingStatusPolling();
+    this.serverUrlCopied.set(false);
+  }
+
+  startLegacyPairing(): void {
+    this.deviceService.startPairing().subscribe({
+      next: (response) => {
+        this.stopLegacyPairingTimers();
+        this.pairingMode.set('legacy');
+        this.pairingCode.set(response.code);
+        this.pairingExpiresAt = new Date(response.expiresAt);
+        this.startLegacyPairingTimers();
+      },
+      error: () => this.toastService.error('Failed to start legacy pairing')
+    });
+  }
+
+  useCurrentPairing(): void {
+    this.stopLegacyPairingTimers();
+    this.pairingMode.set('device');
+    this.pairingCode.set('');
+  }
+
+  formattedPairingTime(): string {
+    const seconds = this.pairingTimeRemaining();
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   }
 
   async copyPairingCode(): Promise<void> {
-    const code = this.pairingCode();
-    if (!code) return;
-
-    const success = await this.clipboardService.copy(code);
-    if (success) {
+    if (!this.pairingCode()) return;
+    if (await this.clipboardService.copy(this.pairingCode())) {
       this.pairingCodeCopied.set(true);
       setTimeout(() => this.pairingCodeCopied.set(false), 2000);
     }
   }
 
+  updateClaimCode(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const code = input.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 6);
+    input.value = code;
+    this.pairingCode.set(code);
+  }
+
+  claimDevice(): void {
+    const code = this.pairingCode();
+    if (code.length !== 6 || this.isClaiming()) return;
+
+    this.isClaiming.set(true);
+    this.deviceService.claimDevice(code).subscribe({
+      next: () => {
+        this.isClaiming.set(false);
+        this.cancelPairing();
+        this.loadDevices();
+        this.toastService.success('Device claimed successfully. It will finish pairing automatically.');
+      },
+      error: (err) => {
+        this.isClaiming.set(false);
+        this.toastService.error(err.error?.detail || 'The claim code is invalid, expired, or not announced yet.');
+      }
+    });
+  }
+
+  async copyServerUrl(): Promise<void> {
+    const success = await this.clipboardService.copy(this.serverUrl());
+    if (success) {
+      this.serverUrlCopied.set(true);
+      setTimeout(() => this.serverUrlCopied.set(false), 2000);
+    }
+  }
   refreshFirmware(): void {
     this.firmwareService.refreshFirmwareCheck();
   }
@@ -513,61 +642,46 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     return dPat < lPat;
   }
 
-  private startPairingTimer(): void {
-    this.updatePairingTimeRemaining();
+  private startLegacyPairingTimers(): void {
+    this.updateLegacyPairingTime();
     this.pairingTimer = setInterval(() => {
-      this.updatePairingTimeRemaining();
+      this.updateLegacyPairingTime();
       if (this.pairingTimeRemaining() <= 0) {
         this.cancelPairing();
-        this.loadDevices(); // Reload to pick up newly paired device
-        this.toastService.info('Pairing code expired. If the device paired successfully, it will appear in the list.');
+        this.toastService.info('Legacy pairing code expired.');
       }
     }, 1000);
-  }
-
-  private stopPairingTimer(): void {
-    if (this.pairingTimer) {
-      clearInterval(this.pairingTimer);
-      this.pairingTimer = null;
-    }
-  }
-
-  private startPairingStatusPolling(): void {
     this.pairingStatusTimer = setInterval(() => {
-      const code = this.pairingCode();
-      if (!code) return;
-      this.deviceService.getPairingStatus(code).subscribe({
+      if (!this.pairingCode()) return;
+      this.deviceService.getPairingStatus(this.pairingCode()).subscribe({
         next: (response) => {
           if (response.status === 'completed') {
-            this.stopPairingStatusPolling();
             this.cancelPairing();
             this.loadDevices();
-            this.toastService.success('Device paired successfully!');
+            this.toastService.success('Device paired successfully.');
           }
         }
       });
     }, 2000);
   }
 
-  private stopPairingStatusPolling(): void {
-    if (this.pairingStatusTimer) {
-      clearInterval(this.pairingStatusTimer);
-      this.pairingStatusTimer = null;
-    }
-  }
-
-  private updatePairingTimeRemaining(): void {
-    if (!this.pairingExpiresAt) {
-      this.pairingTimeRemaining.set(0);
-      return;
-    }
-    const now = new Date();
-    const remaining = Math.max(0, Math.floor((this.pairingExpiresAt.getTime() - now.getTime()) / 1000));
+  private updateLegacyPairingTime(): void {
+    const remaining = this.pairingExpiresAt
+      ? Math.max(0, Math.floor((this.pairingExpiresAt.getTime() - Date.now()) / 1000))
+      : 0;
     this.pairingTimeRemaining.set(remaining);
   }
 
-  ngOnDestroy(): void {
-    this.stopPairingTimer();
-    this.stopPairingStatusPolling();
+  private stopLegacyPairingTimers(): void {
+    if (this.pairingTimer) clearInterval(this.pairingTimer);
+    if (this.pairingStatusTimer) clearInterval(this.pairingStatusTimer);
+    this.pairingTimer = null;
+    this.pairingStatusTimer = null;
+    this.pairingExpiresAt = null;
   }
+
+  ngOnDestroy(): void {
+    this.stopLegacyPairingTimers();
+  }
+
 }

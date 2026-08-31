@@ -11,9 +11,16 @@ public:
 
   DeviceStatus fetchDeviceStatus(const DeviceConfig& config);
   void fetchAndDisplayImage(const DeviceConfig& config, DisplayManager& display);
-  bool registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey, String& errorOut);
+  bool registerWithDashboard(const String& pairingCode, const String& registrationToken,
+                             const String& dashboardUrl, int devicePort, bool useHttps,
+                             const String& dashboardBasePath,
+                             String& apiKey, String& errorOut);
 
 private:
   Logger& _logger;
   Network& _network;
+  bool postPairingRequest(const String& path, const String& body,
+                          const String& dashboardUrl, int devicePort, bool useHttps,
+                          const String& dashboardBasePath,
+                          int& httpStatus, String& response);
 };

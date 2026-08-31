@@ -41,7 +41,7 @@ bool Network::sendGetRequest(const String& url, const DeviceConfig& config)
   _logger.println("Sending request...");
 
   auto& c = activeClient();
-  c.println("GET " + url + " HTTP/1.1");
+  c.println("GET " + config.dashboardBasePath + url + " HTTP/1.1");
   c.print("X-Api-Key: ");
   c.println(config.dashboardApiKey);
   c.print("Host: ");

@@ -40,8 +40,10 @@ namespace StorageKey {
   constexpr const char* Password = "pwd";
   constexpr const char* DashboardUrl = "url";
   constexpr const char* DevicePort = "devport";
+  constexpr const char* DashboardBasePath = "basepath";
   constexpr const char* DashboardApiKey = "apikey";
   constexpr const char* PairingCode = "paircode";
+  constexpr const char* RegistrationToken = "regtoken";
   constexpr const char* UseHttps = "usehttps";
   constexpr const char* OtaFailVersion = "otafailv";
   constexpr const char* OtaFailCount = "otafailc";

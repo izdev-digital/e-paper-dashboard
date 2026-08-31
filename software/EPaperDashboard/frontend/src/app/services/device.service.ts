@@ -30,6 +30,16 @@ export interface PairingStatusResponse {
   deviceIdentifier?: string;
 }
 
+export interface PairingConfigurationResponse {
+  clientUrl: string;
+}
+
+export interface ClaimDeviceResponse {
+  id: string;
+  deviceIdentifier: string;
+  name: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -59,5 +69,13 @@ export class DeviceService {
 
   getPairingStatus(code: string): Observable<PairingStatusResponse> {
     return this.http.get<PairingStatusResponse>(`${this.baseUrl}/pairing/status`, { params: { code } });
+  }
+
+  getPairingConfiguration(): Observable<PairingConfigurationResponse> {
+    return this.http.get<PairingConfigurationResponse>(`${this.baseUrl}/pairing/configuration`);
+  }
+
+  claimDevice(code: string): Observable<ClaimDeviceResponse> {
+    return this.http.post<ClaimDeviceResponse>(`${this.baseUrl}/pairing/claim`, { code });
   }
 }
