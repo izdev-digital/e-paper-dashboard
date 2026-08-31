@@ -43,7 +43,7 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 
 | Variable | Required | Description |
 |---|---|---|
-| `CLIENT_URL` | Yes | URL entered during device setup. It must be reachable from the display network. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode OAuth continues to use ingress and this value is the LAN device endpoint. Paths, custom ports, DNS names, and IPv4 addresses are supported by current firmware. |
+| `CLIENT_URL` | Yes | URL entered during device setup. It must be an absolute HTTP or HTTPS URL reachable from the display network, without credentials, a query, or a fragment. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode OAuth continues to use ingress and this value is the LAN device endpoint. Paths, custom ports, DNS names, IPv4, and IPv6 are supported by current firmware. |
 | `STATE_SIGNING_KEY` | Yes (standalone) | Random secret for signing auth state |
 | `SUPERUSER_USERNAME` | Yes (standalone) | Initial superuser account username |
 | `SUPERUSER_PASSWORD` | Yes (standalone) | Initial superuser account password |
@@ -59,6 +59,8 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | `8129` | Device communication (pairing, firmware image retrieval, and configuration) |
 
 `CLIENT_URL` must describe the externally reachable URL after port mappings or a reverse proxy are applied. If displays are isolated on a VLAN, allow them to reach this URL. In standalone/host mode, expose the same URL to both the browser OAuth callback and the display API (normally through port `8128` or a reverse proxy). In add-on mode, use the exposed device port (`8129` by default), not the browser-only ingress URL.
+
+For HTTPS, the display verifies the server certificate against its embedded trusted root bundle and must be able to obtain network time on its first connection. Deployments using a private certificate authority must add that root to the firmware bundle before flashing.
 
 ### Data
 

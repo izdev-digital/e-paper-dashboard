@@ -31,6 +31,8 @@ ESP32 firmware for the izBoard E-Paper dashboard device. Connects to an izBoard 
 
 The claim code expires after ten minutes. Wi-Fi, server, and pending claim details are saved before the device leaves setup mode, so an interrupted device can resume the claim after power is restored.
 
+HTTPS server certificates are checked against the trusted root bundle in `data/cert/x509_crt_bundle.bin`. Replace and regenerate that bundle when a deployment uses a private certificate authority. The device must be able to obtain network time before its first verified HTTPS connection.
+
 ### Device Controls
 
 | Action | How |

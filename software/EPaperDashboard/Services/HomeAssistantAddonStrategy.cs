@@ -61,9 +61,10 @@ public class HomeAssistantAddonStrategy : IDeploymentStrategy
     {
         // Ingress is a browser-only URL. The display needs an explicit LAN URL
         // for the device-facing API served on the add-on's exposed port.
-        if (_environmentConfiguration.ClientUri is null)
+        var clientUrlError = ClientUrlValidator.GetValidationError(_environmentConfiguration.ClientUri);
+        if (clientUrlError is not null)
         {
-            return UnitResult.Failure("Missing required configuration: CLIENT_URL");
+            return UnitResult.Failure(clientUrlError);
         }
 
         return UnitResult.Success<string>();

@@ -33,6 +33,85 @@ String generateAccessPointPassword()
 {
   return randomFromAlphabet(12, "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
 }
+
+bool parsePort(const String& value, int& port)
+{
+  if (value.length() == 0 || value.length() > 5) return false;
+  for (unsigned int i = 0; i < value.length(); ++i)
+  {
+    if (!isDigit(value[i])) return false;
+  }
+  const long parsed = value.toInt();
+  if (parsed <= 0 || parsed > 65535) return false;
+  port = static_cast<int>(parsed);
+  return true;
+}
+
+bool parseServerUrl(String rawUrl, String& host, int& port, String& basePath, bool& useHttps)
+{
+  rawUrl.trim();
+  if (rawUrl.indexOf(' ') >= 0 || rawUrl.indexOf('\t') >= 0
+      || rawUrl.indexOf('@') >= 0 || rawUrl.indexOf('?') >= 0 || rawUrl.indexOf('#') >= 0)
+  {
+    return false;
+  }
+
+  if (rawUrl.startsWith("https://"))
+  {
+    useHttps = true;
+    rawUrl = rawUrl.substring(8);
+  }
+  else if (rawUrl.startsWith("http://"))
+  {
+    useHttps = false;
+    rawUrl = rawUrl.substring(7);
+  }
+  else
+  {
+    return false;
+  }
+
+  const int slashIdx = rawUrl.indexOf('/');
+  if (slashIdx >= 0)
+  {
+    basePath = rawUrl.substring(slashIdx);
+    rawUrl = rawUrl.substring(0, slashIdx);
+    while (basePath.length() > 1 && basePath.endsWith("/"))
+    {
+      basePath.remove(basePath.length() - 1);
+    }
+    if (basePath == "/") basePath = "";
+  }
+
+  port = useHttps ? 443 : 80;
+  if (rawUrl.startsWith("["))
+  {
+    const int bracketIdx = rawUrl.indexOf(']');
+    if (bracketIdx < 2) return false;
+    host = rawUrl.substring(1, bracketIdx);
+    if (bracketIdx + 1 < static_cast<int>(rawUrl.length()))
+    {
+      if (rawUrl[bracketIdx + 1] != ':'
+          || !parsePort(rawUrl.substring(bracketIdx + 2), port)) return false;
+    }
+  }
+  else
+  {
+    const int colonIdx = rawUrl.lastIndexOf(':');
+    if (colonIdx > 0)
+    {
+      if (rawUrl.indexOf(':') != colonIdx
+          || !parsePort(rawUrl.substring(colonIdx + 1), port)) return false;
+      host = rawUrl.substring(0, colonIdx);
+    }
+    else
+    {
+      host = rawUrl;
+    }
+  }
+
+  return host.length() > 0;
+}
 }
 
 SetupPortal::SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display,
@@ -244,13 +323,38 @@ DeviceConfig SetupPortal::run()
         <div class="container mt-5">
             <h2 class="text-center">izBoard Setup</h2>
             <div class="card">
-                <div class="card-header">Wi-Fi details saved</div>
+                <div class="card-header">Checking connection</div>
                 <div class="card-body text-center" id="content">
-                    <div style="color:#198754;font-weight:500">&#10003; This setup page is complete.</div>
-                    <p>The display is joining your home Wi-Fi. Reconnect this phone or laptop to its normal network, open the dashboard, and enter the claim code shown on the display.</p>
+                    <div><span class="spinner"></span>Testing home Wi-Fi and server access.</div>
+                    <p>Keep this page open. You can correct the settings here if either connection fails.</p>
                 </div>
             </div>
         </div>
+        <script>
+          function checkStatus() {
+            fetch('/pairing-status').then(function(r) { return r.json(); }).then(function(status) {
+              if (status.state === 'failed') {
+                var content = document.getElementById('content');
+                content.innerHTML = '<div style="color:#dc3545;font-weight:500">Connection failed</div>';
+                var detail = document.createElement('p');
+                detail.textContent = String(status.error || 'Check the settings and try again.');
+                content.appendChild(detail);
+                var retry = document.createElement('a');
+                retry.className = 'btn';
+                retry.href = '/';
+                retry.textContent = 'Back to setup';
+                content.appendChild(retry);
+                return;
+              }
+              setTimeout(checkStatus, 750);
+            }).catch(function() {
+              document.getElementById('content').innerHTML =
+                '<div style="color:#198754;font-weight:500">&#10003; Server reached successfully.</div>' +
+                '<p>Reconnect this phone or laptop to its normal network, open the dashboard, and enter the claim code shown on the display.</p>';
+            });
+          }
+          setTimeout(checkStatus, 500);
+        </script>
     </body>
     </html>
     )rawliteral";
@@ -272,62 +376,14 @@ DeviceConfig SetupPortal::run()
     const String pass{ server.arg(passParam) };
     String rawUrl{ server.arg(urlParam) };
 
-    // Parse server URL: supports http://host:port, https://host:port, host:port, host
     bool useHttps = false;
     String host;
     String basePath;
-    int port;
-
-    rawUrl.trim();
-    if (rawUrl.startsWith("https://"))
+    int port = 0;
+    if (!parseServerUrl(rawUrl, host, port, basePath, useHttps))
     {
-      useHttps = true;
-      rawUrl = rawUrl.substring(8);
-    }
-    else if (rawUrl.startsWith("http://"))
-    {
-      rawUrl = rawUrl.substring(7);
-    }
-
-    int slashIdx = rawUrl.indexOf('/');
-    if (slashIdx >= 0)
-    {
-      basePath = rawUrl.substring(slashIdx);
-      rawUrl = rawUrl.substring(0, slashIdx);
-      while (basePath.endsWith("/")) basePath.remove(basePath.length() - 1);
-    }
-
-    if (rawUrl.startsWith("["))
-    {
-      int bracketIdx = rawUrl.indexOf(']');
-      if (bracketIdx < 2)
-      {
-        server.send(400, "text/html", htmlForm);
-        return;
-      }
-      host = rawUrl.substring(1, bracketIdx);
-      port = bracketIdx + 1 < (int)rawUrl.length() && rawUrl[bracketIdx + 1] == ':'
-                 ? rawUrl.substring(bracketIdx + 2).toInt()
-                 : (useHttps ? 443 : 80);
-    }
-    else
-    {
-      int colonIdx = rawUrl.lastIndexOf(':');
-      if (colonIdx > 0 && rawUrl.indexOf(':') == colonIdx)
-      {
-        host = rawUrl.substring(0, colonIdx);
-        port = rawUrl.substring(colonIdx + 1).toInt();
-      }
-      else
-      {
-        host = rawUrl;
-        port = useHttps ? 443 : 80;
-      }
-    }
-
-    if (host.length() == 0 || port <= 0)
-    {
-      server.send(400, "text/html", htmlForm);
+      server.send(400, "text/plain",
+                  "Invalid server URL. Use an absolute http:// or https:// URL without credentials, query, or fragment.");
       return;
     }
 
@@ -406,6 +462,22 @@ DeviceConfig SetupPortal::run()
         _logger.println("Registering with server...");
         pairingState = STATE_REGISTERING;
 
+        unsigned long expiresInSeconds = 0;
+        String registrationError;
+        auto announceResult = _deviceApi.announceDevice(
+            pendingConfig.pairingCode, pendingConfig.registrationToken,
+            pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps,
+            pendingConfig.dashboardBasePath, expiresInSeconds, registrationError);
+        if (announceResult != PairingAttemptResult::Success)
+        {
+          _logger.println("Server connection check failed");
+          pairingState = STATE_FAILED;
+          pairingError = registrationError.length() > 0
+              ? registrationError
+              : "Could not reach the pairing service";
+          continue;
+        }
+
         dnsServer.stop();
         server.stop();
         WiFi.softAPdisconnect(true);
@@ -416,11 +488,11 @@ DeviceConfig SetupPortal::run()
             pendingConfig.pairingCode);
 
         String apiKey;
-        String registrationError;
-        if (_deviceApi.registerWithDashboard(pendingConfig.pairingCode,
-                pendingConfig.registrationToken, pendingConfig.dashboardUrl,
-                pendingConfig.devicePort, pendingConfig.useHttps,
-                pendingConfig.dashboardBasePath, apiKey, registrationError))
+        auto pairingResult = _deviceApi.waitForClaim(
+            pendingConfig.pairingCode, pendingConfig.registrationToken,
+            pendingConfig.dashboardUrl, pendingConfig.devicePort, pendingConfig.useHttps,
+            pendingConfig.dashboardBasePath, expiresInSeconds, apiKey, registrationError);
+        if (pairingResult == PairingAttemptResult::Success)
         {
           pendingConfig.dashboardApiKey = apiKey;
           pendingConfig.pairingCode = "";
@@ -439,8 +511,15 @@ DeviceConfig SetupPortal::run()
           _logger.println("Registration failed");
           pairingState = STATE_FAILED;
           pairingError = registrationError.length() > 0 ? registrationError : "Registration failed";
-          _configStore.clear();
-          _display.showSuccess("Pairing Failed", pairingError, "Restarting setup...");
+          const bool retryable = pairingResult == PairingAttemptResult::RetryableFailure;
+          if (!retryable)
+          {
+            _configStore.clear();
+          }
+          _display.showSuccess(
+              retryable ? "Pairing Paused" : "Pairing Failed",
+              pairingError,
+              retryable ? "Retrying automatically..." : "Restarting setup...");
           delay(5000);
           ESP.restart();
         }

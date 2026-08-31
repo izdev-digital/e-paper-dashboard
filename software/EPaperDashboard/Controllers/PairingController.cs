@@ -23,14 +23,16 @@ public class PairingController(
     [Authorize]
     public IActionResult GetPairingConfiguration()
     {
-        if (_environmentConfiguration.ClientUri is null)
+        var clientUri = _environmentConfiguration.ClientUri;
+        var validationError = ClientUrlValidator.GetValidationError(clientUri);
+        if (validationError is not null)
         {
             return Problem(
-                "CLIENT_URL is not configured. Set it to a URL that the display can reach on the local network.",
+                $"{validationError}. Set CLIENT_URL to an HTTP or HTTPS URL that the display can reach on the local network.",
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        return Ok(new PairingConfigurationResponse(_environmentConfiguration.ClientUri.AbsoluteUri.TrimEnd('/')));
+        return Ok(new PairingConfigurationResponse(clientUri!.AbsoluteUri.TrimEnd('/')));
     }
 
     [HttpPost("start")]
@@ -137,7 +139,9 @@ public class PairingController(
             return PairingError(result.Failure, result.Message!);
         }
 
-        return Accepted(new AnnounceDeviceResponse(result.Value!.ExpiresAt));
+        return Accepted(new AnnounceDeviceResponse(
+            result.Value!.ExpiresAt,
+            _pairingService.GetSecondsUntilExpiry(result.Value)));
     }
 
     [HttpPost("claim")]
@@ -151,10 +155,12 @@ public class PairingController(
             return PairingError(result.Failure, result.Message!);
         }
 
+        var session = _pairingService.GetPairingSessionByCode(request.Code).Value;
         return Ok(new ClaimDeviceResponse(
             result.Value!.Id.Value,
             result.Value.DeviceIdentifier,
-            result.Value.Name));
+            result.Value.Name,
+            session.ExpiresAt));
     }
 
     [HttpPost("device-status")]
@@ -173,7 +179,8 @@ public class PairingController(
         return Ok(new DeviceClaimStatusResponse(
             session.Status == PairingStatus.Completed ? "completed" : "pending",
             session.Status == PairingStatus.Completed ? session.ApiKey : null,
-            session.ExpiresAt));
+            session.ExpiresAt,
+            _pairingService.GetSecondsUntilExpiry(session)));
     }
 
     [HttpGet("status")]
@@ -196,18 +203,25 @@ public class PairingController(
             return Forbid();
         }
 
+        if (session.Value.Status != PairingStatus.Completed
+            && _pairingService.GetSecondsUntilExpiry(session.Value) == 0)
+        {
+            return PairingError(PairingFailure.Expired, "Pairing confirmation expired");
+        }
+
         var statusString = session.Value.Status switch
         {
             PairingStatus.Pending => "pending",
             PairingStatus.Completed => "completed",
-            PairingStatus.Claimed => "completed",
+            PairingStatus.Claimed => "claimed",
             _ => "unknown"
         };
 
         return Ok(new PairingStatusResponse
         {
             Status = statusString,
-            DeviceIdentifier = session.Value.DeviceIdentifier
+            DeviceIdentifier = session.Value.DeviceIdentifier,
+            ExpiresAt = session.Value.ExpiresAt
         });
     }
 
@@ -246,15 +260,15 @@ public record AnnounceDeviceRequest(
     int? ScreenWidth,
     int? ScreenHeight);
 
-public record AnnounceDeviceResponse(DateTimeOffset ExpiresAt);
+public record AnnounceDeviceResponse(DateTimeOffset ExpiresAt, int ExpiresInSeconds);
 
 public record ClaimDeviceRequest(string Code);
 
-public record ClaimDeviceResponse(string Id, string DeviceIdentifier, string Name);
+public record ClaimDeviceResponse(string Id, string DeviceIdentifier, string Name, DateTimeOffset AcknowledgementExpiresAt);
 
 public record DeviceClaimStatusRequest(string Code, string RegistrationToken);
 
-public record DeviceClaimStatusResponse(string Status, string? ApiKey, DateTimeOffset ExpiresAt);
+public record DeviceClaimStatusResponse(string Status, string? ApiKey, DateTimeOffset ExpiresAt, int ExpiresInSeconds);
 
 public record RegisterDeviceResponse
 {
@@ -265,4 +279,5 @@ public record PairingStatusResponse
 {
     public string Status { get; init; } = string.Empty;
     public string? DeviceIdentifier { get; init; }
+    public DateTimeOffset ExpiresAt { get; init; }
 }

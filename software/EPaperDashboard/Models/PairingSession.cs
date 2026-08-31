@@ -21,6 +21,7 @@ public class PairingSession
     public string? DeviceName { get; set; }
     public string? RegistrationTokenHash { get; set; }
     public DateTimeOffset? ClaimedAt { get; set; }
+    public DeviceId PendingDeviceId { get; set; } = DeviceId.Empty;
     public int? ScreenWidth { get; set; }
     public int? ScreenHeight { get; set; }
 }

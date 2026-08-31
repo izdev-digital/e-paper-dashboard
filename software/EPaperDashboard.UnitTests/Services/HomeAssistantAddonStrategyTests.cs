@@ -160,4 +160,17 @@ public class HomeAssistantAddonStrategyTests : IDisposable
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Contain("CLIENT_URL");
     }
+
+    [Fact]
+    public void ValidateConfiguration_WithIngressUrl_Fails()
+    {
+        var configuration = new Mock<IEnvironmentConfiguration>();
+        configuration.SetupGet(c => c.ClientUri).Returns(
+            new Uri("http://homeassistant.local:8123/api/hassio_ingress/example?auth=token"));
+        var sut = new HomeAssistantAddonStrategy(
+            NullLogger<HomeAssistantAddonStrategy>.Instance,
+            configuration.Object);
+
+        sut.ValidateConfiguration().IsFailure.Should().BeTrue();
+    }
 }

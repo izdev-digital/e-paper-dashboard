@@ -216,4 +216,46 @@ public class PairingControllerTests
         response.Status.Should().Be("completed");
         response.DeviceIdentifier.Should().Be("device-1");
     }
+
+    [Fact]
+    public void GetPairingStatus_ClaimedSession_WaitsForDeviceAcknowledgement()
+    {
+        var userId = UserId.New();
+        var session = new PairingSession
+        {
+            Code = "ABC123",
+            UserId = userId,
+            Status = PairingStatus.Claimed,
+            ExpiresAt = _timeProvider.GetUtcNow().AddMinutes(2),
+            DeviceIdentifier = "device-1"
+        };
+        _pairingSessionRepository.Setup(r => r.FindByCode("ABC123")).Returns(session);
+        var sut = CreateSut().WithUser(userId);
+
+        var result = sut.GetPairingStatus("ABC123");
+
+        var response = result.Should().BeOfType<OkObjectResult>().Subject.Value
+            .Should().BeOfType<PairingStatusResponse>().Subject;
+        response.Status.Should().Be("claimed");
+        response.ExpiresAt.Should().Be(session.ExpiresAt);
+    }
+
+    [Fact]
+    public void GetPairingStatus_ExpiredUnacknowledgedSession_ReturnsGone()
+    {
+        var userId = UserId.New();
+        var session = new PairingSession
+        {
+            Code = "ABC123",
+            UserId = userId,
+            Status = PairingStatus.Claimed,
+            ExpiresAt = _timeProvider.GetUtcNow().AddSeconds(-1)
+        };
+        _pairingSessionRepository.Setup(r => r.FindByCode("ABC123")).Returns(session);
+        var sut = CreateSut().WithUser(userId);
+
+        var result = sut.GetPairingStatus("ABC123");
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(410);
+    }
 }

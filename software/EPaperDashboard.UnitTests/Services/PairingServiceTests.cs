@@ -192,8 +192,12 @@ public class PairingServiceTests
         var userId = UserId.New();
 
         var claim = sut.ClaimDevice("abc123", userId);
+        stored!.Status.Should().Be(PairingStatus.Claimed);
+        stored.IsCompleted.Should().BeFalse();
+        insertedDevice.Should().BeNull();
         var wrongTokenStatus = sut.GetDeviceClaimStatus(
             "ABC123", "ffffffffffffffffffffffffffffffff");
+        insertedDevice.Should().BeNull();
         var status = sut.GetDeviceClaimStatus("ABC123", token);
 
         claim.IsSuccess.Should().BeTrue();
@@ -228,5 +232,15 @@ public class PairingServiceTests
         result.Failure.Should().Be(PairingFailure.DeviceOwnedByAnotherUser);
         deviceRepo.Verify(r => r.Update(It.IsAny<Device>()), Times.Never);
         existing.UserId.Should().NotBe(UserId.Empty);
+    }
+
+    [Fact]
+    public void GetSecondsUntilExpiry_UsesInjectedClockAndRoundsUp()
+    {
+        var repo = CreateRepo();
+        var sut = CreateSut(repo);
+        var session = new PairingSession { ExpiresAt = FixedNow.AddSeconds(30.5) };
+
+        sut.GetSecondsUntilExpiry(session).Should().Be(31);
     }
 }

@@ -59,8 +59,13 @@ builder.Services.AddRateLimiter(options =>
 {
 	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 	options.AddPolicy("PairingAnnounce", context => PairingRateLimit(context, 10));
-	options.AddPolicy("PairingStatus", context => PairingRateLimit(context, 40));
+	options.AddPolicy("PairingStatus", context => PairingRateLimit(context, 240));
 	options.AddPolicy("PairingClaim", context => PairingRateLimit(context, 10));
+	options.OnRejected = (context, _) =>
+	{
+		context.HttpContext.Response.Headers.RetryAfter = "5";
+		return ValueTask.CompletedTask;
+	};
 
 	static RateLimitPartition<string> PairingRateLimit(HttpContext context, int permitsPerMinute) =>
 		RateLimitPartition.GetFixedWindowLimiter(
@@ -115,6 +120,7 @@ builder.Services
 	.AddSingleton<IDashboardRepository, LiteDbDashboardRepository>()
 	.AddSingleton<IDeviceRepository, LiteDbDeviceRepository>()
 	.AddSingleton<IPairingSessionRepository, LiteDbPairingSessionRepository>()
+	.AddSingleton<IUnitOfWork, LiteDbUnitOfWork>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
 	.AddSingleton<DeviceService>()

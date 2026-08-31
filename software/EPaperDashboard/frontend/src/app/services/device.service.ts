@@ -28,6 +28,7 @@ export interface StartPairingResponse {
 export interface PairingStatusResponse {
   status: string;
   deviceIdentifier?: string;
+  expiresAt: string;
 }
 
 export interface PairingConfigurationResponse {
@@ -38,6 +39,7 @@ export interface ClaimDeviceResponse {
   id: string;
   deviceIdentifier: string;
   name: string;
+  acknowledgementExpiresAt: string;
 }
 
 @Injectable({

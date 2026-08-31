@@ -29,29 +29,35 @@ public sealed record PairingResult<T>(T? Value, PairingFailure Failure, string? 
 public sealed class PairingService(
     IPairingSessionRepository pairingSessionRepository,
     DeviceService deviceService,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IUnitOfWork? unitOfWork = null)
 {
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
     private const int DeviceClaimExpiryMinutes = 10;
     private const int CredentialDeliveryExpiryMinutes = 2;
     private readonly object _sync = new();
+    private readonly IUnitOfWork _unitOfWork = unitOfWork ?? ImmediateUnitOfWork.Instance;
 
     public PairingSession CreatePairingSession(UserId userId)
     {
-        var now = timeProvider.GetUtcNow();
-        var session = new PairingSession
+        lock (_sync)
         {
-            UserId = userId,
-            Code = GenerateCode(),
-            CreatedAt = now,
-            ExpiresAt = now.AddMinutes(ExpiryMinutes),
-            Status = PairingStatus.Pending,
-            IsCompleted = false
-        };
+            var now = timeProvider.GetUtcNow();
+            pairingSessionRepository.DeleteExpired(now);
+            var session = new PairingSession
+            {
+                UserId = userId,
+                Code = GenerateAvailableCode(),
+                CreatedAt = now,
+                ExpiresAt = now.AddMinutes(ExpiryMinutes),
+                Status = PairingStatus.Pending,
+                IsCompleted = false
+            };
 
-        pairingSessionRepository.Insert(session);
-        return session;
+            pairingSessionRepository.Insert(session);
+            return session;
+        }
     }
 
     public Maybe<PairingSession> GetPairingSessionByCode(string code) =>
@@ -152,65 +158,51 @@ public sealed class PairingService(
 
         lock (_sync)
         {
-            var now = timeProvider.GetUtcNow();
-            var maybeSession = pairingSessionRepository.FindByCode(normalizedCode);
-            if (maybeSession.HasNoValue || string.IsNullOrWhiteSpace(maybeSession.Value.RegistrationTokenHash))
+            return _unitOfWork.Execute(() =>
             {
-                return PairingResult<Device>.Failed(PairingFailure.NotFound, "Pending device not found");
-            }
-
-            var session = maybeSession.Value;
-            if (session.ExpiresAt <= now)
-            {
-                pairingSessionRepository.DeleteExpired(now);
-                return PairingResult<Device>.Failed(PairingFailure.Expired, "Claim code expired");
-            }
-
-            if (session.Status != PairingStatus.Pending)
-            {
-                return PairingResult<Device>.Failed(PairingFailure.AlreadyClaimed, "Device has already been claimed");
-            }
-
-            var existingDevice = deviceService.GetDeviceByIdentifier(session.DeviceIdentifier!);
-            Device device;
-            if (existingDevice.HasValue)
-            {
-                device = existingDevice.Value;
-                if (device.UserId != userId)
+                var now = timeProvider.GetUtcNow();
+                var maybeSession = pairingSessionRepository.FindByCode(normalizedCode);
+                if (maybeSession.HasNoValue || string.IsNullOrWhiteSpace(maybeSession.Value.RegistrationTokenHash))
                 {
                     return PairingResult<Device>.Failed(
-                        PairingFailure.DeviceOwnedByAnotherUser,
-                        "Device is owned by another user and must be released before it can be claimed");
+                        PairingFailure.NotFound, "Pending device not found");
                 }
 
-                device.ApiKey = GenerateApiKey();
-                device.PairedAt = now;
-                device.ScreenWidth = session.ScreenWidth;
-                device.ScreenHeight = session.ScreenHeight;
-                deviceService.UpdateDevice(device);
-            }
-            else
-            {
-                device = new Device
+                var session = maybeSession.Value;
+                if (session.ExpiresAt <= now)
                 {
-                    UserId = userId,
-                    DeviceIdentifier = session.DeviceIdentifier!,
-                    Name = session.DeviceName ?? session.DeviceIdentifier!,
-                    ApiKey = GenerateApiKey(),
-                    PairedAt = now,
-                    ScreenWidth = session.ScreenWidth,
-                    ScreenHeight = session.ScreenHeight
-                };
-                deviceService.AddDevice(device);
-            }
+                    pairingSessionRepository.DeleteExpired(now);
+                    return PairingResult<Device>.Failed(PairingFailure.Expired, "Claim code expired");
+                }
 
-            session.UserId = userId;
-            session.ApiKey = device.ApiKey;
-            session.ClaimedAt = now;
-            session.ExpiresAt = now.AddMinutes(CredentialDeliveryExpiryMinutes);
-            session.Status = PairingStatus.Claimed;
-            pairingSessionRepository.Update(session);
-            return PairingResult<Device>.Success(device);
+                if (session.Status != PairingStatus.Pending)
+                {
+                    return PairingResult<Device>.Failed(
+                        PairingFailure.AlreadyClaimed, "Device has already been claimed");
+                }
+
+                var existingDevice = deviceService.GetDeviceByIdentifier(session.DeviceIdentifier!);
+                if (existingDevice.HasValue)
+                {
+                    if (existingDevice.Value.UserId != userId)
+                    {
+                        return PairingResult<Device>.Failed(
+                            PairingFailure.DeviceOwnedByAnotherUser,
+                            "Device is owned by another user and must be released before it can be claimed");
+                    }
+
+                }
+
+                var device = CreatePendingDevice(existingDevice, session, userId, now);
+                session.UserId = userId;
+                session.ApiKey = device.ApiKey;
+                session.PendingDeviceId = device.Id;
+                session.ClaimedAt = now;
+                session.ExpiresAt = now.AddMinutes(CredentialDeliveryExpiryMinutes);
+                session.Status = PairingStatus.Claimed;
+                pairingSessionRepository.Update(session);
+                return PairingResult<Device>.Success(device);
+            });
         }
     }
 
@@ -247,9 +239,24 @@ public sealed class PairingService(
 
             if (session.Status == PairingStatus.Claimed)
             {
-                session.Status = PairingStatus.Completed;
-                session.IsCompleted = true;
-                pairingSessionRepository.Update(session);
+                _unitOfWork.Execute(() =>
+                {
+                    var existingDevice = deviceService.GetDeviceByIdentifier(session.DeviceIdentifier!);
+                    var device = CreatePendingDevice(existingDevice, session, session.UserId, now, session.ApiKey);
+                    if (existingDevice.HasValue)
+                    {
+                        deviceService.UpdateDevice(device);
+                    }
+                    else
+                    {
+                        deviceService.AddDevice(device);
+                    }
+
+                    session.Status = PairingStatus.Completed;
+                    session.IsCompleted = true;
+                    pairingSessionRepository.Update(session);
+                    return true;
+                });
             }
 
             return PairingResult<PairingSession>.Success(session);
@@ -261,6 +268,9 @@ public sealed class PairingService(
 
     public bool HasActiveSessions() =>
         pairingSessionRepository.HasActiveSessions(timeProvider.GetUtcNow());
+
+    public int GetSecondsUntilExpiry(PairingSession session) =>
+        Math.Max(0, (int)Math.Ceiling((session.ExpiresAt - timeProvider.GetUtcNow()).TotalSeconds));
 
     private static string GenerateCode()
     {
@@ -275,10 +285,50 @@ public sealed class PairingService(
         return new string(code);
     }
 
+    private string GenerateAvailableCode()
+    {
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var code = GenerateCode();
+            if (pairingSessionRepository.FindByCode(code).HasNoValue)
+            {
+                return code;
+            }
+        }
+
+        throw new InvalidOperationException("Could not allocate a unique pairing code");
+    }
+
     private static string GenerateApiKey()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    private static Device CreatePendingDevice(
+        Maybe<Device> existingDevice,
+        PairingSession session,
+        UserId userId,
+        DateTimeOffset now,
+        string? apiKey = null)
+    {
+        var existing = existingDevice.GetValueOrDefault();
+        return new Device
+        {
+            Id = existing?.Id ?? (session.PendingDeviceId != DeviceId.Empty
+                ? session.PendingDeviceId
+                : DeviceId.New()),
+            UserId = userId,
+            DashboardId = existing?.DashboardId ?? DashboardId.Empty,
+            DeviceIdentifier = session.DeviceIdentifier!,
+            Name = existing?.Name ?? session.DeviceName ?? session.DeviceIdentifier!,
+            ApiKey = apiKey ?? GenerateApiKey(),
+            PairedAt = now,
+            LastSeenAt = existing?.LastSeenAt,
+            FirmwareVersion = existing?.FirmwareVersion,
+            ScreenWidth = session.ScreenWidth,
+            ScreenHeight = session.ScreenHeight
+        };
     }
 
     private static string NormalizeCode(string? code) => code?.Trim().ToUpperInvariant() ?? string.Empty;

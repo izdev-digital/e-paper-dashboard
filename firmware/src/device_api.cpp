@@ -3,6 +3,9 @@
 #include <ArduinoJson.h>
 
 namespace {
+constexpr size_t MaxPairingResponseBytes = 4096;
+constexpr unsigned long DefaultClaimExpirySeconds = 10UL * 60UL;
+
 String pairingErrorMessage(const String& response, const String& fallback)
 {
   JsonDocument errorDoc;
@@ -12,6 +15,17 @@ String pairingErrorMessage(const String& response, const String& fallback)
     if (detail && strlen(detail) > 0) return String(detail);
   }
   return response.length() > 0 && response.length() <= 120 ? response : fallback;
+}
+
+bool isRetryableHttpStatus(int status)
+{
+  return status == 408 || status == 425 || status == 429 || status >= 500;
+}
+
+String hostHeader(const String& host, int port)
+{
+  const String formattedHost = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
+  return formattedHost + ":" + String(port);
 }
 }
 
@@ -138,7 +152,7 @@ void DeviceApi::fetchAndDisplayImage(const DeviceConfig& config, DisplayManager&
 bool DeviceApi::postPairingRequest(const String& path, const String& body,
                                    const String& dashboardUrl, int devicePort, bool useHttps,
                                    const String& dashboardBasePath,
-                                   int& httpStatus, String& response)
+                                   int& httpStatus, unsigned long& retryAfterSeconds, String& response)
 {
   if (!_network.connectTo(dashboardUrl, devicePort, useHttps))
   {
@@ -147,7 +161,7 @@ bool DeviceApi::postPairingRequest(const String& path, const String& body,
   _network.setTimeout(10000);
 
   String postRequest = "POST " + dashboardBasePath + path + " HTTP/1.1\r\n";
-  postRequest += "Host: " + dashboardUrl + ":" + String(devicePort) + "\r\n";
+  postRequest += "Host: " + hostHeader(dashboardUrl, devicePort) + "\r\n";
   postRequest += "Content-Type: application/json\r\n";
   postRequest += "Content-Length: " + String(body.length()) + "\r\n";
   postRequest += "Connection: close\r\n\r\n";
@@ -156,6 +170,7 @@ bool DeviceApi::postPairingRequest(const String& path, const String& body,
   _network.send(postRequest);
 
   httpStatus = 0;
+  retryAfterSeconds = 0;
   while (_network.connected() || _network.available())
   {
     String line = _network.readStringUntil('\n');
@@ -166,6 +181,11 @@ bool DeviceApi::postPairingRequest(const String& path, const String& body,
       {
         httpStatus = line.substring(spaceIdx + 1).toInt();
       }
+    }
+
+    if (line.startsWith("Retry-After:"))
+    {
+      retryAfterSeconds = line.substring(strlen("Retry-After:")).toInt();
     }
 
     if (line == "\r")
@@ -179,6 +199,12 @@ bool DeviceApi::postPairingRequest(const String& path, const String& body,
   {
     if (_network.available())
     {
+      if (raw.length() >= MaxPairingResponseBytes)
+      {
+        _network.close();
+        response = "Server response was too large";
+        return false;
+      }
       raw += (char)_network.client().read();
     }
     else
@@ -201,10 +227,10 @@ bool DeviceApi::postPairingRequest(const String& path, const String& body,
   return true;
 }
 
-bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& registrationToken,
-                                      const String& dashboardUrl, int devicePort, bool useHttps,
-                                      const String& dashboardBasePath,
-                                      String& apiKey, String& errorOut)
+PairingAttemptResult DeviceApi::announceDevice(
+    const String& pairingCode, const String& registrationToken,
+    const String& dashboardUrl, int devicePort, bool useHttps,
+    const String& dashboardBasePath, unsigned long& expiresInSeconds, String& errorOut)
 {
   _logger.println("Announcing device to dashboard...");
 
@@ -223,37 +249,61 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& r
   serializeJson(announceDoc, announceBody);
 
   int httpStatus = 0;
+  unsigned long retryAfterSeconds = 0;
   String response;
   if (!postPairingRequest("/api/pairing/announce", announceBody,
-                          dashboardUrl, devicePort, useHttps, dashboardBasePath, httpStatus, response))
+                          dashboardUrl, devicePort, useHttps, dashboardBasePath,
+                          httpStatus, retryAfterSeconds, response))
   {
     errorOut = "Could not connect to server";
-    return false;
+    return PairingAttemptResult::RetryableFailure;
   }
 
   if (httpStatus != 202)
   {
     errorOut = pairingErrorMessage(response, "Server rejected device announcement");
-    return false;
+    return isRetryableHttpStatus(httpStatus)
+        ? PairingAttemptResult::RetryableFailure
+        : PairingAttemptResult::TerminalFailure;
   }
 
+  JsonDocument responseDoc;
+  expiresInSeconds = DefaultClaimExpirySeconds;
+  if (!deserializeJson(responseDoc, response))
+  {
+    expiresInSeconds = responseDoc["expiresInSeconds"] | DefaultClaimExpirySeconds;
+  }
+
+  return PairingAttemptResult::Success;
+}
+
+PairingAttemptResult DeviceApi::waitForClaim(
+    const String& pairingCode, const String& registrationToken,
+    const String& dashboardUrl, int devicePort, bool useHttps,
+    const String& dashboardBasePath, unsigned long expiresInSeconds,
+    String& apiKey, String& errorOut)
+{
+
   _logger.println("Device announced. Waiting for claim in the dashboard...");
-  constexpr unsigned long claimTimeoutMs = 10UL * 60UL * 1000UL;
-  const unsigned long startedAt = millis();
+  unsigned long deadline = millis() + (expiresInSeconds + 5UL) * 1000UL;
+  bool receivedServerStatus = false;
 
   JsonDocument statusRequestDoc;
   statusRequestDoc["code"] = pairingCode;
   statusRequestDoc["registrationToken"] = registrationToken;
   String statusBody;
   serializeJson(statusRequestDoc, statusBody);
+  String response;
 
-  while (millis() - startedAt < claimTimeoutMs)
+  while (static_cast<long>(deadline - millis()) > 0)
   {
     delay(2000);
     response = "";
-    httpStatus = 0;
+    int httpStatus = 0;
+    unsigned long retryAfterSeconds = 0;
     if (!postPairingRequest("/api/pairing/device-status", statusBody,
-                            dashboardUrl, devicePort, useHttps, dashboardBasePath, httpStatus, response))
+                            dashboardUrl, devicePort, useHttps, dashboardBasePath,
+                            httpStatus, retryAfterSeconds, response))
     {
       _logger.println("Pairing status temporarily unavailable; retrying...");
       continue;
@@ -262,12 +312,19 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& r
     if (httpStatus == 410)
     {
       errorOut = "Claim code expired";
-      return false;
+      return PairingAttemptResult::Expired;
     }
     if (httpStatus != 200)
     {
+      if (isRetryableHttpStatus(httpStatus))
+      {
+        const unsigned long retryDelay = constrain(retryAfterSeconds, 1UL, 30UL);
+        _logger.println("Pairing status temporarily rejected; retrying...");
+        delay(retryDelay * 1000UL);
+        continue;
+      }
       errorOut = pairingErrorMessage(response, "Server rejected pairing status request");
-      return false;
+      return PairingAttemptResult::TerminalFailure;
     }
 
     JsonDocument responseDoc;
@@ -278,21 +335,46 @@ bool DeviceApi::registerWithDashboard(const String& pairingCode, const String& r
     }
 
     const char* status = responseDoc["status"] | "pending";
+    receivedServerStatus = true;
+    const unsigned long remaining = responseDoc["expiresInSeconds"] | 0UL;
+    if (remaining > 0)
+    {
+      deadline = millis() + (remaining + 5UL) * 1000UL;
+    }
     if (strcmp(status, "completed") == 0)
     {
       const char* key = responseDoc["apiKey"];
       if (!key || strlen(key) == 0)
       {
         errorOut = "Server response missing API key";
-        return false;
+        return PairingAttemptResult::TerminalFailure;
       }
 
       apiKey = key;
       _logger.println("Device claim completed");
-      return true;
+      return PairingAttemptResult::Success;
     }
   }
 
-  errorOut = "Claim code expired before it was entered";
-  return false;
+  errorOut = receivedServerStatus
+      ? "Claim code expired before it was entered"
+      : "Server stayed unavailable during pairing";
+  return receivedServerStatus ? PairingAttemptResult::Expired : PairingAttemptResult::RetryableFailure;
+}
+
+PairingAttemptResult DeviceApi::registerWithDashboard(
+    const String& pairingCode, const String& registrationToken,
+    const String& dashboardUrl, int devicePort, bool useHttps,
+    const String& dashboardBasePath, String& apiKey, String& errorOut)
+{
+  unsigned long expiresInSeconds = DefaultClaimExpirySeconds;
+  auto result = announceDevice(pairingCode, registrationToken, dashboardUrl, devicePort,
+                               useHttps, dashboardBasePath, expiresInSeconds, errorOut);
+  if (result != PairingAttemptResult::Success)
+  {
+    return result;
+  }
+
+  return waitForClaim(pairingCode, registrationToken, dashboardUrl, devicePort,
+                      useHttps, dashboardBasePath, expiresInSeconds, apiKey, errorOut);
 }

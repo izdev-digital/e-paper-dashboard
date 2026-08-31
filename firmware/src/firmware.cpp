@@ -52,9 +52,19 @@ void setup()
 
   if (WiFi.status() != WL_CONNECTED && !network.connectToWiFi(config.ssid, config.password))
   {
-    logger.println("WiFi connection failed, retrying after sleep");
-    hardware.startDeepSleep(Timing::FallbackRefreshSeconds);
-    return;
+    if (config.dashboardApiKey.length() == 0)
+    {
+      logger.println("Pending pairing could not reach WiFi; reopening setup...");
+      configStore.clear();
+      SetupPortal portal(logger, configStore, displayManager, network, deviceApi);
+      config = portal.run();
+    }
+    else
+    {
+      logger.println("WiFi connection failed, retrying after sleep");
+      hardware.startDeepSleep(Timing::FallbackRefreshSeconds);
+      return;
+    }
   }
 
   if (config.dashboardApiKey.length() == 0)
@@ -72,13 +82,24 @@ void setup()
         config.pairingCode);
     String apiKey;
     String pairingError;
-    if (!deviceApi.registerWithDashboard(config.pairingCode, config.registrationToken,
-            config.dashboardUrl, config.devicePort, config.useHttps,
-            config.dashboardBasePath, apiKey, pairingError))
+    auto pairingResult = deviceApi.registerWithDashboard(
+        config.pairingCode, config.registrationToken,
+        config.dashboardUrl, config.devicePort, config.useHttps,
+        config.dashboardBasePath, apiKey, pairingError);
+    if (pairingResult != PairingAttemptResult::Success)
     {
-      logger.println("Pairing could not be resumed; restarting setup...");
-      configStore.clear();
-      displayManager.showSuccess("Pairing Failed", pairingError, "Restarting setup...");
+      const bool retryable = pairingResult == PairingAttemptResult::RetryableFailure;
+      logger.println(retryable
+          ? "Pairing service unavailable; preserving setup for retry..."
+          : "Pairing could not be resumed; restarting setup...");
+      if (!retryable)
+      {
+        configStore.clear();
+      }
+      displayManager.showSuccess(
+          retryable ? "Pairing Paused" : "Pairing Failed",
+          pairingError,
+          retryable ? "Retrying automatically..." : "Restarting setup...");
       delay(5000);
       ESP.restart();
       return;

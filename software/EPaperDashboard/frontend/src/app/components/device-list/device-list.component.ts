@@ -216,12 +216,19 @@ import { Dashboard } from '../../models/types';
                 <div class="input-group mt-2">
                   <input type="text" class="form-control font-monospace text-uppercase"
                     aria-label="Device claim code" placeholder="ABC123" maxlength="6"
-                    autocomplete="one-time-code" [value]="pairingCode()" (input)="updateClaimCode($event)">
+                    autocomplete="one-time-code" [value]="pairingCode()" (input)="updateClaimCode($event)"
+                    [disabled]="isAwaitingDevice()">
                   <button type="button" class="btn btn-primary" (click)="claimDevice()"
-                    [disabled]="pairingCode().length !== 6 || isClaiming() || !serverUrl()">
-                    {{ isClaiming() ? 'Claiming…' : 'Claim device' }}
+                    [disabled]="pairingCode().length !== 6 || isClaiming() || isAwaitingDevice() || !serverUrl()">
+                    {{ isClaiming() ? 'Claiming…' : isAwaitingDevice() ? 'Waiting for display…' : 'Claim device' }}
                   </button>
                 </div>
+                @if (isAwaitingDevice()) {
+                  <div class="small mt-2" role="status">
+                    <i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i>
+                    Claim accepted. Waiting for the display to confirm receipt ({{ formattedPairingTime() }}).
+                  </div>
+                }
               </div>
             </div>
             <button type="button" class="btn btn-sm btn-link align-self-start px-0" (click)="startLegacyPairing()">
@@ -413,6 +420,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly pairingCode = signal('');
   readonly pairingMode = signal<'device' | 'legacy'>('device');
   readonly isClaiming = signal(false);
+  readonly isAwaitingDevice = signal(false);
   readonly pairingCodeCopied = signal(false);
   readonly pairingTimeRemaining = signal(0);
   readonly serverUrlCopied = signal(false);
@@ -547,6 +555,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.stopLegacyPairingTimers();
     this.pairingMode.set('device');
     this.pairingCode.set('');
+    this.isAwaitingDevice.set(false);
     this.isPairingActive.set(true);
     if (!this.serverUrl()) this.loadPairingConfiguration();
   }
@@ -555,6 +564,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.stopLegacyPairingTimers();
     this.isPairingActive.set(false);
     this.pairingCode.set('');
+    this.isAwaitingDevice.set(false);
     this.pairingMode.set('device');
     this.pairingCodeCopied.set(false);
     this.serverUrlCopied.set(false);
@@ -605,11 +615,10 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
     this.isClaiming.set(true);
     this.deviceService.claimDevice(code).subscribe({
-      next: () => {
+      next: (response) => {
         this.isClaiming.set(false);
-        this.cancelPairing();
-        this.loadDevices();
-        this.toastService.success('Device claimed successfully. It will finish pairing automatically.');
+        this.isAwaitingDevice.set(true);
+        this.startDeviceAcknowledgementPolling(code, response.acknowledgementExpiresAt);
       },
       error: (err) => {
         this.isClaiming.set(false);
@@ -663,6 +672,43 @@ export class DeviceListComponent implements OnInit, OnDestroy {
         }
       });
     }, 2000);
+  }
+
+  private startDeviceAcknowledgementPolling(code: string, acknowledgementExpiresAt: string): void {
+    this.stopLegacyPairingTimers();
+    this.pairingExpiresAt = new Date(acknowledgementExpiresAt);
+    this.updateLegacyPairingTime();
+
+    const poll = () => {
+      this.deviceService.getPairingStatus(code).subscribe({
+        next: (response) => {
+          if (!this.isAwaitingDevice()) return;
+          this.pairingExpiresAt = new Date(response.expiresAt);
+          if (response.status === 'completed') {
+            this.cancelPairing();
+            this.loadDevices();
+            this.toastService.success('Device paired successfully.');
+          }
+        },
+        error: (err) => {
+          if (!this.isAwaitingDevice()) return;
+          if (err.status === 404 || err.status === 410) {
+            this.cancelPairing();
+            this.toastService.error('The display did not confirm pairing in time. Start pairing again.');
+          }
+        }
+      });
+    };
+
+    poll();
+    this.pairingStatusTimer = setInterval(poll, 2000);
+    this.pairingTimer = setInterval(() => {
+      this.updateLegacyPairingTime();
+      if (this.pairingTimeRemaining() <= 0) {
+        this.cancelPairing();
+        this.toastService.error('The display did not confirm pairing in time. Start pairing again.');
+      }
+    }, 1000);
   }
 
   private updateLegacyPairingTime(): void {

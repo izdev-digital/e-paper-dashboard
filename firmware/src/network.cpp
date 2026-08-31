@@ -1,5 +1,33 @@
 #include "network.h"
 #include "version.h"
+#include <time.h>
+
+extern const uint8_t rootca_crt_bundle_start[] asm("_binary_data_cert_x509_crt_bundle_bin_start");
+
+namespace {
+bool ensureClockIsSet(Logger& logger)
+{
+  constexpr time_t MinimumValidTime = 1704067200;
+  if (time(nullptr) >= MinimumValidTime) return true;
+
+  logger.println("Synchronizing time for HTTPS verification...");
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  for (int attempt = 0; attempt < 40; ++attempt)
+  {
+    if (time(nullptr) >= MinimumValidTime) return true;
+    delay(250);
+  }
+
+  logger.println("Could not synchronize time; HTTPS connection refused");
+  return false;
+}
+
+String hostHeader(const String& host, int port)
+{
+  const String formattedHost = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
+  return formattedHost + ":" + String(port);
+}
+}
 
 Network::Network(Logger& logger) : _logger(logger) {}
 
@@ -45,9 +73,7 @@ bool Network::sendGetRequest(const String& url, const DeviceConfig& config)
   c.print("X-Api-Key: ");
   c.println(config.dashboardApiKey);
   c.print("Host: ");
-  c.print(config.dashboardUrl);
-  c.print(":");
-  c.println(config.devicePort);
+  c.println(hostHeader(config.dashboardUrl, config.devicePort));
   c.print("X-Device-Firmware-Version: ");
   c.println(FIRMWARE_VERSION);
   c.print("X-Device-Id: ");
@@ -101,7 +127,8 @@ bool Network::connectTo(const String& host, int port, bool useHttps)
   _useSecure = useHttps;
   if (_useSecure)
   {
-    _secureClient.setInsecure();
+    if (!ensureClockIsSet(_logger)) return false;
+    _secureClient.setCACertBundle(rootca_crt_bundle_start);
     return _secureClient.connect(host.c_str(), port);
   }
   return _client.connect(host.c_str(), port);
