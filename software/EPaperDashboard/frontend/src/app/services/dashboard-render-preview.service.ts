@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { DashboardLayout } from '../models/types';
+import type { DataSourceStatus } from './dashboard-preview-data.service';
 
 export interface RenderRectangle {
   x: number;
@@ -46,6 +47,7 @@ export interface DashboardRenderPreview {
   imageUrl: string;
   renderedAt: string;
   widgets: WidgetRenderGeometry[];
+  sourceStatuses?: Record<string, DataSourceStatus>;
 }
 
 @Injectable({ providedIn: 'root' })

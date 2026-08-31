@@ -8,27 +8,45 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-login',
   imports: [CommonModule, FormsModule, RouterModule],
   template: `
-    <div class="container mt-5">
-      <h2 class="text-center">Login</h2>
-      <form (ngSubmit)="onSubmit()" class="w-50 mx-auto">
+    <div class="app-page py-4 py-sm-5">
+      <div class="app-form-shell">
+        <div class="text-center mb-4">
+          <h1 class="app-page-title">Welcome back</h1>
+          <p class="app-page-description mx-auto">Sign in to manage your dashboards and devices.</p>
+        </div>
+        <form (ngSubmit)="onSubmit()" class="app-form-card" novalidate>
         <div class="mb-3">
-          <label class="form-label">Username</label>
-          <input type="text" class="form-control" [(ngModel)]="username" name="username" required>
+          <label class="form-label fw-semibold" for="loginUsername">Username</label>
+          <input id="loginUsername" type="text" class="form-control" [(ngModel)]="username" name="username"
+            autocomplete="username" required autofocus>
         </div>
         <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-control" [(ngModel)]="password" name="password" required>
+          <label class="form-label fw-semibold" for="loginPassword">Password</label>
+          <div class="input-group">
+            <input id="loginPassword" [type]="showPassword ? 'text' : 'password'" class="form-control"
+              [(ngModel)]="password" name="password" autocomplete="current-password" required>
+            <button type="button" class="btn btn-outline-secondary app-icon-button"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+              [attr.aria-pressed]="showPassword">
+              <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
         @if (errorMessage()) {
-          <div class="alert alert-danger">{{ errorMessage() }}</div>
+          <div class="alert alert-danger" role="alert">{{ errorMessage() }}</div>
         }
         <button type="submit" class="btn btn-primary w-100" [disabled]="isLoading()">
-          {{ isLoading() ? 'Logging in...' : 'Login' }}
+          @if (isLoading()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+          }
+          {{ isLoading() ? 'Signing in...' : 'Sign in' }}
         </button>
         <div class="mt-3 text-center">
-          <a routerLink="/register">Don't have an account? Register</a>
+          <span class="text-muted">New to izBoard?</span> <a routerLink="/register">Create an account</a>
         </div>
-      </form>
+        </form>
+      </div>
     </div>
   `
 })
@@ -39,6 +57,7 @@ export class LoginComponent implements OnInit {
 
   username = '';
   password = '';
+  showPassword = false;
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
   private returnUrl = '/dashboards';

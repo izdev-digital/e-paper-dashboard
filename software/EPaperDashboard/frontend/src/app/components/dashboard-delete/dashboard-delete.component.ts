@@ -9,7 +9,7 @@ import { Dashboard } from '../../models/types';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="container mt-5">
+    <div class="app-page py-4">
       <div class="d-flex align-items-center gap-3 mb-4">
         <button type="button" class="btn btn-secondary" (click)="onCancel()">
           <i class="fa fa-arrow-left"></i> Back
@@ -24,8 +24,8 @@ import { Dashboard } from '../../models/types';
           </div>
         </div>
       } @else if (dashboard()) {
-        <div class="card w-50 mx-auto">
-          <div class="card-body">
+        <div class="app-form-shell app-form-card">
+          <div>
             <h5 class="card-title">{{ dashboard()!.name }}</h5>
             <p class="card-text">{{ dashboard()!.description }}</p>
             <p class="text-danger">Are you sure you want to delete this dashboard? This action cannot be undone.</p>

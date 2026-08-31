@@ -16,24 +16,32 @@ export interface EntitySourceOption {
   imports: [FormsModule],
   template: `
     <div class="mb-3">
-      <label class="form-label fw-semibold small">Data Source</label>
+      <label class="form-label fw-semibold small" for="entitySourceSelect">Data source</label>
       @if (loading) {
-        <div class="text-muted small"><i class="fa fa-spinner fa-spin me-1"></i>Loading entities…</div>
+        <div class="text-muted small" role="status"><i class="fa fa-spinner fa-spin me-1" aria-hidden="true"></i>Loading entities…</div>
       } @else if (entities.length === 0) {
         <div class="alert alert-warning mb-0">
           <i class="fa fa-exclamation-triangle"></i> No compatible entities available.
         </div>
       } @else {
         @if (entities.length > 8) {
-          <input class="form-control form-control-sm mb-2" type="search" placeholder="Filter entities…"
+          <input class="form-control form-control-sm mb-2" type="search" placeholder="Filter entities…" aria-label="Filter available data sources"
             [ngModel]="query()" (ngModelChange)="query.set($event)" />
         }
-        <select class="form-select" [ngModel]="value" (ngModelChange)="valueChange.emit($event)">
+        <select id="entitySourceSelect" class="form-select" [ngModel]="value" (ngModelChange)="valueChange.emit($event)">
           <option value="">Select entity…</option>
           @for (entity of filteredEntities(); track entity.entity_id) {
             <option [value]="entity.entity_id">{{ formatEntity(entity) }}</option>
           }
         </select>
+        @if (selectedEntity(); as selected) {
+          <div class="d-flex align-items-center flex-wrap gap-2 mt-2 small">
+            <span class="app-status-chip app-status-chip-success"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Available</span>
+            @if (selected.state != null && selected.state !== '') {
+              <span class="text-muted">Current value: <strong class="text-body">{{ selected.state }}{{ selected.unit_of_measurement ? ' ' + selected.unit_of_measurement : '' }}</strong></span>
+            }
+          </div>
+        }
       }
     </div>
     <hr class="my-2" />
@@ -46,6 +54,10 @@ export class EntitySourceSelectorComponent {
   @Output() valueChange = new EventEmitter<string>();
 
   readonly query = signal('');
+
+  selectedEntity(): EntitySourceOption | undefined {
+    return this.entities.find(entity => entity.entity_id === this.value);
+  }
 
   filteredEntities(): EntitySourceOption[] {
     const query = this.query().trim().toLowerCase();

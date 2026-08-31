@@ -17,7 +17,8 @@ public sealed record DashboardDesignerPreviewResponse(
     int Height,
     string ImageUrl,
     DateTimeOffset RenderedAt,
-    IReadOnlyList<WidgetRenderGeometry> Widgets);
+    IReadOnlyList<WidgetRenderGeometry> Widgets,
+    IReadOnlyDictionary<string, DataSourceStatus> SourceStatuses);
 
 public sealed record WidgetRenderGeometry(
     string Id,

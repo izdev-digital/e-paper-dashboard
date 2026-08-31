@@ -1,6 +1,6 @@
-<div class="users-management-container">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="mb-0">Users</h1>
+<div class="users-management-container app-page">
+  <div class="app-page-header">
+    <div><h1 class="app-page-title">Users</h1><p class="app-page-description">Manage who can access and configure izBoard.</p></div>
     <button (click)="toggleAddForm()" class="btn btn-sm btn-primary" [class.btn-outline-primary]="showAddForm()"
       [disabled]="isAddingUser()">
       <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'"></i>
@@ -74,7 +74,7 @@
       <div class="user-actions">
         @if (!user.isSuperUser) {
         <button (click)="deleteUser(user.id, user.username)" class="btn btn-sm btn-outline-danger"
-          [disabled]="isDeletingUser()[user.id]" title="Delete user">
+          [disabled]="isDeletingUser()[user.id]" [attr.aria-label]="'Delete user ' + user.username">
           <i class="fa-solid fa-trash"></i>
         </button>
         }
@@ -83,8 +83,9 @@
     }
   </div>
   } @else {
-  <div class="alert alert-info">
-    <i class="fa-solid fa-info-circle"></i> No users found.
+  <div class="app-empty-state">
+    <span class="app-empty-state-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+    <div><h2 class="h5 mb-1">No users found</h2><p class="text-muted mb-0">Add a user to grant access to izBoard.</p></div>
   </div>
   }
 </div>

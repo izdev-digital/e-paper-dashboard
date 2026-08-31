@@ -39,8 +39,7 @@ footer.footer {
 
 /* Ensure header and footer stay visible while content scrolls */
 header {
-	position: sticky;
-	top: 0;
+	position: relative;
 	z-index: 1020;
 	/* above content */
 	background: var(--bs-body-bg);
@@ -76,8 +75,7 @@ header {
 }
 
 footer.footer {
-	position: sticky;
-	bottom: 0;
+	position: relative;
 	z-index: 1020;
 	background: var(--bs-body-bg);
 	padding: 0.375rem 0;

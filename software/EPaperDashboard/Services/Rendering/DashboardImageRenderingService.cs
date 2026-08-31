@@ -59,6 +59,24 @@ public sealed class DashboardImageRenderingService
     }
 
     /// <summary>
+    /// Renders a transient designer image and returns the source statuses collected for that
+    /// exact render. This keeps designer diagnostics consistent with the pixels shown to users.
+    /// </summary>
+    public async Task<(Image<Rgba32> Image, IReadOnlyDictionary<string, DataSourceStatus> SourceStatuses)>
+        RenderDesignerPreviewAsync(
+            string dashboardId,
+            Models.LayoutConfig layoutConfig,
+            CancellationToken cancellationToken = default,
+            bool bypassCache = false)
+    {
+        var layout = ConvertLayout(layoutConfig);
+        var data = await _ssrDataProvider.FetchSsrDataAsync(
+            dashboardId, layout, cancellationToken, bypassCache);
+        var image = await RenderToImageAsync(layout, data, cancellationToken);
+        return (image, data.SourceStatuses);
+    }
+
+    /// <summary>
     /// Resolves the same widget and content rectangles used by the image renderer. The designer
     /// uses these values for interaction overlays without duplicating rendering geometry rules.
     /// </summary>

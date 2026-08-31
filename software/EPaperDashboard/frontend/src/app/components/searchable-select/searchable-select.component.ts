@@ -1,5 +1,7 @@
-import { Component, input, output, signal, computed, ElementRef, inject } from '@angular/core';
+import { Component, input, output, signal, computed, ElementRef, inject, OnDestroy, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
+let searchableSelectInstance = 0;
 
 export interface SelectOption {
   value: string;
@@ -17,6 +19,7 @@ export interface SelectOption {
     }
 
     .ss-trigger {
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -33,10 +36,16 @@ export interface SelectOption {
       background-color: var(--bs-body-bg);
       color: var(--bs-body-color);
       transition: border-color 0.15s ease;
+      text-align: left;
     }
 
     .ss-trigger:hover {
       border-color: var(--bs-primary);
+    }
+
+    .ss-trigger:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
     }
 
     .ss-trigger-text {
@@ -91,6 +100,11 @@ export interface SelectOption {
     }
 
     .ss-option {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
       padding: 0.375rem 0.5rem;
       cursor: pointer;
       font-size: 0.85rem;
@@ -101,6 +115,11 @@ export interface SelectOption {
     }
 
     .ss-option:hover {
+      background: var(--bs-secondary-bg);
+    }
+
+    .ss-option.active {
+      box-shadow: inset 3px 0 0 var(--bs-primary);
       background: var(--bs-secondary-bg);
     }
 
@@ -122,35 +141,60 @@ export interface SelectOption {
     }
   `],
   template: `
-    <div class="ss-trigger"
-      (click)="toggle($event)">
+    <button #trigger type="button" class="ss-trigger"
+      role="combobox"
+      [disabled]="disabled()"
+      [attr.aria-label]="ariaLabel()"
+      [attr.aria-expanded]="isOpen()"
+      [attr.aria-controls]="listboxId"
+      aria-haspopup="listbox"
+      (click)="toggle($event)"
+      (keydown)="onTriggerKeydown($event)">
       <span class="ss-trigger-text" [class.text-muted]="!value()">
         {{ selectedLabel() }}
       </span>
-      <i class="fa-solid fa-chevron-down ss-chevron" [class.open]="isOpen()"></i>
-    </div>
+      <i class="fa-solid fa-chevron-down ss-chevron" [class.open]="isOpen()" aria-hidden="true"></i>
+    </button>
     @if (isOpen()) {
       <div class="ss-dropdown" (click)="$event.stopPropagation()">
         <input
+          #searchInput
           class="ss-search"
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          [attr.aria-label]="searchPlaceholder()"
+          [attr.aria-expanded]="true"
+          [attr.aria-controls]="listboxId"
+          [attr.aria-activedescendant]="activeOptionId()"
           [placeholder]="searchPlaceholder()"
           [value]="searchTerm()"
-          (input)="onSearchInput($event)">
-        <div class="ss-options">
+          (input)="onSearchInput($event)"
+          (keydown)="onSearchKeydown($event)">
+        <div class="ss-options" [id]="listboxId" role="listbox" [attr.aria-label]="ariaLabel()">
           @if (showEmptyOption()) {
-            <div class="ss-option"
+            <button type="button" class="ss-option"
+              [id]="optionId(0)"
+              role="option"
               [class.selected]="!value()"
+              [class.active]="activeIndex() === 0"
+              [attr.aria-selected]="!value()"
+              (mouseenter)="activeIndex.set(0)"
               (click)="select('')">
               {{ emptyLabel() }}
-            </div>
+            </button>
           }
-          @for (option of filteredOptions(); track option.value) {
-            <div class="ss-option"
+          @for (option of filteredOptions(); track option.value; let i = $index) {
+            <button type="button" class="ss-option"
+              [id]="optionId(i + (showEmptyOption() ? 1 : 0))"
+              role="option"
               [class.selected]="option.value === value()"
+              [class.active]="activeIndex() === i + (showEmptyOption() ? 1 : 0)"
+              [attr.aria-selected]="option.value === value()"
+              (mouseenter)="activeIndex.set(i + (showEmptyOption() ? 1 : 0))"
               (click)="select(option.value)">
               {{ option.label }}
-            </div>
+            </button>
           }
           @if (filteredOptions().length === 0 && searchTerm()) {
             <div class="ss-empty">No matches found</div>
@@ -160,19 +204,26 @@ export interface SelectOption {
     }
   `
 })
-export class SearchableSelectComponent {
+export class SearchableSelectComponent implements OnDestroy {
   private readonly elementRef = inject(ElementRef);
   private onDocumentClickBound = this.onDocumentClick.bind(this);
+  private readonly instanceId = ++searchableSelectInstance;
+  readonly listboxId = `searchable-select-listbox-${this.instanceId}`;
+  readonly trigger = viewChild<ElementRef<HTMLButtonElement>>('trigger');
+  readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   readonly options = input<SelectOption[]>([]);
   readonly value = input<string>('');
   readonly emptyLabel = input<string>('— None —');
   readonly showEmptyOption = input<boolean>(true);
   readonly searchPlaceholder = input<string>('Search...');
+  readonly ariaLabel = input<string>('Select an option');
+  readonly disabled = input<boolean>(false);
   readonly selectionChange = output<string>();
 
   readonly isOpen = signal(false);
   readonly searchTerm = signal('');
+  readonly activeIndex = signal(0);
 
   readonly selectedLabel = computed(() => {
     const val = this.value();
@@ -188,9 +239,17 @@ export class SearchableSelectComponent {
     return opts.filter(o => o.label.toLowerCase().includes(term));
   });
 
+  readonly activeValues = computed(() => [
+    ...(this.showEmptyOption() ? [''] : []),
+    ...this.filteredOptions().map(option => option.value)
+  ]);
+
+  readonly activeOptionId = computed(() => this.isOpen() ? this.optionId(this.activeIndex()) : null);
+
   onSearchInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.searchTerm.set(value);
+    this.activeIndex.set(0);
   }
 
   toggle(event: MouseEvent): void {
@@ -202,30 +261,73 @@ export class SearchableSelectComponent {
     }
   }
 
+  onTriggerKeydown(event: KeyboardEvent): void {
+    if (this.disabled()) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (!this.isOpen()) this.open();
+    }
+  }
+
+  onSearchKeydown(event: KeyboardEvent): void {
+    const values = this.activeValues();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.close(true);
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.activeIndex.update(index => Math.min(index + 1, Math.max(values.length - 1, 0)));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.activeIndex.update(index => Math.max(index - 1, 0));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      this.activeIndex.set(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      this.activeIndex.set(Math.max(values.length - 1, 0));
+    } else if (event.key === 'Enter' && values.length > 0) {
+      event.preventDefault();
+      this.select(values[this.activeIndex()]);
+    }
+  }
+
   select(value: string): void {
     this.selectionChange.emit(value);
-    this.close();
+    this.close(true);
+  }
+
+  optionId(index: number): string {
+    return `${this.listboxId}-option-${index}`;
   }
 
   private open(): void {
     this.searchTerm.set('');
+    const currentIndex = this.activeValues().findIndex(optionValue => optionValue === this.value());
+    this.activeIndex.set(Math.max(currentIndex, 0));
     this.isOpen.set(true);
     document.addEventListener('click', this.onDocumentClickBound, true);
     setTimeout(() => {
-      const input = this.elementRef.nativeElement.querySelector('.ss-search');
-      input?.focus();
+      this.searchInput()?.nativeElement.focus();
     });
   }
 
-  private close(): void {
+  private close(restoreFocus = false): void {
     this.isOpen.set(false);
     this.searchTerm.set('');
     document.removeEventListener('click', this.onDocumentClickBound, true);
+    if (restoreFocus) setTimeout(() => this.trigger()?.nativeElement.focus());
   }
 
   private onDocumentClick(event: MouseEvent): void {
     if (!this.elementRef.nativeElement.contains(event.target as Node)) {
       this.close();
     }
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('click', this.onDocumentClickBound, true);
   }
 }

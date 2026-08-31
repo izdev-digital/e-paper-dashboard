@@ -48,6 +48,7 @@ describe('DashboardRenderPreviewService', () => {
       imageUrl: '/api/dashboards/dashboard-1/designer-preview/token/image',
       renderedAt: '2026-08-30T00:00:00Z',
       widgets: [],
+      sourceStatuses: {},
     });
   });
 
@@ -59,6 +60,7 @@ describe('DashboardRenderPreviewService', () => {
       imageUrl: '/api/dashboards/dashboard-1/designer-preview/token/image',
       renderedAt: '2026-08-30T00:00:00Z',
       widgets: [],
+      sourceStatuses: {},
     })).toBe('/api/dashboards/dashboard-1/designer-preview/token/image');
   });
 });

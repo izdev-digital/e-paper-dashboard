@@ -12,7 +12,12 @@ import { ToastService, Toast } from '../../services/toast.service';
         <div 
           class="toast show" 
           [ngClass]="'toast-' + toast.type"
-          role="alert"
+          [attr.role]="toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'"
+          [attr.aria-live]="toast.type === 'error' || toast.type === 'warning' ? 'assertive' : 'polite'"
+          (mouseenter)="toastService.pause(toast.id)"
+          (mouseleave)="toastService.resume(toast.id)"
+          (focusin)="toastService.pause(toast.id)"
+          (focusout)="toastService.resume(toast.id)"
         >
           <div class="d-flex align-items-center gap-2">
             @if (toast.type === 'success') {
@@ -36,6 +41,7 @@ import { ToastService, Toast } from '../../services/toast.service';
             <button 
               type="button" 
               class="btn-close ms-auto" 
+              aria-label="Dismiss notification"
               (click)="toastService.remove(toast.id)"
             ></button>
           </div>
@@ -51,6 +57,17 @@ import { ToastService, Toast } from '../../services/toast.service';
       border-radius: 0.375rem;
       padding: 0.75rem 1rem;
       margin-bottom: 0.75rem;
+    }
+    @media (max-width: 575.98px) {
+      .toast-container {
+        width: 100%;
+        padding: 0.75rem !important;
+      }
+      .toast {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+      }
     }
     .toast-success {
       background-color: #d1e7dd;

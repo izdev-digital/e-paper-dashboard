@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, HostListener, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Subscription } from 'rxjs';
+import type { DataSourceStatus } from '../../services/dashboard-preview-data.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
@@ -48,7 +50,7 @@ import {
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
+  imports: [CommonModule, FormsModule, RouterModule, A11yModule, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
@@ -113,6 +115,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   renderedCanvasError = signal('');
   renderedCanvasAt = signal<string | null>(null);
   renderedWidgetGeometry = signal<Record<string, WidgetRenderGeometry>>({});
+  renderedSourceStatuses = signal<Record<string, DataSourceStatus>>({});
   elementEditingWidgetId = signal<string | null>(null);
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
@@ -221,6 +224,13 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     if (!target.closest('.mobile-overflow-menu')) {
       this.mobileOverflowOpen.set(false);
     }
+  }
+
+  @HostListener('document:keydown.escape')
+  closeOpenDesignerOverlay(): void {
+    if (this.mobileOverflowOpen()) this.mobileOverflowOpen.set(false);
+    else if (this.mobileWidgetDrawerOpen()) this.mobileWidgetDrawerOpen.set(false);
+    else if (this.mobilePropertiesOpen()) this.mobilePropertiesOpen.set(false);
   }
 
   ngOnInit(): void {
@@ -454,6 +464,12 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     document.addEventListener('mouseup', onPointerUp);
   }
 
+  onToolboxWidgetKeyDown(event: KeyboardEvent, widget: WidgetDefinition): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    this.addWidgetToFirstSlot(widget);
+  }
+
   /** Add a widget to the first available grid position (used on mobile). */
   addWidgetToFirstSlot(widget: WidgetDefinition): void {
     const layout = this.layout();
@@ -598,11 +614,103 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.startDrag(event, widget);
   }
 
+  onWidgetKeyDown(event: KeyboardEvent, widget: WidgetConfig): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.onWidgetSelect(widget);
+      return;
+    }
+
+    const direction = {
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+    }[event.key];
+    if (!direction) return;
+
+    event.preventDefault();
+    const layout = this.layout();
+    const current = widget.position;
+    const nextPosition = event.shiftKey
+      ? {
+          ...current,
+          w: Math.max(1, Math.min(layout.gridCols - current.x, current.w + direction.x)),
+          h: Math.max(1, Math.min(layout.gridRows - current.y, current.h + direction.y)),
+        }
+      : {
+          ...current,
+          x: Math.max(0, Math.min(layout.gridCols - current.w, current.x + direction.x)),
+          y: Math.max(0, Math.min(layout.gridRows - current.h, current.y + direction.y)),
+        };
+
+    const updated = { ...widget, position: nextPosition };
+    this.layout.update(value => ({
+      ...value,
+      widgets: value.widgets.map(item => item.id === widget.id ? updated : item),
+    }));
+    this.selectedWidget.set(updated);
+    this.activeTab.set('properties');
+  }
+
   getSelectedWidgetGeometry(): WidgetRenderGeometry | undefined {
     if (this.renderedCanvasLoading()
         || this.renderedLayoutSignature !== JSON.stringify(this.getCompleteRenderLayout())) return undefined;
     const selected = this.selectedWidget();
     return selected ? this.renderedWidgetGeometry()[selected.id] : undefined;
+  }
+
+  selectedWidgetSupportsElementEditing(): boolean {
+    const selected = this.selectedWidget();
+    return !!selected && !!this.renderedWidgetGeometry()[selected.id]?.editable;
+  }
+
+  selectedWidgetSourceStatuses(): Array<{ key: string; label: string; status: DataSourceStatus }> {
+    const widget = this.selectedWidget();
+    if (!widget) return [];
+    const config = widget.config as any;
+    const entityId = config?.entityId as string | undefined;
+    const sources: Array<{ key: string; label: string }> = [];
+
+    switch (widget.type) {
+      case 'header':
+        for (const badge of config?.badges ?? []) {
+          if (badge.entityId) sources.push({ key: `entity:${badge.entityId}`, label: badge.entityId });
+        }
+        break;
+      case 'weather':
+        if (entityId) sources.push({ key: `entity:${entityId}`, label: entityId });
+        break;
+      case 'weather-forecast':
+        if (entityId) {
+          const mode = config?.forecastMode === 'hourly' ? 'hourly' : 'daily';
+          sources.push({ key: `entity:${entityId}`, label: entityId });
+          sources.push({ key: `forecast:${entityId}:${mode}`, label: `${mode} forecast` });
+        }
+        break;
+      case 'todo':
+        if (entityId) sources.push({ key: `todo:${entityId}`, label: entityId });
+        break;
+      case 'calendar':
+        if (entityId) sources.push({ key: `calendar:${entityId}`, label: entityId });
+        break;
+      case 'rss-feed':
+        if (entityId) sources.push({ key: `rss:${entityId}`, label: entityId });
+        break;
+      case 'graph':
+        for (const series of config?.series ?? []) {
+          if (series.entityId) sources.push({ key: `history:${series.entityId}`, label: series.label || series.entityId });
+        }
+        break;
+      case 'ai-content':
+        sources.push({ key: `generated:${widget.id}`, label: 'Generated content' });
+        break;
+    }
+
+    const statuses = this.renderedSourceStatuses();
+    return sources
+      .filter((source, index) => sources.findIndex(item => item.key === source.key) === index)
+      .flatMap(source => statuses[source.key] ? [{ ...source, status: statuses[source.key] }] : []);
   }
 
   toggleElementEditing(widget: WidgetConfig): void {
@@ -1256,6 +1364,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
           this.renderedWidgetGeometry.set(Object.fromEntries(
             preview.widgets.map(widget => [widget.id, widget]),
           ));
+          this.renderedSourceStatuses.set(preview.sourceStatuses ?? {});
           this.renderedCanvasLoading.set(false);
         },
         error: async error => {

@@ -11,7 +11,6 @@ import { DialogService } from '../../services/dialog.service';
 import { DeviceService, Device } from '../../services/device.service';
 import { AiService } from '../../services/ai.service';
 import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PRESETS, DEFAULT_DASHBOARD_SIZE, AiConfig, AiConnectionMode, ConversationAgent } from '../../models/types';
-import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
@@ -19,7 +18,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 @Component({
   selector: 'app-dashboard-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, ToastContainerComponent, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule, DashboardSelectorDialogComponent, RenderedPreviewModalComponent],
   styles: [`
     .btn-group[role="group"] {
       display: grid !important;
@@ -43,7 +42,6 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
     }
   `],
   template: `
-    <app-toast-container></app-toast-container>
     <app-dashboard-selector-dialog></app-dashboard-selector-dialog>
 
     @if (isLoading()) {
@@ -53,13 +51,18 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
         </div>
       </div>
     } @else if (dashboard()) {
-      <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+      <form (ngSubmit)="onSubmit()" [formGroup]="dashboardForm" class="app-page">
+        <div class="app-action-bar">
           <div class="d-flex align-items-center gap-2 gap-sm-3" style="min-width:0">
-            <button type="button" class="btn btn-sm btn-secondary" (click)="onCancel()">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="onCancel()" aria-label="Back to dashboards">
               <i class="fa-solid fa-arrow-left"></i><span class="d-none d-sm-inline"> Back</span>
             </button>
-            <h2 class="mb-0 text-truncate">Edit Dashboard</h2>
+            <div class="min-width-0">
+              <h1 class="h4 mb-0 text-truncate">{{ dashboard()!.name }}</h1>
+              <span class="small" [ngClass]="dashboardForm.dirty ? 'text-warning' : 'text-muted'">
+                {{ dashboardForm.dirty ? 'Unsaved changes' : 'All changes saved' }}
+              </span>
+            </div>
           </div>
           <div class="d-flex gap-1 gap-sm-2 flex-shrink-0">
             <button type="button" class="btn btn-sm btn-success" (click)="openPreview()" 
@@ -67,23 +70,25 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
               [title]="dashboardForm.dirty ? 'Save your changes before previewing' : (previewMode() === 'ssr' ? 'Open custom layout preview' : 'Open Home Assistant dashboard preview')">
               <i class="fa-solid fa-eye"></i><span class="d-none d-sm-inline"> Preview</span>
             </button>
-            @if (dashboardForm.dirty) {
-            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!dashboardForm.dirty || isSaving()">
               <i class="fa-solid fa-rotate-left"></i><span class="d-none d-sm-inline"> Discard</span>
             </button>
-            <button type="submit" class="btn btn-sm btn-primary" [disabled]="isSaving()">
+            <button type="submit" class="btn btn-sm btn-primary" [disabled]="!dashboardForm.dirty || isSaving()">
               <i class="fa-solid fa-floppy-disk"></i><span class="d-none d-sm-inline"> Save</span>
             </button>
-            }
           </div>
         </div>
-        <div class="card shadow-sm mb-3">
+        <div class="card shadow-sm mb-3" aria-labelledby="generalSettingsTitle">
           <div class="card-body">
+            <h2 id="generalSettingsTitle" class="app-section-title">Dashboard configuration</h2>
+            <p class="app-section-description">Manage the dashboard identity, content source, display, and update schedule.</p>
             <div class="row g-4">
               <div class="col-12 col-lg-6">
+                <h3 class="h6 text-uppercase text-muted mb-3">General</h3>
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Name</label>
+                  <label class="form-label fw-semibold" for="editDashboardName">Name</label>
                   <input 
+                    id="editDashboardName"
                     type="text" 
                     class="form-control" 
                     formControlName="name"
@@ -91,8 +96,9 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                   />
                 </div>
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Description</label>
+                  <label class="form-label fw-semibold" for="editDashboardDescription">Description</label>
                   <input 
+                    id="editDashboardDescription"
                     type="text" 
                     class="form-control" 
                     formControlName="description"
@@ -100,7 +106,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                 </div>
                 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Displayed On</label>
+                  <span class="form-label fw-semibold d-block">Displayed on</span>
 
                   @if (isLoadingDevices()) {
                     <div class="text-center py-3">
@@ -127,10 +133,12 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
               </div>
 
               <div class="col-12 col-lg-6">
+                <h3 class="h6 text-uppercase text-muted mb-3">Content and display</h3>
                 @if (!hideHostField()) {
                   <div class="mb-3">
-                    <label class="form-label fw-semibold">Dashboard Host</label>
+                    <label class="form-label fw-semibold" for="dashboardHost">Dashboard host</label>
                     <input 
+                      id="dashboardHost"
                       type="text" 
                       class="form-control" 
                       formControlName="host"
@@ -141,7 +149,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
                 @if (!isAddonMode() || previewModeValue === 'homeassistant') {
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Access Token</label>
+                  <label class="form-label fw-semibold" for="dashboardAccessToken">Access token</label>
                   @if (isAddonMode()) {
                     <small class="form-text text-muted d-block mb-2">
                       <i class="fa-solid fa-info-circle"></i> The "Home Assistant Dashboard" mode requires an Access Token.
@@ -150,6 +158,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                   }
                   <div class="input-group">
                     <input 
+                      id="dashboardAccessToken"
                       type="password" 
                       class="form-control" 
                       formControlName="accessToken"
@@ -190,7 +199,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                 }
 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Rendering Mode</label>
+                  <span class="form-label fw-semibold d-block">Rendering mode</span>
                   <div class="btn-group d-flex" role="group">
                     <input type="radio" class="btn-check" name="previewMode" id="ssrMode" value="ssr" [(ngModel)]="previewModeValue" [ngModelOptions]="{standalone: true}" (change)="onRenderingModeChange()" />
                     <label class="btn btn-outline-secondary flex-grow-1" for="ssrMode">Custom Layout</label>
@@ -202,8 +211,8 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
                 @if (previewModeValue === 'homeassistant') {
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Screen Size</label>
-                  <select class="form-select" [(ngModel)]="selectedSizeIndex" [ngModelOptions]="{standalone: true}" (change)="onSizeChange()">
+                  <label class="form-label fw-semibold" for="editScreenSize">Screen size</label>
+                  <select id="editScreenSize" class="form-select" [(ngModel)]="selectedSizeIndex" [ngModelOptions]="{standalone: true}" (change)="onSizeChange()">
                     @for (size of sizePresets; track size.label; let i = $index) {
                       <option [ngValue]="i">{{ size.label }}</option>
                     }
@@ -211,7 +220,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Orientation</label>
+                  <span class="form-label fw-semibold d-block">Orientation</span>
                   <div class="btn-group d-flex" role="group">
                     <input type="radio" class="btn-check" name="orientationMode" id="landscapeMode" value="Landscape" [(ngModel)]="orientationValue" [ngModelOptions]="{standalone: true}" (change)="onOrientationChange()" />
                     <label class="btn btn-outline-secondary flex-grow-1" for="landscapeMode">
@@ -228,14 +237,14 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 
                 @if (previewModeValue === 'ssr') {
                   <div class="mb-3">
-                    <label class="form-label fw-semibold">Layout</label>
+                    <span class="form-label fw-semibold d-block">Layout</span>
                     <button type="button" class="btn btn-success w-100" (click)="openDesigner()">
                       <i class="fa-solid fa-paint-brush"></i> Open Layout Designer
                     </button>
                   </div>
                 } @else {
                   <div class="mb-3">
-                    <label class="form-label fw-semibold">Dashboard Path</label>
+                    <label class="form-label fw-semibold" for="pathField">Dashboard path</label>
                     <div class="input-group">
                       <input 
                         type="text" 
@@ -257,7 +266,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                 }
 
                 <div class="mb-3">
-                  <label class="form-label fw-semibold">Update Times</label>
+                  <label class="form-label fw-semibold" for="newUpdateTime">Update times</label>
                   <div class="d-flex align-items-center mb-2">
                     <input 
                       type="time" 
@@ -266,6 +275,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                       [(ngModel)]="newUpdateTime"
                       [ngModelOptions]="{standalone: true}"
                       name="newUpdateTime"
+                      id="newUpdateTime"
                     />
                     <button type="button" class="btn btn-outline-primary" (click)="addUpdateTime()">Add</button>
                   </div>
@@ -273,7 +283,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                     @for (time of updateTimes(); track $index) {
                       <span class="badge bg-secondary">
                         {{ time }}
-                        <button type="button" class="btn-close btn-close-white ms-2" (click)="removeUpdateTime($index)"></button>
+                        <button type="button" class="btn-close btn-close-white ms-2" (click)="removeUpdateTime($index)" [attr.aria-label]="'Remove update time ' + time"></button>
                       </span>
                     } @empty {
                       <span class="text-muted">No update times configured</span>
@@ -286,9 +296,10 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
           </div>
         </div>
 
-        <div class="card shadow-sm mb-3">
+        <details class="card shadow-sm mb-3">
+          <summary class="card-header bg-transparent py-3 px-3 px-sm-4 fw-semibold">Advanced provider settings</summary>
           <div class="card-body">
-            <h5 class="mb-3">AI Provider Override</h5>
+            <h2 class="h5 mb-3">AI provider override</h2>
             <p class="text-muted small mb-3">By default, this dashboard uses the <a routerLink="/ai/config">global AI provider</a>. You can override it to use a Home Assistant conversation agent for this dashboard.</p>
             <div class="mb-3">
               <label class="form-label fw-semibold">AI Provider</label>
@@ -330,7 +341,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
               </div>
             }
           </div>
-        </div>
+        </details>
 
       </form>
 
@@ -987,4 +998,3 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
     }
   }
 }
-

@@ -156,12 +156,12 @@ public class DashboardSsrController(
             // not merge the persisted layout here or unsaved enable/disable changes could be
             // ignored and generated widgets could be duplicated.
             var layoutToRender = request.Layout;
-            using var image = await dashboardImageRenderingService.RenderDashboardImageAsync(
+            var render = await dashboardImageRenderingService.RenderDesignerPreviewAsync(
                 dashboard.Value.Id.ToString(),
                 layoutToRender,
                 HttpContext.RequestAborted,
-                bypassCache: request.RefreshData,
-                cacheResult: false);
+                bypassCache: request.RefreshData);
+            using var image = render.Image;
 
             await using var stream = new MemoryStream();
             await image.SaveAsync(stream, new PngEncoder(), HttpContext.RequestAborted);
@@ -175,7 +175,8 @@ public class DashboardSsrController(
                 image.Height,
                 $"/api/dashboards/{id}/designer-preview/{token}/image",
                 timeProvider.GetUtcNow(),
-                dashboardImageRenderingService.ResolveWidgetGeometry(layoutToRender)));
+                dashboardImageRenderingService.ResolveWidgetGeometry(layoutToRender),
+                render.SourceStatuses));
         }
         catch (NotSupportedException ex)
         {

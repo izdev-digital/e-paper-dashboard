@@ -1,5 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, HostListener, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { A11yModule } from '@angular/cdk/a11y';
 
 export interface DashboardOption {
   url_path: string;
@@ -9,16 +10,16 @@ export interface DashboardOption {
 @Component({
   selector: 'app-dashboard-selector-dialog',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, A11yModule],
   template: `
     @if (isOpen()) {
       <div class="modal-backdrop fade show" (click)="cancel()"></div>
-      <div class="modal fade show d-block" tabindex="-1" role="dialog">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" role="document">
+      <div class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="dashboardSelectorTitle">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" cdkTrapFocus [cdkTrapFocusAutoCapture]="true">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">Select Dashboard</h5>
-              <button type="button" class="btn-close" (click)="cancel()"></button>
+              <h2 id="dashboardSelectorTitle" class="h5 modal-title">Select dashboard</h2>
+              <button type="button" class="btn-close" aria-label="Close dashboard selector" (click)="cancel()"></button>
             </div>
             <div class="modal-body">
               @if (isLoading()) {
@@ -89,8 +90,10 @@ export class DashboardSelectorDialogComponent {
   readonly dashboards = signal<DashboardOption[]>([]);
 
   private resolveCallback?: (value: string | null) => void;
+  private previouslyFocusedElement: HTMLElement | null = null;
 
   openWithLoading(): void {
+    this.captureFocus();
     this.dashboards.set([]);
     this.error.set('');
     this.isLoading.set(true);
@@ -98,6 +101,7 @@ export class DashboardSelectorDialogComponent {
   }
 
   open(dashboards: DashboardOption[]): Promise<string | null> {
+    this.captureFocus();
     this.dashboards.set(dashboards);
     this.error.set('');
     this.isLoading.set(false);
@@ -110,6 +114,7 @@ export class DashboardSelectorDialogComponent {
 
   selectDashboard(dashboard: DashboardOption): void {
     this.isOpen.set(false);
+    this.restoreFocus();
     if (this.resolveCallback) {
       this.resolveCallback(dashboard.url_path);
       this.resolveCallback = undefined;
@@ -123,9 +128,25 @@ export class DashboardSelectorDialogComponent {
 
   cancel(): void {
     this.isOpen.set(false);
+    this.restoreFocus();
     if (this.resolveCallback) {
       this.resolveCallback(null);
       this.resolveCallback = undefined;
     }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen()) this.cancel();
+  }
+
+  private captureFocus(): void {
+    if (!this.isOpen()) this.previouslyFocusedElement = document.activeElement as HTMLElement | null;
+  }
+
+  private restoreFocus(): void {
+    const element = this.previouslyFocusedElement;
+    this.previouslyFocusedElement = null;
+    if (element) setTimeout(() => element.focus());
   }
 }

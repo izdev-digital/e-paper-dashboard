@@ -24,6 +24,9 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
   readonly isSaving = signal(false);
   readonly availableModels = signal<{ id: string }[]>([]);
   readonly isLoadingModels = signal(false);
+  readonly showApiKey = signal(false);
+  readonly connectionStatus = signal<'success' | 'error' | null>(null);
+  readonly connectionMessage = signal('');
   readonly isDirty = computed(() => JSON.stringify(this.aiConfig()) !== this.originalAiConfig);
 
   ngOnInit(): void {
@@ -60,6 +63,14 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
 
   updateField(field: keyof AiConfig, value: string): void {
     this.aiConfig.update(c => ({ ...c, [field]: value }));
+    if (field === 'directEndpoint' || field === 'directApiKey') {
+      this.connectionStatus.set(null);
+      this.availableModels.set([]);
+    }
+  }
+
+  toggleApiKeyVisibility(): void {
+    this.showApiKey.update(value => !value);
   }
 
   fetchModels(): void {
@@ -71,10 +82,14 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
     this.aiService.getAvailableModels(config.directEndpoint, config.directApiKey ?? undefined).subscribe({
       next: (models) => {
         this.availableModels.set(models);
+        this.connectionStatus.set('success');
+        this.connectionMessage.set(models.length > 0 ? `Connected · ${models.length} models available` : 'Connected · enter a model name manually');
         this.isLoadingModels.set(false);
       },
       error: () => {
         this.availableModels.set([]);
+        this.connectionStatus.set('error');
+        this.connectionMessage.set('Connection failed. Check the endpoint and credentials.');
         this.isLoadingModels.set(false);
       }
     });
@@ -99,6 +114,7 @@ export class AiConfigComponent implements OnInit, HasUnsavedChanges {
 
   discardChanges(): void {
     this.aiConfig.set(JSON.parse(this.originalAiConfig));
+    this.connectionStatus.set(null);
   }
 
   hasUnsavedChanges(): boolean {

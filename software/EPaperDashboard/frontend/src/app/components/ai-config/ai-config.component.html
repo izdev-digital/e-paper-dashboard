@@ -1,10 +1,15 @@
-<div class="row">
-  <div class="col-md-8 offset-md-2">
-    <div class="d-flex align-items-center gap-3 mb-4">
-      <h2 class="mb-0">AI Configuration</h2>
+<div class="app-page">
+  <div class="app-page-header">
+    <div>
+      <h1 class="app-page-title">AI configuration</h1>
+      <p class="app-page-description">Choose the default provider used to generate dashboard content. A dashboard can override this provider when needed.</p>
     </div>
-
-    <p class="text-muted">Configure the default AI provider used across all your dashboards. Individual dashboards can override this with a Home Assistant conversation agent.</p>
+    @if (!isLoading()) {
+      <span class="app-status-chip" [ngClass]="isDirty() ? 'app-status-chip-warning' : 'app-status-chip-success'">
+        {{ isDirty() ? 'Unsaved changes' : 'Saved' }}
+      </span>
+    }
+  </div>
 
     @if (isLoading()) {
       <div class="text-center py-5">
@@ -13,12 +18,12 @@
         </div>
       </div>
     } @else {
-      <div class="card shadow-sm">
+      <div class="card shadow-sm app-form-shell" style="max-width: 46rem;">
         <div class="card-body">
           <form (ngSubmit)="save()">
             <div class="mb-3">
-              <label class="form-label fw-semibold">Connection Mode</label>
-              <select class="form-select"
+              <label class="form-label fw-semibold" for="aiConnectionMode">Connection mode</label>
+              <select id="aiConnectionMode" class="form-select"
                 [ngModel]="aiConfig().connectionMode"
                 (ngModelChange)="onConnectionModeChange($event)"
                 [ngModelOptions]="{standalone: true}">
@@ -30,30 +35,35 @@
 
             @if (aiConfig().connectionMode === 'Direct') {
               <hr>
-              <h5 class="mb-3">Direct API Settings</h5>
+              <h2 class="h5 mb-3">Direct API settings</h2>
               <div class="mb-3">
-                <label class="form-label">API Endpoint</label>
-                <input type="text" class="form-control"
+                <label class="form-label" for="aiEndpoint">API endpoint</label>
+                <input id="aiEndpoint" type="url" class="form-control"
                   [value]="aiConfig().directEndpoint || ''"
                   (input)="updateField('directEndpoint', $any($event.target).value)"
-                  (blur)="fetchModels()"
+                  autocomplete="url"
                   placeholder="https://api.openai.com" />
                 <small class="form-text text-muted">OpenAI, Ollama, LM Studio, or any compatible endpoint</small>
               </div>
               <div class="mb-3">
-                <label class="form-label">API Key <span class="text-muted fw-normal">(optional for local providers)</span></label>
-                <input type="password" class="form-control"
-                  [value]="aiConfig().directApiKey || ''"
-                  (input)="updateField('directApiKey', $any($event.target).value)"
-                  (blur)="fetchModels()"
-                  placeholder="sk-..." />
+                <label class="form-label" for="aiApiKey">API key <span class="text-muted fw-normal">(optional for local providers)</span></label>
+                <div class="input-group">
+                  <input id="aiApiKey" [type]="showApiKey() ? 'text' : 'password'" class="form-control"
+                    [value]="aiConfig().directApiKey || ''"
+                    (input)="updateField('directApiKey', $any($event.target).value)"
+                    autocomplete="off" placeholder="sk-..." />
+                  <button type="button" class="btn btn-outline-secondary app-icon-button"
+                    (click)="toggleApiKeyVisibility()" [attr.aria-label]="showApiKey() ? 'Hide API key' : 'Show API key'">
+                    <i class="fa-solid" [ngClass]="showApiKey() ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+                  </button>
+                </div>
                 <small class="form-text text-muted">Required for OpenAI, optional for local services like Ollama or LM Studio</small>
               </div>
               <div class="mb-3">
-                <label class="form-label">Model</label>
+                <label class="form-label" for="aiModel">Model</label>
                 <div class="input-group">
                   @if (availableModels().length > 0) {
-                    <select class="form-select"
+                    <select id="aiModel" class="form-select"
                       [ngModel]="aiConfig().directModel || ''"
                       (ngModelChange)="updateField('directModel', $event)"
                       [ngModelOptions]="{standalone: true}">
@@ -63,42 +73,45 @@
                       }
                     </select>
                   } @else {
-                    <input type="text" class="form-control"
+                    <input id="aiModel" type="text" class="form-control"
                       [value]="aiConfig().directModel || ''"
                       (input)="updateField('directModel', $any($event.target).value)"
                       placeholder="gpt-4o-mini" />
                   }
-                  <button type="button" class="btn btn-outline-secondary" (click)="fetchModels()"
-                    [disabled]="isLoadingModels() || !aiConfig().directEndpoint"
-                    title="Fetch available models from endpoint">
-                    @if (isLoadingModels()) {
-                      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    } @else {
-                      <i class="fa fa-rotate"></i>
-                    }
-                  </button>
                 </div>
                 <small class="form-text text-muted">Select from available models or enter manually</small>
+              </div>
+              <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+                <button type="button" class="btn btn-outline-primary" (click)="fetchModels()"
+                  [disabled]="isLoadingModels() || !aiConfig().directEndpoint">
+                  @if (isLoadingModels()) {
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Testing…
+                  } @else {
+                    <i class="fa-solid fa-plug-circle-check me-1" aria-hidden="true"></i> Test connection and load models
+                  }
+                </button>
+                @if (connectionStatus()) {
+                  <span class="small" role="status" [ngClass]="connectionStatus() === 'success' ? 'text-success' : 'text-danger'">
+                    <i class="fa-solid me-1" [ngClass]="connectionStatus() === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'" aria-hidden="true"></i>{{ connectionMessage() }}
+                  </span>
+                }
               </div>
             }
 
             <hr>
-            <div class="d-flex gap-2">
-              @if (isDirty()) {
-              <button type="submit" class="btn btn-primary" [disabled]="isSaving()">
+            <div class="d-flex flex-column-reverse flex-sm-row justify-content-end gap-2">
+              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty() || isSaving()">
+                <i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Discard
+              </button>
+              <button type="submit" class="btn btn-primary" [disabled]="!isDirty() || isSaving()">
                 @if (isSaving()) {
                   <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                 }
-                Save AI Configuration
+                Save configuration
               </button>
-              <button type="button" class="btn btn-outline-secondary" (click)="discardChanges()">
-                <i class="fa fa-rotate-left me-1"></i>Discard Changes
-              </button>
-              }
             </div>
           </form>
         </div>
       </div>
     }
-  </div>
 </div>

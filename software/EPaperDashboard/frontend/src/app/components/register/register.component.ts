@@ -8,27 +8,50 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-register',
   imports: [CommonModule, FormsModule, RouterModule],
   template: `
-    <div class="container mt-5">
-      <h2 class="text-center">Register</h2>
-      <form (ngSubmit)="onSubmit()" class="w-50 mx-auto">
+    <div class="app-page py-4 py-sm-5">
+      <div class="app-form-shell">
+        <div class="text-center mb-4">
+          <h1 class="app-page-title">Create your account</h1>
+          <p class="app-page-description mx-auto">Set up izBoard to start creating e-paper dashboards.</p>
+        </div>
+        <form (ngSubmit)="onSubmit()" class="app-form-card" novalidate>
         <div class="mb-3">
-          <label class="form-label">Username</label>
-          <input type="text" class="form-control" [(ngModel)]="username" name="username" required>
+          <label class="form-label fw-semibold" for="registerUsername">Username</label>
+          <input id="registerUsername" type="text" class="form-control" [(ngModel)]="username" name="username"
+            autocomplete="username" required autofocus>
         </div>
         <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-control" [(ngModel)]="password" name="password" required>
+          <label class="form-label fw-semibold" for="registerPassword">Password</label>
+          <div class="input-group">
+            <input id="registerPassword" [type]="showPassword ? 'text' : 'password'" class="form-control"
+              [(ngModel)]="password" name="password" autocomplete="new-password" required>
+            <button type="button" class="btn btn-outline-secondary app-icon-button"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Hide passwords' : 'Show passwords'"
+              [attr.aria-pressed]="showPassword">
+              <i class="fa-solid" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="registerPasswordConfirm">Confirm password</label>
+          <input id="registerPasswordConfirm" [type]="showPassword ? 'text' : 'password'" class="form-control"
+            [(ngModel)]="confirmPassword" name="confirmPassword" autocomplete="new-password" required>
         </div>
         @if (errorMessage()) {
-          <div class="alert alert-danger">{{ errorMessage() }}</div>
+          <div class="alert alert-danger" role="alert">{{ errorMessage() }}</div>
         }
         <button type="submit" class="btn btn-success w-100" [disabled]="isLoading()">
+          @if (isLoading()) {
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+          }
           {{ isLoading() ? 'Registering...' : 'Register' }}
         </button>
         <div class="mt-3 text-center">
-          <a routerLink="/login">Already have an account? Login</a>
+          <span class="text-muted">Already have an account?</span> <a routerLink="/login">Sign in</a>
         </div>
-      </form>
+        </form>
+      </div>
     </div>
   `
 })
@@ -38,6 +61,8 @@ export class RegisterComponent {
 
   username = '';
   password = '';
+  confirmPassword = '';
+  showPassword = false;
   readonly errorMessage = signal('');
   readonly isLoading = signal(false);
 
@@ -53,6 +78,11 @@ export class RegisterComponent {
   onSubmit(): void {
     if (!this.username || !this.password) {
       this.errorMessage.set('Please fill in all fields.');
+      return;
+    }
+
+    if (this.password !== this.confirmPassword) {
+      this.errorMessage.set('Passwords do not match.');
       return;
     }
 

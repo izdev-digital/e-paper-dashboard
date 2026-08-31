@@ -1,12 +1,15 @@
 <div class="container-fluid py-2">
   <div class="row">
     <div class="col-12">
-      <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="designer-toolbar d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-3">
-          <button class="btn btn-sm btn-secondary" (click)="goBack()">
-            <i class="fa fa-arrow-left"></i>@if (!isMobile()) {<span> Back</span>}
+          <button class="btn btn-sm btn-outline-secondary" (click)="goBack()" aria-label="Back to dashboard settings">
+            <i class="fa fa-arrow-left" aria-hidden="true"></i>@if (!isMobile()) {<span> Back</span>}
           </button>
-          <h2 class="mb-0">Dashboard Designer@if (!isMobile()) {<span> - {{ dashboard()?.name }}</span>}</h2>
+          <div class="designer-title">
+            <h1 class="h4 mb-0">Dashboard designer@if (!isMobile()) {<span> · {{ dashboard()?.name }}</span>}</h1>
+            <span class="small" [ngClass]="isDirty() ? 'text-warning' : 'text-muted'">{{ isDirty() ? 'Unsaved changes' : 'All changes saved' }}</span>
+          </div>
         </div>
         <!-- Desktop actions -->
         @if (!isMobile()) {
@@ -23,16 +26,14 @@
             </div>
           </div>
           <button class="btn btn-sm btn-success" (click)="previewServerSideRendered()" title="Render the current layout, including unsaved changes">
-            <i class="fa fa-external-link-alt me-1"></i>Rendered Preview
+            <i class="fa fa-external-link-alt me-1" aria-hidden="true"></i>Device output
           </button>
-          @if (isDirty()) {
-          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()">
-            <i class="fa fa-rotate-left me-1"></i>Discard
+          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" [disabled]="!isDirty()">
+            <i class="fa fa-rotate-left me-1" aria-hidden="true"></i>Discard
           </button>
-          <button class="btn btn-sm btn-primary" (click)="saveDashboard()">
-            <i class="fa fa-save me-1"></i>Save Layout
+          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" [disabled]="!isDirty()">
+            <i class="fa fa-save me-1" aria-hidden="true"></i>Save layout
           </button>
-          }
         </div>
         }
         <!-- Mobile actions -->
@@ -49,17 +50,16 @@
               </label>
             </div>
           </div>
-          @if (isDirty()) {
-          <button class="btn btn-sm btn-outline-secondary" (click)="discardChanges()" title="Discard">
-            <i class="fa fa-rotate-left"></i>
+          <button class="btn btn-sm btn-outline-secondary app-icon-button" (click)="discardChanges()" [disabled]="!isDirty()" aria-label="Discard layout changes">
+            <i class="fa fa-rotate-left" aria-hidden="true"></i>
           </button>
-          <button class="btn btn-sm btn-primary" (click)="saveDashboard()" title="Save">
-            <i class="fa fa-save"></i>
+          <button class="btn btn-sm btn-primary app-icon-button" (click)="saveDashboard()" [disabled]="!isDirty()" aria-label="Save layout">
+            <i class="fa fa-save" aria-hidden="true"></i>
           </button>
-          }
           <div class="mobile-overflow-menu">
-            <button class="btn btn-sm btn-outline-secondary" (click)="mobileOverflowOpen.set(!mobileOverflowOpen())">
-              <i class="fa fa-ellipsis-vertical"></i>
+            <button class="btn btn-sm btn-outline-secondary app-icon-button" (click)="mobileOverflowOpen.set(!mobileOverflowOpen())"
+              aria-label="More designer actions" [attr.aria-expanded]="mobileOverflowOpen()">
+              <i class="fa fa-ellipsis-vertical" aria-hidden="true"></i>
             </button>
             @if (mobileOverflowOpen()) {
               <div class="overflow-dropdown">
@@ -67,7 +67,7 @@
                   <i class="fa fa-sliders"></i> Settings / Properties
                 </button>
                 <button (click)="previewServerSideRendered(); mobileOverflowOpen.set(false)">
-                  <i class="fa fa-external-link-alt"></i> Rendered Preview
+                  <i class="fa fa-external-link-alt"></i> Device output
                 </button>
               </div>
             }
@@ -99,6 +99,8 @@
             <h5 class="mb-0">Widgets</h5>
           }
           <button class="toolbox-collapse-btn" (click)="toolboxCollapsed.set(!toolboxCollapsed())"
+            [attr.aria-label]="toolboxCollapsed() ? 'Expand widget toolbox' : 'Collapse widget toolbox'"
+            [attr.aria-expanded]="!toolboxCollapsed()"
             [title]="toolboxCollapsed() ? 'Expand widget toolbox' : 'Collapse widget toolbox'">
             <i class="fa fa-bars"></i>
           </button>
@@ -112,14 +114,15 @@
                 </div>
               }
               @for (widget of widgetsInCategory(category.type); track widget.type) {
-              <div class="widget-item toolbox-drag-item" [class.icon-only]="toolboxCollapsed()"
+              <button type="button" class="widget-item toolbox-drag-item" [class.icon-only]="toolboxCollapsed()"
                 (mousedown)="onToolboxWidgetMouseDown($event, widget)"
-                tabindex="0" [title]="toolboxCollapsed() ? widget.label : 'Drag to canvas'">
+                (keydown)="onToolboxWidgetKeyDown($event, widget)"
+                [attr.aria-label]="'Add ' + widget.label + ' widget'" [title]="toolboxCollapsed() ? widget.label : 'Drag to canvas or press Enter to add'">
                 <i class="fa {{ widget.icon }}"></i>
                 @if (!toolboxCollapsed()) {
                   <span>{{ widget.label }}</span>
                 }
-              </div>
+              </button>
               }
             }
           </div>
@@ -132,7 +135,7 @@
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Canvas</h5>
-          <button style="border: none; background: none; cursor: pointer; padding: 0;" (click)="refreshLivePreview()" [disabled]="renderedCanvasLoading()" title="Refresh rendered preview and source data">
+          <button class="btn btn-sm btn-outline-secondary app-icon-button" (click)="refreshLivePreview()" [disabled]="renderedCanvasLoading()" aria-label="Refresh device preview and source data">
             @if (renderedCanvasLoading()) {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             } @else {
@@ -169,7 +172,10 @@
               <div class="grid-overlay" [ngStyle]="getGridOverlayStyle()"></div>
               @for (widget of layout().widgets; track widget.id) {
               <div class="widget-container" [ngStyle]="getWidgetStyle(widget)"
-                (mousedown)="onWidgetMouseDown($event, widget)">
+                role="button" tabindex="0" [attr.aria-label]="widget.type + ' widget. Use arrow keys to move.'"
+                [attr.aria-pressed]="selectedWidget()?.id === widget.id"
+                (mousedown)="onWidgetMouseDown($event, widget)"
+                (keydown)="onWidgetKeyDown($event, widget)">
                 <span class="widget-shell-label">{{ widget.type }}</span>
               </div>
               }
@@ -200,10 +206,10 @@
                     <div class="resize-handle resize-se" data-direction="se"></div>
                   }
 
-                  @if (getSelectedWidgetGeometry(); as geometry) {
-                    @if (geometry.editable) {
+                  @if (selectedWidgetSupportsElementEditing()) {
                       <button class="widget-edit-toggle-btn"
                         [class.active]="elementEditingWidgetId() === selectedWidget()!.id"
+                        [disabled]="renderedCanvasLoading() || !getSelectedWidgetGeometry()"
                         (mousedown)="$event.stopPropagation()"
                         (click)="toggleElementEditing(selectedWidget()!)"
                         [title]="elementEditingWidgetId() === selectedWidget()!.id ? 'Finish editing widget elements' : 'Edit widget elements'">
@@ -213,8 +219,9 @@
                           <i class="fa fa-arrows-up-down-left-right"></i> Edit Layout
                         }
                       </button>
-                    }
+                  }
 
+                  @if (getSelectedWidgetGeometry(); as geometry) {
                     @if (elementEditingWidgetId() === selectedWidget()!.id) {
                       @if (geometry.elements.length > 0) {
                         <app-widget-element-overlay [geometry]="geometry"
@@ -254,17 +261,20 @@
     <div class="designer-panel-right">
       <div class="card">
         <div class="card-header">
-          <div class="custom-tab-bar-scroll">
+          <div class="custom-tab-bar-scroll" role="tablist" aria-label="Designer panels">
             <button class="tab-switch-btn left" (click)="switchTab('left')" type="button" aria-label="Previous tab">
               <i class="fa fa-chevron-left"></i>
             </button>
             <div class="custom-tab-bar" #tabBar>
               <button class="tab-btn" [class.active]="activeTab() === 'dashboard'"
-                (click)="activeTab.set('dashboard')">Dashboard Settings</button>
+                role="tab" [attr.aria-selected]="activeTab() === 'dashboard'"
+                (click)="activeTab.set('dashboard')">Dashboard settings</button>
               <button class="tab-btn" [class.active]="activeTab() === 'widgets'"
+                role="tab" [attr.aria-selected]="activeTab() === 'widgets'"
                 (click)="activeTab.set('widgets')">Widgets ({{ layout().widgets.length }})</button>
               <button class="tab-btn" [class.active]="activeTab() === 'properties'"
-                (click)="activeTab.set('properties')">Widget Properties</button>
+                role="tab" [attr.aria-selected]="activeTab() === 'properties'"
+                (click)="activeTab.set('properties')">Properties</button>
             </div>
             <button class="tab-switch-btn right" (click)="switchTab('right')" type="button" aria-label="Next tab">
               <i class="fa fa-chevron-right"></i>
@@ -303,7 +313,7 @@
 
 <!-- Rendered Preview Modal -->
 <app-rendered-preview-modal
-  title="Rendered Preview"
+  title="Device output"
   [isOpen]="showPreviewModal"
   [isLoading]="previewLoading"
   [error]="previewError"
@@ -325,6 +335,11 @@
     <button class="toolbar-btn" (click)="openMobileProperties()" title="Properties">
       <i class="fa fa-sliders"></i> Properties
     </button>
+    @if (selectedWidgetSupportsElementEditing()) {
+      <button class="toolbar-btn" (click)="toggleElementEditing(selectedWidget()!)" [disabled]="renderedCanvasLoading() || !getSelectedWidgetGeometry()">
+        <i class="fa fa-arrows-up-down-left-right" aria-hidden="true"></i> {{ elementEditingWidgetId() === selectedWidget()!.id ? 'Done' : 'Edit layout' }}
+      </button>
+    }
     <button class="toolbar-btn toolbar-btn-danger" (click)="deleteWidget(selectedWidget()!); mobileSelectionToolbar.set(false)" title="Delete">
       <i class="fa fa-trash"></i> Delete
     </button>
@@ -337,7 +352,8 @@
 <!-- Mobile Bottom Sheet (Widget Picker) -->
 @if (isMobile() && mobileWidgetDrawerOpen()) {
   <div class="mobile-bottom-sheet-backdrop" (click)="mobileWidgetDrawerOpen.set(false)"></div>
-  <div class="mobile-bottom-sheet" role="dialog" aria-label="Add Widget"
+  <div class="mobile-bottom-sheet" role="dialog" aria-modal="true" aria-label="Add widget"
+       cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
        (touchstart)="onBottomSheetTouchStart($event)" (touchend)="onBottomSheetTouchEnd($event)">
     <div class="bottom-sheet-handle"></div>
     <div class="bottom-sheet-header">
@@ -363,7 +379,8 @@
 <!-- Mobile Right Drawer (Properties / Settings) -->
 @if (isMobile() && mobilePropertiesOpen()) {
   <div class="mobile-drawer-backdrop" (click)="mobilePropertiesOpen.set(false)"></div>
-  <div class="mobile-drawer" role="dialog" aria-label="Dashboard Settings"
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-label="Dashboard settings"
+       cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
        (touchstart)="onDrawerTouchStart($event)" (touchend)="onDrawerTouchEnd($event)">
     <div class="drawer-header">
       <h5>
@@ -689,12 +706,43 @@
 
 <ng-template #propertiesContent>
   @if (!selectedWidget()) {
-  <div class="text-muted text-center py-4">
-    Select a widget to edit its properties
+  <div class="app-empty-state py-4">
+    <span class="app-empty-state-icon"><i class="fa-solid fa-arrow-pointer" aria-hidden="true"></i></span>
+    <div><strong>Select a widget</strong><p class="small text-muted mb-0">Choose a widget on the canvas to edit its content and appearance.</p></div>
   </div>
   }
   @if (selectedWidget()) {
   <h6>{{ selectedWidget()!.type | titlecase }}</h6>
+  @if (selectedWidgetSupportsElementEditing()) {
+    <button type="button" class="btn btn-sm w-100 mb-2"
+      [ngClass]="elementEditingWidgetId() === selectedWidget()!.id ? 'btn-success' : 'btn-outline-primary'"
+      [disabled]="renderedCanvasLoading() || !getSelectedWidgetGeometry()"
+      (click)="toggleElementEditing(selectedWidget()!)">
+      <i class="fa-solid me-1" [ngClass]="elementEditingWidgetId() === selectedWidget()!.id ? 'fa-check' : 'fa-arrows-up-down-left-right'" aria-hidden="true"></i>
+      {{ elementEditingWidgetId() === selectedWidget()!.id ? 'Finish editing layout' : 'Edit widget layout' }}
+    </button>
+    @if (renderedCanvasLoading()) {
+      <p class="small text-muted mb-2" role="status">Updating the preview before layout editing…</p>
+    }
+  }
+  @if (selectedWidgetSourceStatuses().length > 0) {
+    <div class="source-status-panel mb-2" aria-label="Widget data source status">
+      <div class="small fw-semibold mb-1">Data sources</div>
+      @for (source of selectedWidgetSourceStatuses(); track source.key) {
+        <div class="source-status-row small">
+          <span class="text-truncate" [title]="source.label">{{ source.label }}</span>
+          <span class="app-status-chip"
+            [ngClass]="source.status.state === 'ready' ? 'app-status-chip-success' : (source.status.state === 'error' ? 'app-status-chip-warning' : 'app-status-chip-muted')"
+            [title]="source.status.error || (source.status.fromCache ? 'Using recently cached data' : '')">
+            {{ source.status.state === 'ready' ? 'Ready' : (source.status.state === 'empty' ? 'No data' : 'Error') }}
+          </span>
+        </div>
+      }
+      <button type="button" class="btn btn-sm btn-link p-0 mt-1" (click)="refreshLivePreview()" [disabled]="renderedCanvasLoading()">
+        Refresh source data
+      </button>
+    </div>
+  }
   <hr />
   <div class="collapsible-section" [class.collapsed]="widgetColorOverridesCollapsed()">
     <div class="collapsible-header" (click)="widgetColorOverridesCollapsed.set(!widgetColorOverridesCollapsed())">
@@ -808,7 +856,8 @@
   } @else {
   @for (w of layout().widgets; track w.id) {
   <div class="widget-item" [class.active]="selectedWidget()?.id === w.id"
-    (click)="onWidgetSelect(w)">
+    role="button" tabindex="0" [attr.aria-pressed]="selectedWidget()?.id === w.id"
+    (click)="onWidgetSelect(w)" (keydown.enter)="onWidgetSelect(w)" (keydown.space)="$event.preventDefault(); onWidgetSelect(w)">
     <div class="widget-item-info">
       <div class="fw-bold text-truncate">{{ w.type | titlecase }}</div>
       <small class="text-muted text-truncate d-block">ID: {{ w.id }}</small>
@@ -818,7 +867,7 @@
       </div>
     </div>
     <button class="btn btn-sm btn-danger btn-delete"
-      (click)="deleteWidget(w); $event.stopPropagation()" title="Delete widget">
+      (click)="deleteWidget(w); $event.stopPropagation()" [attr.aria-label]="'Delete ' + w.type + ' widget'">
       <i class="fa fa-trash"></i>
     </button>
   </div>
