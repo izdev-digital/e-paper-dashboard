@@ -161,15 +161,15 @@ public class WeatherForecastSectionFormatterTests
     [Fact]
     public void FormatSection_ForecastEntryWithFields_IncludesAllPresentFields()
     {
-        var entry = JsonSerializer.SerializeToElement(new
+        var entry = new WeatherForecast
         {
-            datetime = "2026-03-18",
-            condition = "sunny",
-            temperature = 22,
-            templow = 12,
-            precipitation_probability = 5,
-            wind_speed = 10
-        });
+            Datetime = "2026-03-18",
+            Condition = "sunny",
+            Temperature = 22,
+            TempLow = 12,
+            PrecipitationProbability = 5,
+            WindSpeed = 10
+        };
         var data = new AiDataSnapshot
         {
             WeatherForecasts = { ["weather.home"] = [entry] }
@@ -181,11 +181,11 @@ public class WeatherForecastSectionFormatterTests
     }
 
     [Fact]
-    public void FormatSection_NonJsonElementEntry_IsSkippedWithoutThrowing()
+    public void FormatSection_EntryWithMissingFields_IsHandledWithoutThrowing()
     {
         var data = new AiDataSnapshot
         {
-            WeatherForecasts = { ["weather.home"] = [new object()] }
+            WeatherForecasts = { ["weather.home"] = [new WeatherForecast()] }
         };
 
         var act = () => Sut.FormatSection(data);

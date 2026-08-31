@@ -32,7 +32,7 @@ public class AiDashboardGenerationServiceTests
             .ReturnsAsync(Result.Success<Dictionary<string, List<CalendarEvent>>, string>(new Dictionary<string, List<CalendarEvent>>()));
         var weatherForecastProvider = new Mock<IWeatherForecastProvider>();
         weatherForecastProvider.Setup(p => p.FetchAllWeatherForecastsAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(Result.Success<Dictionary<string, List<object?>>, string>(new Dictionary<string, List<object?>>()));
+            .ReturnsAsync(Result.Success<Dictionary<string, List<WeatherForecast>>, string>(new Dictionary<string, List<WeatherForecast>>()));
         var rssFeedDataProvider = new Mock<IRssFeedDataProvider>();
         rssFeedDataProvider.Setup(p => p.FetchAllRssFeedEntriesAsync(It.IsAny<string>()))
             .ReturnsAsync(Result.Success<Dictionary<string, List<RssFeedEntry>>, string>(new Dictionary<string, List<RssFeedEntry>>()));

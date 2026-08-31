@@ -120,6 +120,7 @@ builder.Services
 			sp.GetRequiredService<IWebHostEnvironment>(),
 			sp.GetRequiredService<FontAwesomeIconRegistry>()))
 	.AddSingleton<DashboardImageRenderingService>()
+	.AddSingleton<DesignerPreviewImageStore>()
 	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.HeaderWidgetRenderer>()
 	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.CalendarWidgetRenderer>()
 	.AddSingleton<IWidgetRenderer, EPaperDashboard.Services.Rendering.Widgets.WeatherWidgetRenderer>()

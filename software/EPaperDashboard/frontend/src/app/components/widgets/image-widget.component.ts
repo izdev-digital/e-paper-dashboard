@@ -1,16 +1,20 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, ImageConfig } from '../../models/types';
+import { WidgetConfig, ColorScheme, ImageConfig, DashboardLayout } from '../../models/types';
 import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-image',
   standalone: true,
   imports: [CommonModule, ResolveUrlPipe],
   template: `
-    <div class="image-widget-wrapper">
+    <div class="image-widget-wrapper"
+      [style.--widget-title-font-size]="renderContext.titleFontSize + 'px'"
+      [style.--widget-title-font-weight]="renderContext.titleFontWeight"
+      [style.--widget-title-color]="renderContext.titleColor">
       @if (widget.showTitle !== false && widget.titleOverride) {
-        <h4 class="image-title">{{ widget.titleOverride }}</h4>
+        <h4 class="widget-frame-title">{{ widget.titleOverride }}</h4>
       }
       <div class="image-widget-container">
         <img
@@ -20,7 +24,6 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
           [style.height.%]="(cfg.zoom ?? 1) * 100"
           [style.left.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetX ?? 0) + 1) * 50"
           [style.top.%]="-((cfg.zoom ?? 1) - 1) * ((cfg.offsetY ?? 0) + 1) * 50"
-          style="object-fit: contain;"
         />
       </div>
     </div>
@@ -31,16 +34,6 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
       height: 100%;
       display: flex;
       flex-direction: column;
-    }
-    
-    .image-title {
-      margin: 0;
-      padding: 8px 12px 4px 12px;
-      font-size: 15px;
-      font-weight: 600;
-      text-align: center;
-      line-height: 1.2;
-      flex-shrink: 0;
     }
     
     .image-widget-container {
@@ -60,8 +53,13 @@ import { ResolveUrlPipe } from '../../pipes/resolve-url.pipe';
 export class ImageWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
+  @Input() designerSettings?: DashboardLayout;
 
   get cfg(): ImageConfig {
     return this.widget.config as ImageConfig;
+  }
+
+  get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

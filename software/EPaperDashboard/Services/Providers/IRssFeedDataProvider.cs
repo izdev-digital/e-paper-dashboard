@@ -7,10 +7,10 @@ namespace EPaperDashboard.Services.Providers;
 /// </summary>
 public interface IRssFeedDataProvider
 {
-    Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntriesAsync(string dashboardId, string entityId);
+    Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntriesAsync(string dashboardId, string entityId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Discovers all available RSS feed entities and fetches entries for each.
     /// </summary>
-    Task<Result<Dictionary<string, List<RssFeedEntry>>, string>> FetchAllRssFeedEntriesAsync(string dashboardId);
+    Task<Result<Dictionary<string, List<RssFeedEntry>>, string>> FetchAllRssFeedEntriesAsync(string dashboardId, CancellationToken cancellationToken = default);
 }

@@ -11,12 +11,13 @@ using RectangleF = SixLabors.ImageSharp.RectangleF;
 
 namespace EPaperDashboard.Services.Rendering.Widgets;
 
-public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRenderer
+public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IEditableWidgetRenderer
 {
     public string WidgetType => "header";
 
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
+        var renderPlan = BuildRenderPlan(widget, contentRect);
         var ctx = WidgetRenderContext.Create(widget, layout);
         var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
@@ -33,16 +34,8 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
 
         if (widget.ShowTitle && !string.IsNullOrEmpty(title))
         {
-            var titleX = RenderingUtilities.GetDoubleProp(widget.Config, "titleX") ?? (isIconOnLeft ? 58.0 : 0.0);
-            var titleY = RenderingUtilities.GetDoubleProp(widget.Config, "titleY") ?? 0.0;
-            var titleW = RenderingUtilities.GetDoubleProp(widget.Config, "titleW") ?? 42.0;
-            var titleH = RenderingUtilities.GetDoubleProp(widget.Config, "titleH") ?? 50.0;
-
-            var sectionRect = new RectangleF(
-                contentRect.X + (float)(titleX / 100.0 * contentRect.Width),
-                contentRect.Y + (float)(titleY / 100.0 * contentRect.Height),
-                (float)(titleW / 100.0 * contentRect.Width),
-                (float)(titleH / 100.0 * contentRect.Height));
+            var titleElement = renderPlan.Elements.First(element => element.Kind == "title");
+            var sectionRect = ToRectangle(titleElement.Bounds);
 
             var effectiveIconSize = Math.Min(iconSize, sectionRect.Height);
 
@@ -94,16 +87,9 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
                 bool hasContent = !string.IsNullOrWhiteSpace(bEntityId) || !string.IsNullOrWhiteSpace(bIcon);
                 if (!hasContent) { badgeIndex++; continue; }
 
-                var bx = RenderingUtilities.GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
-                var by = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
-                var bw = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
-                var bh = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
-
-                var badgeRect = new RectangleF(
-                    contentRect.X + (float)(bx / 100.0 * contentRect.Width),
-                    contentRect.Y + (float)(by / 100.0 * contentRect.Height),
-                    (float)(bw / 100.0 * contentRect.Width),
-                    (float)(bh / 100.0 * contentRect.Height));
+                var badgeElement = renderPlan.Elements.First(element =>
+                    element.Kind == "badge" && element.Index == badgeIndex);
+                var badgeRect = ToRectangle(badgeElement.Bounds);
 
                 float badgePadding = 4f;
                 float textStartX = badgeRect.X + badgePadding;
@@ -134,4 +120,78 @@ public sealed class HeaderWidgetRenderer(RenderingUtilities utils) : IWidgetRend
 
         return Task.CompletedTask;
     }
+
+    public EditableWidgetRenderPlan BuildRenderPlan(
+        WidgetConfigEntry widget,
+        RectangleF contentRect)
+    {
+        var result = new List<EditableWidgetElementGeometry>();
+        var iconPosition = RenderingUtilities.GetStringProp(widget.Config, "iconPosition") ?? "left";
+        var titleX = RenderingUtilities.GetDoubleProp(widget.Config, "titleX") ?? (iconPosition != "right" ? 58.0 : 0.0);
+        var titleY = RenderingUtilities.GetDoubleProp(widget.Config, "titleY") ?? 0.0;
+        var titleW = RenderingUtilities.GetDoubleProp(widget.Config, "titleW") ?? 42.0;
+        var titleH = RenderingUtilities.GetDoubleProp(widget.Config, "titleH") ?? 50.0;
+
+        if (widget.ShowTitle)
+            result.Add(CreateElement(
+                "title", "title", null, titleX, titleY, titleW, titleH, contentRect,
+                new EditableElementLayoutBinding(
+                    "/config/titleX", "/config/titleY", "/config/titleW", "/config/titleH"),
+                "Header title"));
+
+        if (widget.Config.TryGetProperty("badges", out var badges) && badges.ValueKind == JsonValueKind.Array)
+        {
+            var badgeIndex = 0;
+            foreach (var badge in badges.EnumerateArray())
+            {
+                var x = RenderingUtilities.GetBadgeDoubleProp(badge, "x") ?? (badgeIndex % 4) * 22.0;
+                var y = RenderingUtilities.GetBadgeDoubleProp(badge, "y") ?? Math.Floor((double)badgeIndex / 4) * 30.0;
+                var w = RenderingUtilities.GetBadgeDoubleProp(badge, "w") ?? 22.0;
+                var h = RenderingUtilities.GetBadgeDoubleProp(badge, "h") ?? 30.0;
+                var configuredId = badge.TryGetProperty("id", out var idProperty)
+                    ? idProperty.GetString()
+                    : null;
+                result.Add(CreateElement(
+                    string.IsNullOrWhiteSpace(configuredId) ? $"badge-{badgeIndex}" : $"badge-{configuredId}",
+                    "badge", badgeIndex, x, y, w, h, contentRect,
+                    new EditableElementLayoutBinding(
+                        $"/config/badges/{badgeIndex}/x",
+                        $"/config/badges/{badgeIndex}/y",
+                        $"/config/badges/{badgeIndex}/w",
+                        $"/config/badges/{badgeIndex}/h"),
+                    $"Badge {badgeIndex + 1}"));
+                badgeIndex++;
+            }
+        }
+
+        return new EditableWidgetRenderPlan(result);
+    }
+
+    private static EditableWidgetElementGeometry CreateElement(
+        string id,
+        string kind,
+        int? index,
+        double x,
+        double y,
+        double width,
+        double height,
+        RectangleF contentRect,
+        EditableElementLayoutBinding layoutBinding,
+        string label)
+    {
+        var position = new RenderRectangle(x, y, width, height);
+        var bounds = new RenderRectangle(
+            contentRect.X + x / 100.0 * contentRect.Width,
+            contentRect.Y + y / 100.0 * contentRect.Height,
+            width / 100.0 * contentRect.Width,
+            height / 100.0 * contentRect.Height);
+        return new EditableWidgetElementGeometry(
+            id, kind, index, bounds, position, layoutBinding, label);
+    }
+
+    private static RectangleF ToRectangle(RenderRectangle rectangle) => new(
+        (float)rectangle.X,
+        (float)rectangle.Y,
+        (float)rectangle.Width,
+        (float)rectangle.Height);
 }

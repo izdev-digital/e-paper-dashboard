@@ -5,52 +5,52 @@ import { RouterModule } from '@angular/router';
   selector: 'app-home',
   imports: [RouterModule],
   template: `
-    <div class="izboard-hero bg-transition-300 d-flex align-items-start justify-content-center" style="min-height:100vh;padding-top:56px;">
-      <div class="px-3" style="max-width:680px;width:100%;margin:0 auto;">
+    <div class="izboard-hero bg-transition-300">
+      <div class="hero-content px-3">
         <!-- Logo -->
         <div class="mb-4 text-center">
-          <img src="icon.svg" alt="izBoard Logo" class="hero-logo">
+          <img src="icon.svg" alt="" class="hero-logo">
         </div>
 
         <!-- Headline -->
-        <h1 class="fw-bold hero-title mb-3 text-center" style="font-size:3rem;letter-spacing:-1px;line-height:1.2;margin-bottom:0.85rem !important;">
+        <h1 class="fw-bold hero-title mb-3 text-center">
           izBoard
         </h1>
 
         <!-- Subtitle -->
-        <p class="hero-subtitle text-center mb-4" style="font-size:1.15rem;margin-bottom:1.5rem !important;line-height:1.45;color:var(--bs-secondary-color);max-width:520px;margin-left:auto;margin-right:auto;">
+        <p class="hero-subtitle text-center mb-4">
           Bring Home Assistant dashboards to an E‑Paper display
         </p>
 
         <!-- Core features -->
-        <div class="hero-features mb-4" style="margin-bottom:1.5rem !important;max-width:620px;margin-left:auto;margin-right:auto;display:flex;flex-direction:column;gap:8px;">
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-house" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">
+        <div class="hero-features mb-4">
+          <div class="feature-item">
+            <i class="fa-solid fa-house" aria-hidden="true"></i>
+            <div>
               Works with your existing Home Assistant dashboard views and cards
-              <i class="fa-solid fa-circle-info" style="font-size:0.875rem;color:var(--bs-secondary-color);margin-left:0.35rem;cursor:help;" title="Dashboards and cards should follow sizing and color guidelines for optimal E‑Paper display"></i>
+              <i class="fa-solid fa-circle-info feature-info" aria-hidden="true" title="Dashboards and cards should follow sizing and color guidelines for optimal E-Paper display"></i>
             </div>
           </div>
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-palette" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Drag-and-drop designer to create custom dashboard layouts</div>
+          <div class="feature-item">
+            <i class="fa-solid fa-palette" aria-hidden="true"></i>
+            <div>Drag-and-drop designer to create custom dashboard layouts</div>
           </div>
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-wand-magic-sparkles" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">AI-powered dashboard generation from natural language prompts</div>
+          <div class="feature-item">
+            <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <div>AI-powered dashboard generation from natural language prompts</div>
           </div>
-          <div class="feature-item" style="display:flex;gap:0.75rem;align-items:flex-start;justify-content:flex-start;padding:12px 14px;border:1px solid rgba(128,128,128,0.3);border-radius:12px;background:rgba(128,128,128,0.1);text-align:center;transition:all 0.2s ease;box-shadow:0 2px 4px rgba(0,0,0,0.08);cursor:default;">
-            <i class="fa-solid fa-clock" style="font-size:1.15rem;color:var(--bs-primary);flex-shrink:0;margin-top:0.15rem;"></i>
-            <div style="font-size:1rem;line-height:1.6;color:var(--bs-body-color);text-align:left;flex:1;">Automatic updates on your schedule for long battery life</div>
+          <div class="feature-item">
+            <i class="fa-solid fa-clock" aria-hidden="true"></i>
+            <div>Automatic updates on your schedule for long battery life</div>
           </div>
         </div>
 
         <!-- CTA Buttons -->
         <div class="d-flex gap-3 justify-content-center flex-wrap">
-          <a class="btn btn-primary btn-lg px-5 hero-btn-primary" routerLink="/dashboards" style="font-weight:600;font-size:1.05rem;padding:0.75rem 2.25rem !important;">
-            Get Started
+          <a class="btn btn-primary btn-lg px-5 hero-btn-primary" routerLink="/dashboards">
+            Get started
           </a>
-          <a class="btn btn-outline-primary btn-lg px-5 hero-btn-github" href="https://github.com/izdev-digital/e-paper-dashboard" target="_blank" style="font-weight:600;font-size:1.05rem;padding:0.75rem 2.25rem !important;border-width:1.5px;">
+          <a class="btn btn-outline-primary btn-lg px-5 hero-btn-github" href="https://github.com/izdev-digital/e-paper-dashboard" target="_blank" rel="noopener noreferrer">
             GitHub
           </a>
         </div>
@@ -60,8 +60,71 @@ import { RouterModule } from '@angular/router';
   styles: [`
     .izboard-hero {
       position:relative;
-      overflow:hidden;
+      min-height:100%;
+      overflow:clip;
+      padding: clamp(1rem, 3.5vh, 2rem) 0 max(2rem, env(safe-area-inset-bottom));
       background: var(--bs-body-bg);
+    }
+
+    .hero-content {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .hero-title {
+      font-size: clamp(2.25rem, 7vw, 3rem);
+      letter-spacing: -1px;
+      line-height: 1.2;
+    }
+
+    .hero-subtitle {
+      max-width: 520px;
+      margin-inline: auto;
+      color: var(--bs-secondary-color);
+      font-size: 1.15rem;
+      line-height: 1.45;
+    }
+
+    .hero-features {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-width: 900px;
+      margin-inline: auto;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 0.875rem;
+      border: 1px solid rgba(128,128,128,0.3);
+      border-radius: 0.75rem;
+      background: rgba(128,128,128,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      transition: all 0.2s ease;
+    }
+
+    .feature-item > i {
+      flex-shrink: 0;
+      margin-top: 0.2rem;
+      color: var(--bs-primary);
+      font-size: 1.15rem;
+    }
+
+    .feature-item > div {
+      flex: 1;
+      color: var(--bs-body-color);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .feature-info {
+      margin-left: 0.35rem;
+      color: var(--bs-secondary-color);
+      font-size: 0.875rem;
+      cursor: help;
     }
     
     /* Light mode - subtle neutral gradient */
@@ -136,8 +199,8 @@ import { RouterModule } from '@angular/router';
     }
     
     .hero-logo {
-      width:160px;
-      height:160px;
+      width:120px;
+      height:120px;
       border-radius:20px;
       transition: box-shadow 0.3s ease, transform 0.3s ease;
     }
@@ -157,6 +220,10 @@ import { RouterModule } from '@angular/router';
     .hero-btn-primary,
     .hero-btn-github {
       transition: all 0.2s ease;
+      padding: 0.75rem 2.25rem;
+      border-width: 1.5px;
+      font-size: 1.05rem;
+      font-weight: 600;
     }
     
     .hero-btn-primary:hover {
@@ -207,6 +274,16 @@ import { RouterModule } from '@angular/router';
       .hero-logo {
         width:100px;
         height:100px;
+      }
+      .izboard-hero {
+        padding-top: 1rem;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .hero-features {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
   `]

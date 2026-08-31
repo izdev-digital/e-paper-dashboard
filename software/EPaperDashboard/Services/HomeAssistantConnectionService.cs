@@ -60,7 +60,7 @@ public class HomeAssistantConnectionService(
     /// Returns a connected and authenticated WebSocket to Home Assistant for the given dashboard.
     /// Caller is responsible for disposing the returned WebSocket.
     /// </summary>
-    public async Task<ClientWebSocket> ConnectAsync(string dashboardId)
+    public async Task<ClientWebSocket> ConnectAsync(string dashboardId, CancellationToken cancellationToken = default)
     {
         var dashboardResult = ValidateAndGetDashboard(dashboardId);
         if (dashboardResult.IsFailure)
@@ -72,7 +72,7 @@ public class HomeAssistantConnectionService(
         var (hostUrl, token) = GetHostAndToken(dashboard);
         hostUrl = hostUrl.TrimEnd('/');
 
-        return await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WebSocketPath);
+        return await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, WebSocketPath, cancellationToken);
     }
 
     /// <summary>
@@ -93,11 +93,11 @@ public class HomeAssistantConnectionService(
 
     public int NextMessageId() => _messageId++;
 
-    public static async Task SendMessageAsync(ClientWebSocket ws, object message)
+    public static async Task SendMessageAsync(ClientWebSocket ws, object message, CancellationToken cancellationToken = default)
     {
         var json = JsonSerializer.Serialize(message);
         var bytes = Encoding.UTF8.GetBytes(json);
-        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
+        await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken);
     }
 
     public static async Task<string> ReceiveMessageAsync(ClientWebSocket ws)

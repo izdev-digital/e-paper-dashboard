@@ -30,7 +30,7 @@ public class AiDataFetcherTests
             .ReturnsAsync(Result.Success<Dictionary<string, List<CalendarEvent>>, string>([]));
         _weatherForecastProvider
             .Setup(p => p.FetchAllWeatherForecastsAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(Result.Success<Dictionary<string, List<object?>>, string>([]));
+            .ReturnsAsync(Result.Success<Dictionary<string, List<WeatherForecast>>, string>([]));
         _rssFeedDataProvider
             .Setup(p => p.FetchAllRssFeedEntriesAsync(It.IsAny<string>()))
             .ReturnsAsync(Result.Success<Dictionary<string, List<RssFeedEntry>>, string>([]));
@@ -101,7 +101,7 @@ public class AiDataFetcherTests
         _calendarDataProvider.Setup(p => p.FetchAllCalendarEventsAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ReturnsAsync(Result.Failure<Dictionary<string, List<CalendarEvent>>, string>("x"));
         _weatherForecastProvider.Setup(p => p.FetchAllWeatherForecastsAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(Result.Failure<Dictionary<string, List<object?>>, string>("x"));
+            .ReturnsAsync(Result.Failure<Dictionary<string, List<WeatherForecast>>, string>("x"));
         _rssFeedDataProvider.Setup(p => p.FetchAllRssFeedEntriesAsync(It.IsAny<string>()))
             .ReturnsAsync(Result.Failure<Dictionary<string, List<RssFeedEntry>>, string>("x"));
 

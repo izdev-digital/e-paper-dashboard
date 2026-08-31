@@ -22,7 +22,7 @@ public class DashboardRssFeedController(
     [HttpGet("{feedEntityId}")]
     public async Task<IActionResult> GetRssFeedEntries(string dashboardId, string feedEntityId)
     {
-        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, feedEntityId);
+        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, feedEntityId, HttpContext.RequestAborted);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch RSS feed entries: {Error}", result.Error);

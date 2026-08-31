@@ -11,15 +11,15 @@ public sealed class AiDataFetcher(
     IRssFeedDataProvider rssFeedDataProvider,
     ILogger<AiDataFetcher> logger)
 {
-    public async Task<AiDataSnapshot> FetchAsync(string dashboardId)
+    public async Task<AiDataSnapshot> FetchAsync(string dashboardId, CancellationToken cancellationToken = default)
     {
         var data = new AiDataSnapshot();
 
-        var entityStatesTask = SafeFetchAsync(() => entityStateProvider.FetchAllEntityStatesAsync(dashboardId));
-        var todoTask = SafeFetchAsync(() => todoDataProvider.FetchAllTodoItemsAsync(dashboardId));
-        var calendarTask = SafeFetchAsync(() => calendarDataProvider.FetchAllCalendarEventsAsync(dashboardId));
-        var weatherTask = SafeFetchAsync(() => weatherForecastProvider.FetchAllWeatherForecastsAsync(dashboardId));
-        var rssTask = SafeFetchAsync(() => rssFeedDataProvider.FetchAllRssFeedEntriesAsync(dashboardId));
+        var entityStatesTask = SafeFetchAsync(() => entityStateProvider.FetchAllEntityStatesAsync(dashboardId, cancellationToken), cancellationToken);
+        var todoTask = SafeFetchAsync(() => todoDataProvider.FetchAllTodoItemsAsync(dashboardId, cancellationToken), cancellationToken);
+        var calendarTask = SafeFetchAsync(() => calendarDataProvider.FetchAllCalendarEventsAsync(dashboardId, cancellationToken: cancellationToken), cancellationToken);
+        var weatherTask = SafeFetchAsync(() => weatherForecastProvider.FetchAllWeatherForecastsAsync(dashboardId, cancellationToken: cancellationToken), cancellationToken);
+        var rssTask = SafeFetchAsync(() => rssFeedDataProvider.FetchAllRssFeedEntriesAsync(dashboardId, cancellationToken), cancellationToken);
 
         await Task.WhenAll(entityStatesTask, todoTask, calendarTask, weatherTask, rssTask);
 
@@ -64,7 +64,7 @@ public sealed class AiDataFetcher(
         return data;
     }
 
-    private async Task<T?> SafeFetchAsync<T>(Func<Task<Result<T, string>>> fetch) where T : class
+    private async Task<T?> SafeFetchAsync<T>(Func<Task<Result<T, string>>> fetch, CancellationToken cancellationToken) where T : class
     {
         try
         {
@@ -75,6 +75,10 @@ public sealed class AiDataFetcher(
                 return null;
             }
             return result.Value;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
         {

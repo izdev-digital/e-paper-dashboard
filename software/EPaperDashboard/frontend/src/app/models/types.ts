@@ -109,7 +109,7 @@ export interface WidgetPosition {
   y: number;
   w: number;
   h: number;
-  /** Computed pixel position/size – populated on save for SSR */
+  /** Legacy derived values retained when reading older saved layouts. */
   pixelX?: number;
   pixelY?: number;
   pixelWidth?: number;
@@ -182,6 +182,8 @@ export interface HeaderConfig {
 }
 
 export interface BadgeConfig {
+  /** Stable identity used by the native editor when badges are reordered. */
+  id?: string;
   entityId?: string;
   icon?: string;
   /** Position and size as % of the header widget bounds (set by the visual editor) */
@@ -197,6 +199,8 @@ export interface MarkdownConfig {
 
 export interface AiContentConfig {
   prompt: string;
+  /** Controls whether smart-home data is included with the generation request. */
+  dataScope?: 'none' | 'dashboard';
 }
 
 export type CalendarEventItemType = 'datetime' | 'title' | 'location' | 'description';
@@ -259,9 +263,16 @@ export interface WeatherForecastConfig {
   rowGap?: number; // Gap between rows in each column in px (default 0)
 }
 
+export function getWeatherForecastDataKey(entityId: string, forecastMode?: string): string {
+  const forecastType = forecastMode === 'hourly' ? 'hourly' : 'daily';
+  return `${entityId}\u0000${forecastType}`;
+}
+
 export type WeatherItemType = 'title' | 'temperature' | 'condition' | 'pressure' | 'attribute';
 
 export interface WeatherItemConfig {
+  /** Stable identity used by the native editor when items are reordered. */
+  id?: string;
   type: WeatherItemType;
   visible?: boolean;
   /** Font Awesome icon class (e.g. 'fa-temperature-half'). Each item type has a default. */
@@ -299,11 +310,11 @@ export function defaultWeatherItemIcon(type: WeatherItemType, attributeKey?: str
 }
 
 export const DEFAULT_WEATHER_ITEMS: WeatherItemConfig[] = [
-  { type: 'title',       visible: true, x: 0,  y: 0,  w: 100, h: 20 },
-  { type: 'temperature', visible: true, x: 0,  y: 22, w: 50,  h: 20, icon: 'fa-temperature-half' },
-  { type: 'condition',   visible: true, x: 50, y: 22, w: 50,  h: 20, icon: 'fa-cloud-sun' },
-  { type: 'pressure',    visible: true, x: 0,  y: 44, w: 50,  h: 20, icon: 'fa-gauge' },
-  { type: 'attribute',   visible: true, x: 50, y: 44, w: 50,  h: 20, attributeKey: 'humidity', label: 'Humidity', icon: 'fa-droplet' },
+  { id: 'weather-title', type: 'title', visible: true, x: 0, y: 0, w: 100, h: 20 },
+  { id: 'weather-temperature', type: 'temperature', visible: true, x: 0, y: 22, w: 50, h: 20, icon: 'fa-temperature-half' },
+  { id: 'weather-condition', type: 'condition', visible: true, x: 50, y: 22, w: 50, h: 20, icon: 'fa-cloud-sun' },
+  { id: 'weather-pressure', type: 'pressure', visible: true, x: 0, y: 44, w: 50, h: 20, icon: 'fa-gauge' },
+  { id: 'weather-humidity', type: 'attribute', visible: true, x: 50, y: 44, w: 50, h: 20, attributeKey: 'humidity', label: 'Humidity', icon: 'fa-droplet' },
 ];
 
 export interface WeatherConfig {

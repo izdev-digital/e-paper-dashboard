@@ -22,7 +22,7 @@ public class DashboardWeatherController(
     [HttpGet("{weatherEntityId}")]
     public async Task<IActionResult> GetWeatherForecast(string dashboardId, string weatherEntityId, [FromQuery] string forecastType = "daily")
     {
-        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, weatherEntityId, forecastType);
+        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, weatherEntityId, forecastType, HttpContext.RequestAborted);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch weather forecast: {Error}", result.Error);
@@ -30,6 +30,6 @@ public class DashboardWeatherController(
         }
 
         _logger.LogInformation("Successfully fetched weather forecast for entity {Entity}", weatherEntityId);
-        return Ok(new { data = result.Value });
+        return Ok(new { data = new { forecast = result.Value } });
     }
 }

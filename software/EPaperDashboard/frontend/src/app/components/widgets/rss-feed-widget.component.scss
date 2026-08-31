@@ -77,19 +77,6 @@
   overflow: hidden;
 }
 
-.feed-title {
-  margin: 0 0 0.5rem 0;
-  font-size: var(--titleFontSize);
-  font-weight: var(--titleFontWeight);
-  color: var(--titleColor);
-  line-height: 1.2;
-  flex-shrink: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  word-break: break-word;
-}
-
 .rss-entry {
   display: flex;
   flex-direction: column;

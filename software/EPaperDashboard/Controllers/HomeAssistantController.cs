@@ -46,7 +46,7 @@ public class HomeAssistantController(
     [DashboardOwnerFromBody]
     public async Task<IActionResult> FetchEntityStates([FromBody] FetchEntityStatesRequest request)
     {
-        var result = await _entityStateProvider.FetchEntityStatesAsync(request.DashboardId, request.EntityIds ?? []);
+        var result = await _entityStateProvider.FetchEntityStatesAsync(request.DashboardId, request.EntityIds ?? [], HttpContext.RequestAborted);
 
         return result.IsSuccess
             ? Ok(new { states = result.Value })
@@ -63,7 +63,7 @@ public class HomeAssistantController(
         if (hours > 720)
             hours = 720;
 
-        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(request.DashboardId, request.EntityIds ?? [], hours);
+        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(request.DashboardId, request.EntityIds ?? [], hours, HttpContext.RequestAborted);
 
         return result.IsSuccess
             ? Ok(new { history = result.Value })

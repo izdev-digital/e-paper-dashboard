@@ -294,9 +294,6 @@ public sealed class RenderingUtilities
 
     public static (double X, double Y, double Width, double Height) ResolvePixelPosition(WidgetPositionConfig pos, LayoutConfig layout)
     {
-        if (pos.PixelX.HasValue && pos.PixelY.HasValue && pos.PixelWidth.HasValue && pos.PixelHeight.HasValue)
-            return (pos.PixelX.Value, pos.PixelY.Value, pos.PixelWidth.Value, pos.PixelHeight.Value);
-
         var padding = layout.CanvasPadding;
         var gap = layout.WidgetGap;
         var cols = Math.Max(1, layout.GridCols);

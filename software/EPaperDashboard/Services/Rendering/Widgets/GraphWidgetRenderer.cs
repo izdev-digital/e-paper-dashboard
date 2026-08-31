@@ -22,21 +22,14 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var textColor = ctx.TextColor;
         var titleColor = ctx.TitleColor;
         var textFontSize = ctx.TextFontSize;
-        var titleFontSize = ctx.TitleFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var gridColorStr = widget.ColorOverrides?.WidgetBorderColor ?? layout.ColorScheme.WidgetBorderColor;
 
-        // Render title if configured — match frontend .graph-title { padding: 8px 12px 4px 12px }
-        if (widget.ShowTitle && !string.IsNullOrEmpty(widget.TitleOverride))
-        {
-            var titleRect = new RectangleF(contentRect.X + 12, contentRect.Y, contentRect.Width - 24, titleFontSize + 8);
-            TextDrawing.DrawTextCentered(image, widget.TitleOverride, utils.GetFont(titleFontSize, titleFontWeight), titleColor, titleRect);
-            contentRect = new RectangleF(contentRect.X, contentRect.Y + titleFontSize + 8, contentRect.Width, contentRect.Height - titleFontSize - 8);
-        }
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(image, widget, layout, utils, contentRect);
 
         var plotType = RenderingUtilities.GetStringProp(widget.Config, "plotType") ?? "line";
         var lineWidth = RenderingUtilities.GetIntProp(widget.Config, "lineWidth") ?? 2;
         var barWidth = RenderingUtilities.GetIntProp(widget.Config, "barWidth") ?? 2;
+        var periodHours = GetPeriodHours(RenderingUtilities.GetStringProp(widget.Config, "period"));
 
         var seriesList = new List<(string EntityId, string Label, string Color)>();
         if (widget.Config.TryGetProperty("series", out var series) && series.ValueKind == JsonValueKind.Array)
@@ -53,7 +46,26 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
             }
         }
 
-        var hasData = seriesList.Any(s => data.HistoryData.ContainsKey(s.EntityId) && data.HistoryData[s.EntityId].Count > 0);
+        var availableStates = seriesList
+            .Select(seriesEntry => seriesEntry.EntityId)
+            .Distinct(StringComparer.Ordinal)
+            .SelectMany(entityId => data.HistoryData.GetValueOrDefault(entityId) ?? [])
+            .ToList();
+        var latestTimestamp = availableStates.Count > 0
+            ? availableStates.Max(state => state.LastChanged)
+            : DateTime.MinValue;
+        var cutoff = latestTimestamp.AddHours(-periodHours);
+        var historyByEntity = seriesList
+            .Select(seriesEntry => seriesEntry.EntityId)
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(
+                entityId => entityId,
+                entityId => (data.HistoryData.GetValueOrDefault(entityId) ?? [])
+                    .Where(state => state.LastChanged >= cutoff)
+                    .ToList(),
+                StringComparer.Ordinal);
+
+        var hasData = historyByEntity.Values.Any(states => states.Count > 0);
         if (!hasData)
         {
             TextDrawing.DrawCenteredText(image, "Graph", utils.GetFont(textFontSize), titleColor, contentRect);
@@ -65,7 +77,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         var allTimestamps = new List<DateTime>();
         foreach (var (entityId, _, _) in seriesList)
         {
-            if (!data.HistoryData.TryGetValue(entityId, out var states)) continue;
+            if (!historyByEntity.TryGetValue(entityId, out var states)) continue;
             foreach (var s in states)
             {
                 allValues.Add(s.NumericValue);
@@ -139,7 +151,7 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
         // Render series
         foreach (var (entityId, label, color) in seriesList)
         {
-            if (!data.HistoryData.TryGetValue(entityId, out var states) || states.Count == 0) continue;
+            if (!historyByEntity.TryGetValue(entityId, out var states) || states.Count == 0) continue;
             var seriesColor = ColorUtils.ParseColor(color);
             var ordered = states.OrderBy(s => s.LastChanged).ToList();
 
@@ -212,4 +224,13 @@ public sealed class GraphWidgetRenderer(RenderingUtilities utils) : IWidgetRende
 
         return Task.CompletedTask;
     }
+
+    private static int GetPeriodHours(string? period) => period switch
+    {
+        "1h" => 1,
+        "6h" => 6,
+        "7d" => 168,
+        "30d" => 720,
+        _ => 24
+    };
 }

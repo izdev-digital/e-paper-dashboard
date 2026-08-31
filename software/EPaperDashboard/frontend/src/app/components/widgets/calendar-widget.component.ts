@@ -18,6 +18,7 @@ import {
   defaultCalendarEventItemIcon,
   DashboardLayout,
 } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-calendar',
@@ -33,6 +34,9 @@ import {
          [style.--iconColor]="getIconColor()"
          [style.--titleColor]="getTitleColor()"
          [style.--textColor]="getTextColor()"
+         [style.--widget-title-font-size]="getHeaderFontSize() + 'px'"
+         [style.--widget-title-font-weight]="getHeaderFontWeight()"
+         [style.--widget-title-color]="getTitleColor()"
          [style.color]="getTextColor()">
 
       @if (!isDataFetched()) {
@@ -44,7 +48,7 @@ import {
       @if (isDataFetched()) {
         <div class="calendar-content">
           @if (widget.showTitle !== false) {
-            <h4>{{ widget.titleOverride || 'Events' }}</h4>
+            <h4 class="widget-frame-title">{{ widget.titleOverride || 'Events' }}</h4>
           }
           @if (getUpcomingEvents(config.entityId).length > 0) {
             <div class="calendar-events"
@@ -127,19 +131,19 @@ export class CalendarWidgetComponent implements OnChanges {
 
   // ─── style helpers ────────────────────────────────────────────────────────
   getHeaderFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getEventFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getHeaderFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getEventFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   /**
@@ -295,23 +299,18 @@ export class CalendarWidgetComponent implements OnChanges {
   }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

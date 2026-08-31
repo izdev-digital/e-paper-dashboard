@@ -368,6 +368,19 @@ public record HassEntityState
     public Dictionary<string, object?> Attributes { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
+public record WeatherForecast
+{
+    public string? Datetime { get; init; }
+    public string? Condition { get; init; }
+    public double? Temperature { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("templow")]
+    public double? TempLow { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("precipitation_probability")]
+    public double? PrecipitationProbability { get; init; }
+    [System.Text.Json.Serialization.JsonPropertyName("wind_speed")]
+    public double? WindSpeed { get; init; }
+}
+
 public record TodoItem
 {
     public string Summary { get; init; } = string.Empty;

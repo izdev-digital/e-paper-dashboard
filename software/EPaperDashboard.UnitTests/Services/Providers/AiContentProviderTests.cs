@@ -20,10 +20,10 @@ public class AiContentProviderTests
     private readonly Mock<IAiService> _aiService = new();
     private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 3, 17, 8, 0, 0, TimeSpan.Zero));
 
-    private AiContentProvider CreateSut()
+    private AiContentProvider CreateSut(IEntityStateProvider? entityStateProvider = null)
     {
         var dataFetcher = new AiDataFetcher(
-            StubEntityStateProvider(),
+            entityStateProvider ?? StubEntityStateProvider(),
             StubTodoProvider(),
             StubCalendarProvider(),
             StubWeatherProvider(),
@@ -68,7 +68,7 @@ public class AiContentProviderTests
     {
         var mock = new Mock<IWeatherForecastProvider>();
         mock.Setup(p => p.FetchAllWeatherForecastsAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(Result.Success<Dictionary<string, List<object?>>, string>(new Dictionary<string, List<object?>>()));
+            .ReturnsAsync(Result.Success<Dictionary<string, List<WeatherForecast>>, string>(new Dictionary<string, List<WeatherForecast>>()));
         return mock.Object;
     }
 
@@ -173,6 +173,47 @@ public class AiContentProviderTests
         result.IsFailure.Should().BeTrue();
         dashboard.AiContentCache.Should().BeNull();
         _dashboardRepository.Verify(r => r.Update(It.IsAny<Dashboard>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GenerateAndCacheContentAsync_NoDataScope_DoesNotFetchDashboardData()
+    {
+        var dashboardId = DashboardId.New();
+        var entityStateProvider = new Mock<IEntityStateProvider>();
+        var dashboard = new Dashboard
+        {
+            Id = dashboardId,
+            AiConfig = new AiConfig { ConnectionMode = AiConnectionMode.HomeAssistant },
+            LayoutConfig = new LayoutConfig
+            {
+                Widgets =
+                [
+                    new WidgetConfig
+                    {
+                        Id = "widget-1",
+                        Type = "ai-content",
+                        Config = JsonSerializer.SerializeToElement(new { prompt = "quote", dataScope = "none" })
+                    }
+                ]
+            }
+        };
+        _dashboardRepository.Setup(r => r.FindById(dashboardId)).Returns(dashboard);
+        _aiServiceFactory.Setup(f => f.Create(It.IsAny<AiConfig>(), It.IsAny<string>()))
+            .Returns(Result.Success<IAiService, string>(_aiService.Object));
+        _aiService.Setup(s => s.GenerateCompletionAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), false))
+            .ReturnsAsync(Result.Success<string, string>("private content"));
+        var sut = CreateSut(entityStateProvider.Object);
+
+        var result = await sut.GenerateAndCacheContentAsync(
+            dashboardId.Value,
+            "widget-1",
+            "quote",
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        entityStateProvider.Verify(
+            provider => provider.FetchAllEntityStatesAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

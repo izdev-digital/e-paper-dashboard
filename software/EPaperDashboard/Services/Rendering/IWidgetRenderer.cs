@@ -19,3 +19,15 @@ public interface IWidgetRenderer
     /// </summary>
     Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Optional capability for renderers whose child elements can be repositioned in the designer.
+/// Geometry is returned by the renderer so the interaction overlay follows native output rather
+/// than recreating widget layout in HTML.
+/// </summary>
+public interface IEditableWidgetRenderer : IWidgetRenderer
+{
+    EditableWidgetRenderPlan BuildRenderPlan(
+        WidgetConfigEntry widget,
+        RectangleF contentRect);
+}

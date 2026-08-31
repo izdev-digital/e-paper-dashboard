@@ -21,9 +21,7 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
         var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
         var iconColor = ctx.IconColor;
-        var titleFontSize = ctx.TitleFontSize;
         var textFontSize = ctx.TextFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var textFontWeight = ctx.TextFontWeight;
 
         var entityId = RenderingUtilities.GetStringProp(widget.Config, "entityId") ?? "";
@@ -64,18 +62,12 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
             return Task.CompletedTask;
         }
 
+        var friendlyName = "Tasks";
+        if (data.EntityStates.TryGetValue(entityId, out var es))
+            friendlyName = RenderingUtilities.GetEntityAttr(es, "friendly_name") ?? "Tasks";
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(
+            image, widget, layout, utils, contentRect, friendlyName);
         float yOffset = contentRect.Y;
-
-        if (widget.ShowTitle)
-        {
-            var friendlyName = "Tasks";
-            if (data.EntityStates.TryGetValue(entityId, out var es))
-                friendlyName = RenderingUtilities.GetEntityAttr(es, "friendly_name") ?? "Tasks";
-            var titleText = widget.TitleOverride ?? friendlyName;
-            var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            TextDrawing.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), ColorUtils.WithOpacity(titleColor, 0.9f), titleRect);
-            yOffset += titleFontSize + 10;
-        }
 
         var maxShow = RenderingUtilities.GetIntProp(widget.Config, "maxItems") ?? 50;
         var limited = mapped.Take(maxShow).ToList();
@@ -101,7 +93,19 @@ public sealed class TodoWidgetRenderer(RenderingUtilities utils) : IWidgetRender
             var maxTextH = (todoGlyphHeight + todoExtraSpacing) * 2;
             var textAvailH = Math.Min(maxTextH, contentRect.Bottom - yOffset);
             var textRect = new RectangleF(textX, yOffset, contentRect.Right - textX, textAvailH);
-            var consumed = TextDrawing.DrawWrappedTextEllipsis(image, summary, todoFont, textColor, textRect, maxLines: 2, todoExtraSpacing);
+            var itemTextColor = complete ? ColorUtils.WithOpacity(textColor, 0.6f) : textColor;
+            var consumed = TextDrawing.DrawWrappedTextEllipsis(image, summary, todoFont, itemTextColor, textRect, maxLines: 2, todoExtraSpacing);
+
+            if (complete && consumed > 0)
+            {
+                var strikeY = yOffset + consumed / 2f;
+                var strikeWidth = Math.Min(TextMeasurer.MeasureSize(summary, new TextOptions(todoFont)).Width, textRect.Width);
+                image.Mutate(ctx => ctx.DrawLine(
+                    itemTextColor,
+                    1f,
+                    new PointF(textX, strikeY),
+                    new PointF(textX + strikeWidth, strikeY)));
+            }
 
             yOffset += Math.Max(consumed, lineHeight) + todoItemGap;
         }

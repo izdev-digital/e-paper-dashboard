@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS } from '../../models/types';
+import { WidgetConfig, ColorScheme, HassEntityState, WeatherForecastConfig, DashboardLayout, ForecastField, DEFAULT_FORECAST_FIELDS, getWeatherForecastDataKey } from '../../models/types';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 interface ForecastItem {
   id: number;
@@ -35,6 +36,9 @@ interface ForecastItem {
       [style.--textColor]="getTextColor()"
       [style.--iconColor]="getIconColor()"
       [style.--rowGap]="getRowGap() + 'px'"
+      [style.--widget-title-font-size]="getTitleFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getTitleFontWeight()"
+      [style.--widget-title-color]="getTitleColor()"
       [style.color]="getTextColor()">
       
       @if (!isDataFetched()) {
@@ -46,7 +50,7 @@ interface ForecastItem {
       
       @if (isDataFetched()) {
         @if (!isTinyMode() && widget.showTitle !== false) {
-          <div class="forecast-header">
+          <div class="widget-frame-title">
             {{ widget.titleOverride || 'Forecast' }}
           </div>
         }
@@ -69,10 +73,10 @@ interface ForecastItem {
                   <div class="item-temp item-temp-low">{{ item.tempLow }}{{ getTemperatureUnit() }}</div>
                 }
                 
-                @if (isFieldVisible('precipitation') && item.precip) {
+                @if (isFieldVisible('precipitation') && item.precip !== undefined) {
                   <div class="item-precip">{{ item.precip }}%</div>
                 }
-                @if (isFieldVisible('wind') && item.wind) {
+                @if (isFieldVisible('wind') && item.wind !== undefined) {
                   <div class="item-wind">{{ item.wind }} {{ getWindSpeedUnit() }}</div>
                 }
               </div>
@@ -87,6 +91,7 @@ export class WeatherForecastWidgetComponent {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() weatherForecastsByKey: Record<string, any[]> | null | undefined = null;
   @Input() designerSettings?: DashboardLayout;
 
   get config(): WeatherForecastConfig {
@@ -105,11 +110,7 @@ export class WeatherForecastWidgetComponent {
     const entityId = this.config.entityId;
     if (!entityId) return false;
 
-    const state = this.getEntityState(entityId);
-    if (!state || !state.attributes) return false;
-
-    // Check if we have forecast data in attributes
-    return !!state.attributes['forecast'];
+    return this.getForecast().length > 0;
   }
 
   getWindSpeedUnit(): string {
@@ -143,22 +144,9 @@ export class WeatherForecastWidgetComponent {
   }
 
   getForecastItems(): ForecastItem[] {
-    const state = this.getEntityState(this.config.entityId);
-    if (!state?.attributes?.['forecast']) return [];
-    
-    let forecast = state.attributes['forecast'] as any[];
+    let forecast = this.getForecast();
     const maxItems = this.getMaxForecastItems();
     const mode = this.getForecastMode();
-
-    // Log raw forecast data for debugging
-    if (forecast.length > 0) {
-      console.debug('Raw forecast from Home Assistant:', {
-        mode,
-        count: forecast.length,
-        firstItem: forecast[0],
-        datetimeField: forecast[0]?.datetime || 'NOT FOUND'
-      });
-    }
 
     // For hourly mode, filter to show at least 1 hour apart
     if (mode === 'hourly') {
@@ -172,11 +160,28 @@ export class WeatherForecastWidgetComponent {
       temp: this.roundTemp(item.temperature),
       tempHigh: this.roundTemp(item.temperature),
       tempLow: this.roundTemp(item.templow),
-      precip: item.precipitation_probability ? String(Math.round(Number(item.precipitation_probability))) : undefined,
-      wind: item.wind_speed ? this.roundWind(item.wind_speed) : undefined
+      precip: item.precipitation_probability !== undefined && item.precipitation_probability !== null
+        ? String(Math.round(Number(item.precipitation_probability)))
+        : undefined,
+      wind: item.wind_speed !== undefined && item.wind_speed !== null
+        ? this.roundWind(item.wind_speed)
+        : undefined
     }));
 
     return items;
+  }
+
+  private getForecast(): any[] {
+    const entityId = this.config.entityId;
+    if (!entityId) return [];
+
+    const key = getWeatherForecastDataKey(entityId, this.getForecastMode());
+    if (this.weatherForecastsByKey && key in this.weatherForecastsByKey) {
+      return this.weatherForecastsByKey[key] || [];
+    }
+
+    const state = this.getEntityState(entityId);
+    return (state?.attributes?.['forecast'] as any[] | undefined) || [];
   }
 
   private filterHourlyForecast(forecast: any[]): any[] {
@@ -196,15 +201,6 @@ export class WeatherForecastWidgetComponent {
         filtered.push(forecast[i]);
       }
     }
-    
-    // Log the filtering result for debugging
-    console.debug(
-      `Weather forecast filtering: ${forecast.length} items from Home Assistant → ${filtered.length} items after 1-hour spacing`,
-      {
-        original: forecast.slice(0, 3).map(f => f.datetime),
-        filtered: filtered.slice(0, 3).map(f => f.datetime)
-      }
-    );
     
     return filtered;
   }
@@ -350,23 +346,23 @@ export class WeatherForecastWidgetComponent {
   }
 
   getTitleFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getTitleFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   getSmallFontSize(): number {
-    return Math.round((this.designerSettings?.textFontSize ?? 12) * 0.75);
+    return Math.round(this.renderContext.textFontSize * 0.75);
   }
 
   getRowGap(): number {
@@ -374,24 +370,19 @@ export class WeatherForecastWidgetComponent {
   }
 
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
   isTinyMode(): boolean {

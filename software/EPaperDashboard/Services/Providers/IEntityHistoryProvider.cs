@@ -7,5 +7,5 @@ namespace EPaperDashboard.Services.Providers;
 /// </summary>
 public interface IEntityHistoryProvider
 {
-    Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistoryAsync(string dashboardId, IEnumerable<string> entityIds, int hours = 24);
+    Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistoryAsync(string dashboardId, IEnumerable<string> entityIds, int hours = 24, CancellationToken cancellationToken = default);
 }

@@ -1,22 +1,25 @@
-import { Component, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, effect, inject, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { A11yModule } from '@angular/cdk/a11y';
 import { DialogService } from '../../services/dialog.service';
 
 @Component({
   selector: 'app-confirm-dialog',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, A11yModule],
   template: `
     @if (dialogService.isOpen()) {
       <div class="modal-backdrop position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" 
-           style="background-color: rgba(0,0,0,0.5); z-index: 2000;"
            (click)="onBackdropClick($event)">
-        <div class="card" style="max-width: 400px; min-width: 350px;" (click)="$event.stopPropagation()">
+        <div class="card confirm-dialog" role="alertdialog" aria-modal="true"
+          aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage"
+          cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (click)="$event.stopPropagation()">
           <div class="card-body">
-            <h5 class="card-title mb-3">{{ dialogService.title() }}</h5>
-            <p class="card-text mb-4">{{ dialogService.message() }}</p>
+            <h2 id="confirmDialogTitle" class="h5 card-title mb-3">{{ dialogService.title() }}</h2>
+            <p id="confirmDialogMessage" class="card-text mb-4">{{ dialogService.message() }}</p>
             <div class="d-flex gap-2 justify-content-end">
               <button 
+                #cancelButton
                 type="button" 
                 class="btn btn-secondary"
                 [disabled]="dialogService.isLoading()"
@@ -43,12 +46,44 @@ import { DialogService } from '../../services/dialog.service';
   `,
   styles: [`
     .modal-backdrop {
+      z-index: 2000;
+      background-color: rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(2px);
+      padding: 1rem;
+    }
+
+    .confirm-dialog {
+      width: min(100%, 400px);
+      max-height: calc(100dvh - 2rem);
+      overflow-y: auto;
     }
   `]
 })
 export class ConfirmDialogComponent {
   protected dialogService = inject(DialogService);
+  private readonly cancelButton = viewChild<ElementRef<HTMLButtonElement>>('cancelButton');
+  private previouslyFocusedElement: HTMLElement | null = null;
+  private wasOpen = false;
+
+  constructor() {
+    effect(() => {
+      const isOpen = this.dialogService.isOpen();
+      if (isOpen && !this.wasOpen) {
+        this.previouslyFocusedElement = document.activeElement as HTMLElement | null;
+        setTimeout(() => this.cancelButton()?.nativeElement.focus());
+      } else if (!isOpen && this.wasOpen && this.previouslyFocusedElement) {
+        const element = this.previouslyFocusedElement;
+        this.previouslyFocusedElement = null;
+        setTimeout(() => element.focus());
+      }
+      this.wasOpen = isOpen;
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.dialogService.isOpen() && !this.dialogService.isLoading()) this.cancel();
+  }
 
   async confirm(): Promise<void> {
     await this.dialogService.handleConfirm();
@@ -63,4 +98,3 @@ export class ConfirmDialogComponent {
     event.stopPropagation();
   }
 }
-

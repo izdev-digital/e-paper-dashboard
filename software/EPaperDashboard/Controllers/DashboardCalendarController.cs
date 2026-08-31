@@ -25,7 +25,7 @@ public class DashboardCalendarController(
     public async Task<IActionResult> GetCalendarEvents(string dashboardId, string calendarEntityId, [FromQuery] int hoursAhead = 168)
     {
         hoursAhead = Clamp(hoursAhead, 1, 720);
-        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, calendarEntityId, hoursAhead);
+        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, calendarEntityId, hoursAhead, HttpContext.RequestAborted);
         if (result.IsFailure)
         {
             _logger.LogWarning("Failed to fetch calendar events: {Error}", result.Error);

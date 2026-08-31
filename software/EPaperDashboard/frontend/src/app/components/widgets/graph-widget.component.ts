@@ -1,8 +1,9 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, OnDestroy, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, GraphConfig, GraphSeriesConfig, DashboardLayout } from '../../models/types';
-import { EntityHistoryService } from '../../services/entity-history.service';
+import { WidgetConfig, ColorScheme, GraphConfig, DashboardLayout } from '../../models/types';
+import type { HistoryStateData } from '../../services/dashboard-preview-data.service';
 import { Chart, ChartConfiguration, LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler } from 'chart.js';
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 // Register Chart.js components
 Chart.register(LineController, BarController, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Legend, Tooltip, Filler);
@@ -18,7 +19,10 @@ interface ChartDataPoint {
   imports: [CommonModule],
   styleUrls: ['./graph-widget.component.scss'],
   template: `
-    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()">
+    <div class="graph-widget" [style.color]="getTextColor()" [style.--headerFontSize]="getHeaderFontSize() + 'px'" [style.--headerFontWeight]="getHeaderFontWeight()" [style.--titleColor]="getTitleColor()" [style.--iconColor]="getIconColor()"
+      [style.--widget-title-font-size]="getHeaderFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getHeaderFontWeight()"
+      [style.--widget-title-color]="getTitleColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
           <i class="fa fa-chart-line"></i>
@@ -27,7 +31,7 @@ interface ChartDataPoint {
       }
       @if (isDataFetched()) {
         @if (widget.showTitle !== false && widget.titleOverride) {
-          <h4 class="graph-title">{{ widget.titleOverride }}</h4>
+          <h4 class="widget-frame-title">{{ widget.titleOverride }}</h4>
         }
         <canvas 
           #chartCanvas 
@@ -39,23 +43,22 @@ interface ChartDataPoint {
     </div>
   `
 })
-export class GraphWidgetComponent implements OnInit, OnChanges {
+export class GraphWidgetComponent implements OnInit, OnChanges, OnDestroy {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
-  @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() historyDataByEntityId?: Record<string, HistoryStateData[]>;
   @Input() designerSettings?: DashboardLayout;
-  @Input() dashboardId?: string;
-  @ViewChild('chartCanvas') canvasRef?: ElementRef<HTMLCanvasElement>;
+  private canvasRef?: ElementRef<HTMLCanvasElement>;
+
+  @ViewChild('chartCanvas')
+  set chartCanvas(value: ElementRef<HTMLCanvasElement> | undefined) {
+    this.canvasRef = value;
+    if (value) this.updateChart();
+  }
 
   private chart: Chart | null = null;
   chartDataByEntity: Map<string, ChartDataPoint[]> = new Map();
   lastChartUpdate = 0;
-
-  constructor(private haService: EntityHistoryService) {
-    effect(() => {
-      this.loadChartData();
-    });
-  }
 
   get config(): GraphConfig { 
     const cfg = (this.widget?.config as GraphConfig) || ({} as GraphConfig);
@@ -71,14 +74,20 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['entityStates']) {
+    if (changes['historyDataByEntityId'] || changes['widget']) {
       this.loadChartData();
+    } else if (changes['colorScheme'] || changes['designerSettings']) {
+      this.updateChart();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.chart?.destroy();
   }
 
   hasValidEntities(): boolean {
     return this.config.series && this.config.series.length > 0 && 
-           this.config.series.some(e => e.entityId && this.getEntityState(e.entityId));
+           this.config.series.some(e => e.entityId && this.chartDataByEntity.has(e.entityId));
   }
 
   /**
@@ -97,104 +106,32 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
   }
 
   private loadChartData(): void {
-    if (!this.config.series || this.config.series.length === 0 || !this.dashboardId) {
-      console.log('[Graph Widget] Using mock data. Series:', this.config.series?.length || 0, 'dashboardId:', this.dashboardId);
-      // Fallback to mock data if no series or dashboard ID
-      if (this.config.series && this.config.series.length > 0) {
-        this.config.series.forEach(s => {
-          if (s.entityId) {
-            this.generateMockHistoricalData(s.entityId);
-          }
-        });
-      }
+    if (!this.config.series || this.config.series.length === 0) {
+      this.chartDataByEntity.clear();
       this.updateChart();
       return;
     }
 
-    // Fetch real data from Home Assistant
-    const entityIds = this.config.series
-      .filter(e => e.entityId)
-      .map(e => e.entityId);
-
-    if (entityIds.length === 0) {
-      this.updateChart();
-      return;
+    this.chartDataByEntity.clear();
+    for (const series of this.config.series) {
+      if (!series.entityId || !this.historyDataByEntityId || !(series.entityId in this.historyDataByEntityId)) continue;
+      const points = this.historyDataByEntityId[series.entityId].map(state => ({
+        timestamp: new Date(state.lastChanged),
+        value: state.numericValue
+      }));
+      this.chartDataByEntity.set(series.entityId, points);
     }
-
-    const hoursMap: Record<string, number> = {
-      '1h': 1,
-      '6h': 6,
-      '24h': 24,
-      '7d': 24 * 7,
-      '30d': 24 * 30
-    };
-
-    const hours = hoursMap[this.config.period || '24h'] || 24;
-
-    console.log('[Graph Widget] Fetching history for entities:', entityIds, 'period:', this.config.period, 'dashboardId:', this.dashboardId);
-    this.haService.getEntityHistory(this.dashboardId, entityIds, hours).subscribe({
-      next: (historyData) => {
-        console.log('[Graph Widget] Received history data:', Object.keys(historyData).length, 'entities');
-        Object.entries(historyData).forEach(([id, states]) => {
-          console.log(`  - ${id}: ${states.length} data points`);
-        });
-        this.chartDataByEntity.clear();
-        // Convert API response to chart data format
-        Object.entries(historyData).forEach(([entityId, states]) => {
-          const dataPoints: ChartDataPoint[] = states.map(state => ({
-            timestamp: new Date(state.lastChanged),
-            value: state.numericValue
-          }));
-          this.chartDataByEntity.set(entityId, dataPoints);
-        });
-        this.updateChart();
-      },
-      error: (error) => {
-        console.warn('Failed to fetch entity history, falling back to mock data:', error);
-        // Fallback to mock data on error
-        this.chartDataByEntity.clear();
-        this.config.series.forEach(s => {
-          if (s.entityId) {
-            this.generateMockHistoricalData(s.entityId);
-          }
-        });
-        this.updateChart();
-      }
-    });
-  }
-
-  private generateMockHistoricalData(entityId: string): void {
-    const now = new Date();
-    const period = this.config.period || '24h';
-    let hoursBack = 24;
-
-    switch (period) {
-      case '1h': hoursBack = 1; break;
-      case '6h': hoursBack = 6; break;
-      case '24h': hoursBack = 24; break;
-      case '7d': hoursBack = 24 * 7; break;
-      case '30d': hoursBack = 24 * 30; break;
-    }
-
-    const currentEntityState = this.getEntityState(entityId);
-    const baseValue = parseFloat(currentEntityState?.state || '0');
-
-    const dataPoints: ChartDataPoint[] = [];
-    const interval = Math.max(1, Math.floor(hoursBack / 20)); // Max 20 data points
-
-    for (let i = hoursBack; i >= 0; i -= interval) {
-      const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-      // Add some variation to the data
-      const noise = (Math.random() - 0.5) * (baseValue * 0.2);
-      const value = Math.max(0, baseValue + noise);
-      dataPoints.push({ timestamp, value });
-    }
-
-    this.chartDataByEntity.set(entityId, dataPoints);
+    this.updateChart();
   }
 
   private updateChart(): void {
-    if (!this.canvasRef?.nativeElement || this.chartDataByEntity.size === 0) return;
+    if (this.chartDataByEntity.size === 0) {
+      this.chart?.destroy();
+      this.chart = null;
+      return;
+    }
+
+    if (!this.canvasRef?.nativeElement) return;
 
     const canvas = this.canvasRef.nativeElement;
     const plotType = this.config.plotType || 'line';
@@ -241,7 +178,7 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
             display: this.config.series && this.config.series.length > 1,
             labels: {
               color: this.getTextColor(),
-              font: { size: 10 },
+              font: { size: this.getChartLabelFontSize() },
               boxWidth: 8,
               padding: 8
             }
@@ -260,22 +197,22 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
             display: true,
             grid: {
               display: false,
-              color: `${this.colorScheme?.widgetBorderColor || '#000'}20`
+              color: `${this.renderContext.borderColor}20`
             },
             ticks: {
               color: this.getTextColor(),
-              font: { size: this.getTextFontSize() },
+              font: { size: this.getChartLabelFontSize() },
               maxTicksLimit: 5
             }
           },
           y: {
             display: true,
             grid: {
-              color: `${this.colorScheme?.widgetBorderColor || '#000'}20`
+              color: `${this.renderContext.borderColor}20`
             },
             ticks: {
               color: this.getTextColor(),
-              font: { size: this.getTextFontSize() },
+              font: { size: this.getChartLabelFontSize() },
               maxTicksLimit: 4
             }
           }
@@ -315,45 +252,39 @@ export class GraphWidgetComponent implements OnInit, OnChanges {
     return fallbackColors[index % fallbackColors.length];
   }
 
-  getEntityState(entityId?: string) {
-    if (!entityId || !this.entityStates) return null;
-    return this.entityStates[entityId] ?? null;
-  }
-
   getTitleColor(): string {
-    if (this.widget.colorOverrides?.widgetTitleTextColor) {
-      return this.widget.colorOverrides.widgetTitleTextColor;
-    }
-    return this.colorScheme?.widgetTitleTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    if (this.widget.colorOverrides?.widgetTextColor) {
-      return this.widget.colorOverrides.widgetTextColor;
-    }
-    return this.colorScheme?.widgetTextColor || this.colorScheme?.text || 'currentColor';
+    return this.renderContext.textColor;
   }
 
   getIconColor(): string {
-    if (this.widget.colorOverrides?.iconColor) {
-      return this.widget.colorOverrides.iconColor;
-    }
-    return this.colorScheme?.iconColor || this.colorScheme?.accent || 'currentColor';
+    return this.renderContext.iconColor;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getHeaderFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 15;
+    return this.renderContext.titleFontSize;
   }
 
   getHeaderFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
+  }
+
+  private getChartLabelFontSize(): number {
+    return Math.max(8, this.renderContext.textFontSize - 2);
+  }
+
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 }

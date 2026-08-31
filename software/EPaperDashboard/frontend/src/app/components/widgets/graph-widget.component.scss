@@ -10,17 +10,6 @@
   --iconColor: currentColor;
 }
 
-.graph-title {
-  margin: 0;
-  padding: 8px 12px 4px 12px;
-  font-size: var(--headerFontSize);
-  font-weight: var(--headerFontWeight);
-  color: var(--titleColor);
-  text-align: center;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
 .chart-canvas {
   width: 100% !important;
   height: 100% !important;

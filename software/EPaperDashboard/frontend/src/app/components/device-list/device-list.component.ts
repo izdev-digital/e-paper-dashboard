@@ -1,9 +1,7 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
+import { firstValueFrom } from 'rxjs';
 import { DeviceService, Device } from '../../services/device.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { FirmwareService } from '../../services/firmware.service';
@@ -11,14 +9,13 @@ import { AuthService } from '../../services/auth.service';
 import { DialogService } from '../../services/dialog.service';
 import { ToastService } from '../../services/toast.service';
 import { ClipboardService } from '../../services/clipboard.service';
-import { ToastContainerComponent } from '../toast-container/toast-container.component';
 import { SearchableSelectComponent, SelectOption } from '../searchable-select/searchable-select.component';
 import { Dashboard } from '../../models/types';
 
 @Component({
   selector: 'app-device-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, SearchableSelectComponent],
+  imports: [CommonModule, SearchableSelectComponent],
   styles: [`
     .device-list {
       display: flex;
@@ -31,7 +28,7 @@ import { Dashboard } from '../../models/types';
       padding: 1rem 1.25rem;
       background: var(--bs-body-bg);
       border: 1px solid var(--bs-border-color);
-      border-radius: 0.375rem;
+      border-radius: var(--app-radius);
       transition: all 0.15s ease;
     }
 
@@ -54,6 +51,13 @@ import { Dashboard } from '../../models/types';
       margin: 0;
     }
 
+    .device-title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.625rem;
+    }
+
     .device-meta {
       display: flex;
       flex-wrap: wrap;
@@ -73,6 +77,44 @@ import { Dashboard } from '../../models/types';
       font-size: 0.85rem;
     }
 
+    .device-assignment {
+      display: grid;
+      grid-template-columns: auto minmax(12rem, 280px) auto;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .pairing-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      counter-reset: pairing-step;
+    }
+
+    .pairing-step {
+      position: relative;
+      padding-left: 2.25rem;
+      min-height: 2rem;
+      color: var(--bs-secondary-color);
+      font-size: 0.875rem;
+    }
+
+    .pairing-step::before {
+      counter-increment: pairing-step;
+      content: counter(pairing-step);
+      position: absolute;
+      left: 0;
+      display: grid;
+      place-items: center;
+      width: 1.65rem;
+      height: 1.65rem;
+      border-radius: 50%;
+      color: var(--bs-primary-text-emphasis);
+      background: var(--bs-primary-bg-subtle);
+      font-weight: 700;
+    }
+
     @media (max-width: 768px) {
       .device-header {
         flex-direction: column;
@@ -88,6 +130,15 @@ import { Dashboard } from '../../models/types';
       .dashboard-select {
         max-width: 100%;
         width: 100%;
+      }
+
+      .device-assignment,
+      .pairing-steps {
+        grid-template-columns: 1fr;
+      }
+
+      .device-assignment {
+        align-items: stretch;
       }
     }
 
@@ -130,80 +181,112 @@ import { Dashboard } from '../../models/types';
     .release-notes a {
       color: var(--bs-primary);
     }
+
+    .release-notes-summary {
+      cursor: pointer;
+    }
   `],
   template: `
-    <app-toast-container></app-toast-container>
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="mb-0">Devices</h1>
+    <div class="app-page">
+    <div class="app-page-header">
+      <div>
+        <h1 class="app-page-title">Devices</h1>
+        <p class="app-page-description">Pair displays, assign compatible dashboards, and check firmware status.</p>
+      </div>
       @if (!isPairingActive()) {
-        <button class="btn btn-sm btn-primary" (click)="startPairing()" [disabled]="isStartingPairing()">
-          <i class="fa-solid fa-plus"></i>
-          <span class="d-none d-sm-inline">{{ isStartingPairing() ? 'Starting...' : 'Pair New Device' }}</span><span class="d-sm-none">{{ isStartingPairing() ? '...' : 'New' }}</span>
+        <button type="button" class="btn btn-primary" (click)="startPairing()" [disabled]="isStartingPairing()">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="d-none d-sm-inline">{{ isStartingPairing() ? 'Starting…' : 'Pair device' }}</span>
+          <span class="visually-hidden d-sm-none">{{ isStartingPairing() ? 'Starting pairing' : 'Pair device' }}</span>
         </button>
       }
     </div>
 
     @if (isPairingActive()) {
-      <div class="alert alert-info mb-4">
+      <section class="app-section-card mb-4" aria-labelledby="pairDeviceTitle">
         <div class="d-flex flex-column gap-2">
           <div class="d-flex justify-content-between align-items-start">
             <div>
               <div class="mb-2">
-                <strong>Pairing Code:</strong>
+                <h2 id="pairDeviceTitle" class="h5 mb-0">Pair a new device</h2>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <div class="fs-3 font-monospace fw-bold text-primary">{{ pairingCode() }}</div>
-                <button type="button" class="btn btn-sm btn-outline-primary" (click)="copyPairingCode()" title="Copy to clipboard">
-                  <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'"></i>
+                <button type="button" class="btn btn-outline-primary app-icon-button" (click)="copyPairingCode()" aria-label="Copy pairing code">
+                  <i class="fa-solid" [ngClass]="pairingCodeCopied() ? 'fa-check' : 'fa-copy'" aria-hidden="true"></i>
                 </button>
               </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelPairing()">
-              <i class="fa-solid fa-times"></i> Cancel
+              <i class="fa-solid fa-times" aria-hidden="true"></i> Cancel
             </button>
           </div>
 
-          <div class="text-muted small">
-            <div><i class="fa-solid fa-clock"></i> Expires in {{ pairingTimeRemaining() }} seconds</div>
-            <div><i class="fa-solid fa-info-circle"></i> Enter this code on your device setup page along with the server URL</div>
-            <div class="mt-1"><i class="fa-solid fa-spinner fa-spin"></i> Waiting for device to register...</div>
+          <div class="pairing-steps mt-3">
+            <div class="pairing-step">Open the setup page on your device.</div>
+            <div class="pairing-step">
+              Enter server URL <code>{{ serverUrl }}</code>
+              <button type="button" class="btn btn-sm btn-link p-1" (click)="copyServerUrl()" aria-label="Copy server URL">
+                <i class="fa-solid" [ngClass]="serverUrlCopied() ? 'fa-check' : 'fa-copy'" aria-hidden="true"></i>
+              </button>
+              and pairing code <strong>{{ pairingCode() }}</strong>.
+            </div>
+            <div class="pairing-step"><i class="fa-solid fa-spinner fa-spin me-1" aria-hidden="true"></i> Waiting for the device. Code expires in {{ formattedPairingTime() }}.</div>
           </div>
         </div>
-      </div>
+      </section>
     }
 
     @if (isLoading()) {
-      <div class="text-center my-5">
+      <div class="app-loading-state">
         <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
+          <span class="visually-hidden">Loading devices</span>
         </div>
       </div>
+    } @else if (loadError()) {
+      <div class="app-empty-state" role="alert">
+        <span class="app-empty-state-icon text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <div><h2 class="h5 mb-1">Devices could not be loaded</h2><p class="text-muted mb-0">{{ loadError() }}</p></div>
+        <button type="button" class="btn btn-outline-primary" (click)="loadDevices()">
+          <i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Try again
+        </button>
+      </div>
     } @else if (devices().length > 0) {
+      @if (dashboardsLoadError()) {
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
+          <span><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>{{ dashboardsLoadError() }}</span>
+          <button type="button" class="btn btn-sm btn-outline-warning" (click)="loadDashboards()">Retry dashboards</button>
+        </div>
+      }
       <div class="device-list">
         @for (device of devices(); track device.id) {
           <div class="device-card">
             <div class="device-header">
-              <h5 class="device-name">{{ device.name }}</h5>
+              <div class="device-title-row">
+                <h2 class="device-name">{{ device.name }}</h2>
+                <span class="app-status-chip" [ngClass]="isDeviceOnline(device) ? 'app-status-chip-success' : 'app-status-chip-muted'">
+                  <i class="fa-solid fa-circle" aria-hidden="true"></i>{{ isDeviceOnline(device) ? 'Online' : 'Offline' }}
+                </span>
+                @if (hasFirmwareUpdate(device)) {
+                  <span class="app-status-chip app-status-chip-warning"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Update available</span>
+                }
+              </div>
               <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeDevice(device)" title="Remove device">
-                  <i class="fa-solid fa-trash"></i>
+                <button type="button" class="btn btn-outline-danger app-icon-button" (click)="removeDevice(device)" [attr.aria-label]="'Remove ' + device.name">
+                  <i class="fa-solid fa-trash" aria-hidden="true"></i>
                 </button>
               </div>
             </div>
             <div class="device-meta">
-              <div class="device-meta-item">
-                <i class="fa-solid fa-fingerprint"></i>
-                <code class="small">{{ device.deviceIdentifier }}</code>
-              </div>
               @if (device.firmwareVersion) {
                 <div class="device-meta-item">
                   <i class="fa-solid fa-microchip"></i>
                   <span>v{{ device.firmwareVersion }}</span>
                   @if (firmwareInfo()?.version) {
                     @if (!isVersionLower(device.firmwareVersion!, firmwareInfo()!.version!)) {
-                      <i class="fa-solid fa-circle-check text-success" title="Up to date"></i>
+                      <span class="visually-hidden">Firmware up to date</span>
                     } @else {
-                      <i class="fa-solid fa-circle-arrow-up text-warning" title="Update available (latest: v{{ firmwareInfo()!.version }})"></i>
+                      <span class="visually-hidden">Firmware update available</span>
                     }
                   }
                 </div>
@@ -225,24 +308,37 @@ import { Dashboard } from '../../models/types';
                 </div>
               }
             </div>
-            <div class="mt-2 d-flex align-items-center gap-2">
-              <i class="fa-solid fa-display text-muted"></i>
-              <label class="small text-muted mb-0">Dashboard:</label>
+            <div class="device-assignment">
+              <label class="small text-muted mb-0"><i class="fa-solid fa-display me-1" aria-hidden="true"></i>Dashboard</label>
               <app-searchable-select
                 class="dashboard-select"
                 [options]="compatibleDashboardOptions(device)"
                 [value]="device.dashboardId || ''"
                 emptyLabel="— No dashboard assigned —"
-                searchPlaceholder="Search dashboards..."
+                searchPlaceholder="Search dashboards…"
+                [ariaLabel]="'Dashboard assigned to ' + device.name"
+                [disabled]="isAssigningDashboard(device.id)"
                 (selectionChange)="assignDashboard(device, $event)"
               ></app-searchable-select>
+              @if (isAssigningDashboard(device.id)) {
+                <span class="small text-muted" role="status"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Saving</span>
+              } @else {
+                <span class="small text-success"><i class="fa-solid fa-check" aria-hidden="true"></i><span class="visually-hidden">Assignment saved</span></span>
+              }
             </div>
+            <details class="mt-3 small text-muted">
+              <summary>Technical details</summary>
+              <div class="pt-2"><i class="fa-solid fa-fingerprint me-1" aria-hidden="true"></i><code>{{ device.deviceIdentifier }}</code></div>
+              <div><i class="fa-solid fa-calendar me-1" aria-hidden="true"></i>Paired {{ device.pairedAt | date:'mediumDate' }}</div>
+            </details>
           </div>
         }
       </div>
     } @else {
-      <div class="alert alert-info">
-        <i class="fa-solid fa-info-circle"></i> No devices paired yet. Click "Pair New Device" to get started.
+      <div class="app-empty-state">
+        <span class="app-empty-state-icon"><i class="fa-solid fa-tablet-screen-button" aria-hidden="true"></i></span>
+        <div><h2 class="h5 mb-1">Pair your first display</h2><p class="text-muted mb-0">Pair an e-paper device, then assign a compatible dashboard.</p></div>
+        <button type="button" class="btn btn-primary" (click)="startPairing()"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Pair device</button>
       </div>
     }
 
@@ -250,11 +346,11 @@ import { Dashboard } from '../../models/types';
     @if (devices().length > 0) {
       <div class="card shadow-sm mt-4">
         <div class="card-body">
-          <h5 class="card-title mb-3"><i class="fa-solid fa-microchip me-2"></i>Firmware Updates</h5>
+          <h2 class="h5 card-title mb-3"><i class="fa-solid fa-microchip me-2" aria-hidden="true"></i>Firmware updates</h2>
           @if (isFirmwareLoading()) {
             <div class="text-center py-2">
               <div class="spinner-border spinner-border-sm" role="status">
-                <span class="visually-hidden">Checking firmware...</span>
+                <span class="visually-hidden">Checking firmware</span>
               </div>
             </div>
           } @else if (firmwareInfo()) {
@@ -292,7 +388,7 @@ import { Dashboard } from '../../models/types';
                   }
                   @if (firmwareInfo()!.releaseNotes) {
                     <details class="mt-1">
-                      <summary class="small text-muted" style="cursor:pointer">Release Notes</summary>
+                      <summary class="release-notes-summary small text-muted">Release notes</summary>
                       <div class="release-notes small mt-1" [innerHTML]="renderMarkdown(firmwareInfo()!.releaseNotes!)"></div>
                     </details>
                   }
@@ -311,14 +407,15 @@ import { Dashboard } from '../../models/types';
           <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2"
             (click)="refreshFirmware()" [disabled]="isFirmwareLoading()">
             <i class="fa-solid fa-rotate"></i>
-            {{ isFirmwareLoading() ? 'Checking...' : 'Check for Updates' }}
+            {{ isFirmwareLoading() ? 'Checking…' : 'Check for updates' }}
           </button>
         </div>
       </div>
     }
+    </div>
   `
 })
-export class DeviceListComponent implements OnInit, OnDestroy {
+export class DeviceListComponent implements OnDestroy {
   private readonly deviceService = inject(DeviceService);
   private readonly dashboardService = inject(DashboardService);
   private readonly firmwareService = inject(FirmwareService);
@@ -326,11 +423,15 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   private readonly dialogService = inject(DialogService);
   private readonly toastService = inject(ToastService);
   private readonly clipboardService = inject(ClipboardService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   readonly devices = signal<Device[]>([]);
   readonly dashboards = signal<Dashboard[]>([]);
-  readonly isLoading = signal(false);
+  readonly isLoading = signal(true);
+  readonly loadError = signal('');
+  readonly dashboardsLoadError = signal('');
+  readonly assigningDashboardIds = signal<Set<string>>(new Set());
+  readonly serverUrl = window.location.origin;
+  private hasLoaded = false;
 
   readonly isPairingActive = signal(false);
   readonly pairingCode = signal('');
@@ -338,6 +439,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   readonly pairingTimeRemaining = signal(0);
   readonly isStartingPairing = signal(false);
   readonly pairingCodeCopied = signal(false);
+  readonly serverUrlCopied = signal(false);
 
   readonly firmwareInfo = this.firmwareService.firmwareInfo;
   readonly isFirmwareLoading = this.firmwareService.isLoading;
@@ -372,17 +474,13 @@ export class DeviceListComponent implements OnInit, OnDestroy {
   private pairingStatusTimer: any = null;
   private pairingExpiresAt: Date | null = null;
 
-  ngOnInit(): void {
-    if (this.authService.isAuthReady()) {
-      this.loadData();
-    } else {
-      const checkInterval = setInterval(() => {
-        if (this.authService.isAuthReady()) {
-          clearInterval(checkInterval);
-          this.loadData();
-        }
-      }, 10);
-    }
+  constructor() {
+    effect(() => {
+      if (!this.hasLoaded && this.authService.isAuthReady()) {
+        this.hasLoaded = true;
+        this.loadData();
+      }
+    });
   }
 
   private loadData(): void {
@@ -393,34 +491,38 @@ export class DeviceListComponent implements OnInit, OnDestroy {
 
   loadDevices(): void {
     this.isLoading.set(true);
+    this.loadError.set('');
     this.deviceService.getDevices().subscribe({
       next: (devices) => {
         this.devices.set(devices);
         this.isLoading.set(false);
       },
       error: () => {
+        this.loadError.set('Check the server connection and try again.');
         this.isLoading.set(false);
-        this.toastService.error('Failed to load devices');
       }
     });
   }
 
   loadDashboards(): void {
+    this.dashboardsLoadError.set('');
     this.dashboardService.getDashboards().subscribe({
       next: (dashboards) => {
         this.dashboards.set(dashboards);
       },
       error: () => {
-        this.toastService.error('Failed to load dashboards');
+        this.dashboardsLoadError.set('Dashboard assignments are temporarily unavailable.');
       }
     });
   }
 
   assignDashboard(device: Device, dashboardId: string): void {
+    this.assigningDashboardIds.update(ids => new Set(ids).add(device.id));
     this.deviceService.updateDevice(device.id, {
       dashboardId: dashboardId
     }).subscribe({
       next: (updated) => {
+        this.setDashboardAssignmentComplete(device.id);
         this.devices.update(list =>
           list.map(d => d.id === device.id ? updated : d)
         );
@@ -432,8 +534,37 @@ export class DeviceListComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
+        this.setDashboardAssignmentComplete(device.id);
         this.toastService.error(err.error?.message || 'Failed to update device');
       }
+    });
+  }
+
+  isAssigningDashboard(deviceId: string): boolean {
+    return this.assigningDashboardIds().has(deviceId);
+  }
+
+  isDeviceOnline(device: Device): boolean {
+    if (!device.lastSeenAt) return false;
+    return Date.now() - new Date(device.lastSeenAt).getTime() < 30 * 60 * 1000;
+  }
+
+  hasFirmwareUpdate(device: Device): boolean {
+    const latest = this.firmwareInfo()?.version;
+    return !!device.firmwareVersion && !!latest && this.isVersionLower(device.firmwareVersion, latest);
+  }
+
+  formattedPairingTime(): string {
+    const seconds = this.pairingTimeRemaining();
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  private setDashboardAssignmentComplete(deviceId: string): void {
+    this.assigningDashboardIds.update(ids => {
+      const next = new Set(ids);
+      next.delete(deviceId);
+      return next;
     });
   }
 
@@ -443,16 +574,14 @@ export class DeviceListComponent implements OnInit, OnDestroy {
       message: `Are you sure you want to remove device "${device.name}"? The device will need to be paired again.`,
       confirmLabel: 'Remove',
       isDangerous: true,
-      onConfirm: () => {
-        this.deviceService.deleteDevice(device.id).subscribe({
-          next: () => {
-            this.devices.update(list => list.filter(d => d.id !== device.id));
-            this.toastService.success('Device removed successfully');
-          },
-          error: () => {
-            this.toastService.error('Failed to remove device');
-          }
-        });
+      onConfirm: async () => {
+        try {
+          await firstValueFrom(this.deviceService.deleteDevice(device.id));
+          this.devices.update(list => list.filter(d => d.id !== device.id));
+          this.toastService.success('Device removed successfully');
+        } catch (error: any) {
+          this.toastService.error(error.error?.message || 'Failed to remove device');
+        }
       }
     });
   }
@@ -481,6 +610,7 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     this.pairingCode.set('');
     this.pairingStatus.set('pending');
     this.pairingCodeCopied.set(false);
+    this.serverUrlCopied.set(false);
     this.stopPairingTimer();
     this.stopPairingStatusPolling();
   }
@@ -493,6 +623,14 @@ export class DeviceListComponent implements OnInit, OnDestroy {
     if (success) {
       this.pairingCodeCopied.set(true);
       setTimeout(() => this.pairingCodeCopied.set(false), 2000);
+    }
+  }
+
+  async copyServerUrl(): Promise<void> {
+    const success = await this.clipboardService.copy(this.serverUrl);
+    if (success) {
+      this.serverUrlCopied.set(true);
+      setTimeout(() => this.serverUrlCopied.set(false), 2000);
     }
   }
 
