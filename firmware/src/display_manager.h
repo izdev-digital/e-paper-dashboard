@@ -44,7 +44,8 @@ public:
   void beginPartialWindow();
   void refresh();
   void powerOff();
-  void showWelcomePage(const IPAddress& ip, const String& mac, const String& apName);
+  void showWelcomePage(const IPAddress& ip, const String& apName,
+                       const String& apPassword, const String& claimCode);
   void showSuccess(const String& title, const String& message, const String& hint = "");
 
 private:

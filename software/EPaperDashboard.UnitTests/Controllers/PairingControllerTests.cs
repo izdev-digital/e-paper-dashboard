@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Xunit;
+using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.UnitTests.Controllers;
 
@@ -18,9 +19,16 @@ public class PairingControllerTests
     private readonly Mock<IDeviceRepository> _deviceRepository = new();
     private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 3, 17, 8, 0, 0, TimeSpan.Zero));
 
-    private PairingController CreateSut() => new(
-        new PairingService(_pairingSessionRepository.Object, _timeProvider),
-        new DeviceService(_deviceRepository.Object));
+    private PairingController CreateSut()
+    {
+        var deviceService = new DeviceService(_deviceRepository.Object);
+        var configuration = new Mock<IEnvironmentConfiguration>();
+        configuration.SetupGet(c => c.ClientUri).Returns(new Uri("http://dashboard.local:8129"));
+        return new PairingController(
+            new PairingService(_pairingSessionRepository.Object, deviceService, _timeProvider),
+            deviceService,
+            configuration.Object);
+    }
 
     [Fact]
     public void StartPairing_ReturnsCodeAndExpiry()
@@ -130,7 +138,7 @@ public class PairingControllerTests
     }
 
     [Fact]
-    public void RegisterDevice_ExistingDeviceClaimedByNewOwner_ResetsDashboardAndFirmwareInfo()
+    public void RegisterDevice_ExistingDeviceClaimedByNewOwner_ReturnsConflict()
     {
         var previousOwnerId = UserId.New();
         var newOwnerId = UserId.New();
@@ -153,12 +161,11 @@ public class PairingControllerTests
         _deviceRepository.Setup(r => r.FindByIdentifier("device-1")).Returns(existingDevice);
         var sut = CreateSut();
 
-        sut.RegisterDevice(new RegisterDeviceRequest("ABC123", "device-1", null, null, null));
+        var result = sut.RegisterDevice(new RegisterDeviceRequest("ABC123", "device-1", null, null, null));
 
-        existingDevice.UserId.Should().Be(newOwnerId);
-        existingDevice.DashboardId.Should().Be(DashboardId.Empty);
-        existingDevice.FirmwareVersion.Should().BeNull();
-        existingDevice.LastSeenAt.Should().BeNull();
+        result.Should().BeOfType<ConflictObjectResult>();
+        existingDevice.UserId.Should().Be(previousOwnerId);
+        _deviceRepository.Verify(r => r.Update(It.IsAny<Device>()), Times.Never);
     }
 
     [Fact]
@@ -208,5 +215,47 @@ public class PairingControllerTests
         var response = ok.Value.Should().BeOfType<PairingStatusResponse>().Subject;
         response.Status.Should().Be("completed");
         response.DeviceIdentifier.Should().Be("device-1");
+    }
+
+    [Fact]
+    public void GetPairingStatus_ClaimedSession_WaitsForDeviceAcknowledgement()
+    {
+        var userId = UserId.New();
+        var session = new PairingSession
+        {
+            Code = "ABC123",
+            UserId = userId,
+            Status = PairingStatus.Claimed,
+            ExpiresAt = _timeProvider.GetUtcNow().AddMinutes(2),
+            DeviceIdentifier = "device-1"
+        };
+        _pairingSessionRepository.Setup(r => r.FindByCode("ABC123")).Returns(session);
+        var sut = CreateSut().WithUser(userId);
+
+        var result = sut.GetPairingStatus("ABC123");
+
+        var response = result.Should().BeOfType<OkObjectResult>().Subject.Value
+            .Should().BeOfType<PairingStatusResponse>().Subject;
+        response.Status.Should().Be("claimed");
+        response.ExpiresAt.Should().Be(session.ExpiresAt);
+    }
+
+    [Fact]
+    public void GetPairingStatus_ExpiredUnacknowledgedSession_ReturnsGone()
+    {
+        var userId = UserId.New();
+        var session = new PairingSession
+        {
+            Code = "ABC123",
+            UserId = userId,
+            Status = PairingStatus.Claimed,
+            ExpiresAt = _timeProvider.GetUtcNow().AddSeconds(-1)
+        };
+        _pairingSessionRepository.Setup(r => r.FindByCode("ABC123")).Returns(session);
+        var sut = CreateSut().WithUser(userId);
+
+        var result = sut.GetPairingStatus("ABC123");
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(410);
     }
 }

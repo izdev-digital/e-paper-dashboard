@@ -23,8 +23,12 @@ public class HomeAssistantAddonStrategyTests : IDisposable
 
     public void Dispose() => Environment.SetEnvironmentVariable("SUPERVISOR_TOKEN", _originalSupervisorToken);
 
-    private static HomeAssistantAddonStrategy CreateSut() =>
-        new(NullLogger<HomeAssistantAddonStrategy>.Instance, Mock.Of<IEnvironmentConfiguration>());
+    private static HomeAssistantAddonStrategy CreateSut()
+    {
+        var configuration = new Mock<IEnvironmentConfiguration>();
+        configuration.SetupGet(c => c.ClientUri).Returns(new Uri("http://homeassistant.local:8129"));
+        return new(NullLogger<HomeAssistantAddonStrategy>.Instance, configuration.Object);
+    }
 
     [Fact]
     public void GetOAuthClientUri_NoIngressHeader_ReturnsNull()
@@ -137,10 +141,36 @@ public class HomeAssistantAddonStrategyTests : IDisposable
     }
 
     [Fact]
-    public void ValidateConfiguration_AlwaysSucceeds()
+    public void ValidateConfiguration_WithClientUri_Succeeds()
     {
         var sut = CreateSut();
 
         sut.ValidateConfiguration().IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateConfiguration_WithoutClientUri_Fails()
+    {
+        var sut = new HomeAssistantAddonStrategy(
+            NullLogger<HomeAssistantAddonStrategy>.Instance,
+            Mock.Of<IEnvironmentConfiguration>());
+
+        var result = sut.ValidateConfiguration();
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("CLIENT_URL");
+    }
+
+    [Fact]
+    public void ValidateConfiguration_WithIngressUrl_Fails()
+    {
+        var configuration = new Mock<IEnvironmentConfiguration>();
+        configuration.SetupGet(c => c.ClientUri).Returns(
+            new Uri("http://homeassistant.local:8123/api/hassio_ingress/example?auth=token"));
+        var sut = new HomeAssistantAddonStrategy(
+            NullLogger<HomeAssistantAddonStrategy>.Instance,
+            configuration.Object);
+
+        sut.ValidateConfiguration().IsFailure.Should().BeTrue();
     }
 }

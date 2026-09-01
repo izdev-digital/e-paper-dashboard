@@ -52,12 +52,17 @@ internal sealed class LiteDbContext : IDisposable
         // LiteDB returns null for BsonNull before calling RegisterType deserializers,
         // which causes NRE when setting struct (value-type) properties via reflection.
         MigrateNullObjectIds();
+        PairingSessions.EnsureIndex(session => session.Code);
     }
 
     internal ILiteCollection<User> Users => _db.GetCollection<User>("users");
     internal ILiteCollection<Dashboard> Dashboards => _db.GetCollection<Dashboard>("dashboards");
     internal ILiteCollection<Device> Devices => _db.GetCollection<Device>("devices");
     internal ILiteCollection<PairingSession> PairingSessions => _db.GetCollection<PairingSession>("pairingSessions");
+
+    internal void BeginTransaction() => _db.BeginTrans();
+    internal void Commit() => _db.Commit();
+    internal void Rollback() => _db.Rollback();
 
     public void Dispose() => _db.Dispose();
 
@@ -74,7 +79,7 @@ internal sealed class LiteDbContext : IDisposable
             ["users"] = ["_id"],
             ["dashboards"] = ["_id", "UserId"],
             ["devices"] = ["_id", "UserId", "DashboardId"],
-            ["pairingSessions"] = ["_id", "UserId"],
+            ["pairingSessions"] = ["_id", "UserId", "PendingDeviceId"],
         };
 
         foreach (var (collectionName, fields) in collectionFields)

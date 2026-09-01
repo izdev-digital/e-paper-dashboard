@@ -15,10 +15,12 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +54,30 @@ builder.Services.AddControllers()
 	{
 		options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
 	});
+
+builder.Services.AddRateLimiter(options =>
+{
+	options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+	options.AddPolicy("PairingAnnounce", context => PairingRateLimit(context, 10));
+	options.AddPolicy("PairingStatus", context => PairingRateLimit(context, 240));
+	options.AddPolicy("PairingClaim", context => PairingRateLimit(context, 10));
+	options.OnRejected = (context, _) =>
+	{
+		context.HttpContext.Response.Headers.RetryAfter = "5";
+		return ValueTask.CompletedTask;
+	};
+
+	static RateLimitPartition<string> PairingRateLimit(HttpContext context, int permitsPerMinute) =>
+		RateLimitPartition.GetFixedWindowLimiter(
+			context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+			_ => new FixedWindowRateLimiterOptions
+			{
+				PermitLimit = permitsPerMinute,
+				Window = TimeSpan.FromMinutes(1),
+				QueueLimit = 0,
+				AutoReplenishment = true
+			});
+});
 
 #if DEBUG
 builder.Services.AddSwaggerGen(options =>
@@ -94,6 +120,7 @@ builder.Services
 	.AddSingleton<IDashboardRepository, LiteDbDashboardRepository>()
 	.AddSingleton<IDeviceRepository, LiteDbDeviceRepository>()
 	.AddSingleton<IPairingSessionRepository, LiteDbPairingSessionRepository>()
+	.AddSingleton<IUnitOfWork, LiteDbUnitOfWork>()
 	.AddSingleton<UserService>()
 	.AddSingleton<DashboardService>()
 	.AddSingleton<DeviceService>()
@@ -257,6 +284,7 @@ if (!app.Environment.IsDevelopment())
 strategy.ApplyMiddleware(app, app.Environment);
 
 app.UseRouting();
+app.UseRateLimiter();
 
 var devicePort = builder.Configuration.GetValue<int>("DevicePort", 8129);
 
