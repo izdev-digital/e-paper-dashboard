@@ -26,6 +26,12 @@ public sealed partial class ImageWidgetRenderer(
 
     public async Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
+        var renderContext = WidgetRenderContext.Create(widget, layout);
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(image, widget, layout, utils, contentRect);
+
+        if (contentRect.Width <= 0 || contentRect.Height <= 0)
+            return;
+
         var imageUrl = RenderingUtilities.GetStringProp(widget.Config, "imageUrl") ?? "";
         if (string.IsNullOrEmpty(imageUrl)) return;
 
@@ -185,8 +191,7 @@ public sealed partial class ImageWidgetRenderer(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to load image from URL: {Url}", imageUrl);
-            var ctx = WidgetRenderContext.Create(widget, layout);
-            TextDrawing.DrawCenteredText(image, "Image", utils.GetFont(ctx.TextFontSize), ctx.TextColor, contentRect);
+            TextDrawing.DrawCenteredText(image, "Image", utils.GetFont(renderContext.TextFontSize), renderContext.TextColor, contentRect);
         }
     }
 }

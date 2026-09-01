@@ -3,6 +3,7 @@ using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Services.Providers;
 using EPaperDashboard.Services.Rendering;
+using EPaperDashboard.Services.Rendering.Widgets;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
@@ -67,7 +68,11 @@ public class DashboardImageRenderingServiceTests
     public async Task RenderDashboardImageAsync_WidgetConstructedWithoutExplicitConfig_DoesNotThrow()
     {
         _ssrDataProvider
-            .Setup(p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()))
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
             .ReturnsAsync(new SsrData());
         var sut = CreateSut();
         var layout = SimpleLayout();
@@ -113,6 +118,52 @@ public class DashboardImageRenderingServiceTests
         _ssrDataProvider.Verify(
             p => p.FetchSsrDataAsync(It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(), It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task RenderDashboardImageAsync_BypassCache_RefetchesSsrData()
+    {
+        _ssrDataProvider
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
+            .ReturnsAsync(new SsrData());
+        var sut = CreateSut();
+        var layout = SimpleLayout();
+
+        using var first = await sut.RenderDashboardImageAsync("dash1", layout);
+        using var second = await sut.RenderDashboardImageAsync("dash1", layout, bypassCache: true);
+
+        _ssrDataProvider.Verify(
+            p => p.FetchSsrDataAsync(
+                It.IsAny<string>(),
+                It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task RenderDashboardImageAsync_TransientResult_DoesNotPopulateRenderCache()
+    {
+        _ssrDataProvider
+            .Setup(p => p.FetchSsrDataAsync(
+                It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+            .ReturnsAsync(new SsrData());
+        var sut = CreateSut();
+        var layout = SimpleLayout();
+
+        using var first = await sut.RenderDashboardImageAsync(
+            "dash1", layout, cacheResult: false);
+        using var second = await sut.RenderDashboardImageAsync(
+            "dash1", layout, cacheResult: false);
+
+        _ssrDataProvider.Verify(p => p.FetchSsrDataAsync(
+            It.IsAny<string>(), It.IsAny<RenderingLayoutConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<bool>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -178,15 +229,114 @@ public class DashboardImageRenderingServiceTests
                 It.IsAny<SsrData>(), It.IsAny<SixLabors.ImageSharp.RectangleF>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         var sut = CreateSut(renderer.Object);
+        var layout = SimpleLayout("header");
+        layout.Widgets[0].ShowTitle = false;
 
-        using var image = await sut.RenderDashboardImageAsync("dash1", SimpleLayout("header"));
+        using var image = await sut.RenderDashboardImageAsync("dash1", layout);
 
         renderer.Verify(r => r.RenderAsync(
             It.IsAny<SixLabors.ImageSharp.Image<Rgba32>>(),
-            It.Is<WidgetConfigEntry>(w => w.Id == "w1"),
+            It.Is<WidgetConfigEntry>(w => w.Id == "w1" && !w.ShowTitle),
             It.IsAny<RenderingLayoutConfig>(),
             It.IsAny<SsrData>(),
             It.IsAny<SixLabors.ImageSharp.RectangleF>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_HeaderUsesRendererElementPositionsAndOriginalBadgeIndexes()
+    {
+        var sut = CreateSut(new HeaderWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("header");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            title = "Dashboard",
+            titleX = 10,
+            titleY = 12,
+            titleW = 60,
+            titleH = 24,
+            badges = new object[]
+            {
+                new { entityId = "", icon = "" },
+                new { entityId = "sensor.room", x = 20, y = 50, w = 30, h = 15 }
+            }
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
+
+        geometry.Editable.Should().BeTrue();
+        geometry.Elements.Should().HaveCount(3);
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "title"
+            && element.Kind == "title"
+            && element.Position == new RenderRectangle(10, 12, 60, 24));
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "badge-0"
+            && element.Kind == "badge"
+            && element.Index == 0
+            && element.Position == new RenderRectangle(0, 0, 22, 30));
+        geometry.Elements.Should().ContainSingle(element =>
+            element.Id == "badge-1"
+            && element.Kind == "badge"
+            && element.Index == 1
+            && element.Position == new RenderRectangle(20, 50, 30, 15));
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_WeatherReturnsOnlyVisibleEditableItems()
+    {
+        var sut = CreateSut(new WeatherWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("weather");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            entityId = "weather.home",
+            items = new object[]
+            {
+                new { type = "temperature", visible = false, x = 0, y = 0, w = 50, h = 20 },
+                new { type = "condition", visible = true, x = 12, y = 34, w = 56, h = 20 }
+            }
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Should().ContainSingle().Subject;
+
+        geometry.Editable.Should().BeTrue();
+        geometry.Elements.Should().ContainSingle();
+        geometry.Elements[0].Id.Should().Be("weather-item-1");
+        geometry.Elements[0].Index.Should().Be(1);
+        geometry.Elements[0].Position.Should().Be(new RenderRectangle(12, 34, 56, 20));
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_EmptyWeatherItems_UsesCanonicalDefaults()
+    {
+        var sut = CreateSut(new WeatherWidgetRenderer(CreateRenderingUtils()));
+        var layout = SimpleLayout("weather");
+        layout.Widgets[0].Config = JsonSerializer.SerializeToElement(new
+        {
+            entityId = "weather.home",
+            items = Array.Empty<object>()
+        });
+
+        var geometry = sut.ResolveWidgetGeometry(layout).Single();
+
+        geometry.Elements.Should().HaveCount(5);
+        geometry.Elements[0].Id.Should().Be("weather-item-weather-title");
+        geometry.Elements[0].LayoutBinding!.SeedConfig.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ResolveWidgetGeometry_EditableRendererThrows_IsolatesWidgetFailure()
+    {
+        var renderer = new Mock<IEditableWidgetRenderer>();
+        renderer.SetupGet(value => value.WidgetType).Returns("header");
+        renderer.Setup(value => value.BuildRenderPlan(
+                It.IsAny<WidgetConfigEntry>(), It.IsAny<SixLabors.ImageSharp.RectangleF>()))
+            .Throws(new InvalidOperationException("bad geometry"));
+        var sut = CreateSut(renderer.Object);
+
+        var geometry = sut.ResolveWidgetGeometry(SimpleLayout()).Single();
+
+        geometry.Editable.Should().BeFalse();
+        geometry.Elements.Should().BeEmpty();
     }
 }

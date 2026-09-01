@@ -1,14 +1,9 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WidgetConfig, ColorScheme, HassEntityState, RssFeedConfig, DashboardLayout } from '../../models/types';
+import { WidgetConfig, ColorScheme, RssFeedConfig, DashboardLayout } from '../../models/types';
+import type { RssFeedEntryData } from '../../services/dashboard-preview-data.service';
 import QRCode from 'qrcode';
-
-interface RssEntry {
-  title: string;
-  link: string;
-  published?: string;
-  summary?: string;
-}
+import { resolveWidgetRenderContext } from './widget-render-context';
 
 @Component({
   selector: 'app-widget-rss-feed',
@@ -27,6 +22,9 @@ interface RssEntry {
       [style.--textColor]="getTextColor()"
       [style.--qrCodeDarkColor]="getTextColor()"
       [style.--qrCodeLightColor]="getQrCodeBackgroundColor()"
+      [style.--widget-title-font-size]="getTitleFontSize() + 'px'"
+      [style.--widget-title-font-weight]="getTitleFontWeight()"
+      [style.--widget-title-color]="getTitleColor()"
       [style.color]="getTextColor()">
       @if (!isDataFetched()) {
         <div class="preview-state">
@@ -37,7 +35,7 @@ interface RssEntry {
       @if (isDataFetched()) {
         <div class="rss-feed-content">
           @if (widget.showTitle !== false && (widget.titleOverride || config.title)) {
-            <h3 class="feed-title">{{ widget.titleOverride || config.title }}</h3>
+            <h3 class="widget-frame-title">{{ widget.titleOverride || config.title }}</h3>
           }
           @if (getCurrentEntry()) {
             <div class="rss-entry">
@@ -59,7 +57,7 @@ interface RssEntry {
 export class RssFeedWidgetComponent implements OnInit, OnChanges {
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
-  @Input() entityStates: Record<string, HassEntityState> | null = null;
+  @Input() rssFeedEntriesByEntityId?: Record<string, RssFeedEntryData[]>;
   @Input() designerSettings?: DashboardLayout;
 
   qrCodeDataUrl: string | null = null;
@@ -73,25 +71,25 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['entityStates'] || changes['widget']) {
+    if (changes['rssFeedEntriesByEntityId'] || changes['widget'] || changes['colorScheme'] || changes['designerSettings']) {
       this.generateQRCode();
     }
   }
 
   getTitleFontSize(): number {
-    return this.designerSettings?.titleFontSize ?? 16;
+    return this.renderContext.titleFontSize;
   }
 
   getTextFontSize(): number {
-    return this.designerSettings?.textFontSize ?? 12;
+    return this.renderContext.textFontSize;
   }
 
   getTitleFontWeight(): number {
-    return this.designerSettings?.titleFontWeight ?? 700;
+    return this.renderContext.titleFontWeight;
   }
 
   getTextFontWeight(): number {
-    return this.designerSettings?.textFontWeight ?? 400;
+    return this.renderContext.textFontWeight;
   }
 
   /**
@@ -101,70 +99,35 @@ export class RssFeedWidgetComponent implements OnInit, OnChanges {
     const entityId = this.config.entityId;
     if (!entityId) return false;
 
-    const state = this.getEntityState(entityId);
-    if (!state || !state.attributes) return false;
-
-    // Check if we have RSS entry data in attributes
-    const attrs = state.attributes;
-    return !!(attrs['title'] || attrs['link'] || attrs['description']);
+    return !!this.rssFeedEntriesByEntityId && entityId in this.rssFeedEntriesByEntityId;
   }
 
   getIconColor(): string {
-    return this.widget.colorOverrides?.iconColor ||
-      this.colorScheme.iconColor ||
-      this.colorScheme.accent;
+    return this.renderContext.iconColor;
   }
 
   getTitleColor(): string {
-    return this.widget.colorOverrides?.widgetTitleTextColor ||
-      this.colorScheme.widgetTitleTextColor ||
-      this.colorScheme.text;
+    return this.renderContext.titleColor;
   }
 
   getTextColor(): string {
-    return this.widget.colorOverrides?.widgetTextColor ||
-      this.colorScheme.widgetTextColor ||
-      this.colorScheme.text;
+    return this.renderContext.textColor;
   }
 
   getQrCodeBackgroundColor(): string {
-    return this.widget.colorOverrides?.widgetBackgroundColor ||
-      this.colorScheme.widgetBackgroundColor ||
-      this.colorScheme.background;
+    return this.renderContext.backgroundColor;
   }
 
-  getEntityState(entityId?: string): HassEntityState | null {
-    if (!entityId || !this.entityStates) return null;
-    return this.entityStates[entityId] ?? null;
+  private get renderContext() {
+    return resolveWidgetRenderContext(this.widget, this.colorScheme, this.designerSettings);
   }
 
-  getRssEntries(entityId?: string): RssEntry[] {
-    if (!entityId) return [];
-
-    const state = this.getEntityState(entityId);
-    if (!state) return [];
-
-    const attrs = state.attributes || {};
-
-    // Home Assistant feedreader event entities store the latest entry data directly in attributes
-    // with keys: title, link, description, content
-    // We return a single-item array since event entities only store the latest entry
-    const title = attrs['title'];
-    const link = attrs['link'];
-
-    if (!title && !link) {
-      return [];
-    }
-
-    return [{
-      title: (title || 'No Title') as string,
-      link: (link || '') as string,
-      published: attrs['published'] as string | undefined,
-      summary: (attrs['description'] || attrs['summary'] || attrs['content']) as string | undefined
-    }];
+  getRssEntries(entityId?: string): RssFeedEntryData[] {
+    if (!entityId || !this.rssFeedEntriesByEntityId) return [];
+    return this.rssFeedEntriesByEntityId[entityId] ?? [];
   }
 
-  getCurrentEntry(): RssEntry | null {
+  getCurrentEntry(): RssFeedEntryData | null {
     const entries = this.getRssEntries(this.config.entityId);
     if (entries.length === 0) return null;
 

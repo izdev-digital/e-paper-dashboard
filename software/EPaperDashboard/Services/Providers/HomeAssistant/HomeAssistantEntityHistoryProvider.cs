@@ -16,7 +16,7 @@ public class HomeAssistantEntityHistoryProvider(
     private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly ILogger<HomeAssistantEntityHistoryProvider> _logger = logger;
 
-    public async Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistoryAsync(string dashboardId, IEnumerable<string> entityIds, int hours = 24)
+    public async Task<Result<Dictionary<string, List<HistoryState>>, string>> FetchEntityHistoryAsync(string dashboardId, IEnumerable<string> entityIds, int hours = 24, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -39,15 +39,15 @@ public class HomeAssistantEntityHistoryProvider(
 
             var url = $"{hostUrl}/api/history/period/{startTime}?{entityIdParams}&end_time={endTime}";
 
-            using var response = await httpClient.GetAsync(url);
+            using var response = await httpClient.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 _logger.LogError("History API call failed with status {Status}: {Error}", response.StatusCode, errorContent);
                 return $"Failed to fetch history: {response.StatusCode}";
             }
 
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogDebug("HomeAssistant FetchEntityHistory raw response: {Response}", content);
 
             var historyData = JsonSerializer.Deserialize<JsonElement>(content);
@@ -82,6 +82,7 @@ public class HomeAssistantEntityHistoryProvider(
 
             return Result.Success<Dictionary<string, List<HistoryState>>, string>(result);
         }
+        catch (OperationCanceledException) { throw; }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "HTTP error while fetching entity history");

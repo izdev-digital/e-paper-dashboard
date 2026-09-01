@@ -61,8 +61,14 @@ namespace EPaperDashboard.Models
         /// Returns the layout config with AI-generated widgets merged in (if enabled).
         /// </summary>
         public LayoutConfig GetMergedLayoutConfig()
+            => GetMergedLayoutConfig(LayoutConfig!);
+
+        /// <summary>
+        /// Returns the supplied layout with generated widgets merged in. This overload is used
+        /// for transient designer previews so unsaved layout changes follow the production path.
+        /// </summary>
+        public LayoutConfig GetMergedLayoutConfig(LayoutConfig layout)
         {
-            var layout = LayoutConfig!;
             if (!IsAiEnabled || AiGeneratedWidgets is not { Count: > 0 })
                 return layout;
 

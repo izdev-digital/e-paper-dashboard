@@ -53,6 +53,7 @@ namespace EPaperDashboard.Models
         public JsonElement Config { get; set; } = EmptyConfig;
         public WidgetColorOverrides? ColorOverrides { get; set; }
         public string? TitleOverride { get; set; }
+        public bool ShowTitle { get; set; } = true;
     }
 
     public class WidgetPosition
@@ -61,13 +62,13 @@ namespace EPaperDashboard.Models
         public int Y { get; set; }
         public int W { get; set; }
         public int H { get; set; }
-        /// <summary>Computed pixel X position (populated by the frontend on save for SSR)</summary>
+        /// <summary>Legacy derived value retained for persisted-layout compatibility.</summary>
         public double? PixelX { get; set; }
-        /// <summary>Computed pixel Y position (populated by the frontend on save for SSR)</summary>
+        /// <summary>Legacy derived value retained for persisted-layout compatibility.</summary>
         public double? PixelY { get; set; }
-        /// <summary>Computed pixel width (populated by the frontend on save for SSR)</summary>
+        /// <summary>Legacy derived value retained for persisted-layout compatibility.</summary>
         public double? PixelWidth { get; set; }
-        /// <summary>Computed pixel height (populated by the frontend on save for SSR)</summary>
+        /// <summary>Legacy derived value retained for persisted-layout compatibility.</summary>
         public double? PixelHeight { get; set; }
     }
 

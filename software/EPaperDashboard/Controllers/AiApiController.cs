@@ -377,6 +377,20 @@ public sealed class AiApiController(
         return Ok(new { content = result.Value });
     }
 
+    [HttpGet("dashboards/{dashboardId}/widgets/{widgetId}/content")]
+    public IActionResult GetWidgetContent(string dashboardId, string widgetId)
+    {
+        var dashboard = GetOwnedDashboard(dashboardId);
+        if (dashboard == null)
+            return NotFound("Dashboard not found");
+
+        var widget = dashboard.LayoutConfig?.Widgets?.FirstOrDefault(w => w.Id == widgetId);
+        if (widget == null || widget.Type != "ai-content")
+            return NotFound("AI content widget not found");
+
+        return Ok(new { content = aiContentProvider.GetCachedContent(dashboardId, widgetId) });
+    }
+
     private Dashboard? GetOwnedDashboard(string dashboardId)
     {
         if (!DashboardId.TryParse(dashboardId, out var id))

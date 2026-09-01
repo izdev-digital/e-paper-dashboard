@@ -17,7 +17,7 @@ public class DashboardTodoController(
     [HttpGet("{todoEntityId}")]
     public async Task<IActionResult> GetTodoItems(string dashboardId, string todoEntityId)
     {
-        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, todoEntityId);
+        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, todoEntityId, HttpContext.RequestAborted);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });

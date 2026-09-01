@@ -15,7 +15,7 @@ public class HomeAssistantRssFeedDataProvider(
     private readonly HomeAssistantConnectionService _connection = connection;
     private readonly ILogger<HomeAssistantRssFeedDataProvider> _logger = logger;
 
-    public async Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntriesAsync(string dashboardId, string feedEntityId)
+    public async Task<Result<List<RssFeedEntry>, string>> FetchRssFeedEntriesAsync(string dashboardId, string feedEntityId, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -28,16 +28,16 @@ public class HomeAssistantRssFeedDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             var messageId = _connection.NextMessageId();
             await HomeAssistantConnectionService.SendMessageAsync(ws, new
             {
                 id = messageId,
                 type = "get_states"
-            });
+            }, cancellationToken);
 
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             _logger.LogDebug("HomeAssistant FetchRssFeedEntries raw response: {Response}", response);
 
             var json = JsonSerializer.Deserialize<JsonElement>(response);
@@ -87,6 +87,7 @@ public class HomeAssistantRssFeedDataProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entries;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             _logger.LogError("Unable to connect to Home Assistant WebSocket for RSS feed entries");
@@ -99,7 +100,7 @@ public class HomeAssistantRssFeedDataProvider(
         }
     }
 
-    public async Task<Result<Dictionary<string, List<RssFeedEntry>>, string>> FetchAllRssFeedEntriesAsync(string dashboardId)
+    public async Task<Result<Dictionary<string, List<RssFeedEntry>>, string>> FetchAllRssFeedEntriesAsync(string dashboardId, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -109,10 +110,10 @@ public class HomeAssistantRssFeedDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
-            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" }, cancellationToken);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var json = JsonSerializer.Deserialize<JsonElement>(response);
 
             var result = new Dictionary<string, List<RssFeedEntry>>();
@@ -152,6 +153,7 @@ public class HomeAssistantRssFeedDataProvider(
             _logger.LogDebug("Fetched RSS feed entries from {Count} entities for dashboard {DashboardId}", result.Count, dashboardId);
             return result;
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             return $"Failed to discover RSS feed entities: {ex.Message}";

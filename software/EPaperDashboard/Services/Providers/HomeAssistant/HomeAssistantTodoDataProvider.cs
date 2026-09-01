@@ -15,7 +15,7 @@ public class HomeAssistantTodoDataProvider(
     private readonly HomeAssistantConnectionService _connection = connection;
     private readonly ILogger<HomeAssistantTodoDataProvider> _logger = logger;
 
-    public async Task<Result<List<TodoItem>, string>> FetchTodoItemsAsync(string dashboardId, string todoEntityId)
+    public async Task<Result<List<TodoItem>, string>> FetchTodoItemsAsync(string dashboardId, string todoEntityId, CancellationToken cancellationToken = default)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -25,7 +25,7 @@ public class HomeAssistantTodoDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
             var messageId = _connection.NextMessageId();
             await HomeAssistantConnectionService.SendMessageAsync(ws, new
@@ -39,9 +39,9 @@ public class HomeAssistantTodoDataProvider(
                     entity_id = todoEntityId
                 },
                 return_response = true
-            });
+            }, cancellationToken);
 
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             _logger.LogDebug("HomeAssistant FetchTodoItems raw response: {Response}", response);
 
             var json = JsonSerializer.Deserialize<JsonElement>(response);
@@ -105,6 +105,7 @@ public class HomeAssistantTodoDataProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return items;
         }
+        catch (OperationCanceledException) { throw; }
         catch (WebSocketException)
         {
             return "Unable to connect to Home Assistant WebSocket. Please check the Host URL and ensure it's accessible.";
@@ -115,9 +116,9 @@ public class HomeAssistantTodoDataProvider(
         }
     }
 
-    public async Task<Result<Dictionary<string, List<TodoItem>>, string>> FetchAllTodoItemsAsync(string dashboardId)
+    public async Task<Result<Dictionary<string, List<TodoItem>>, string>> FetchAllTodoItemsAsync(string dashboardId, CancellationToken cancellationToken = default)
     {
-        var entityIds = await DiscoverEntitiesAsync(dashboardId, "todo");
+        var entityIds = await DiscoverEntitiesAsync(dashboardId, "todo", cancellationToken);
         if (entityIds.IsFailure)
         {
             return entityIds.Error;
@@ -126,7 +127,7 @@ public class HomeAssistantTodoDataProvider(
         var result = new Dictionary<string, List<TodoItem>>();
         foreach (var entityId in entityIds.Value)
         {
-            var itemsResult = await FetchTodoItemsAsync(dashboardId, entityId);
+            var itemsResult = await FetchTodoItemsAsync(dashboardId, entityId, cancellationToken);
             if (itemsResult.IsSuccess && itemsResult.Value.Count > 0)
             {
                 result[entityId] = itemsResult.Value;
@@ -137,7 +138,7 @@ public class HomeAssistantTodoDataProvider(
         return result;
     }
 
-    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain)
+    private async Task<Result<List<string>, string>> DiscoverEntitiesAsync(string dashboardId, string domain, CancellationToken cancellationToken)
     {
         var connectionInfo = _connection.GetConnectionInfo(dashboardId);
         if (connectionInfo.IsFailure)
@@ -149,10 +150,10 @@ public class HomeAssistantTodoDataProvider(
 
         try
         {
-            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath);
+            using var ws = await WebSocketHelpers.ConnectAndAuthenticateAsync(hostUrl, token, _connection.WebSocketPath, cancellationToken);
 
-            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" });
-            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws);
+            await HomeAssistantConnectionService.SendMessageAsync(ws, new { id = 1, type = "get_states" }, cancellationToken);
+            var response = await HomeAssistantConnectionService.ReceiveMessageAsync(ws, cancellationToken);
             var json = JsonSerializer.Deserialize<JsonElement>(response);
 
             var entityIds = new List<string>();
@@ -176,6 +177,7 @@ public class HomeAssistantTodoDataProvider(
             try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Done", CancellationToken.None); } catch { /* using disposes socket */ }
             return entityIds;
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             return $"Failed to discover {domain} entities: {ex.Message}";

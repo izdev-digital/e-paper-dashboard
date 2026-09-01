@@ -15,12 +15,9 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
     public Task RenderAsync(Image<Rgba32> image, WidgetConfigEntry widget, LayoutConfig layout, SsrData data, RectangleF contentRect, CancellationToken cancellationToken = default)
     {
         var ctx = WidgetRenderContext.Create(widget, layout);
-        var titleColor = ctx.TitleColor;
         var textColor = ctx.TextColor;
         var iconColor = ctx.IconColor;
-        var titleFontSize = ctx.TitleFontSize;
         var textFontSize = ctx.TextFontSize;
-        var titleFontWeight = ctx.TitleFontWeight;
         var textFontWeight = ctx.TextFontWeight;
 
         var entityId = RenderingUtilities.GetStringProp(widget.Config, "entityId") ?? "";
@@ -28,15 +25,9 @@ public sealed class CalendarWidgetRenderer(RenderingUtilities utils) : IWidgetRe
         var eventGap = RenderingUtilities.GetIntProp(widget.Config, "eventGap") ?? 0;
         var visibleItems = GetCalendarEventItems(widget.Config);
 
+        contentRect = WidgetFrameRenderer.DrawOptionalCenteredTitle(
+            image, widget, layout, utils, contentRect, "Events");
         float yOffset = contentRect.Y;
-
-        if (widget.ShowTitle)
-        {
-            var titleText = widget.TitleOverride ?? "Events";
-            var titleRect = new RectangleF(contentRect.X, yOffset, contentRect.Width, titleFontSize + 4);
-            TextDrawing.DrawTextEllipsis(image, titleText, utils.GetFont(titleFontSize, titleFontWeight), ColorUtils.WithOpacity(titleColor, 0.9f), titleRect);
-            yOffset += titleFontSize + 6;
-        }
 
         if (!string.IsNullOrEmpty(entityId)
             && data.CalendarEvents.TryGetValue(entityId, out var events)

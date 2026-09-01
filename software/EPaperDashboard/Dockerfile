@@ -66,7 +66,6 @@ RUN case "$TARGETARCH" in \
   *) RID=linux-$TARGETARCH ;; \
   esac && \
   dotnet restore && \
-  dotnet build -c $BUILD_CONFIGURATION && \
   dotnet publish -c $BUILD_CONFIGURATION -o /app/publish -r $RID \
   /p:UseAppHost=false \
   /p:Version=$VERSION \

@@ -11,10 +11,6 @@
   --titleColor: currentColor;
   --textColor: currentColor;
 
-  h4 {
-    color: var(--titleColor);
-  }
-
   i {
     color: var(--iconColor);
   }
@@ -68,15 +64,6 @@
   overflow: hidden;
   height: 100%;
 
-  h4 {
-    margin: 0;
-    padding: 0;
-    font-size: var(--headerFontSize);
-    font-weight: var(--headerFontWeight);
-    opacity: 0.9;
-    color: var(--titleColor);
-    flex-shrink: 0;
-  }
 }
 
 .calendar-events {

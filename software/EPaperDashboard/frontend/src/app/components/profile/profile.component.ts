@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -35,10 +35,16 @@ export class ProfileComponent {
   readonly currentPassword = signal('');
   readonly newPassword = signal('');
   readonly confirmNewPassword = signal('');
+  readonly showPasswords = signal(false);
   readonly isChangingNickname = signal(false);
   readonly isChangingPassword = signal(false);
   readonly isDeletingProfile = signal(false);
   readonly isUserManagementDisabled = this.authService.isUserManagementDisabled;
+  readonly canChangePassword = computed(() =>
+    !!this.currentPassword() &&
+    this.newPassword().length >= 6 &&
+    this.newPassword() === this.confirmNewPassword()
+  );
 
   get currentUser() {
     return this.authService.currentUser();
@@ -112,9 +118,9 @@ export class ProfileComponent {
 
   async deleteProfile(): Promise<void> {
     await this.dialogService.confirm({
-      title: 'Delete Profile?',
+      title: 'Delete profile?',
       message: 'Are you sure you want to delete your profile? This action cannot be undone and you will be logged out.',
-      confirmLabel: 'Delete Profile',
+      confirmLabel: 'Delete profile',
       isDangerous: true,
       onConfirm: async () => {
         this.isDeletingProfile.set(true);

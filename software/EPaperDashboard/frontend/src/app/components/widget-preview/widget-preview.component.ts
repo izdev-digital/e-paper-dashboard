@@ -1,5 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import type { TodoItem } from '../../services/todo.service';
+import type {
+  CalendarEventData,
+  DataSourceStatus,
+  HistoryStateData,
+  RssFeedEntryData,
+  WeatherForecastData,
+} from '../../services/dashboard-preview-data.service';
 import { CommonModule } from '@angular/common';
 import { AppIconWidgetComponent } from '../widgets/app-icon-widget.component';
 import { ImageWidgetComponent } from '../widgets/image-widget.component';
@@ -21,10 +28,13 @@ import {
   CalendarConfig,
   WeatherConfig,
   GraphConfig,
+  GraphSeriesConfig,
   TodoConfig,
   HassEntityState,
   DashboardLayout,
+  getWeatherForecastDataKey,
 } from '../../models/types';
+import { getWidgetDefinition } from '../../models/widget-catalog';
 
 @Component({
   selector: 'app-widget-preview',
@@ -47,9 +57,9 @@ import {
   template: `
     <div class="widget-preview">
       @if (!dataFetched || !hasDataForWidget()) {
-        <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'">
+        <div class="widget-preview-placeholder" [style.color]="colorScheme.text || 'currentColor'" [title]="getSourceError() || ''">
           <i class="fa {{ getWidgetIcon() }}" [style.color]="colorScheme.iconColor || colorScheme.accent || 'currentColor'"></i>
-          <p>{{ getWidgetLabel() }}</p>
+          <p>{{ getPlaceholderLabel() }}</p>
         </div>
       }
       @if (dataFetched && hasDataForWidget()) {
@@ -57,28 +67,24 @@ import {
         <app-widget-app-icon [widget]="widget" [colorScheme]="colorScheme"></app-widget-app-icon>
       }
       @if (widget.type === 'image') {
-        <app-widget-image [widget]="widget" [colorScheme]="colorScheme"></app-widget-image>
+        <app-widget-image [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-image>
       }
       @if (widget.type === 'header') {
-        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
-          [internalEdit]="headerInternalEdit"
-          (internalLayoutChanged)="headerLayoutChanged.emit($event)">
+        <app-widget-header [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings">
         </app-widget-header>
       }
       @if (widget.type === 'markdown') {
         <app-widget-markdown [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-markdown>
       }
       @if (widget.type === 'weather') {
-        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"
-          [internalEdit]="weatherInternalEdit"
-          (internalLayoutChanged)="weatherLayoutChanged.emit($event)">
+        <app-widget-weather [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings">
         </app-widget-weather>
       }
       @if (widget.type === 'weather-forecast') {
-        <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-weather-forecast>
+        <app-widget-weather-forecast [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [weatherForecastsByKey]="weatherForecastsByKey" [designerSettings]="designerSettings"></app-widget-weather-forecast>
       }
       @if (widget.type === 'graph') {
-        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings" [dashboardId]="dashboardId"></app-widget-graph>
+        <app-widget-graph [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings" [historyDataByEntityId]="historyDataByEntityId"></app-widget-graph>
       }
       @if (widget.type === 'todo') {
         <app-widget-todo [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [todoItemsByEntityId]="todoItemsByEntityId" [designerSettings]="designerSettings"></app-widget-todo>
@@ -88,13 +94,13 @@ import {
         </app-widget-calendar>
       }
       @if (widget.type === 'version') {
-        <app-widget-version [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-version>
+        <app-widget-version [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings" [version]="appVersion"></app-widget-version>
       }
       @if (widget.type === 'rss-feed') {
-        <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [entityStates]="entityStates" [designerSettings]="designerSettings"></app-widget-rss-feed>
+        <app-widget-rss-feed [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings" [rssFeedEntriesByEntityId]="rssFeedEntriesByEntityId"></app-widget-rss-feed>
       }
       @if (widget.type === 'ai-content') {
-        <app-widget-ai-content [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings"></app-widget-ai-content>
+        <app-widget-ai-content [widget]="widget" [colorScheme]="colorScheme" [designerSettings]="designerSettings" [dashboardId]="dashboardId" [generatedContent]="generatedContentByWidgetId?.[widget.id] || ''"></app-widget-ai-content>
       }
       }
     </div>
@@ -103,7 +109,13 @@ import {
 })
 export class WidgetPreviewComponent {
   @Input() todoItemsByEntityId?: Record<string, TodoItem[]>;
-  @Input() calendarEventsByEntityId?: Record<string, any[]>;
+  @Input() calendarEventsByEntityId?: Record<string, CalendarEventData[]>;
+  @Input() weatherForecastsByKey?: Record<string, WeatherForecastData[]>;
+  @Input() rssFeedEntriesByEntityId?: Record<string, RssFeedEntryData[]>;
+  @Input() historyDataByEntityId?: Record<string, HistoryStateData[]>;
+  @Input() generatedContentByWidgetId?: Record<string, string>;
+  @Input() sourceStatuses?: Record<string, DataSourceStatus>;
+  @Input() appVersion = '';
   @Input() widget!: WidgetConfig;
   @Input() colorScheme!: ColorScheme;
   @Input() designerSettings?: DashboardLayout;
@@ -111,37 +123,68 @@ export class WidgetPreviewComponent {
   @Input() dashboardId?: string;
   /** Whether live preview data has ever been fetched. When false, show icon+title placeholders. */
   @Input() dataFetched = true;
-  /** When true, the header widget will show its internal layout editor overlay. */
-  @Input() headerInternalEdit = false;
-  @Output() headerLayoutChanged = new EventEmitter<HeaderConfig>();
-  /** When true, the weather widget will show its internal layout editor overlay. */
-  @Input() weatherInternalEdit = false;
-  @Output() weatherLayoutChanged = new EventEmitter<WeatherConfig>();
-
-  // ─── widget type → icon / label ──────────────────────────────────────────
-  private static readonly WIDGET_META: Record<string, { icon: string; label: string }> = {
-    'header':           { icon: 'fa-heading',       label: 'Header' },
-    'markdown':         { icon: 'fa-align-left',    label: 'Markdown' },
-    'calendar':         { icon: 'fa-calendar',      label: 'Calendar' },
-    'weather':          { icon: 'fa-cloud-sun',     label: 'Weather' },
-    'weather-forecast': { icon: 'fa-cloud-sun-rain', label: 'Forecast' },
-    'graph':            { icon: 'fa-chart-line',    label: 'Graph' },
-    'todo':             { icon: 'fa-list-check',    label: 'Tasks' },
-    'rss-feed':         { icon: 'fa-rss',           label: 'RSS Feed' },
-    'app-icon':         { icon: 'fa-rocket',        label: 'App Icon' },
-    'image':            { icon: 'fa-image',         label: 'Image' },
-    'version':          { icon: 'fa-code-branch',   label: 'Version' },
-    'ai-content':       { icon: 'fa-wand-magic-sparkles', label: 'AI Content' },
-  };
-
   getWidgetIcon(): string {
-    return WidgetPreviewComponent.WIDGET_META[this.widget.type]?.icon || 'fa-puzzle-piece';
+    return getWidgetDefinition(this.widget.type).icon;
   }
 
   getWidgetLabel(): string {
+    const definition = getWidgetDefinition(this.widget.type);
     return this.widget.titleOverride
-      || WidgetPreviewComponent.WIDGET_META[this.widget.type]?.label
-      || this.widget.type;
+      || definition.previewLabel
+      || definition.label;
+  }
+
+  getPlaceholderLabel(): string {
+    if (!this.dataFetched) return this.getWidgetLabel();
+    const statuses = this.getWidgetSourceStatuses();
+    if (statuses.some(status => status.state === 'error')) return 'Data unavailable';
+    if (statuses.length > 0 && statuses.every(status => status.state === 'empty')) return 'No data';
+    return this.getWidgetLabel();
+  }
+
+  getSourceError(): string | undefined {
+    return this.getWidgetSourceStatuses().find(status => status.state === 'error')?.error;
+  }
+
+  private getWidgetSourceStatuses(): DataSourceStatus[] {
+    if (!this.sourceStatuses) return [];
+    const config = this.widget.config as any;
+    const entityId = config?.entityId as string | undefined;
+    const keys: string[] = [];
+
+    switch (this.widget.type) {
+      case 'header':
+        keys.push(...((config?.badges ?? []) as any[])
+          .map(badge => badge.entityId)
+          .filter(Boolean)
+          .map(id => `entity:${id}`));
+        break;
+      case 'weather':
+        if (entityId) keys.push(`entity:${entityId}`);
+        break;
+      case 'weather-forecast':
+        if (entityId) keys.push(`forecast:${entityId}:${config?.forecastMode === 'hourly' ? 'hourly' : 'daily'}`);
+        break;
+      case 'todo':
+        if (entityId) keys.push(`todo:${entityId}`);
+        break;
+      case 'calendar':
+        if (entityId) keys.push(`calendar:${entityId}`);
+        break;
+      case 'rss-feed':
+        if (entityId) keys.push(`rss:${entityId}`);
+        break;
+      case 'graph':
+        keys.push(...((config?.series ?? []) as GraphSeriesConfig[])
+          .map(series => series.entityId)
+          .filter(Boolean)
+          .map(id => `history:${id}`));
+        break;
+    }
+
+    return keys
+      .map(key => this.sourceStatuses?.[key])
+      .filter((status): status is DataSourceStatus => !!status);
   }
 
   asHeaderConfig(config: any): HeaderConfig {
@@ -186,28 +229,27 @@ export class WidgetPreviewComponent {
       );
     }
 
+    if (type === 'graph') {
+      const series = (config?.series ?? []) as GraphSeriesConfig[];
+      const entityIds = series.map(item => item.entityId).filter(Boolean);
+      return entityIds.length > 0 && entityIds.some(entityId =>
+        !!this.historyDataByEntityId && entityId in this.historyDataByEntityId);
+    }
+
     if (!entityId) {
       return false;
     }
 
     if (type === 'todo') {
-      return !!(
-        this.entityStates && this.entityStates[entityId] &&
-        this.todoItemsByEntityId && entityId in this.todoItemsByEntityId
-      );
+      return !!(this.todoItemsByEntityId && entityId in this.todoItemsByEntityId);
     }
 
     if (type === 'calendar') {
-      return !!(
-        this.entityStates && this.entityStates[entityId] &&
-        this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId
-      );
+      return !!(this.calendarEventsByEntityId && entityId in this.calendarEventsByEntityId);
     }
 
     if (type === 'rss-feed') {
-      const state = this.entityStates?.[entityId];
-      const attrs = state?.attributes;
-      return !!(attrs && (attrs['title'] || attrs['link'] || attrs['description']));
+      return !!(this.rssFeedEntriesByEntityId && entityId in this.rssFeedEntriesByEntityId);
     }
 
     if (type === 'weather') {
@@ -216,8 +258,8 @@ export class WidgetPreviewComponent {
     }
 
     if (type === 'weather-forecast') {
-      const state = this.entityStates?.[entityId];
-      return !!(state?.attributes?.['forecast']);
+      const key = getWeatherForecastDataKey(entityId, config?.forecastMode);
+      return !!(this.weatherForecastsByKey && key in this.weatherForecastsByKey);
     }
 
     return !!(this.entityStates && this.entityStates[entityId]);

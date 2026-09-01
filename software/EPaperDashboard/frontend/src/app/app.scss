@@ -32,18 +32,30 @@
 	}
 }
 
-/* Optional: keep footer visible without causing page scroll jumps */
-footer.footer {
-	flex-shrink: 0;
-}
-
 /* Ensure header and footer stay visible while content scrolls */
 header {
-	position: sticky;
-	top: 0;
+	position: relative;
 	z-index: 1020;
 	/* above content */
 	background: var(--bs-body-bg);
+}
+
+.app-brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6rem;
+	font-size: 1.2rem;
+	font-weight: 650;
+}
+
+.app-brand-logo {
+	width: 2.5rem;
+	height: 2.5rem;
+}
+
+.navbar .nav-link.active {
+	color: var(--bs-primary);
+	font-weight: 600;
 }
 
 .theme-switch .form-check-input {
@@ -53,31 +65,11 @@ header {
 	cursor: pointer;
 	background-color: var(--bs-secondary-bg);
 	border-color: var(--bs-border-color);
-	background-repeat: no-repeat;
-	background-position: left 7px center;
-	background-size: 16px 16px;
-	transition: background-color 0.2s ease, border-color 0.2s ease, background-position 0.2s ease;
-}
-
-.theme-switch .form-check-input:focus {
-	box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
-}
-
-/* Icon-on-handle visuals using inline SVG data URIs */
-.theme-switch .form-check-input:not(:checked) {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f59e0b'%3E%3Cpath d='M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Zm0-14.5a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 12 3.5Zm0 16a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 12 19.5Zm8-7a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5A.75.75 0 0 1 20 12.5Zm-16 0a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5A.75.75 0 0 1 4 12.5Zm12.6-6.1a.75.75 0 0 1 1.06 0l.35.35a.75.75 0 0 1-1.06 1.06l-.35-.35a.75.75 0 0 1 0-1.06Zm-11.2 11.2a.75.75 0 0 1 1.06 0l.35.35a.75.75 0 0 1-1.06 1.06l-.35-.35a.75.75 0 0 1 0-1.06Zm0-10.85a.75.75 0 0 1 0 1.06l-.35.35a.75.75 0 0 1-1.06-1.06l.35-.35a.75.75 0 0 1 1.06 0Zm11.2 11.2a.75.75 0 0 1 0 1.06l-.35.35a.75.75 0 1 1-1.06-1.06l.35-.35a.75.75 0 0 1 1.06 0Z'/%3E%3C/svg%3E");
-}
-
-.theme-switch .form-check-input:checked {
-	background-color: #0d6efd;
-	border-color: #0d6efd;
-	background-position: right 7px center;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e5e7eb'%3E%3Cpath d='M21 12.75A9.25 9.25 0 0 1 9.02 3.64 7.75 7.75 0 1 0 21 12.75Z'/%3E%3C/svg%3E");
+	transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 footer.footer {
-	position: sticky;
-	bottom: 0;
+	position: relative;
 	z-index: 1020;
 	background: var(--bs-body-bg);
 	padding: 0.375rem 0;
@@ -133,6 +125,7 @@ footer.footer {
 			background-color: var(--bs-secondary);
 			color: var(--bs-white);
 		}
+
 	}
 
 	.footer-nav {
@@ -241,6 +234,20 @@ footer.footer {
 			i {
 				opacity: 1;
 			}
+		}
+
+		&.active {
+			color: var(--bs-primary);
+			font-weight: 600;
+
+			i {
+				opacity: 1;
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--bs-primary);
+			outline-offset: 0.35rem;
 		}
 
 		&.text-danger:hover {

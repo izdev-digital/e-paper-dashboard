@@ -9,24 +9,24 @@ import { Dashboard } from '../../models/types';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="container mt-5">
-      <div class="d-flex align-items-center gap-3 mb-4">
-        <button type="button" class="btn btn-secondary" (click)="onCancel()">
-          <i class="fa fa-arrow-left"></i> Back
-        </button>
-        <h2 class="mb-0">Delete Dashboard</h2>
+    <div class="app-page">
+      <div class="app-page-header">
+        <div>
+          <h1 class="app-page-title">Delete dashboard</h1>
+          <p class="app-page-description">Review the dashboard before permanently deleting it.</p>
+        </div>
       </div>
       
       @if (isLoading()) {
-        <div class="text-center my-5">
+        <div class="app-loading-state">
           <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden">Loading dashboard</span>
           </div>
         </div>
       } @else if (dashboard()) {
-        <div class="card w-50 mx-auto">
-          <div class="card-body">
-            <h5 class="card-title">{{ dashboard()!.name }}</h5>
+        <div class="app-form-shell app-form-card">
+          <div>
+            <h2 class="app-section-title">{{ dashboard()!.name }}</h2>
             <p class="card-text">{{ dashboard()!.description }}</p>
             <p class="text-danger">Are you sure you want to delete this dashboard? This action cannot be undone.</p>
             
@@ -35,10 +35,13 @@ import { Dashboard } from '../../models/types';
             }
             
             <div class="d-flex gap-2">
-              <button class="btn btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
-                {{ isDeleting() ? 'Deleting...' : 'Yes, Delete' }}
+              <button type="button" class="btn btn-danger" (click)="onDelete()" [disabled]="isDeleting()">
+                @if (isDeleting()) {
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                }
+                Delete dashboard
               </button>
-              <button class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+              <button type="button" class="btn btn-outline-secondary" (click)="onCancel()">Cancel</button>
             </div>
           </div>
         </div>

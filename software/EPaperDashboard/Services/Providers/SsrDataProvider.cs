@@ -1,277 +1,277 @@
-using System.Text.Json;
+using CSharpFunctionalExtensions;
 using EPaperDashboard.Models.Rendering;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EPaperDashboard.Services.Providers;
 
 /// <summary>
-/// Default implementation of <see cref="ISsrDataProvider"/> that orchestrates
-/// per-widget data providers to collect all data needed for server-side rendering.
+/// Resolves a deduplicated widget data plan into the snapshot shared by native rendering and
+/// designer previews. Successful source values are cached briefly; failures are never cached.
 /// </summary>
 public sealed class SsrDataProvider(
     IEntityStateProvider entityStateProvider,
     ITodoDataProvider todoDataProvider,
     ICalendarDataProvider calendarDataProvider,
     IWeatherForecastProvider weatherForecastProvider,
-    IRssFeedDataProvider rssFeedDataProvider,
     IEntityHistoryProvider entityHistoryProvider,
     IAiContentProvider aiContentProvider,
+    IMemoryCache cache,
+    TimeProvider timeProvider,
     ILogger<SsrDataProvider> logger) : ISsrDataProvider
 {
-    private readonly IEntityStateProvider _entityStateProvider = entityStateProvider;
-    private readonly ITodoDataProvider _todoDataProvider = todoDataProvider;
-    private readonly ICalendarDataProvider _calendarDataProvider = calendarDataProvider;
-    private readonly IWeatherForecastProvider _weatherForecastProvider = weatherForecastProvider;
-    private readonly IRssFeedDataProvider _rssFeedDataProvider = rssFeedDataProvider;
-    private readonly IEntityHistoryProvider _entityHistoryProvider = entityHistoryProvider;
-    private readonly IAiContentProvider _aiContentProvider = aiContentProvider;
-    private readonly ILogger<SsrDataProvider> _logger = logger;
+    private static readonly TimeSpan StateCacheDuration = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan TodoCacheDuration = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CalendarCacheDuration = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan ForecastCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan HistoryCacheDuration = TimeSpan.FromMinutes(1);
 
-    public async Task<SsrData> FetchSsrDataAsync(string dashboardId, LayoutConfig layout, CancellationToken cancellationToken = default)
+    public async Task<SsrData> FetchSsrDataAsync(
+        string dashboardId,
+        LayoutConfig layout,
+        CancellationToken cancellationToken = default,
+        bool bypassCache = false)
     {
         var data = new SsrData();
+        var plan = WidgetDataPlan.Create(layout);
 
-        // Collect all entity IDs needed across all widgets
-        var entityIds = CollectEntityIds(layout);
+        await FetchEntityStatesAsync(dashboardId, plan, data, bypassCache, cancellationToken);
+        ResolveRssEntries(plan, data);
 
-        // Fetch all entity states first — other providers may depend on them
-        if (entityIds.Count > 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var statesResult = await _entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds.ToArray());
-            if (statesResult.IsSuccess)
-            {
-                foreach (var state in statesResult.Value)
-                    data.EntityStates[state.EntityId] = state;
-            }
-            else
-            {
-                _logger.LogWarning("SSR: Failed to fetch entity states: {Error}", statesResult.Error);
-            }
-        }
-
-        // Fetch remaining data sources in parallel
         var tasks = new List<Task>();
+        tasks.AddRange(plan.TodoEntityIds.Select(entityId =>
+            FetchTodoAsync(dashboardId, entityId, data, bypassCache, cancellationToken)));
+        tasks.AddRange(plan.CalendarEntityIds.Select(entityId =>
+            FetchCalendarAsync(dashboardId, entityId, data, bypassCache, cancellationToken)));
+        tasks.AddRange(plan.Forecasts.Select(request =>
+            FetchWeatherAsync(dashboardId, request, data, bypassCache, cancellationToken)));
+        tasks.AddRange(plan.HistoryHoursByEntityId
+            .GroupBy(item => item.Value)
+            .Select(group => FetchGraphHistoryAsync(
+                dashboardId,
+                group.Select(item => item.Key).OrderBy(id => id, StringComparer.Ordinal).ToList(),
+                group.Key,
+                data,
+                bypassCache,
+                cancellationToken)));
 
-        // Single-pass grouping instead of scanning widgets 6 times
-        var widgetsByType = layout.Widgets
-            .GroupBy(w => w.Type)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        if (widgetsByType.TryGetValue("todo", out var todoWidgets))
-        {
-            foreach (var widget in todoWidgets)
-            {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchTodoAsync(dashboardId, entityId, data));
-                }
-            }
-        }
-
-        if (widgetsByType.TryGetValue("calendar", out var calendarWidgets))
-        {
-            foreach (var widget in calendarWidgets)
-            {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchCalendarAsync(dashboardId, entityId, data));
-                }
-            }
-        }
-
-        if (widgetsByType.TryGetValue("weather-forecast", out var forecastWidgets))
-        {
-            foreach (var widget in forecastWidgets)
-            {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                var forecastMode = GetStringProp(widget.Config, "forecastMode") ?? "daily";
-                var forecastType = forecastMode == "hourly" ? "hourly" : "daily";
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchWeatherAsync(dashboardId, entityId, forecastType, data));
-                }
-            }
-        }
-
-        if (widgetsByType.TryGetValue("rss-feed", out var rssWidgets))
-        {
-            foreach (var widget in rssWidgets)
-            {
-                var entityId = GetStringProp(widget.Config, "entityId");
-                if (!string.IsNullOrEmpty(entityId))
-                {
-                    tasks.Add(FetchRssAsync(dashboardId, entityId, data));
-                }
-            }
-        }
-
-        if (widgetsByType.TryGetValue("graph", out var graphWidgets))
-        {
-            foreach (var widget in graphWidgets)
-            {
-                if (widget.Config.TryGetProperty("series", out var series) && series.ValueKind == JsonValueKind.Array)
-                {
-                    var graphEntityIds = series.EnumerateArray()
-                        .Select(s => GetStringProp(s, "entityId"))
-                        .Where(id => !string.IsNullOrEmpty(id))
-                        .Cast<string>()
-                        .ToList();
-
-                    if (graphEntityIds.Count > 0)
-                    {
-                        var periodStr = GetStringProp(widget.Config, "period") ?? "24h";
-                        var hours = periodStr switch
-                        {
-                            "1h" => 1,
-                            "6h" => 6,
-                            "24h" => 24,
-                            "7d" => 168,
-                            "30d" => 720,
-                            _ => 24
-                        };
-
-                        tasks.Add(FetchGraphHistoryAsync(dashboardId, graphEntityIds, hours, data));
-                    }
-                }
-            }
-        }
-
-        if (widgetsByType.TryGetValue("ai-content", out var aiWidgets))
-        {
-            foreach (var widget in aiWidgets)
-            {
-                var prompt = GetStringProp(widget.Config, "prompt");
-                if (!string.IsNullOrWhiteSpace(prompt))
-                {
-                    var widgetId = widget.Id;
-                    tasks.Add(FetchAiContentAsync(dashboardId, widgetId, prompt, data));
-                }
-            }
-        }
+        foreach (var widgetId in plan.CachedContentWidgetIds)
+            ResolveCachedContent(dashboardId, widgetId, data);
 
         await Task.WhenAll(tasks);
-
         return data;
     }
 
-    private async Task FetchTodoAsync(string dashboardId, string entityId, SsrData data)
+    private async Task FetchEntityStatesAsync(
+        string dashboardId,
+        WidgetDataPlan plan,
+        SsrData data,
+        bool bypassCache,
+        CancellationToken cancellationToken)
     {
-        var result = await _todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId);
-        if (result.IsSuccess)
-            data.TodoItems[entityId] = result.Value;
-    }
+        if (plan.EntityStateIds.Count == 0) return;
 
-    private async Task FetchCalendarAsync(string dashboardId, string entityId, SsrData data)
-    {
-        var result = await _calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168);
-        if (result.IsSuccess)
-            data.CalendarEvents[entityId] = result.Value;
-    }
+        var entityIds = plan.EntityStateIds.OrderBy(id => id, StringComparer.Ordinal).ToArray();
+        var cacheKey = $"source:{dashboardId}:states:{string.Join('|', entityIds)}";
+        var (result, fromCache) = await FetchCachedAsync(
+            cacheKey,
+            StateCacheDuration,
+            () => entityStateProvider.FetchEntityStatesAsync(dashboardId, entityIds, cancellationToken),
+            bypassCache,
+            cancellationToken);
 
-    private async Task FetchWeatherAsync(string dashboardId, string entityId, string forecastType, SsrData data)
-    {
-        var result = await _weatherForecastProvider.FetchWeatherForecastAsync(dashboardId, entityId, forecastType);
-        if (result.IsSuccess
-            && result.Value.TryGetValue("forecast", out var forecastVal)
-            && forecastVal is List<object?> forecastList)
+        if (result.IsFailure)
         {
-            data.WeatherForecasts[entityId] = forecastList;
-        }
-    }
-
-    private async Task FetchRssAsync(string dashboardId, string entityId, SsrData data)
-    {
-        var result = await _rssFeedDataProvider.FetchRssFeedEntriesAsync(dashboardId, entityId);
-        if (result.IsSuccess)
-        {
-            data.RssFeedEntries[entityId] = result.Value;
-            _logger.LogDebug("SSR: Fetched {Count} RSS entries for {EntityId}", result.Value.Count, entityId);
-        }
-        else
-        {
-            _logger.LogWarning("SSR: Failed to fetch RSS entries for {EntityId}: {Error}", entityId, result.Error);
-        }
-    }
-
-    private async Task FetchGraphHistoryAsync(string dashboardId, List<string> entityIds, int hours, SsrData data)
-    {
-        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, entityIds, hours);
-        if (result.IsSuccess)
-        {
-            foreach (var (entityId, states) in result.Value)
-                data.HistoryData[entityId] = states;
-        }
-    }
-
-    private async Task FetchAiContentAsync(string dashboardId, string widgetId, string prompt, SsrData data)
-    {
-        // Use cached content if available; fall back to live generation
-        var cached = _aiContentProvider.GetCachedContent(dashboardId, widgetId);
-        if (cached != null)
-        {
-            data.AiContent[widgetId] = cached;
-            _logger.LogDebug("SSR: Using cached AI content for widget {WidgetId}", widgetId);
+            foreach (var entityId in entityIds)
+                SetFailure(data, DataSourceKeys.Entity(entityId), result.Error);
+            logger.LogWarning("Failed to fetch entity states: {Error}", result.Error);
             return;
         }
 
-        var result = await _aiContentProvider.GenerateAndCacheContentAsync(dashboardId, widgetId, prompt);
+        foreach (var state in result.Value)
+            data.EntityStates[state.EntityId] = state;
+
+        foreach (var entityId in entityIds)
+        {
+            var count = data.EntityStates.ContainsKey(entityId) ? 1 : 0;
+            SetSuccess(data, DataSourceKeys.Entity(entityId), count, fromCache);
+        }
+    }
+
+    private async Task FetchTodoAsync(
+        string dashboardId,
+        string entityId,
+        SsrData data,
+        bool bypassCache,
+        CancellationToken cancellationToken)
+    {
+        var (result, fromCache) = await FetchCachedAsync(
+            $"source:{dashboardId}:todo:{entityId}",
+            TodoCacheDuration,
+            () => todoDataProvider.FetchTodoItemsAsync(dashboardId, entityId, cancellationToken),
+            bypassCache,
+            cancellationToken);
+
         if (result.IsSuccess)
         {
-            data.AiContent[widgetId] = result.Value;
+            data.TodoItems[entityId] = result.Value;
+            SetSuccess(data, DataSourceKeys.Todo(entityId), result.Value.Count, fromCache);
         }
         else
         {
-            _logger.LogWarning("SSR: Failed to generate AI content for widget {WidgetId}: {Error}", widgetId, result.Error);
+            SetFailure(data, DataSourceKeys.Todo(entityId), result.Error);
         }
     }
 
-    // =============================================
-    // HELPERS
-    // =============================================
-
-    internal static string? GetStringProp(JsonElement el, string prop) =>
-        el.TryGetProperty(prop, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
-
-    private static HashSet<string> CollectEntityIds(LayoutConfig layout)
+    private async Task FetchCalendarAsync(
+        string dashboardId,
+        string entityId,
+        SsrData data,
+        bool bypassCache,
+        CancellationToken cancellationToken)
     {
-        var ids = new HashSet<string>();
-        foreach (var widget in layout.Widgets)
-        {
-            switch (widget.Type)
-            {
-                case "calendar":
-                case "weather":
-                case "weather-forecast":
-                case "todo":
-                case "rss-feed":
-                    AddId(widget.Config, "entityId", ids);
-                    break;
-                case "graph":
-                    if (widget.Config.TryGetProperty("series", out var series)
-                        && series.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var s in series.EnumerateArray())
-                            AddId(s, "entityId", ids);
-                    }
-                    break;
-                case "header":
-                    if (widget.Config.TryGetProperty("badges", out var badges)
-                        && badges.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var badge in badges.EnumerateArray())
-                            AddId(badge, "entityId", ids);
-                    }
-                    break;
-            }
-        }
-        return ids;
+        var (result, fromCache) = await FetchCachedAsync(
+            $"source:{dashboardId}:calendar:{entityId}:168",
+            CalendarCacheDuration,
+            () => calendarDataProvider.FetchCalendarEventsAsync(dashboardId, entityId, 168, cancellationToken),
+            bypassCache,
+            cancellationToken);
 
-        static void AddId(JsonElement el, string prop, HashSet<string> ids)
+        if (result.IsSuccess)
         {
-            var val = el.TryGetProperty(prop, out var p) ? p.GetString() : null;
-            if (!string.IsNullOrEmpty(val)) ids.Add(val);
+            data.CalendarEvents[entityId] = result.Value;
+            SetSuccess(data, DataSourceKeys.Calendar(entityId), result.Value.Count, fromCache);
+        }
+        else
+        {
+            SetFailure(data, DataSourceKeys.Calendar(entityId), result.Error);
         }
     }
+
+    private async Task FetchWeatherAsync(
+        string dashboardId,
+        WeatherForecastDataKey request,
+        SsrData data,
+        bool bypassCache,
+        CancellationToken cancellationToken)
+    {
+        var (result, fromCache) = await FetchCachedAsync(
+            $"source:{dashboardId}:forecast:{request.EntityId}:{request.ForecastType}",
+            ForecastCacheDuration,
+            () => weatherForecastProvider.FetchWeatherForecastAsync(
+                dashboardId,
+                request.EntityId,
+                request.ForecastType,
+                cancellationToken),
+            bypassCache,
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            SetFailure(data, DataSourceKeys.Forecast(request), result.Error);
+            return;
+        }
+
+        var forecast = result.Value;
+        data.WeatherForecasts[request] = forecast;
+        SetSuccess(data, DataSourceKeys.Forecast(request), forecast.Count, fromCache);
+    }
+
+    private async Task FetchGraphHistoryAsync(
+        string dashboardId,
+        List<string> entityIds,
+        int hours,
+        SsrData data,
+        bool bypassCache,
+        CancellationToken cancellationToken)
+    {
+        var (result, fromCache) = await FetchCachedAsync(
+            $"source:{dashboardId}:history:{hours}:{string.Join('|', entityIds)}",
+            HistoryCacheDuration,
+            () => entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, entityIds, hours, cancellationToken),
+            bypassCache,
+            cancellationToken);
+
+        if (result.IsFailure)
+        {
+            foreach (var entityId in entityIds)
+                SetFailure(data, DataSourceKeys.History(entityId), result.Error);
+            return;
+        }
+
+        foreach (var entityId in entityIds)
+        {
+            var states = result.Value.GetValueOrDefault(entityId) ?? [];
+            data.HistoryData[entityId] = states;
+            SetSuccess(data, DataSourceKeys.History(entityId), states.Count, fromCache);
+        }
+    }
+
+    private void ResolveRssEntries(WidgetDataPlan plan, SsrData data)
+    {
+        foreach (var entityId in plan.RssEntityIds)
+        {
+            if (!data.EntityStates.TryGetValue(entityId, out var state))
+            {
+                var entityStatus = data.SourceStatuses.GetValueOrDefault(DataSourceKeys.Entity(entityId));
+                if (entityStatus?.State == "error")
+                    SetFailure(data, DataSourceKeys.Rss(entityId), entityStatus.Error ?? "Entity state unavailable");
+                else
+                    SetSuccess(data, DataSourceKeys.Rss(entityId), 0, entityStatus?.FromCache == true);
+                data.RssFeedEntries[entityId] = [];
+                continue;
+            }
+
+            var title = GetAttributeString(state, "title");
+            var link = GetAttributeString(state, "link");
+            var entries = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(link)
+                ? []
+                : new List<RssFeedEntry>
+                {
+                    new()
+                    {
+                        Title = title ?? string.Empty,
+                        Link = link ?? string.Empty,
+                        Published = GetAttributeString(state, "published"),
+                        Summary = GetAttributeString(state, "description")
+                            ?? GetAttributeString(state, "summary")
+                            ?? GetAttributeString(state, "content")
+                    }
+                };
+            data.RssFeedEntries[entityId] = entries;
+            var fromCache = data.SourceStatuses.GetValueOrDefault(DataSourceKeys.Entity(entityId))?.FromCache == true;
+            SetSuccess(data, DataSourceKeys.Rss(entityId), entries.Count, fromCache);
+        }
+    }
+
+    private void ResolveCachedContent(string dashboardId, string widgetId, SsrData data)
+    {
+        var content = aiContentProvider.GetCachedContent(dashboardId, widgetId);
+        if (!string.IsNullOrEmpty(content)) data.AiContent[widgetId] = content;
+        SetSuccess(data, DataSourceKeys.Generated(widgetId), string.IsNullOrEmpty(content) ? 0 : 1, false);
+    }
+
+    private async Task<(Result<T, string> Result, bool FromCache)> FetchCachedAsync<T>(
+        string cacheKey,
+        TimeSpan duration,
+        Func<Task<Result<T, string>>> fetch,
+        bool bypassCache,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!bypassCache && cache.TryGetValue<T>(cacheKey, out var cached) && cached is not null)
+            return (Result.Success<T, string>(cached), true);
+
+        var result = await fetch().WaitAsync(cancellationToken);
+        if (result.IsSuccess) cache.Set(cacheKey, result.Value, duration);
+        return (result, false);
+    }
+
+    private void SetSuccess(SsrData data, string key, int itemCount, bool fromCache) =>
+        data.SourceStatuses[key] = DataSourceStatus.Success(itemCount, timeProvider.GetUtcNow(), fromCache);
+
+    private void SetFailure(SsrData data, string key, string error) =>
+        data.SourceStatuses[key] = DataSourceStatus.Failed(error, timeProvider.GetUtcNow());
+
+    private static string? GetAttributeString(HassEntityState state, string name) =>
+        state.Attributes.TryGetValue(name, out var value) ? value?.ToString() : null;
 }

@@ -1,21 +1,28 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed, HostListener, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
+import type { DataSourceStatus } from '../../services/dashboard-preview-data.service';
 import { DashboardService } from '../../services/dashboard.service';
 import { ToastService } from '../../services/toast.service';
 import { HomeAssistantService, HassEntity } from '../../services/home-assistant.service';
-import { EntityStateService } from '../../services/entity-state.service';
-import { TodoService, type TodoItem } from '../../services/todo.service';
-import { CalendarService } from '../../services/calendar.service';
-import { WeatherService } from '../../services/weather.service';
 import { AiService } from '../../services/ai.service';
+import {
+  DashboardRenderPreviewService,
+  WidgetRenderGeometry,
+} from '../../services/dashboard-render-preview.service';
 import { DialogService } from '../../services/dialog.service';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
-import { WidgetPreviewComponent } from '../widget-preview/widget-preview.component';
 import { WidgetConfigComponent } from '../widget-config/widget-config.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
+import { WidgetElementOverlayComponent } from '../widget-element-overlay/widget-element-overlay.component';
+import {
+  applyEditableElementChange,
+  EditableElementChange,
+} from '../../models/widget-element-layout';
 import {
   Dashboard,
   DashboardLayout,
@@ -26,23 +33,24 @@ import {
   ColorScheme,
   DEFAULT_COLOR_SCHEMES,
   WidgetPosition,
-  HassEntityState,
-  HeaderConfig,
-  WeatherConfig,
-  DEFAULT_WEATHER_ITEMS,
-  DEFAULT_CALENDAR_EVENT_ITEMS,
-  DEFAULT_FORECAST_FIELDS,
   DEFAULT_DASHBOARD_SIZE,
   DashboardSizePreset,
   DASHBOARD_SIZE_PRESETS,
   AiConfig,
   AiDataSummary,
 } from '../../models/types';
+import {
+  createDefaultWidgetConfig,
+  getWidgetDefaultSize,
+  WidgetCategory,
+  WidgetDefinition,
+  WIDGET_DEFINITIONS,
+} from '../../models/widget-catalog';
 
 @Component({
   selector: 'app-dashboard-designer',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, WidgetPreviewComponent, WidgetConfigComponent, RenderedPreviewModalComponent],
+  imports: [CommonModule, FormsModule, RouterModule, A11yModule, WidgetConfigComponent, RenderedPreviewModalComponent, WidgetElementOverlayComponent],
   templateUrl: './dashboard-designer.component.html',
   styleUrls: ['./dashboard-designer.component.scss']
 })
@@ -53,12 +61,10 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private readonly dashboardService = inject(DashboardService);
   private readonly toastService = inject(ToastService);
   private readonly homeAssistantService = inject(HomeAssistantService);
-  private readonly entityStateService = inject(EntityStateService);
-  private readonly todoService = inject(TodoService);
-  private readonly calendarService = inject(CalendarService);
-  private readonly weatherService = inject(WeatherService);
+  private readonly renderPreviewService = inject(DashboardRenderPreviewService);
   private readonly aiService = inject(AiService);
   private readonly dialogService = inject(DialogService);
+  private renderPreviewSubscription?: Subscription;
 
   // Dashboard data
   dashboardId: string = '';
@@ -85,33 +91,33 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   // UI State
   colorSchemes = DEFAULT_COLOR_SCHEMES;
-  availableWidgets: { type: WidgetType; label: string; icon: string }[] = [
-    { type: 'header', label: 'Header', icon: 'fa-heading' },
-    { type: 'markdown', label: 'Markdown', icon: 'fa-align-left' },
-    { type: 'calendar', label: 'Calendar', icon: 'fa-calendar' },
-    { type: 'weather', label: 'Weather', icon: 'fa-cloud-sun' },
-    { type: 'weather-forecast', label: 'Weather Forecast', icon: 'fa-cloud-sun-rain' },
-    { type: 'graph', label: 'Graph', icon: 'fa-chart-line' },
-    { type: 'todo', label: 'Todo List', icon: 'fa-list-check' },
-    { type: 'rss-feed', label: 'RSS Feed', icon: 'fa-rss' },
-    { type: 'app-icon', label: 'App Icon', icon: 'fa-rocket' },
-    { type: 'image', label: 'Image', icon: 'fa-image' },
-    { type: 'version', label: 'Version', icon: 'fa-code-branch' },
-    { type: 'ai-content', label: 'AI Content', icon: 'fa-wand-magic-sparkles' }
+  availableWidgets = WIDGET_DEFINITIONS;
+  readonly widgetCategories: ReadonlyArray<{ type: WidgetCategory; label: string }> = [
+    { type: 'content', label: 'Content' },
+    { type: 'home-assistant', label: 'Home Assistant' },
+    { type: 'chart', label: 'Charts' },
+    { type: 'asset', label: 'Assets' },
+    { type: 'system', label: 'System' },
   ];
+
+  widgetsInCategory(category: WidgetCategory): readonly WidgetDefinition[] {
+    return this.availableWidgets.filter(widget => widget.category === category);
+  }
 
   selectedWidget = signal<WidgetConfig | null>(null);
   ghost = signal<{ id: string; position: WidgetPosition } | null>(null);
   isLoading = signal(false);
-  livePreviewLoading = signal(false);
-  /** Becomes true after the first successful refreshLivePreview(). */
-  livePreviewEverFetched = signal(false);
-  entityStates = signal<Record<string, HassEntityState>>({});
+  loadError = signal('');
   availableEntities = signal<HassEntity[]>([]);
   entitiesLoading = signal(false);
   activeTab = signal<'dashboard' | 'widgets' | 'properties'>('dashboard');
-  todoItemsByEntityId = signal<Record<string, TodoItem[]>>({});
-  calendarEventsByEntityId = signal<Record<string, any[]>>({});
+  renderedCanvasImageUrl = signal('');
+  renderedCanvasLoading = signal(false);
+  renderedCanvasError = signal('');
+  renderedCanvasAt = signal<string | null>(null);
+  renderedWidgetGeometry = signal<Record<string, WidgetRenderGeometry>>({});
+  renderedSourceStatuses = signal<Record<string, DataSourceStatus>>({});
+  elementEditingWidgetId = signal<string | null>(null);
   toolboxCollapsed = signal(false); // Widget toolbox left panel collapsed
   colorSchemeCollapsed = signal(false); // Color scheme section expanded by default
   colorOverridesCollapsed = signal(true); // Layout color overrides collapsed by default
@@ -123,9 +129,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   previewLoading = signal(false);
   previewError = signal('');
   previewImageUrl = signal('');
-  /** ID of the widget whose internal layout editor is currently active (header or weather). */
-  internalEditingWidgetId = signal<string | null>(null);
-
   // Mobile responsive state
   isMobile = signal(false);
   mobileWidgetDrawerOpen = signal(false);
@@ -137,6 +140,10 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   private mobileBreakpoint = 768;
   private isTouchDevice = false;
   private resizeTimer: any = null;
+  private renderPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  private renderPreviewRevision = 0;
+  private renderedLayoutSignature = '';
+  private forceRefreshOnNextRender = false;
   private viewportWidth = signal(typeof window !== 'undefined' ? window.innerWidth : 1024);
   private swipeStartY = 0;
   private swipeStartX = 0;
@@ -187,6 +194,19 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       const lock = this.mobileWidgetDrawerOpen() || this.mobilePropertiesOpen();
       document.body.style.overflow = lock ? 'hidden' : '';
     });
+
+    // The native renderer is the canonical visual source. Layout changes are rendered after a
+    // short quiet period so controls remain immediate while obsolete HTTP requests are cancelled.
+    effect(() => {
+      this.layout();
+      this.aiGeneratedWidgets();
+      this.aiEnabled();
+      const dashboard = this.dashboard();
+      const loading = this.isLoading();
+      if (!loading && dashboard && this.dashboardId) {
+        this.scheduleRenderedCanvas();
+      }
+    });
   }
 
   @HostListener('window:resize')
@@ -207,6 +227,13 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }
   }
 
+  @HostListener('document:keydown.escape')
+  closeOpenDesignerOverlay(): void {
+    if (this.mobileOverflowOpen()) this.mobileOverflowOpen.set(false);
+    else if (this.mobileWidgetDrawerOpen()) this.mobileWidgetDrawerOpen.set(false);
+    else if (this.mobilePropertiesOpen()) this.mobilePropertiesOpen.set(false);
+  }
+
   ngOnInit(): void {
     this.isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
     this.viewportWidth.set(window.innerWidth);
@@ -216,19 +243,22 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       this.isLoading.set(true);
       this.loadDashboard();
     } else {
-      this.toastService.show('No dashboard ID provided', 'error');
+      this.loadError.set('The dashboard address is incomplete. Return to the dashboard list and try again.');
       this.isLoading.set(false);
     }
   }
 
   ngOnDestroy(): void {
+    this.renderPreviewSubscription?.unsubscribe();
     if (this.longPressTimer) clearTimeout(this.longPressTimer);
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    if (this.renderPreviewTimer) clearTimeout(this.renderPreviewTimer);
     document.body.style.overflow = '';
   }
 
   // Dashboard loading
   loadDashboard(): void {
+    this.loadError.set('');
     this.dashboardService.getDashboard(this.dashboardId).subscribe({
       next: (dashboard) => {
         this.dashboard.set(dashboard);
@@ -269,12 +299,23 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         this.aiEnabled.set(effectiveMode !== 'None' && (dashboard.isAiEnabled ?? false));
 
         this.markAsPristine();
+        this.isLoading.set(false);
       },
       error: (err) => {
-        this.toastService.show('Failed to load dashboard', 'error');
+        this.dashboard.set(null);
+        this.loadError.set(err.error?.message || 'Check the server connection and try again.');
         this.isLoading.set(false);
       }
     });
+  }
+
+  retryLoadDashboard(): void {
+    if (!this.dashboardId) {
+      this.router.navigate(['/dashboards']);
+      return;
+    }
+    this.isLoading.set(true);
+    this.loadDashboard();
   }
 
   loadAvailableEntities(): void {
@@ -347,16 +388,35 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   deleteWidget(widget: WidgetConfig): void {
+    const originalIndex = this.layout().widgets.findIndex(item => item.id === widget.id);
+    if (originalIndex < 0) return;
+
     this.layout.update(layout => ({
       ...layout,
       widgets: layout.widgets.filter(w => w.id !== widget.id)
     }));
     if (this.selectedWidget()?.id === widget.id) {
       this.selectedWidget.set(null);
+      this.elementEditingWidgetId.set(null);
     }
+
+    this.toastService.showWithAction(
+      'Widget removed from the layout',
+      'Undo',
+      () => {
+        this.layout.update(layout => {
+          const widgets = [...layout.widgets];
+          widgets.splice(Math.min(originalIndex, widgets.length), 0, widget);
+          return { ...layout, widgets };
+        });
+        this.selectedWidget.set(widget);
+      },
+      'info',
+      5000
+    );
   }
 
-  onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: { type: WidgetType; label: string; icon: string }): void {
+  onToolboxWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetDefinition): void {
     event.preventDefault();
     const layout = this.layout();
     const canvas = document.querySelector('.dashboard-canvas') as HTMLElement;
@@ -397,8 +457,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
         const relY = e.clientY - rect.top - padding;
         const x = Math.max(0, Math.min(layout.gridCols - 1, Math.floor(relX / slotWidth)));
         const y = Math.max(0, Math.min(layout.gridRows - 1, Math.floor(relY / slotHeight)));
-        const w = Math.min(4, layout.gridCols - x);
-        const h = Math.min(2, layout.gridRows - y);
+        const defaultSize = getWidgetDefaultSize(widget.type, layout.gridCols, layout.gridRows);
+        const w = Math.min(defaultSize.w, layout.gridCols - x);
+        const h = Math.min(defaultSize.h, layout.gridRows - y);
         this.ghost.set({ id: 'toolbox-' + widget.type, position: { x, y, w, h } });
       } else {
         this.ghost.set(null);
@@ -419,7 +480,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
           id: this.generateId(),
           type: widget.type,
           position: { ...g.position },
-          config: this.getDefaultConfig(widget.type)
+          config: createDefaultWidgetConfig(widget.type)
         };
         this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
       }
@@ -434,13 +495,18 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     document.addEventListener('mouseup', onPointerUp);
   }
 
+  onToolboxWidgetKeyDown(event: KeyboardEvent, widget: WidgetDefinition): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    this.addWidgetToFirstSlot(widget);
+  }
+
   /** Add a widget to the first available grid position (used on mobile). */
-  addWidgetToFirstSlot(widget: { type: WidgetType; label: string; icon: string }): void {
+  addWidgetToFirstSlot(widget: WidgetDefinition): void {
     const layout = this.layout();
     const cols = layout.gridCols;
     const rows = layout.gridRows;
-    const defaultW = Math.min(4, cols);
-    const defaultH = Math.min(2, rows);
+    const { w: defaultW, h: defaultH } = getWidgetDefaultSize(widget.type, cols, rows);
 
     // Build occupancy grid
     const occupied = new Set<string>();
@@ -467,7 +533,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
             id: this.generateId(),
             type: widget.type,
             position: { x, y, w: defaultW, h: defaultH },
-            config: this.getDefaultConfig(widget.type)
+            config: createDefaultWidgetConfig(widget.type)
           };
           this.layout.update(l => ({ ...l, widgets: [...l.widgets, newWidget] }));
           this.selectedWidget.set(newWidget);
@@ -502,6 +568,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       const tabBtns = Array.from(tabBar.querySelectorAll('.tab-btn')) as HTMLElement[];
       const activeBtn = tabBtns[newIdx];
       if (activeBtn) {
+        activeBtn.focus();
         const barRect = tabBar.getBoundingClientRect();
         const btnRect = activeBtn.getBoundingClientRect();
         if (btnRect.left < barRect.left) {
@@ -513,18 +580,28 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     }, 0);
   }
 
+  onDesignerTabKeydown(event: KeyboardEvent): void {
+    const current = this.tabOrder.indexOf(this.activeTab());
+    let newIndex = current;
+
+    if (event.key === 'ArrowLeft') newIndex = (current - 1 + this.tabOrder.length) % this.tabOrder.length;
+    else if (event.key === 'ArrowRight') newIndex = (current + 1) % this.tabOrder.length;
+    else if (event.key === 'Home') newIndex = 0;
+    else if (event.key === 'End') newIndex = this.tabOrder.length - 1;
+    else return;
+
+    event.preventDefault();
+    this.activeTab.set(this.tabOrder[newIndex]);
+    const tabList = (event.currentTarget as HTMLElement).closest('[role="tablist"]');
+    const tabs = tabList?.querySelectorAll<HTMLElement>('[role="tab"]');
+    setTimeout(() => tabs?.item(newIndex).focus());
+  }
+
 
   onWidgetMouseDown(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
     event.stopPropagation();
-    // While a header widget is in internal-edit mode, swallow all outer drag/resize
-    // interactions for that specific widget so the inner editor gets full mouse control.
-    if (this.internalEditingWidgetId() === widget.id) {
-      return;
-    }
-    // Selecting any other widget exits internal-edit mode on the previous one.
-    if (this.internalEditingWidgetId() !== null) {
-      this.internalEditingWidgetId.set(null);
-    }
+    if (this.elementEditingWidgetId() === widget.id) return;
+    if (this.elementEditingWidgetId()) this.elementEditingWidgetId.set(null);
     this.selectedWidget.set(widget);
     this.activeTab.set('properties');
 
@@ -586,32 +663,131 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.startDrag(event, widget);
   }
 
-  toggleInternalEdit(widget: WidgetConfig): void {
-    const current = this.internalEditingWidgetId();
-    this.internalEditingWidgetId.set(current === widget.id ? null : widget.id);
+  onWidgetKeyDown(event: KeyboardEvent, widget: WidgetConfig): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.onWidgetSelect(widget);
+      return;
+    }
+
+    const direction = {
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+    }[event.key];
+    if (!direction) return;
+
+    event.preventDefault();
+    const layout = this.layout();
+    const current = widget.position;
+    const nextPosition = event.shiftKey
+      ? {
+          ...current,
+          w: Math.max(1, Math.min(layout.gridCols - current.x, current.w + direction.x)),
+          h: Math.max(1, Math.min(layout.gridRows - current.y, current.h + direction.y)),
+        }
+      : {
+          ...current,
+          x: Math.max(0, Math.min(layout.gridCols - current.w, current.x + direction.x)),
+          y: Math.max(0, Math.min(layout.gridRows - current.h, current.y + direction.y)),
+        };
+
+    const updated = { ...widget, position: nextPosition };
+    this.layout.update(value => ({
+      ...value,
+      widgets: value.widgets.map(item => item.id === widget.id ? updated : item),
+    }));
+    this.selectedWidget.set(updated);
+    this.activeTab.set('properties');
   }
 
-  onHeaderLayoutChanged(config: HeaderConfig, widgetId: string): void {
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w =>
-        w.id === widgetId ? { ...w, config: { ...config } } : w
-      ),
-    }));
-    // Also keep the selectedWidget signal in sync so the config panel reflects changes.
-    const updated = this.layout().widgets.find(w => w.id === widgetId);
-    if (updated) this.selectedWidget.set(updated);
+  getSelectedWidgetGeometry(): WidgetRenderGeometry | undefined {
+    if (this.renderedCanvasLoading()
+        || this.renderedLayoutSignature !== JSON.stringify(this.getCompleteRenderLayout())) return undefined;
+    const selected = this.selectedWidget();
+    return selected ? this.renderedWidgetGeometry()[selected.id] : undefined;
   }
 
-  onWeatherLayoutChanged(config: WeatherConfig, widgetId: string): void {
-    this.layout.update(l => ({
-      ...l,
-      widgets: l.widgets.map(w =>
-        w.id === widgetId ? { ...w, config: { ...config } } : w
-      ),
+  selectedWidgetSupportsElementEditing(): boolean {
+    const selected = this.selectedWidget();
+    return !!selected && !!this.renderedWidgetGeometry()[selected.id]?.editable;
+  }
+
+  selectedWidgetSourceStatuses(): Array<{ key: string; label: string; status: DataSourceStatus }> {
+    const widget = this.selectedWidget();
+    if (!widget) return [];
+    const config = widget.config as any;
+    const entityId = config?.entityId as string | undefined;
+    const sources: Array<{ key: string; label: string }> = [];
+
+    switch (widget.type) {
+      case 'header':
+        for (const badge of config?.badges ?? []) {
+          if (badge.entityId) sources.push({ key: `entity:${badge.entityId}`, label: badge.entityId });
+        }
+        break;
+      case 'weather':
+        if (entityId) sources.push({ key: `entity:${entityId}`, label: entityId });
+        break;
+      case 'weather-forecast':
+        if (entityId) {
+          const mode = config?.forecastMode === 'hourly' ? 'hourly' : 'daily';
+          sources.push({ key: `entity:${entityId}`, label: entityId });
+          sources.push({ key: `forecast:${entityId}:${mode}`, label: `${mode} forecast` });
+        }
+        break;
+      case 'todo':
+        if (entityId) sources.push({ key: `todo:${entityId}`, label: entityId });
+        break;
+      case 'calendar':
+        if (entityId) sources.push({ key: `calendar:${entityId}`, label: entityId });
+        break;
+      case 'rss-feed':
+        if (entityId) sources.push({ key: `rss:${entityId}`, label: entityId });
+        break;
+      case 'graph':
+        for (const series of config?.series ?? []) {
+          if (series.entityId) sources.push({ key: `history:${series.entityId}`, label: series.label || series.entityId });
+        }
+        break;
+      case 'ai-content':
+        sources.push({ key: `generated:${widget.id}`, label: 'Generated content' });
+        break;
+    }
+
+    const statuses = this.renderedSourceStatuses();
+    return sources
+      .filter((source, index) => sources.findIndex(item => item.key === source.key) === index)
+      .flatMap(source => statuses[source.key] ? [{ ...source, status: statuses[source.key] }] : []);
+  }
+
+  toggleElementEditing(widget: WidgetConfig): void {
+    const editingId = this.elementEditingWidgetId();
+    this.elementEditingWidgetId.set(editingId === widget.id ? null : widget.id);
+  }
+
+  getSelectedWidgetSnapStep(): number {
+    const config = this.selectedWidget()?.config as { snapStep?: number } | undefined;
+    return config?.snapStep ?? 2;
+  }
+
+  getSelectedWidgetShowGuides(): boolean {
+    const config = this.selectedWidget()?.config as { showGuides?: boolean } | undefined;
+    return config?.showGuides ?? true;
+  }
+
+  onEditableElementChange(change: EditableElementChange): void {
+    const selected = this.selectedWidget();
+    if (!selected) return;
+    const updated = applyEditableElementChange(selected, change);
+    if (updated === selected) return;
+
+    this.layout.update(layout => ({
+      ...layout,
+      widgets: layout.widgets.map(widget => widget.id === updated.id ? updated : widget),
     }));
-    const updated = this.layout().widgets.find(w => w.id === widgetId);
-    if (updated) this.selectedWidget.set(updated);
+    this.selectedWidget.set(updated);
   }
 
   private startDrag(event: MouseEvent | PointerEvent, widget: WidgetConfig): void {
@@ -788,7 +964,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   saveDashboard(): void {
     if (!this.dashboard()) return;
 
-    const layoutConfig = this.computePixelPositions(this.layout());
+    const layoutConfig = this.layout();
     const payload: any = { layoutConfig, orientation: this.orientation() };
 
     // Include AI settings in every save
@@ -818,35 +994,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     });
   }
 
-  /**
-   * Computes and stores pixel positions for every widget based on grid layout parameters.
-   * These stored pixel values are used by the server-side rendering to position widgets
-   * with absolute pixel coordinates, ensuring pixel-perfect rendering.
-   */
-  private computePixelPositions(layout: DashboardLayout): DashboardLayout {
-    const padding = layout.canvasPadding ?? 0;
-    const gap = layout.widgetGap ?? 0;
-    const cols = Math.max(1, layout.gridCols);
-    const rows = Math.max(1, layout.gridRows);
-    const innerWidth = Math.max(0, layout.width - padding * 2 - gap * (cols - 1));
-    const innerHeight = Math.max(0, layout.height - padding * 2 - gap * (rows - 1));
-    const cellWidth = innerWidth / cols;
-    const cellHeight = innerHeight / rows;
-
-    const widgets = layout.widgets.map(widget => ({
-      ...widget,
-      position: {
-        ...widget.position,
-        pixelX: Math.round((padding + widget.position.x * (cellWidth + gap)) * 100) / 100,
-        pixelY: Math.round((padding + widget.position.y * (cellHeight + gap)) * 100) / 100,
-        pixelWidth: Math.round((widget.position.w * cellWidth + (widget.position.w - 1) * gap) * 100) / 100,
-        pixelHeight: Math.round((widget.position.h * cellHeight + (widget.position.h - 1) * gap) * 100) / 100,
-      }
-    }));
-
-    return { ...layout, widgets };
-  }
-
   goBack(): void {
     this.router.navigate(['/dashboards', this.dashboardId, 'edit']);
   }
@@ -863,6 +1010,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     this.aiPrompt.set(snapshot.aiPrompt);
     this.aiLeadTimeMinutes.set(snapshot.aiLeadTimeMinutes);
     this.selectedWidget.set(null);
+    this.elementEditingWidgetId.set(null);
   }
 
   private computeCurrentSnapshot(): string {
@@ -902,9 +1050,9 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       this.previewObjectUrl = null;
     }
 
-    const url = `/api/dashboards/${this.dashboardId}/render-image?format=png`;
+    const url = `/api/dashboards/${this.dashboardId}/render-image?format=png&refresh=true`;
 
-    this.http.get(url, {
+    this.http.post(url, this.layout(), {
       responseType: 'blob'
     }).subscribe({
       next: (blob) => {
@@ -1064,12 +1212,12 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
 
   updateTitleFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    this.layout.update(layout => ({ ...layout, titleFontWeight: weight }));
+    this.layout.update(layout => ({ ...layout, titleFontWeight: this.normalizeFontWeight(weight) }));
   }
 
   updateTextFontWeight(fontWeight: number | string): void {
     const weight = typeof fontWeight === 'string' ? parseInt(fontWeight, 10) : fontWeight;
-    this.layout.update(layout => ({ ...layout, textFontWeight: weight }));
+    this.layout.update(layout => ({ ...layout, textFontWeight: this.normalizeFontWeight(weight) }));
   }
 
   updateCanvasBackgroundColor(color: string): void {
@@ -1229,190 +1377,81 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
   refreshLivePreview(): void {
-    if (!this.dashboardId) {
-      return;
-    }
-
-    const ids = this.collectEntityIds();
-
-    if (ids.length === 0) {
-      this.entityStates.set({});
-      this.livePreviewEverFetched.set(true);
-      return;
-    }
-
-    this.livePreviewLoading.set(true);
-    this.entityStateService.getEntityStates(this.dashboardId, ids).subscribe({
-      next: (states) => {
-        const map: Record<string, HassEntityState> = {};
-        states.forEach(s => { map[s.entityId] = s; });
-        this.entityStates.set(map);
-        this.livePreviewEverFetched.set(true);
-
-        const todoEntityIds = this.layout().widgets
-          .filter(w => w.type === 'todo' && (w.config as any).entityId)
-          .map(w => (w.config as any).entityId)
-          .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
-
-        if (todoEntityIds.length === 0) {
-          this.todoItemsByEntityId.set({});
-          this.livePreviewLoading.set(false);
-          return;
-        }
-
-        let completed = 0;
-        const todoMap: Record<string, TodoItem[]> = {};
-        todoEntityIds.forEach(entityId => {
-          this.todoService.getTodoItems(this.dashboardId, entityId).subscribe({
-            next: (items) => {
-              todoMap[entityId] = items || [];
-              completed++;
-              if (completed === todoEntityIds.length) {
-                this.todoItemsByEntityId.set(todoMap);
-                this.fetchCalendarEvents();
-              }
-            },
-            error: () => {
-              todoMap[entityId] = [];
-              completed++;
-              if (completed === todoEntityIds.length) {
-                this.todoItemsByEntityId.set(todoMap);
-                this.fetchCalendarEvents();
-              }
-            }
-          });
-        });
-      },
-      error: (err) => {
-        this.livePreviewLoading.set(false);
-        const msg = err?.error?.error || err?.message || 'Failed to fetch entity data';
-        this.toastService.show(msg, 'error');
-      }
-    });
+    if (this.dashboardId) this.scheduleRenderedCanvas(true, 0);
   }
 
-  private fetchCalendarEvents() {
-    const calendarEntityIds = this.layout().widgets
-      .filter(w => w.type === 'calendar' && (w.config as any).entityId)
-      .map(w => (w.config as any).entityId)
-      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+  private scheduleRenderedCanvas(refreshData = false, delayMs = 300): void {
+    if (!this.dashboardId || this.isLoading()) return;
 
-    if (calendarEntityIds.length === 0) {
-      this.calendarEventsByEntityId.set({});
-      this.fetchWeatherForecasts();
-      return;
-    }
+    this.forceRefreshOnNextRender ||= refreshData;
+    if (this.renderPreviewTimer) clearTimeout(this.renderPreviewTimer);
+    this.renderPreviewTimer = setTimeout(() => {
+      this.renderPreviewTimer = null;
+      this.renderRenderedCanvas();
+    }, delayMs);
+  }
 
-    let completed = 0;
-    const calendarMap: Record<string, any[]> = {};
-    calendarEntityIds.forEach(entityId => {
-      this.calendarService.getCalendarEvents(this.dashboardId, entityId).subscribe({
-        next: (events: any[]) => {
-          calendarMap[entityId] = events || [];
-          completed++;
-          if (completed === calendarEntityIds.length) {
-            this.calendarEventsByEntityId.set(calendarMap);
-            this.fetchWeatherForecasts();
-          }
+  private renderRenderedCanvas(): void {
+    const revision = ++this.renderPreviewRevision;
+    const refreshData = this.forceRefreshOnNextRender;
+    const renderLayout = this.getCompleteRenderLayout();
+    const renderLayoutSignature = JSON.stringify(renderLayout);
+    this.forceRefreshOnNextRender = false;
+
+    this.renderPreviewSubscription?.unsubscribe();
+    this.renderedCanvasLoading.set(true);
+    this.renderedCanvasError.set('');
+    this.renderPreviewSubscription = this.renderPreviewService
+      .render(this.dashboardId, renderLayout, revision, refreshData)
+      .subscribe({
+        next: preview => {
+          if (preview.revision !== this.renderPreviewRevision) return;
+
+          this.renderedCanvasImageUrl.set(this.renderPreviewService.toImageUrl(preview));
+          this.renderedLayoutSignature = renderLayoutSignature;
+          this.renderedCanvasAt.set(preview.renderedAt);
+          this.renderedWidgetGeometry.set(Object.fromEntries(
+            preview.widgets.map(widget => [widget.id, widget]),
+          ));
+          this.renderedSourceStatuses.set(preview.sourceStatuses ?? {});
+          this.renderedCanvasLoading.set(false);
         },
-        error: () => {
-          calendarMap[entityId] = [];
-          completed++;
-          if (completed === calendarEntityIds.length) {
-            this.calendarEventsByEntityId.set(calendarMap);
-            this.fetchWeatherForecasts();
-          }
-        }
-      });
-    });
-  }
+        error: async error => {
+          if (revision !== this.renderPreviewRevision) return;
 
-  private fetchWeatherForecasts() {
-    const weatherEntityIds = this.layout().widgets
-      .filter(w => w.type === 'weather-forecast' && (w.config as any).entityId)
-      .map(w => (w.config as any).entityId)
-      .filter((id, idx, arr) => !!id && arr.indexOf(id) === idx);
+          const message = await this.getRenderErrorMessage(error);
+          if (revision !== this.renderPreviewRevision) return;
 
-    if (weatherEntityIds.length === 0) {
-      this.livePreviewLoading.set(false);
-      return;
-    }
-
-    let completed = 0;
-    const weatherMap: Record<string, any> = {};
-    weatherEntityIds.forEach(entityId => {
-      const forecastMode = this.layout().widgets
-        .find(w => w.type === 'weather-forecast' && (w.config as any).entityId === entityId)
-        ?.config as any;
-      const forecastType = this.mapForecastModeToServiceType(forecastMode?.forecastMode || 'daily');
-      
-      this.weatherService.getWeatherForecast(this.dashboardId, entityId, forecastType).subscribe({
-        next: (forecast: any) => {
-          // Merge forecast data into entity state attributes
-          const state = this.entityStates()[entityId];
-          if (state && state.attributes) {
-            state.attributes['forecast'] = forecast?.forecast || [];
-          }
-          completed++;
-          if (completed === weatherEntityIds.length) {
-            this.livePreviewLoading.set(false);
-          }
+          this.renderedCanvasLoading.set(false);
+          this.renderedCanvasError.set(message);
         },
-        error: () => {
-          completed++;
-          if (completed === weatherEntityIds.length) {
-            this.livePreviewLoading.set(false);
-          }
-        }
       });
-    });
   }
 
-  private mapForecastModeToServiceType(mode: string): string {
-    switch (mode) {
-      case 'hourly': return 'hourly';
-      case 'weekly': return 'daily';
-      case 'daily':
-      default: return 'daily';
-    }
+  private getCompleteRenderLayout(): DashboardLayout {
+    const layout = this.layout();
+    const generatedWidgets = this.aiEnabled() ? this.aiGeneratedWidgets() : [];
+    return generatedWidgets.length === 0
+      ? layout
+      : { ...layout, widgets: [...layout.widgets, ...generatedWidgets] };
   }
 
-  private collectEntityIds(): string[] {
-    const ids = new Set<string>();
-    for (const widget of this.layout().widgets) {
-      switch (widget.type) {
-        case 'calendar':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'weather':
-        case 'weather-forecast':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'todo':
-        case 'rss-feed':
-          if ((widget.config as any).entityId) ids.add((widget.config as any).entityId);
-          break;
-        case 'graph': {
-          const graphCfg = widget.config as any;
-          if (Array.isArray(graphCfg?.series)) {
-            graphCfg.series.forEach((s: any) => {
-              if (s?.entityId) ids.add(s.entityId);
-            });
-          }
-          break;
-        }
-        case 'header': {
-          const cfg = widget.config as any;
-          if (cfg?.badges?.length) {
-            cfg.badges.forEach((b: any) => {
-              if (b?.entityId) ids.add(b.entityId);
-            });
-          }
-          break;
-        }
+  private async getRenderErrorMessage(error: any): Promise<string> {
+    if (error?.error instanceof Blob) {
+      const text = await error.error.text();
+      try {
+        const value = JSON.parse(text);
+        return value.title || value.error || value.message || text;
+      } catch {
+        return text || `HTTP Error ${error.status}`;
       }
     }
-    return Array.from(ids);
+
+    return error?.error?.title
+      || error?.error?.error
+      || error?.error?.message
+      || error?.message
+      || 'Failed to render dashboard preview';
   }
 
   getCanvasStyle(): any {
@@ -1513,12 +1552,14 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const ghost = this.ghost();
     const p = (ghost?.id === widget.id ? ghost.position : null) ?? widget.position;
 
-    const left   = padding + p.x * (cellW + gap);
-    const top    = padding + p.y * (cellH + gap);
-    const width  = p.w * cellW + (p.w - 1) * gap;
-    const height = p.h * cellH + (p.h - 1) * gap;
-
-    const isInternal = this.internalEditingWidgetId() === widget.id;
+    const resolvedBounds = ghost?.id === widget.id
+      ? null
+      : this.renderedWidgetGeometry()[widget.id]?.bounds;
+    const left   = resolvedBounds?.x ?? padding + p.x * (cellW + gap);
+    const top    = resolvedBounds?.y ?? padding + p.y * (cellH + gap);
+    const width  = resolvedBounds?.width ?? p.w * cellW + (p.w - 1) * gap;
+    const height = resolvedBounds?.height ?? p.h * cellH + (p.h - 1) * gap;
+    const editingElements = this.elementEditingWidgetId() === widget.id;
 
     return {
       position: 'absolute',
@@ -1527,7 +1568,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       width:  `${width}px`,
       height: `${height}px`,
       boxSizing: 'border-box',
-      pointerEvents: isInternal ? 'none' : 'auto',
+      pointerEvents: editingElements ? 'none' : 'auto',
       zIndex: 100,
     };
   }
@@ -1610,14 +1651,20 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       widgetPadding: typeof parsedLayout?.widgetPadding === 'number' ? parsedLayout.widgetPadding : baseLayout.widgetPadding,
       titleFontSize: typeof parsedLayout?.titleFontSize === 'number' ? parsedLayout.titleFontSize : baseLayout.titleFontSize,
       textFontSize: typeof parsedLayout?.textFontSize === 'number' ? parsedLayout.textFontSize : baseLayout.textFontSize,
-      titleFontWeight: typeof parsedLayout?.titleFontWeight === 'number' ? parsedLayout.titleFontWeight : baseLayout.titleFontWeight,
-      textFontWeight: typeof parsedLayout?.textFontWeight === 'number' ? parsedLayout.textFontWeight : baseLayout.textFontWeight
+      titleFontWeight: this.normalizeFontWeight(
+        typeof parsedLayout?.titleFontWeight === 'number' ? parsedLayout.titleFontWeight : baseLayout.titleFontWeight),
+      textFontWeight: this.normalizeFontWeight(
+        typeof parsedLayout?.textFontWeight === 'number' ? parsedLayout.textFontWeight : baseLayout.textFontWeight)
     };
+  }
+
+  private normalizeFontWeight(weight: number): 400 | 700 {
+    return weight >= 700 ? 700 : 400;
   }
 
   private normalizeWidget(widget: any): WidgetConfig {
     const type = widget?.type as WidgetType;
-    const defaultConfig = this.getDefaultConfig(type);
+    const defaultConfig = createDefaultWidgetConfig(type);
     const config = {
       ...defaultConfig,
       ...(widget?.config ?? {})
@@ -1636,7 +1683,8 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
       position,
       config,
       colorOverrides: widget?.colorOverrides,
-      titleOverride: widget?.titleOverride
+      titleOverride: widget?.titleOverride,
+      showTitle: widget?.showTitle !== false
     } as WidgetConfig;
   }
 
@@ -1662,41 +1710,6 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
   }
 
 
-
-  private getDefaultConfig(type: WidgetType): any {
-    switch (type) {
-      case 'header':
-        return { title: 'New Header', badges: [] };
-      case 'markdown':
-        return { content: '# Markdown Content' };
-      case 'calendar':
-        return { entityId: '', maxEvents: 7, items: [...DEFAULT_CALENDAR_EVENT_ITEMS] };
-      case 'weather':
-        return { entityId: '', items: [...DEFAULT_WEATHER_ITEMS] };
-      case 'weather-forecast':
-        return {
-          entityId: '',
-          forecastMode: 'daily',
-          visibleFields: [...DEFAULT_FORECAST_FIELDS]
-        };
-      case 'graph':
-        return { series: [], period: '24h', plotType: 'line', lineWidth: 2 };
-      case 'todo':
-        return { entityId: '' };
-      case 'rss-feed':
-        return { entityId: '', title: 'Topic of the day' };
-      case 'app-icon':
-        return { size: 48 };
-      case 'image':
-        return { imageUrl: '', fit: 'contain' };
-      case 'version':
-        return {};
-      case 'ai-content':
-        return { prompt: '' };
-      default:
-        return {};
-    }
-  }
 
   getCanvasScaleStyle(): any {
     const scale = this.canvasScale();
@@ -1735,6 +1748,7 @@ export class DashboardDesignerComponent implements OnInit, OnDestroy, HasUnsaved
     const target = event.target as HTMLElement;
     if (target.classList.contains('dashboard-canvas') || target.classList.contains('grid-overlay')) {
       this.selectedWidget.set(null);
+      this.elementEditingWidgetId.set(null);
       this.mobileSelectionToolbar.set(false);
     }
   }

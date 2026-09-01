@@ -1,65 +1,85 @@
-<div class="users-management-container">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="mb-0">Users</h1>
-    <button (click)="toggleAddForm()" class="btn btn-sm btn-primary" [class.btn-outline-primary]="showAddForm()"
+<div class="users-management-container app-page">
+  <div class="app-page-header">
+    <div>
+      <h1 class="app-page-title">Users</h1>
+      <p class="app-page-description">Manage who can access and configure izBoard.</p>
+    </div>
+    <button type="button" (click)="toggleAddForm()" class="btn"
+      [ngClass]="showAddForm() ? 'btn-outline-secondary' : 'btn-primary'"
       [disabled]="isAddingUser()">
-      <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'"></i>
-      <span class="d-none d-sm-inline">{{ showAddForm() ? 'Cancel' : 'Add New User' }}</span><span class="d-sm-none">{{ showAddForm() ? 'Cancel' : 'New' }}</span>
+      <i class="fa-solid" [ngClass]="showAddForm() ? 'fa-times' : 'fa-plus'" aria-hidden="true"></i>
+      <span>{{ showAddForm() ? 'Cancel' : 'Add user' }}</span>
     </button>
   </div>
 
   @if (showAddForm()) {
-  <div class="add-user-form mb-4 p-4 rounded">
-    <h6>Add New User</h6>
+  <section class="add-user-form app-section-card mb-4" aria-labelledby="addUserTitle">
+    <h2 id="addUserTitle" class="app-section-title">Add user</h2>
+    <p class="app-section-description">Create credentials for someone who needs dashboard access.</p>
     <form [formGroup]="addUserForm" (ngSubmit)="addUser()">
       <div class="mb-3">
         <label for="username" class="form-label">
-          <i class="fa-solid fa-user me-2"></i>Username
+          <i class="fa-solid fa-user me-2" aria-hidden="true"></i>Username
         </label>
         <input type="text" id="username" class="form-control" formControlName="username"
-          placeholder="Enter username (min 3 characters)" required />
-        @if (addUserForm.get('username')?.hasError('required')) {
-        <small>
+          placeholder="At least 3 characters" autocomplete="username" required
+          [class.is-invalid]="showError('username')" [attr.aria-describedby]="showError('username') ? 'usernameError' : null" />
+        @if (showError('username', 'required')) {
+        <div id="usernameError" class="invalid-feedback">
           Username is required
-        </small>
+        </div>
         }
-        @if (addUserForm.get('username')?.hasError('minlength')) {
-        <small>
+        @if (showError('username', 'minlength')) {
+        <div id="usernameError" class="invalid-feedback">
           Username must be at least 3 characters
-        </small>
+        </div>
         }
       </div>
 
       <div class="mb-3">
         <label for="password" class="form-label">
-          <i class="fa-solid fa-lock me-2"></i>Password
+          <i class="fa-solid fa-lock me-2" aria-hidden="true"></i>Password
         </label>
         <input type="password" id="password" class="form-control" formControlName="password"
-          placeholder="Enter password (min 6 characters)" required />
-        @if (addUserForm.get('password')?.hasError('required')) {
-        <small>
+          placeholder="At least 6 characters" autocomplete="new-password" required
+          [class.is-invalid]="showError('password')" [attr.aria-describedby]="showError('password') ? 'passwordError' : null" />
+        @if (showError('password', 'required')) {
+        <div id="passwordError" class="invalid-feedback">
           Password is required
-        </small>
+        </div>
         }
-        @if (addUserForm.get('password')?.hasError('minlength')) {
-        <small>
+        @if (showError('password', 'minlength')) {
+        <div id="passwordError" class="invalid-feedback">
           Password must be at least 6 characters
-        </small>
+        </div>
         }
       </div>
 
-      <button type="submit" class="btn btn-primary btn-sm" [disabled]="addUserForm.invalid || isAddingUser()">
-        <i class="fa-solid fa-plus me-2"></i>{{ isAddingUser() ? 'Adding...' : 'Add User' }}
+      <button type="submit" class="btn btn-primary" [disabled]="addUserForm.invalid || isAddingUser()">
+        @if (isAddingUser()) {
+        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+        } @else {
+        <i class="fa-solid fa-plus me-1" aria-hidden="true"></i>
+        }
+        Add user
       </button>
     </form>
-  </div>
+  </section>
   }
 
   @if (loading()) {
-  <div class="text-center my-5">
+  <div class="app-loading-state">
     <div class="spinner-border" role="status">
-      <span class="visually-hidden">Loading...</span>
+      <span class="visually-hidden">Loading users</span>
     </div>
+  </div>
+  } @else if (loadError()) {
+  <div class="app-empty-state" role="alert">
+    <span class="app-empty-state-icon text-danger"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+    <div><h2 class="h5 mb-1">Users could not be loaded</h2><p class="text-muted mb-0">{{ loadError() }}</p></div>
+    <button type="button" class="btn btn-outline-primary" (click)="loadUsers()">
+      <i class="fa-solid fa-rotate-right me-1" aria-hidden="true"></i>Try again
+    </button>
   </div>
   } @else if (getFilteredUsers().length > 0) {
   <div class="users-list">
@@ -74,8 +94,8 @@
       <div class="user-actions">
         @if (!user.isSuperUser) {
         <button (click)="deleteUser(user.id, user.username)" class="btn btn-sm btn-outline-danger"
-          [disabled]="isDeletingUser()[user.id]" title="Delete user">
-          <i class="fa-solid fa-trash"></i>
+          [disabled]="isDeletingUser()[user.id]" [attr.aria-label]="'Delete user ' + user.username">
+          <i class="fa-solid fa-trash" aria-hidden="true"></i>
         </button>
         }
       </div>
@@ -83,8 +103,9 @@
     }
   </div>
   } @else {
-  <div class="alert alert-info">
-    <i class="fa-solid fa-info-circle"></i> No users found.
+  <div class="app-empty-state">
+    <span class="app-empty-state-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></span>
+    <div><h2 class="h5 mb-1">No users found</h2><p class="text-muted mb-0">Add a user to grant access to izBoard.</p></div>
   </div>
   }
 </div>

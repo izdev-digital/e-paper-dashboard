@@ -18,7 +18,7 @@ public class DashboardEntityHistoryController(
     public async Task<IActionResult> GetEntityHistory(string dashboardId, [FromBody] EntityHistoryRequest request)
     {
         var hours = Clamp(request.Hours ?? 24, 1, 720);
-        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, request.EntityIds ?? [], hours);
+        var result = await _entityHistoryProvider.FetchEntityHistoryAsync(dashboardId, request.EntityIds ?? [], hours, HttpContext.RequestAborted);
         return result.IsSuccess
             ? Ok(new { data = result.Value })
             : BadRequest(new { error = result.Error });

@@ -5,6 +5,7 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Services.Providers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using Xunit;
 
@@ -31,9 +32,10 @@ public class SsrDataProviderTests
             _todoDataProvider.Object,
             _calendarDataProvider.Object,
             _weatherForecastProvider.Object,
-            _rssFeedDataProvider.Object,
             _entityHistoryProvider.Object,
             _aiContentProvider.Object,
+            new MemoryCache(new MemoryCacheOptions()),
+            TimeProvider.System,
             NullLogger<SsrDataProvider>.Instance);
     }
 
@@ -86,18 +88,18 @@ public class SsrDataProviderTests
     [Fact]
     public async Task FetchSsrDataAsync_WeatherForecastWidget_PopulatesForecastListFromResultDictionary()
     {
-        var forecastList = new List<object?> { "entry1" };
+        var forecastList = new List<WeatherForecast> { new() { Condition = "sunny" } };
         _weatherForecastProvider
             .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "daily"))
-            .ReturnsAsync(Result.Success<Dictionary<string, object?>, string>(
-                new Dictionary<string, object?> { ["forecast"] = forecastList }));
+            .ReturnsAsync(Result.Success<List<WeatherForecast>, string>(forecastList));
         var sut = CreateSut();
         var layout = LayoutWith(Widget("weather-forecast", new { entityId = "weather.home" }));
 
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
-        result.WeatherForecasts.Should().ContainKey("weather.home");
-        result.WeatherForecasts["weather.home"].Should().BeSameAs(forecastList);
+        var key = WeatherForecastDataKey.Create("weather.home", "daily");
+        result.WeatherForecasts.Should().ContainKey(key);
+        result.WeatherForecasts[key].Should().BeSameAs(forecastList);
     }
 
     [Fact]
@@ -105,8 +107,7 @@ public class SsrDataProviderTests
     {
         _weatherForecastProvider
             .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "hourly"))
-            .ReturnsAsync(Result.Success<Dictionary<string, object?>, string>(
-                new Dictionary<string, object?> { ["forecast"] = new List<object?>() }));
+            .ReturnsAsync(Result.Success<List<WeatherForecast>, string>([]));
         var sut = CreateSut();
         var layout = LayoutWith(Widget("weather-forecast", new { entityId = "weather.home", forecastMode = "hourly" }));
 
@@ -116,17 +117,72 @@ public class SsrDataProviderTests
     }
 
     [Fact]
+    public async Task FetchSsrDataAsync_SameWeatherEntityWithDifferentModes_KeepsBothForecasts()
+    {
+        var daily = new List<WeatherForecast> { new() { Condition = "daily" } };
+        var hourly = new List<WeatherForecast> { new() { Condition = "hourly" } };
+        _weatherForecastProvider
+            .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "daily"))
+            .ReturnsAsync(Result.Success<List<WeatherForecast>, string>(daily));
+        _weatherForecastProvider
+            .Setup(p => p.FetchWeatherForecastAsync("dash1", "weather.home", "hourly"))
+            .ReturnsAsync(Result.Success<List<WeatherForecast>, string>(hourly));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("weather-forecast", new { entityId = "weather.home", forecastMode = "daily" }, "daily"),
+            Widget("weather-forecast", new { entityId = "weather.home", forecastMode = "hourly" }, "hourly"));
+
+        var result = await sut.FetchSsrDataAsync("dash1", layout);
+
+        result.WeatherForecasts[WeatherForecastDataKey.Create("weather.home", "daily")]
+            .Should().BeSameAs(daily);
+        result.WeatherForecasts[WeatherForecastDataKey.Create("weather.home", "hourly")]
+            .Should().BeSameAs(hourly);
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_DuplicateTodoEntity_FetchesOnce()
+    {
+        _todoDataProvider
+            .Setup(p => p.FetchTodoItemsAsync("dash1", "todo.list"))
+            .ReturnsAsync(Result.Success<List<TodoItem>, string>([]));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("todo", new { entityId = "todo.list" }, "todo-1"),
+            Widget("todo", new { entityId = "todo.list" }, "todo-2"));
+
+        await sut.FetchSsrDataAsync("dash1", layout);
+
+        _todoDataProvider.Verify(p => p.FetchTodoItemsAsync("dash1", "todo.list"), Times.Once);
+    }
+
+    [Fact]
     public async Task FetchSsrDataAsync_RssFeedWidget_PopulatesRssEntries()
     {
-        _rssFeedDataProvider
-            .Setup(p => p.FetchRssFeedEntriesAsync("dash1", "sensor.feed"))
-            .ReturnsAsync(Result.Success<List<RssFeedEntry>, string>([new RssFeedEntry { Title = "Headline" }]));
         var sut = CreateSut();
+        _entityStateProvider
+            .Setup(p => p.FetchEntityStatesAsync("dash1", It.IsAny<string[]>()))
+            .ReturnsAsync(Result.Success<List<HassEntityState>, string>(
+            [
+                new HassEntityState
+                {
+                    EntityId = "sensor.feed",
+                    Attributes = new Dictionary<string, object?>
+                    {
+                        ["title"] = "Headline",
+                        ["link"] = "https://example.com/item"
+                    }
+                }
+            ]));
         var layout = LayoutWith(Widget("rss-feed", new { entityId = "sensor.feed" }));
 
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
         result.RssFeedEntries.Should().ContainKey("sensor.feed");
+        result.RssFeedEntries["sensor.feed"].Should().ContainSingle(item => item.Title == "Headline");
+        _rssFeedDataProvider.Verify(
+            provider => provider.FetchRssFeedEntriesAsync(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
     }
 
     [Theory]
@@ -155,6 +211,31 @@ public class SsrDataProviderTests
     }
 
     [Fact]
+    public async Task FetchSsrDataAsync_SameGraphEntityWithDifferentPeriods_FetchesLongestPeriodOnce()
+    {
+        _entityHistoryProvider
+            .Setup(p => p.FetchEntityHistoryAsync("dash1", It.IsAny<IEnumerable<string>>(), 720))
+            .ReturnsAsync(Result.Success<Dictionary<string, List<HistoryState>>, string>(
+                new Dictionary<string, List<HistoryState>> { ["sensor.temp"] = [] }));
+        var sut = CreateSut();
+        var layout = LayoutWith(
+            Widget("graph", new { series = new[] { new { entityId = "sensor.temp" } }, period = "1h" }, "graph-1"),
+            Widget("graph", new { series = new[] { new { entityId = "sensor.temp" } }, period = "30d" }, "graph-2"));
+
+        await sut.FetchSsrDataAsync("dash1", layout);
+
+        _entityHistoryProvider.Verify(
+            p => p.FetchEntityHistoryAsync(
+                "dash1",
+                It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "sensor.temp" })),
+                720),
+            Times.Once);
+        _entityHistoryProvider.Verify(
+            p => p.FetchEntityHistoryAsync("dash1", It.IsAny<IEnumerable<string>>(), It.Is<int>(hours => hours != 720)),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task FetchSsrDataAsync_AiContentWidgetWithCachedContent_UsesCacheWithoutGenerating()
     {
         _aiContentProvider.Setup(p => p.GetCachedContent("dash1", "w1")).Returns("cached text");
@@ -170,18 +251,18 @@ public class SsrDataProviderTests
     }
 
     [Fact]
-    public async Task FetchSsrDataAsync_AiContentWidgetNoCache_GeneratesAndStoresContent()
+    public async Task FetchSsrDataAsync_AiContentWidgetNoCache_DoesNotGenerateDuringRender()
     {
         _aiContentProvider.Setup(p => p.GetCachedContent("dash1", "w1")).Returns((string?)null);
-        _aiContentProvider
-            .Setup(p => p.GenerateAndCacheContentAsync("dash1", "w1", "summarize", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result.Success<string, string>("freshly generated"));
         var sut = CreateSut();
         var layout = LayoutWith(Widget("ai-content", new { prompt = "summarize" }));
 
         var result = await sut.FetchSsrDataAsync("dash1", layout);
 
-        result.AiContent["w1"].Should().Be("freshly generated");
+        result.AiContent.Should().NotContainKey("w1");
+        _aiContentProvider.Verify(
+            p => p.GenerateAndCacheContentAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -199,5 +280,58 @@ public class SsrDataProviderTests
         _entityStateProvider.Verify(
             p => p.FetchEntityStatesAsync("dash1", It.Is<string[]>(ids => ids.Contains("sensor.temp"))),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_ReusesSuccessfulSourceDataUntilBypassed()
+    {
+        _todoDataProvider
+            .Setup(p => p.FetchTodoItemsAsync("dash1", "todo.list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<List<TodoItem>, string>([new TodoItem { Summary = "Cached" }]));
+        var sut = CreateSut();
+        var layout = LayoutWith(Widget("todo", new { entityId = "todo.list" }));
+
+        await sut.FetchSsrDataAsync("dash1", layout);
+        var cached = await sut.FetchSsrDataAsync("dash1", layout);
+        await sut.FetchSsrDataAsync("dash1", layout, bypassCache: true);
+
+        cached.SourceStatuses[DataSourceKeys.Todo("todo.list")].FromCache.Should().BeTrue();
+        _todoDataProvider.Verify(
+            p => p.FetchTodoItemsAsync("dash1", "todo.list", It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task FetchSsrDataAsync_FailedSource_ReportsErrorStatusWithoutInventingData()
+    {
+        _calendarDataProvider
+            .Setup(p => p.FetchCalendarEventsAsync("dash1", "calendar.a", 168, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Failure<List<CalendarEvent>, string>("calendar unavailable"));
+        var sut = CreateSut();
+
+        var result = await sut.FetchSsrDataAsync(
+            "dash1",
+            LayoutWith(Widget("calendar", new { entityId = "calendar.a" })));
+
+        result.CalendarEvents.Should().NotContainKey("calendar.a");
+        result.SourceStatuses[DataSourceKeys.Calendar("calendar.a")]
+            .Should().Match<DataSourceStatus>(status =>
+                status.State == "error" && status.Error == "calendar unavailable");
+    }
+
+    [Fact]
+    public void WidgetDataPlan_RequestsOnlySourcesActuallyUsedByWidgets()
+    {
+        var layout = LayoutWith(
+            Widget("todo", new { entityId = "todo.list" }, "todo"),
+            Widget("rss-feed", new { entityId = "event.feed" }, "rss"),
+            Widget("graph", new { series = new[] { new { entityId = "sensor.temp" } }, period = "7d" }, "graph"));
+
+        var plan = WidgetDataPlan.Create(layout);
+
+        plan.EntityStateIds.Should().BeEquivalentTo(["event.feed"]);
+        plan.TodoEntityIds.Should().BeEquivalentTo(["todo.list"]);
+        plan.RssEntityIds.Should().BeEquivalentTo(["event.feed"]);
+        plan.HistoryHoursByEntityId.Should().Contain("sensor.temp", 168);
     }
 }
