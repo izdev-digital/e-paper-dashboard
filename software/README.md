@@ -37,13 +37,13 @@ services:
 
 ### Home Assistant Add-on
 
-Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). In add-on mode, authentication is handled through Home Assistant ingress and the server auto-connects to Home Assistant via the Supervisor API. Configure `CLIENT_URL` as the LAN device endpoint, normally `http://homeassistant.local:8129`; do not use an ingress or cloud URL.
+Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). Configure `CLIENT_URL` as a device-reachable endpoint, normally `http://homeassistant.local:8129`. Remote URLs work through a direct port, VPN, or reverse proxy; ingress URLs do not.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `CLIENT_URL` | Yes | URL entered during device setup. It must be an absolute HTTP or HTTPS URL reachable from the display network, without credentials, a query, or a fragment. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode OAuth continues to use ingress and this value is the LAN device endpoint. Paths, custom ports, DNS names, IPv4, and IPv6 are supported by current firmware. |
+| `CLIENT_URL` | Yes | Absolute HTTP or HTTPS URL reachable from the display network. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode it is the direct device endpoint. |
 | `STATE_SIGNING_KEY` | Yes (standalone) | Random secret for signing auth state |
 | `SUPERUSER_USERNAME` | Yes (standalone) | Initial superuser account username |
 | `SUPERUSER_PASSWORD` | Yes (standalone) | Initial superuser account password |
