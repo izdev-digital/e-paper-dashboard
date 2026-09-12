@@ -2,6 +2,7 @@ using CSharpFunctionalExtensions;
 using EPaperDashboard.Data.Repositories;
 using EPaperDashboard.Models;
 using EPaperDashboard.Services;
+using EPaperDashboard.UnitTests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
@@ -20,7 +21,7 @@ public class PairingServiceTests
         TimeProvider? timeProvider = null,
         Mock<IDeviceRepository>? deviceRepo = null) =>
         new(repo.Object, new DeviceService((deviceRepo ?? new Mock<IDeviceRepository>()).Object),
-            timeProvider ?? new FakeTimeProvider(FixedNow));
+            timeProvider ?? new FakeTimeProvider(FixedNow), ImmediateUnitOfWork.Instance);
 
     [Fact]
     public void CreatePairingSession_SetsCreatedAtToCurrentTime()

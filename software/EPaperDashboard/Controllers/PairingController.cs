@@ -28,7 +28,7 @@ public class PairingController(
         if (validationError is not null)
         {
             return Problem(
-                $"{validationError}. Set CLIENT_URL to an HTTP or HTTPS URL that the display can reach on the local network.",
+                $"{validationError}. Set CLIENT_URL to an HTTP or HTTPS URL reachable from the display's Wi-Fi network.",
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 

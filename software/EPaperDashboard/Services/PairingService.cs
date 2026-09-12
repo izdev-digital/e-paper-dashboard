@@ -30,14 +30,14 @@ public sealed class PairingService(
     IPairingSessionRepository pairingSessionRepository,
     DeviceService deviceService,
     TimeProvider timeProvider,
-    IUnitOfWork? unitOfWork = null)
+    IUnitOfWork unitOfWork)
 {
     private const int CodeLength = 6;
     private const int ExpiryMinutes = 5;
     private const int DeviceClaimExpiryMinutes = 10;
     private const int CredentialDeliveryExpiryMinutes = 2;
     private readonly object _sync = new();
-    private readonly IUnitOfWork _unitOfWork = unitOfWork ?? ImmediateUnitOfWork.Instance;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public PairingSession CreatePairingSession(UserId userId)
     {

@@ -218,7 +218,7 @@ DeviceConfig SetupPortal::run()
                                 placeholder="e.g. http://192.168.1.100:8129 or https://my.server.com">
                             <div class="form-text">Full URL including protocol and port</div>
                         </div>
-                        <div class="form-text">After applying, reconnect this phone to its normal network and enter the claim code shown on the display in the dashboard.</div>
+                        <div class="form-text">After applying, use any network that can reach the dashboard and enter the claim code shown on the display.</div>
                     </div>
                 </div>
 
@@ -350,7 +350,7 @@ DeviceConfig SetupPortal::run()
             }).catch(function() {
               document.getElementById('content').innerHTML =
                 '<div style="color:#198754;font-weight:500">&#10003; Server reached successfully.</div>' +
-                '<p>Reconnect this phone or laptop to its normal network, open the dashboard, and enter the claim code shown on the display.</p>';
+                '<p>From any network that can reach the dashboard, enter the claim code shown on the display.</p>';
             });
           }
           setTimeout(checkStatus, 500);

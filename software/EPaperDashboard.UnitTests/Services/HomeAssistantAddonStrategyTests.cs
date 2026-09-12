@@ -149,6 +149,18 @@ public class HomeAssistantAddonStrategyTests : IDisposable
     }
 
     [Fact]
+    public void ValidateConfiguration_WithRemoteDeviceEndpoint_Succeeds()
+    {
+        var configuration = new Mock<IEnvironmentConfiguration>();
+        configuration.SetupGet(c => c.ClientUri).Returns(new Uri("https://devices.example.com/izboard"));
+        var sut = new HomeAssistantAddonStrategy(
+            NullLogger<HomeAssistantAddonStrategy>.Instance,
+            configuration.Object);
+
+        sut.ValidateConfiguration().IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public void ValidateConfiguration_WithoutClientUri_Fails()
     {
         var sut = new HomeAssistantAddonStrategy(

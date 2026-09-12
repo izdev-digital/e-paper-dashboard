@@ -19,15 +19,31 @@ public class PairingControllerTests
     private readonly Mock<IDeviceRepository> _deviceRepository = new();
     private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 3, 17, 8, 0, 0, TimeSpan.Zero));
 
-    private PairingController CreateSut()
+    private PairingController CreateSut(Uri? clientUri = null)
     {
         var deviceService = new DeviceService(_deviceRepository.Object);
         var configuration = new Mock<IEnvironmentConfiguration>();
-        configuration.SetupGet(c => c.ClientUri).Returns(new Uri("http://dashboard.local:8129"));
+        configuration.SetupGet(c => c.ClientUri).Returns(clientUri ?? new Uri("http://dashboard.local:8129"));
         return new PairingController(
-            new PairingService(_pairingSessionRepository.Object, deviceService, _timeProvider),
+            new PairingService(
+                _pairingSessionRepository.Object,
+                deviceService,
+                _timeProvider,
+                ImmediateUnitOfWork.Instance),
             deviceService,
             configuration.Object);
+    }
+
+    [Fact]
+    public void GetPairingConfiguration_ReturnsRemoteDeviceUrl()
+    {
+        var sut = CreateSut(new Uri("https://devices.example.com/dashboard"));
+
+        var result = sut.GetPairingConfiguration();
+
+        var response = result.Should().BeOfType<OkObjectResult>().Subject.Value
+            .Should().BeOfType<PairingConfigurationResponse>().Subject;
+        response.ClientUrl.Should().Be("https://devices.example.com/dashboard");
     }
 
     [Fact]

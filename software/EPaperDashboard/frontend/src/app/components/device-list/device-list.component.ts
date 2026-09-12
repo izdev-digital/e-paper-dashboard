@@ -236,7 +236,7 @@ import { Dashboard } from '../../models/types';
               </div>
               <div class="pairing-step">Scan the Wi-Fi QR on the display, open its setup page, then enter your home Wi-Fi and paste the server URL. Submit once.</div>
               <div class="pairing-step">
-                After submitting, reconnect to your normal network. Enter the code shown on the display, then claim it.
+                After submitting, reconnect to any network that can reach this dashboard. Enter the display code, then claim it.
                 <div class="input-group mt-2">
                   <input type="text" class="form-control font-monospace text-uppercase"
                     aria-label="Device claim code" placeholder="ABC123" maxlength="6"

@@ -26,7 +26,7 @@ ESP32 firmware for the izBoard E-Paper dashboard device. Connects to an izBoard 
 1. Power on the ESP32 board
 2. The device shows a QR code for its password-protected `izBoard-XXXX` Wi-Fi access point and a six-character claim code
 3. Scan the QR once and use the captive portal to enter the home Wi-Fi credentials and the server's `CLIENT_URL`
-4. Reconnect the phone or laptop to its normal network, open the server's Devices page, and enter the claim code shown on the display
+4. From any network that can reach the server, open Devices and enter the claim code
 5. The device stays on home Wi-Fi, receives its credential, and begins fetching dashboards without rebooting
 
 The claim code expires after ten minutes. Wi-Fi, server, and pending claim details are saved before the device leaves setup mode, so an interrupted device can resume the claim after power is restored.
