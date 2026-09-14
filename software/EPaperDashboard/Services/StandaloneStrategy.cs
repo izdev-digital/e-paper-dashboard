@@ -46,9 +46,10 @@ public class StandaloneStrategy : IDeploymentStrategy
     {
         var missingConfigs = new List<string>();
 
-        if (_environmentConfiguration.ClientUri is null)
+        var clientUrlError = ClientUrlValidator.GetValidationError(_environmentConfiguration.ClientUri);
+        if (clientUrlError is not null)
         {
-            missingConfigs.Add("CLIENT_URL");
+            missingConfigs.Add(clientUrlError);
         }
 
         if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserUsername))
@@ -69,7 +70,7 @@ public class StandaloneStrategy : IDeploymentStrategy
         if (missingConfigs.Count > 0)
         {
             var message = $"""
-                Missing required configuration: {string.Join(", ", missingConfigs)}.
+                Invalid or missing configuration: {string.Join(", ", missingConfigs)}.
                 Please set them as environment variables or in /data/options.json file.
                 """;
             return UnitResult.Failure(message);

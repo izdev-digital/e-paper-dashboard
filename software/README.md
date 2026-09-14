@@ -28,7 +28,7 @@ services:
     volumes:
       - <host-path>/data:/data:rw
     environment:
-      - CLIENT_URL=<url>:<port>
+      - CLIENT_URL=http://dashboard.local:<port>
       - STATE_SIGNING_KEY=<random-secret>
       - SUPERUSER_USERNAME=<admin-username>
       - SUPERUSER_PASSWORD=<admin-password>
@@ -37,13 +37,13 @@ services:
 
 ### Home Assistant Add-on
 
-Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). In add-on mode, authentication is handled through Home Assistant ingress and the server auto-connects to Home Assistant via the Supervisor API.
+Install via the [izBoard Home Assistant Add-on repository](https://github.com/izdev-digital/hass-add-ons/tree/master/e-paper-dashboard). Configure `CLIENT_URL` as a device-reachable endpoint, normally `http://homeassistant.local:8129`. Remote URLs work through a direct port, VPN, or reverse proxy; ingress URLs do not.
 
 ### Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `CLIENT_URL` | Yes (standalone) | Public URL of the server |
+| `CLIENT_URL` | Yes | Absolute HTTP or HTTPS URL reachable from the display network. In standalone/host mode it is also the Home Assistant OAuth client URL; in add-on mode it is the direct device endpoint. |
 | `STATE_SIGNING_KEY` | Yes (standalone) | Random secret for signing auth state |
 | `SUPERUSER_USERNAME` | Yes (standalone) | Initial superuser account username |
 | `SUPERUSER_PASSWORD` | Yes (standalone) | Initial superuser account password |
@@ -56,7 +56,11 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | Port | Purpose |
 |---|---|
 | `8128` | Web UI and API |
-| `8129` | Device communication (firmware image retrieval) |
+| `8129` | Device communication (pairing, firmware image retrieval, and configuration) |
+
+`CLIENT_URL` must describe the externally reachable URL after port mappings or a reverse proxy are applied. If displays are isolated on a VLAN, allow them to reach this URL. In standalone/host mode, expose the same URL to both the browser OAuth callback and the display API (normally through port `8128` or a reverse proxy). In add-on mode, use the exposed device port (`8129` by default), not the browser-only ingress URL.
+
+For HTTPS, the display verifies the server certificate against its embedded trusted root bundle and must be able to obtain network time on its first connection. Deployments using a private certificate authority must add that root to the firmware bundle before flashing.
 
 ### Data
 

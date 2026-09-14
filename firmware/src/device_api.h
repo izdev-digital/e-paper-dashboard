@@ -5,15 +5,37 @@
 #include "logger.h"
 #include "display_manager.h"
 
+enum class PairingAttemptResult {
+  Success,
+  RetryableFailure,
+  TerminalFailure,
+  Expired
+};
+
 class DeviceApi {
 public:
   DeviceApi(Logger& logger, Network& network);
 
   DeviceStatus fetchDeviceStatus(const DeviceConfig& config);
   void fetchAndDisplayImage(const DeviceConfig& config, DisplayManager& display);
-  bool registerWithDashboard(const String& pairingCode, const String& dashboardUrl, int devicePort, bool useHttps, String& apiKey, String& errorOut);
+  PairingAttemptResult announceDevice(const String& pairingCode, const String& registrationToken,
+                                      const String& dashboardUrl, int devicePort, bool useHttps,
+                                      const String& dashboardBasePath,
+                                      unsigned long& expiresInSeconds, String& errorOut);
+  PairingAttemptResult waitForClaim(const String& pairingCode, const String& registrationToken,
+                                    const String& dashboardUrl, int devicePort, bool useHttps,
+                                    const String& dashboardBasePath, unsigned long expiresInSeconds,
+                                    String& apiKey, String& errorOut);
+  PairingAttemptResult registerWithDashboard(const String& pairingCode, const String& registrationToken,
+                                             const String& dashboardUrl, int devicePort, bool useHttps,
+                                             const String& dashboardBasePath,
+                                             String& apiKey, String& errorOut);
 
 private:
   Logger& _logger;
   Network& _network;
+  bool postPairingRequest(const String& path, const String& body,
+                          const String& dashboardUrl, int devicePort, bool useHttps,
+                          const String& dashboardBasePath,
+                          int& httpStatus, unsigned long& retryAfterSeconds, String& response);
 };

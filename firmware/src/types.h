@@ -7,8 +7,10 @@ struct DeviceConfig {
   String password;
   String dashboardUrl;
   int devicePort;
+  String dashboardBasePath;
   String dashboardApiKey;
   String pairingCode;
+  String registrationToken;
   bool useHttps;
 };
 

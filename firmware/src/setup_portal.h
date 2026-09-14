@@ -11,7 +11,7 @@ public:
   SetupPortal(Logger& logger, ConfigStore& configStore, DisplayManager& display,
               Network& network, DeviceApi& deviceApi);
 
-  [[noreturn]] void run();
+  DeviceConfig run();
 
 private:
   Logger& _logger;

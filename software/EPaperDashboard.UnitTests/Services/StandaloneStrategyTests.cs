@@ -43,6 +43,20 @@ public class StandaloneStrategyTests
         result.Error.Should().Contain("CLIENT_URL");
     }
 
+    [Theory]
+    [InlineData("ftp://example.com")]
+    [InlineData("https://user:password@example.com")]
+    [InlineData("https://example.com/device?mode=pairing")]
+    [InlineData("https://example.com/device#pairing")]
+    public void ValidateConfiguration_UnsafeOrUnsupportedClientUri_ReturnsFailure(string clientUrl)
+    {
+        var config = CreateValidConfig();
+        config.SetupGet(c => c.ClientUri).Returns(new Uri(clientUrl));
+        var sut = CreateSut(config.Object);
+
+        sut.ValidateConfiguration().IsFailure.Should().BeTrue();
+    }
+
     [Fact]
     public void ValidateConfiguration_MissingSuperuserCredentials_ReturnsFailureNamingBoth()
     {

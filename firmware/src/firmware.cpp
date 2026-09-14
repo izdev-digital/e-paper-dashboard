@@ -39,29 +39,83 @@ void setup()
   }
 
   auto configuration = configStore.load();
+  DeviceConfig config;
   if (!configuration.has_value())
   {
     SetupPortal portal(logger, configStore, displayManager, network, deviceApi);
-    portal.run();
-    return;
+    config = portal.run();
+  }
+  else
+  {
+    config = configuration.value();
   }
 
-  DeviceConfig config = configuration.value();
-  uint64_t waitSeconds = Timing::FallbackRefreshSeconds;
+  if (WiFi.status() != WL_CONNECTED && !network.connectToWiFi(config.ssid, config.password))
+  {
+    if (config.dashboardApiKey.length() == 0)
+    {
+      logger.println("Pending pairing could not reach WiFi; reopening setup...");
+      configStore.clear();
+      SetupPortal portal(logger, configStore, displayManager, network, deviceApi);
+      config = portal.run();
+    }
+    else
+    {
+      logger.println("WiFi connection failed, retrying after sleep");
+      hardware.startDeepSleep(Timing::FallbackRefreshSeconds);
+      return;
+    }
+  }
 
   if (config.dashboardApiKey.length() == 0)
   {
-    logger.println("No API key configured, clearing config and restarting setup...");
-    hardware.resetDevice(configStore);
-    return;
+    if (config.pairingCode.length() == 0 || config.registrationToken.length() == 0)
+    {
+      logger.println("Incomplete pairing state, restarting setup...");
+      hardware.resetDevice(configStore);
+      return;
+    }
+
+    displayManager.showSuccess(
+        "Ready to Claim",
+        "Open the dashboard on your network.\nEnter this claim code:",
+        config.pairingCode);
+    String apiKey;
+    String pairingError;
+    auto pairingResult = deviceApi.registerWithDashboard(
+        config.pairingCode, config.registrationToken,
+        config.dashboardUrl, config.devicePort, config.useHttps,
+        config.dashboardBasePath, apiKey, pairingError);
+    if (pairingResult != PairingAttemptResult::Success)
+    {
+      const bool retryable = pairingResult == PairingAttemptResult::RetryableFailure;
+      logger.println(retryable
+          ? "Pairing service unavailable; preserving setup for retry..."
+          : "Pairing could not be resumed; restarting setup...");
+      if (!retryable)
+      {
+        configStore.clear();
+      }
+      displayManager.showSuccess(
+          retryable ? "Pairing Paused" : "Pairing Failed",
+          pairingError,
+          retryable ? "Retrying automatically..." : "Restarting setup...");
+      delay(5000);
+      ESP.restart();
+      return;
+    }
+
+    config.dashboardApiKey = apiKey;
+    config.pairingCode = "";
+    config.registrationToken = "";
+    configStore.save(config);
+    displayManager.showSuccess(
+        "Paired Successfully",
+        "The device will fetch and display\nassigned dashboards automatically.",
+        "Press the button to refresh manually.");
   }
 
-  if (!network.connectToWiFi(config.ssid, config.password))
-  {
-    logger.println("WiFi connection failed, retrying after sleep");
-    hardware.startDeepSleep(waitSeconds);
-    return;
-  }
+  uint64_t waitSeconds = Timing::FallbackRefreshSeconds;
 
   auto status = deviceApi.fetchDeviceStatus(config);
   if (status.waitSeconds > 0)

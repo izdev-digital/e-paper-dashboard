@@ -109,7 +109,8 @@ void DisplayManager::drawIcon(int16_t ox, int16_t oy, int16_t size)
   _display.fillRect(ox + x6, oy + y4, xR - x6, r3h, GxEPD_RED);
 }
 
-void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, const String& apName)
+void DisplayManager::showWelcomePage(const IPAddress& ip, const String& apName,
+                                     const String& apPassword, const String& claimCode)
 {
   _logger.println("Displaying welcome page...");
 
@@ -140,28 +141,31 @@ void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, con
     _display.setCursor(50, 230);
     _display.print(ipText);
 
-    String macText = "MAC: " + mac;
-    _display.setCursor(50, 270);
-    _display.print(macText);
-
-    _display.setCursor(50, 330);
-    _display.print("1. Connect to WiFi:");
-    _display.setCursor(70, 360);
+    _display.setCursor(50, 250);
+    _display.print("1. Scan QR or join:");
+    _display.setCursor(70, 285);
     _display.print(apName);
+    _display.setCursor(70, 315);
+    _display.print("Password: " + apPassword);
 
-    _display.setCursor(50, 400);
+    _display.setCursor(50, 350);
     _display.print("2. Open browser to:");
-    _display.setCursor(70, 430);
+    _display.setCursor(70, 385);
     _display.print(ip.toString());
 
-    const char* githubUrl = "https://github.com/izdev-digital/e-paper-dashboard";
-    QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(3)];
-    qrcode_initText(&qrcode, qrcodeData, 3, ECC_LOW, githubUrl);
+    _display.setFont(&FreeSansBold18pt7b);
+    String codeText = "Claim code: " + claimCode;
+    _display.setCursor(50, 445);
+    _display.print(codeText);
 
-    int qrX = 550;
-    int qrY = 220;
-    int moduleSize = 6;
+    String wifiQr = "WIFI:T:WPA;S:" + apName + ";P:" + apPassword + ";;";
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(5)];
+    qrcode_initText(&qrcode, qrcodeData, 5, ECC_LOW, wifiQr.c_str());
+
+    int qrX = 555;
+    int qrY = 205;
+    int moduleSize = 5;
 
     for (uint8_t y = 0; y < qrcode.size; y++)
     {
@@ -175,8 +179,8 @@ void DisplayManager::showWelcomePage(const IPAddress& ip, const String& mac, con
     }
 
     _display.setFont(&FreeSans12pt7b);
-    _display.setCursor(qrX + 10, qrY + qrcode.size * moduleSize + 30);
-    _display.print("GitHub");
+    _display.setCursor(qrX + 8, qrY + qrcode.size * moduleSize + 28);
+    _display.print("Scan to connect");
 
   } while (_display.nextPage());
 

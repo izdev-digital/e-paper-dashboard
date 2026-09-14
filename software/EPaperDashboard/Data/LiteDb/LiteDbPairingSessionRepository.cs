@@ -24,7 +24,7 @@ internal sealed class LiteDbPairingSessionRepository(LiteDbContext context) : IP
         context.PairingSessions.Update(session);
 
     public void DeleteExpired(DateTimeOffset before) =>
-        context.PairingSessions.DeleteMany(s => s.ExpiresAt < before);
+        context.PairingSessions.DeleteMany(s => s.ExpiresAt <= before);
 
     public bool HasActiveSessions(DateTimeOffset now) =>
         context.PairingSessions.Exists(s => !s.IsCompleted && s.ExpiresAt > now);

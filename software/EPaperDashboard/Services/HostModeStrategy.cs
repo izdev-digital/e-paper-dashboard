@@ -48,8 +48,9 @@ public class HostModeStrategy : IDeploymentStrategy
     {
         var missingConfigs = new List<string>();
 
-        if (_environmentConfiguration.ClientUri is null)
-            missingConfigs.Add("CLIENT_URL");
+        var clientUrlError = ClientUrlValidator.GetValidationError(_environmentConfiguration.ClientUri);
+        if (clientUrlError is not null)
+            missingConfigs.Add(clientUrlError);
 
         if (string.IsNullOrWhiteSpace(_environmentConfiguration.SuperUserUsername))
             missingConfigs.Add("SUPERUSER_USERNAME");
@@ -63,7 +64,7 @@ public class HostModeStrategy : IDeploymentStrategy
         if (missingConfigs.Count > 0)
         {
             return UnitResult.Failure(
-                $"Missing required configuration: {string.Join(", ", missingConfigs)}. " +
+                $"Invalid or missing configuration: {string.Join(", ", missingConfigs)}. " +
                 "Please set them as environment variables or in /data/options.json file.");
         }
 

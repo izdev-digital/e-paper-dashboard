@@ -156,7 +156,7 @@ public static class EnvironmentConfiguration
 	private static Uri? GetUriFromEnvOrConfig(string variable, UriKind kind)
 	{
 		var value = GetStringFromEnvOrConfig(variable);
-		return !string.IsNullOrWhiteSpace(value) ? new Uri(value, kind) : null;
+		return !string.IsNullOrWhiteSpace(value) && Uri.TryCreate(value, kind, out var uri) ? uri : null;
 	}
 
 	private static int GetIntFromEnvOrConfig(string key, int defaultValue)
