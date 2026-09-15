@@ -1,106 +1,168 @@
-﻿using CSharpFunctionalExtensions;
+using System.Diagnostics;
+using System.Text.Json;
+using CSharpFunctionalExtensions;
 using EPaperDashboard.Guards;
+using EPaperDashboard.Models;
 using EPaperDashboard.Models.Rendering;
-using Microsoft.Playwright;
+using EPaperDashboard.Services.Components.Playwright;
 
 namespace EPaperDashboard.Services.Rendering;
 
 internal sealed class PageToImageRenderingService(
-	IHttpClientFactory httpClientFactory,
-	IImageFactory imageFactory,
-	ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
+    IHttpClientFactory httpClientFactory,
+    IImageFactory imageFactory,
+    PlaywrightComponentManager componentManager,
+    ILogger<PageToImageRenderingService> logger) : IPageToImageRenderingService
 {
-	private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
-	private readonly IImageFactory _imageFactory = imageFactory;
-	private readonly ILogger<PageToImageRenderingService> _logger = logger;
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-	public async Task<Health> GetHealth(Uri dashboardUri)
-	{
-		var httpClient = _httpClientFactory.CreateClient();
-		httpClient.Timeout = TimeSpan.FromSeconds(10);
+    public async Task<Health> GetHealth(Uri dashboardUri)
+    {
+        var httpClient = httpClientFactory.CreateClient();
+        httpClient.Timeout = TimeSpan.FromSeconds(10);
 
-		var dashboardHealth = await Result.Try(async () =>
-		{
-			var response = await httpClient.GetAsync(dashboardUri);
-			return response.IsSuccessStatusCode;
-		});
+        var dashboardHealth = await Result.Try(async () =>
+        {
+            var response = await httpClient.GetAsync(dashboardUri);
+            return response.IsSuccessStatusCode;
+        });
 
-		dashboardHealth.TapError(error => 
-			_logger.LogError(error, "Dashboard health check failed for {DashboardUri}", dashboardUri));
+        dashboardHealth.TapError(error =>
+            logger.LogError(error, "Dashboard health check failed for {DashboardUri}", dashboardUri));
 
-		return new Health(true, dashboardHealth.GetValueOrDefault());
-	}
+        return new Health(true, dashboardHealth.GetValueOrDefault());
+    }
 
-	public Task<Result<IImage>> RenderDashboardAsync(
-		Uri dashboardUri, 
-		Size size, 
-		IAuthrorizationStrategy authrorizationStrategy) => Result.Try(async () =>
-	{
-		Guard.NotNull(dashboardUri);
-		Guard.NotNull(authrorizationStrategy);
-		
-		using var playwright = await Playwright.CreateAsync();
-		await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
-		
-		var context = await browser.NewContextAsync(new BrowserNewContextOptions
-		{
-			ViewportSize = new ViewportSize { Width = size.Width, Height = size.Height }
-		});
+    public Task<Result<IImage>> RenderDashboardAsync(
+        Uri dashboardUri,
+        Size size,
+        HassTokens hassTokens) => Result.Try(async () =>
+    {
+        Guard.NotNull(dashboardUri);
+        Guard.NotNull(hassTokens);
 
-		var page = await context.NewPageAsync();
-		var dashboardPage = new DashboardPage(page, dashboardUri);
+        var request = new ComponentRenderRequest(
+            "dashboard",
+            size.Width,
+            size.Height,
+            DashboardUri: dashboardUri.AbsoluteUri,
+            AccessToken: hassTokens.AccessToken,
+            TokenType: hassTokens.TokenType,
+            HassUrl: hassTokens.HassUrl,
+            ClientId: hassTokens.ClientId);
 
-		await authrorizationStrategy.AuthorizeAsync(dashboardPage);
-		
-		var screenshot = await dashboardPage.TakeScreenshotAsync();
-		
-		_logger.LogInformation("Rendered dashboard {DashboardUri} ({Size} bytes)", 
-			dashboardUri, screenshot.Length);
-		
-		return _imageFactory.Load(screenshot);
-	});
+        var screenshot = await RunComponentAsync(request);
+        logger.LogInformation("Rendered dashboard {DashboardUri} ({Size} bytes)", dashboardUri, screenshot.Length);
+        return imageFactory.Load(screenshot);
+    });
 
-	public Task<Result<IImage>> RenderHtmlAsync(string html, Size size) => Result.Try(async () =>
-	{
-		Guard.NotNull(html);
+    public Task<Result<IImage>> RenderHtmlAsync(string html, Size size) => Result.Try(async () =>
+    {
+        Guard.NotNull(html);
+        var screenshot = await RunComponentAsync(new ComponentRenderRequest(
+            "html", size.Width, size.Height, Html: html));
+        logger.LogInformation("Rendered SSR HTML ({Size} bytes)", screenshot.Length);
+        return imageFactory.Load(screenshot);
+    });
 
-		using var playwright = await Playwright.CreateAsync();
-		await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
+    private async Task<byte[]> RunComponentAsync(ComponentRenderRequest request)
+    {
+        var component = componentManager.GetActiveComponent()
+            ?? throw new InvalidOperationException(
+                "The Playwright component is not installed. An administrator can install it from System settings.");
 
-		var context = await browser.NewContextAsync(new BrowserNewContextOptions
-		{
-			ViewportSize = new ViewportSize { Width = size.Width, Height = size.Height }
-		});
+        var outputPath = Path.Combine(Path.GetTempPath(), $"izboard-render-{Guid.NewGuid():N}.img");
+        var requestWithOutput = request with { OutputPath = outputPath };
 
-		var page = await context.NewPageAsync();
-		await page.SetContentAsync(html, new PageSetContentOptions
-		{
-			WaitUntil = WaitUntilState.NetworkIdle,
-			Timeout = 10000
-		});
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = CreateStartInfo(component),
+                EnableRaisingEvents = true
+            };
+            if (!process.Start())
+                throw new InvalidOperationException("The Playwright renderer could not be started.");
 
-		var screenshot = await page.ScreenshotAsync(new PageScreenshotOptions { Type = ScreenshotType.Png });
+            var standardOutput = process.StandardOutput.ReadToEndAsync();
+            var standardError = process.StandardError.ReadToEndAsync();
+            await process.StandardInput.WriteAsync(JsonSerializer.Serialize(requestWithOutput, JsonOptions));
+            process.StandardInput.Close();
 
-		_logger.LogInformation("Rendered SSR HTML ({Size} bytes)", screenshot.Length);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(150));
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                process.Kill(entireProcessTree: true);
+                throw new TimeoutException("The Playwright renderer exceeded its 150 second timeout.");
+            }
 
-		return _imageFactory.Load(screenshot);
-	});
+            var responseText = await standardOutput;
+            var errorText = await standardError;
+            var response = JsonSerializer.Deserialize<ComponentRenderResponse>(responseText, JsonOptions);
+            if (process.ExitCode != 0 || response?.Success != true)
+            {
+                var message = response?.Error
+                    ?? (string.IsNullOrWhiteSpace(errorText) ? "The Playwright renderer failed." : errorText.Trim());
+                throw new InvalidOperationException(message);
+            }
+            if (!File.Exists(outputPath))
+                throw new InvalidOperationException("The Playwright renderer did not produce an image.");
 
-	/// <summary>
-	/// Gets browser launch options with appropriate security settings.
-	/// When running as root (e.g., in Home Assistant addon), disables sandbox.
-	/// </summary>
-	private static BrowserTypeLaunchOptions GetLaunchOptions()
-	{
-		var options = new BrowserTypeLaunchOptions();
-		
-		// Chromium doesn't allow running as root without --no-sandbox
-		// This is safe in containerized environments like HA addons
-		if (Environment.UserName == "root" || Environment.GetEnvironmentVariable("USER") == "root")
-		{
-			options.Args = new[] { "--no-sandbox", "--disable-setuid-sandbox" };
-		}
-		
-		return options;
-	}
+            return await File.ReadAllBytesAsync(outputPath);
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+        }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(ActivePlaywrightComponent component)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            WorkingDirectory = component.RootPath,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add(component.WorkerAssemblyPath);
+        startInfo.Environment["PLAYWRIGHT_BROWSERS_PATH"] = component.BrowserPath;
+        startInfo.Environment["IZBOARD_PLAYWRIGHT_LIBRARY_PATH"] = JoinEnvironmentPath(
+            component.LibraryPath,
+            Environment.GetEnvironmentVariable("LD_LIBRARY_PATH"));
+        if (component.DataPath is not null)
+        {
+            startInfo.Environment["IZBOARD_PLAYWRIGHT_DATA_PATH"] = JoinEnvironmentPath(
+                component.DataPath,
+                Environment.GetEnvironmentVariable("XDG_DATA_DIRS"));
+        }
+        if (component.FontConfigPath is not null)
+            startInfo.Environment["IZBOARD_PLAYWRIGHT_FONTCONFIG_PATH"] = component.FontConfigPath;
+        return startInfo;
+    }
+
+    private static string JoinEnvironmentPath(string first, string? existing) =>
+        string.IsNullOrWhiteSpace(existing) ? first : $"{first}{Path.PathSeparator}{existing}";
+
+    private sealed record ComponentRenderRequest(
+        string Mode,
+        int Width,
+        int Height,
+        string? OutputPath = null,
+        string? DashboardUri = null,
+        string? Html = null,
+        string? AccessToken = null,
+        string? TokenType = null,
+        string? HassUrl = null,
+        string? ClientId = null);
+
+    private sealed record ComponentRenderResponse(bool Success, string? Error);
 }

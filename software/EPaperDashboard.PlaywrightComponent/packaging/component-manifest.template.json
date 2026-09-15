@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "__APP_VERSION__",
+  "componentVersion": "__COMPONENT_VERSION__",
+  "runtimeIdentifier": "__RUNTIME_IDENTIFIER__",
+  "workerAssembly": "worker/EPaperDashboard.PlaywrightComponent.dll",
+  "browserPath": "browsers",
+  "libraryPath": "native/lib",
+  "dataPath": "native/share",
+  "fontConfigPath": "native/fontconfig"
+}

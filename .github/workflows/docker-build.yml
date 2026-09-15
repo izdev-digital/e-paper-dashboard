@@ -105,3 +105,4 @@ jobs:
         build-args: |
           VERSION=${{ steps.version.outputs.version }}
           BUILD_CONFIGURATION=Release
+          COMPONENT_RELEASE_TAG=${{ inputs.is_release && format('v{0}', steps.version.outputs.base_version) || 'dev' }}

@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { superUserGuard } from './guards/superuser.guard';
 import { unsavedChangesGuard } from './guards/unsaved-changes.guard';
+import { systemAdminGuard } from './guards/system-admin.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/home', pathMatch: 'full' },
@@ -59,6 +60,11 @@ export const routes: Routes = [
     path: 'users/manage',
     canActivate: [authGuard, superUserGuard],
     loadComponent: () => import('./components/users-management/users-management.component').then(m => m.UsersManagementComponent)
+  },
+  {
+    path: 'system',
+    canActivate: [authGuard, systemAdminGuard],
+    loadComponent: () => import('./components/system-settings/system-settings.component').then(m => m.SystemSettingsComponent)
   },
   {
     path: 'privacy',

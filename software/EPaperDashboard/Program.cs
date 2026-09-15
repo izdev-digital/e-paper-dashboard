@@ -11,6 +11,7 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Services.Firmware;
 using EPaperDashboard.Authentication;
 using EPaperDashboard.Services.Ai.DataSections;
+using EPaperDashboard.Services.Components.Playwright;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
@@ -114,6 +115,7 @@ builder.Services
 	.AddSingleton(TimeProvider.System)
 	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
+	.AddSingleton<PlaywrightComponentManager>()
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<IUserRepository, LiteDbUserRepository>()
@@ -199,6 +201,12 @@ builder.Services.AddHttpClient(Constants.FirmwareHttpClientName, client =>
 	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");
 	client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 	client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient(Constants.PlaywrightComponentHttpClientName, client =>
+{
+	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");
+	client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+	client.Timeout = TimeSpan.FromMinutes(30);
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

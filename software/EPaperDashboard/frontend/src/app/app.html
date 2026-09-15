@@ -23,6 +23,11 @@
               <a class="nav-link" routerLink="/ai/config" routerLinkActive="active" ariaCurrentWhenActive="page">AI configuration</a>
             </li>
             @if (authService.currentUser(); as user) {
+            @if (user.isSuperUser) {
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/system" routerLinkActive="active" ariaCurrentWhenActive="page">System</a>
+            </li>
+            }
             @if (user.isSuperUser && !authService.isUserManagementDisabled()) {
             <li class="nav-item">
               <a class="nav-link" routerLink="/users/manage" routerLinkActive="active" ariaCurrentWhenActive="page">Users</a>
@@ -102,6 +107,15 @@
                 </a>
               </li>
               @if (authService.currentUser(); as user) {
+              @if (user.isSuperUser) {
+              <li class="mobile-footer-item">
+                <a routerLink="/system" routerLinkActive="active" ariaCurrentWhenActive="page" class="mobile-footer-link"
+                  (click)="closeMobileNavigation()">
+                  <i class="fa-solid fa-gears" aria-hidden="true"></i>
+                  <span>System</span>
+                </a>
+              </li>
+              }
               @if (user.isSuperUser && !authService.isUserManagementDisabled()) {
               <li class="mobile-footer-item">
                 <a routerLink="/users/manage" routerLinkActive="active" ariaCurrentWhenActive="page" class="mobile-footer-link"
