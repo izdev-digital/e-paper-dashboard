@@ -469,7 +469,8 @@ public sealed class PlaywrightComponentManager
             return null;
 
         if (!Uri.TryCreate($"{value.TrimEnd('/')}/", UriKind.Absolute, out var uri)
-            || uri.Scheme is not (Uri.UriSchemeHttp or Uri.UriSchemeHttps))
+            || (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("PLAYWRIGHT_COMPONENT_BASE_URL must be an absolute HTTP or HTTPS URL.");
 
         return uri;
