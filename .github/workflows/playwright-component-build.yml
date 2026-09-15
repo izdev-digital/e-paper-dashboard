@@ -1,4 +1,4 @@
-name: Build Playwright Component
+name: Build Rendering Component
 
 on:
   workflow_call:
@@ -45,16 +45,16 @@ jobs:
 
       - name: Create archive and checksum
         run: |
-          archive="playwright-component-${{ matrix.runtime }}.tar.gz"
+          archive="rendering-component-${{ matrix.runtime }}.tar.gz"
           tar --dereference --hard-dereference -C component -czf "$archive" .
           sha256sum "$archive" > "$archive.sha256"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: playwright-component-${{ matrix.runtime }}
+          name: rendering-component-${{ matrix.runtime }}
           path: |
-            playwright-component-${{ matrix.runtime }}.tar.gz
-            playwright-component-${{ matrix.runtime }}.tar.gz.sha256
+            rendering-component-${{ matrix.runtime }}.tar.gz
+            rendering-component-${{ matrix.runtime }}.tar.gz.sha256
           if-no-files-found: error
 
   deployment-test:
@@ -78,7 +78,7 @@ jobs:
       - name: Download unpublished component
         uses: actions/download-artifact@v4
         with:
-          name: playwright-component-${{ matrix.runtime }}
+          name: rendering-component-${{ matrix.runtime }}
           path: ./component-artifacts
 
       - name: Build unpublished application image
@@ -95,7 +95,7 @@ jobs:
 
       - name: Start isolated deployment
         run: |
-          docker run --detach --name playwright-component-assets \
+          docker run --detach --name rendering-component-assets \
             --publish 18080:80 \
             --volume "$PWD/component-artifacts:/usr/share/nginx/html:ro" \
             nginx:alpine
@@ -106,10 +106,10 @@ jobs:
             --add-host host.docker.internal:host-gateway \
             --publish 18128:8128 \
             --env 'CLIENT_URL=http://127.0.0.1:18128' \
-            --env 'STATE_SIGNING_KEY=playwright-component-deployment-test-key' \
+            --env 'STATE_SIGNING_KEY=rendering-component-deployment-test-key' \
             --env 'SUPERUSER_USERNAME=component-test' \
             --env 'SUPERUSER_PASSWORD=component-test-password' \
-            --env 'PLAYWRIGHT_COMPONENT_BASE_URL=http://host.docker.internal:18080/' \
+            --env 'RENDERING_COMPONENT_BASE_URL=http://host.docker.internal:18080/' \
             --volume izboard-component-test-data:/data \
             'izboard-component-test:${{ matrix.runtime }}'
 
@@ -137,13 +137,13 @@ jobs:
           curl --fail --silent --show-error \
             --cookie /tmp/izboard-component-cookies \
             --request POST \
-            'http://127.0.0.1:18128/api/system/components/playwright/install' >/dev/null
+            'http://127.0.0.1:18128/api/system/components/rendering/install' >/dev/null
 
           installed=false
           for attempt in $(seq 1 180); do
             status="$(curl --fail --silent --show-error \
               --cookie /tmp/izboard-component-cookies \
-              'http://127.0.0.1:18128/api/system/components/playwright')"
+              'http://127.0.0.1:18128/api/system/components/rendering')"
             state="$(echo "$status" | jq --raw-output '.state')"
             if [ "$state" = Installed ]; then
               installed=true
@@ -156,19 +156,19 @@ jobs:
             sleep 2
           done
           if [ "$installed" != true ]; then
-            echo 'Playwright component installation timed out'
+            echo 'Rendering component installation timed out'
             exit 1
           fi
 
           curl --fail --silent --show-error \
             --cookie /tmp/izboard-component-cookies \
             --request POST \
-            'http://127.0.0.1:18128/api/system/components/playwright/test' >/dev/null
+            'http://127.0.0.1:18128/api/system/components/rendering/test' >/dev/null
 
           status="$(curl --fail --silent --show-error \
             --cookie /tmp/izboard-component-cookies \
             --request DELETE \
-            'http://127.0.0.1:18128/api/system/components/playwright')"
+            'http://127.0.0.1:18128/api/system/components/rendering')"
           test "$(echo "$status" | jq --raw-output '.state')" = NotInstalled
 
       - name: Show application logs
@@ -178,5 +178,5 @@ jobs:
       - name: Clean up deployment
         if: always()
         run: |
-          docker rm --force izboard-component-test playwright-component-assets || true
+          docker rm --force izboard-component-test rendering-component-assets || true
           docker volume rm izboard-component-test-data || true

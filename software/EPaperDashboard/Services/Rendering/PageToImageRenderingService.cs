@@ -69,7 +69,7 @@ internal sealed class PageToImageRenderingService(
     {
         var component = componentManager.GetActiveComponent()
             ?? throw new InvalidOperationException(
-                "The Playwright component is not installed. An administrator can install it from System settings.");
+                "The rendering component is not installed. An administrator can install it from System settings.");
 
         var outputPath = Path.Combine(Path.GetTempPath(), $"izboard-render-{Guid.NewGuid():N}.img");
         var requestWithOutput = request with { OutputPath = outputPath };
@@ -82,7 +82,7 @@ internal sealed class PageToImageRenderingService(
                 EnableRaisingEvents = true
             };
             if (!process.Start())
-                throw new InvalidOperationException("The Playwright renderer could not be started.");
+                throw new InvalidOperationException("The rendering component could not be started.");
 
             var standardOutput = process.StandardOutput.ReadToEndAsync();
             var standardError = process.StandardError.ReadToEndAsync();
@@ -97,7 +97,7 @@ internal sealed class PageToImageRenderingService(
             catch (OperationCanceledException)
             {
                 process.Kill(entireProcessTree: true);
-                throw new TimeoutException("The Playwright renderer exceeded its 150 second timeout.");
+                throw new TimeoutException("The rendering component exceeded its 150 second timeout.");
             }
 
             var responseText = await standardOutput;
@@ -106,11 +106,11 @@ internal sealed class PageToImageRenderingService(
             if (process.ExitCode != 0 || response?.Success != true)
             {
                 var message = response?.Error
-                    ?? (string.IsNullOrWhiteSpace(errorText) ? "The Playwright renderer failed." : errorText.Trim());
+                    ?? (string.IsNullOrWhiteSpace(errorText) ? "The rendering component failed." : errorText.Trim());
                 throw new InvalidOperationException(message);
             }
             if (!File.Exists(outputPath))
-                throw new InvalidOperationException("The Playwright renderer did not produce an image.");
+                throw new InvalidOperationException("The rendering component did not produce an image.");
 
             return await File.ReadAllBytesAsync(outputPath);
         }

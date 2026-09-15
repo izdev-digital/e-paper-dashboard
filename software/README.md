@@ -13,7 +13,7 @@ The server component of the izBoard system. An ASP.NET Core web application with
 - OTA firmware delivery to devices
 - Multi-user authentication (standalone mode)
 - Deployable as standalone Docker or Home Assistant Add-on
-- Optional Home Assistant dashboard screenshots through an on-demand Playwright component
+- Optional Home Assistant dashboard screenshots through an on-demand rendering component
 
 ## Deployment
 
@@ -51,9 +51,9 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | `TZ` | Recommended | Timezone (e.g. `Europe/London`) |
 | `APP_MODE` | No | Deployment mode: `standalone` (default) or `addon` |
 | `HOMEASSISTANT_HOST` | No | Home Assistant URL (auto-detected in add-on mode) |
-| `PLAYWRIGHT_COMPONENT_REPOSITORY` | No | GitHub repository that publishes the optional Playwright component (default: `izdev-digital/e-paper-dashboard`) |
-| `PLAYWRIGHT_COMPONENT_RELEASE_TAG` | No | Override the component release tag; normally set by the official image |
-| `PLAYWRIGHT_COMPONENT_BASE_URL` | No | Direct component artifact source for local or CI deployment testing; bypasses GitHub release lookup |
+| `RENDERING_COMPONENT_REPOSITORY` | No | GitHub repository that publishes the optional rendering component (default: `izdev-digital/e-paper-dashboard`) |
+| `RENDERING_COMPONENT_RELEASE_TAG` | No | Override the component release tag; normally set by the official image |
+| `RENDERING_COMPONENT_BASE_URL` | No | Direct component artifact source for local or CI deployment testing; bypasses GitHub release lookup |
 
 ### Ports
 
@@ -70,27 +70,28 @@ For HTTPS, the display verifies the server certificate against its embedded trus
 
 Application data (database, uploaded images, firmware cache) is stored in `/data`. Mount this path as a persistent volume.
 
-### Optional Playwright component
+### Optional rendering component
 
-The default image does not include Playwright, Chromium, or Chromium-specific system libraries. Custom layouts work without them.
+The default image does not include the browser-rendering runtime or browser binaries. Custom layouts work without them.
 To render an existing Home Assistant dashboard, sign in as a superuser, open **System**, and select **Install component**.
 izBoard downloads the version-matched component for the current CPU architecture from the project's GitHub release, verifies its
-SHA-256 checksum, and activates it immediately. The component is stored under `/data/components/playwright`, so it survives image
-updates when `/data` is mounted as documented above.
+SHA-256 checksum, and activates it immediately. The component is stored in the persistent `/data` volume, so it survives image
+updates when `/data` is mounted as documented above. If izBoard is updated while the component is installed, izBoard automatically
+updates the component to a compatible version as well. Removing the component deletes all of its files from `/data`.
 
 Before publishing a release, CI serves the newly built component archives from an isolated local HTTP container, installs them
 through the application API into a freshly built slim image, runs a browser rendering test, and removes the component again.
-Developers can use the same path by setting `PLAYWRIGHT_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
+Developers can use the same path by setting `RENDERING_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
 architecture-specific `.tar.gz` archive and its `.sha256` file.
 
 ### Local component deployment test
 
-Docker Compose can build the slim application and an unpublished Playwright component for the host architecture, serve the
+Docker Compose can build the slim application and an unpublished rendering component for the host architecture, serve the
 component inside the Compose network, and configure the application to install from that local source:
 
 ```shell
 cd software
-docker compose -f docker-compose.yml -f docker-compose.playwright.yml up --build app
+docker compose -f docker-compose.yml -f docker-compose.rendering.yml up --build app
 ```
 
 Open `http://localhost:8128`, sign in with the development credentials from `docker-compose.yml`, then open **System** and select
@@ -100,7 +101,7 @@ and component builds always receive the same value.
 Stop the stack and remove its isolated test data and generated component artifacts with:
 
 ```shell
-docker compose -f docker-compose.yml -f docker-compose.playwright.yml down --volumes
+docker compose -f docker-compose.yml -f docker-compose.rendering.yml down --volumes
 ```
 
 ## Building from Source

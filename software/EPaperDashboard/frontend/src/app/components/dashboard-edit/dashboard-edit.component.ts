@@ -230,7 +230,7 @@ import { PlaywrightComponentService, PlaywrightComponentStatus } from '../../ser
                   <i class="fa-solid fa-puzzle-piece mt-1" aria-hidden="true"></i>
                   <div>
                     <strong>Optional renderer required.</strong>
-                    The Playwright component must be installed before this mode can render images.
+                    The rendering component must be installed before this mode can render images.
                     @if (authService.currentUser()?.isSuperUser) {
                       <a routerLink="/system" target="_blank" class="alert-link">Install it in System settings.</a>
                     } @else {

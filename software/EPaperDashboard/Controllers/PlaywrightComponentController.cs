@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EPaperDashboard.Controllers;
 
 [ApiController]
-[Route("api/system/components/playwright")]
+[Route("api/system/components/rendering")]
 [Authorize]
 public sealed class PlaywrightComponentController(
     PlaywrightComponentManager componentManager,
@@ -24,7 +24,7 @@ public sealed class PlaywrightComponentController(
         {
             return componentManager.StartInstallation()
                 ? Accepted(componentManager.GetStatus())
-                : Conflict(new { message = "The Playwright component is already being installed." });
+                : Conflict(new { message = "The rendering component is already being installed." });
         }
         catch (PlatformNotSupportedException exception)
         {
@@ -43,7 +43,7 @@ public sealed class PlaywrightComponentController(
             return StatusCode(500, new { message = result.Error });
 
         using var image = result.Value;
-        return Ok(new { message = "Playwright component rendered successfully." });
+        return Ok(new { message = "Rendering component tested successfully." });
     }
 
     [HttpDelete]

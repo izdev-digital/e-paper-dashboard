@@ -32,19 +32,46 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
         status.State.Should().Be(PlaywrightComponentState.Incompatible);
         status.InstalledVersion.Should().Be("999.0.0");
         status.Error.Should().Contain(PlaywrightComponentManager.GetCompatibilityVersion(Constants.AppVersion));
+        manager.ShouldAutomaticallyUpdate().Should().BeTrue();
     }
 
     [Fact]
     public void GetStatus_WhenComponentMatchesAppVersion_ReturnsInstalled()
     {
-        CreateComponent(PlaywrightComponentManager.GetCompatibilityVersion(Constants.AppVersion), "1.52.0");
+        CreateComponent(PlaywrightComponentManager.GetCompatibilityVersion(Constants.AppVersion), Constants.AppVersion);
         var manager = CreateManager();
 
         var status = manager.GetStatus();
 
         status.State.Should().Be(PlaywrightComponentState.Installed);
-        status.InstalledVersion.Should().Be("1.52.0");
+        status.InstalledVersion.Should().Be(Constants.AppVersion);
         manager.GetActiveComponent().Should().NotBeNull();
+        manager.ShouldAutomaticallyUpdate().Should().BeFalse();
+    }
+
+    [Fact]
+    public void GetStatus_WhenComponentBuildDoesNotMatch_ReturnsIncompatible()
+    {
+        CreateComponent(PlaywrightComponentManager.GetCompatibilityVersion(Constants.AppVersion), "0.0.0.1");
+        var manager = CreateManager();
+
+        manager.GetStatus().State.Should().Be(PlaywrightComponentState.Incompatible);
+        manager.ShouldAutomaticallyUpdate().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UninstallAsync_RemovesEntireComponentDirectory()
+    {
+        CreateComponent(PlaywrightComponentManager.GetCompatibilityVersion(Constants.AppVersion), Constants.AppVersion);
+        var componentRoot = Path.Combine(_dataDirectory, "components", "playwright");
+        File.WriteAllText(Path.Combine(componentRoot, "unused-download"), "test");
+        var manager = CreateManager();
+
+        await manager.UninstallAsync();
+
+        Directory.Exists(componentRoot).Should().BeFalse();
+        manager.GetStatus().State.Should().Be(PlaywrightComponentState.NotInstalled);
+        manager.ShouldAutomaticallyUpdate().Should().BeFalse();
     }
 
     [Fact]
@@ -53,14 +80,14 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["PLAYWRIGHT_COMPONENT_BASE_URL"] = "not-a-url"
+                ["RENDERING_COMPONENT_BASE_URL"] = "not-a-url"
             })
             .Build();
 
         var action = () => CreateManager(configuration);
 
         action.Should().Throw<InvalidOperationException>()
-            .WithMessage("*PLAYWRIGHT_COMPONENT_BASE_URL*");
+            .WithMessage("*rendering component base URL*");
     }
 
     [Theory]

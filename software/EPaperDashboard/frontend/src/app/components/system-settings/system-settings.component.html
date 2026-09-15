@@ -23,7 +23,7 @@
             }
           </div>
           <p class="app-section-description mb-0">
-            Installs the Playwright renderer, Chromium, and its native libraries as an optional component.
+            Installs the optional rendering component required for Home Assistant dashboards.
             Custom izBoard layouts do not require it.
           </p>
         </div>
@@ -87,7 +87,7 @@
               } @else {
                 <i class="fa-solid fa-vial me-1" aria-hidden="true"></i>
               }
-              Test component
+              Test rendering
             </button>
           }
           @if (component.state === 'Installed' || component.state === 'Incompatible' || component.state === 'Failed') {

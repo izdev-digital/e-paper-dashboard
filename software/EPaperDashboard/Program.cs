@@ -116,6 +116,7 @@ builder.Services
 	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
 	.AddSingleton<PlaywrightComponentManager>()
+	.AddHostedService(sp => sp.GetRequiredService<PlaywrightComponentManager>())
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<IUserRepository, LiteDbUserRepository>()

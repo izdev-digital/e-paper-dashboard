@@ -23,7 +23,7 @@ export interface PlaywrightComponentStatus {
 @Injectable({ providedIn: 'root' })
 export class PlaywrightComponentService {
   private readonly http = inject(HttpClient);
-  private readonly endpoint = '/api/system/components/playwright';
+  private readonly endpoint = '/api/system/components/rendering';
 
   getStatus(): Observable<PlaywrightComponentStatus> {
     return this.http.get<PlaywrightComponentStatus>(this.endpoint);

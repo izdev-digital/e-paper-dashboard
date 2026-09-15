@@ -7,12 +7,13 @@ using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Services.Components.Playwright;
 
-public sealed class PlaywrightComponentManager
+public sealed class PlaywrightComponentManager : BackgroundService
 {
     private const int ManifestSchemaVersion = 1;
     private const long MaximumComponentBytes = 1_500_000_000;
     private const long MaximumExtractedBytes = 3_000_000_000;
     private const string DefaultRepository = "izdev-digital/e-paper-dashboard";
+    private static readonly TimeSpan UpdateRetryInterval = TimeSpan.FromMinutes(15);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IHttpClientFactory _httpClientFactory;
@@ -34,9 +35,15 @@ public sealed class PlaywrightComponentManager
         _httpClientFactory = httpClientFactory;
         _logger = logger;
         _componentRoot = Path.Combine(environmentConfiguration.ConfigDir, "components", "playwright");
-        _repository = configuration["PLAYWRIGHT_COMPONENT_REPOSITORY"] ?? DefaultRepository;
-        _releaseTag = configuration["PLAYWRIGHT_COMPONENT_RELEASE_TAG"] ?? GetDefaultReleaseTag(Constants.AppVersion);
-        _componentBaseUri = ParseComponentBaseUri(configuration["PLAYWRIGHT_COMPONENT_BASE_URL"]);
+        _repository = configuration["RENDERING_COMPONENT_REPOSITORY"]
+            ?? configuration["PLAYWRIGHT_COMPONENT_REPOSITORY"]
+            ?? DefaultRepository;
+        _releaseTag = configuration["RENDERING_COMPONENT_RELEASE_TAG"]
+            ?? configuration["PLAYWRIGHT_COMPONENT_RELEASE_TAG"]
+            ?? GetDefaultReleaseTag(Constants.AppVersion);
+        _componentBaseUri = ParseComponentBaseUri(
+            configuration["RENDERING_COMPONENT_BASE_URL"]
+            ?? configuration["PLAYWRIGHT_COMPONENT_BASE_URL"]);
         CleanupInterruptedInstallations();
         _status = ReadInstalledStatus();
     }
@@ -52,7 +59,7 @@ public sealed class PlaywrightComponentManager
     public bool StartInstallation()
     {
         if (!IsRuntimeSupported())
-            throw new PlatformNotSupportedException("The Playwright component is currently available for Linux x64 and arm64 only.");
+            throw new PlatformNotSupportedException("The rendering component is currently available for Linux x64 and arm64 only.");
 
         lock (_statusLock)
         {
@@ -70,15 +77,48 @@ public sealed class PlaywrightComponentManager
         lock (_statusLock)
         {
             if (_installationTask is { IsCompleted: false })
-                throw new InvalidOperationException("The Playwright component is currently being installed.");
+                throw new InvalidOperationException("The rendering component is currently being installed.");
         }
 
         if (Directory.Exists(_componentRoot))
             Directory.Delete(_componentRoot, recursive: true);
 
         SetStatus(NewStatus(PlaywrightComponentState.NotInstalled));
-        _logger.LogInformation("Uninstalled the Playwright component");
+        _logger.LogInformation("Uninstalled the rendering component");
         return Task.CompletedTask;
+    }
+
+    internal bool ShouldAutomaticallyUpdate()
+    {
+        var status = GetStatus();
+        return IsRuntimeSupported()
+            && Directory.Exists(GetActiveDirectory())
+            && status.State is PlaywrightComponentState.Incompatible or PlaywrightComponentState.Failed;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                if (ShouldAutomaticallyUpdate() && StartInstallation())
+                    _logger.LogInformation("Updating the installed rendering component to match izBoard {AppVersion}", Constants.AppVersion);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Could not start the rendering component update");
+            }
+
+            try
+            {
+                await Task.Delay(UpdateRetryInterval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+        }
     }
 
     internal ActivePlaywrightComponent? GetActiveComponent()
@@ -93,7 +133,7 @@ public sealed class PlaywrightComponentManager
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "The installed Playwright component is invalid");
+            _logger.LogError(exception, "The installed rendering component is invalid");
             SetStatus(NewStatus(PlaywrightComponentState.Failed, error: exception.Message));
             return null;
         }
@@ -110,7 +150,7 @@ public sealed class PlaywrightComponentManager
             Directory.CreateDirectory(_componentRoot);
             Directory.CreateDirectory(operationDirectory);
             var runtimeIdentifier = GetRuntimeIdentifier();
-            var assetName = $"playwright-component-{runtimeIdentifier}.tar.gz";
+            var assetName = $"rendering-component-{runtimeIdentifier}.tar.gz";
             var (archiveUrl, checksumUrl) = await ResolveAssetUrlsAsync(assetName);
 
             var expectedChecksum = await DownloadChecksumAsync(checksumUrl);
@@ -127,13 +167,13 @@ public sealed class PlaywrightComponentManager
                 PlaywrightComponentState.Installed,
                 installedVersion: active.Manifest.ComponentVersion));
             _logger.LogInformation(
-                "Installed Playwright component {ComponentVersion} for {RuntimeIdentifier}",
+                "Installed rendering component {ComponentVersion} for {RuntimeIdentifier}",
                 active.Manifest.ComponentVersion,
                 runtimeIdentifier);
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Failed to install the Playwright component");
+            _logger.LogError(exception, "Failed to install the rendering component");
             SetStatus(NewStatus(PlaywrightComponentState.Failed, error: exception.Message));
         }
         finally
@@ -156,7 +196,7 @@ public sealed class PlaywrightComponentManager
     {
         if (_componentBaseUri is not null)
         {
-            _logger.LogInformation("Installing the Playwright component from {BaseUri}", _componentBaseUri);
+            _logger.LogInformation("Installing the rendering component from {BaseUri}", _componentBaseUri);
             return (
                 new Uri(_componentBaseUri, Uri.EscapeDataString(assetName)).AbsoluteUri,
                 new Uri(_componentBaseUri, Uri.EscapeDataString($"{assetName}.sha256")).AbsoluteUri);
@@ -309,7 +349,7 @@ public sealed class PlaywrightComponentManager
                 }
                 catch (Exception exception)
                 {
-                    _logger.LogWarning(exception, "Could not remove the previous Playwright component at {Path}", previousPath);
+                    _logger.LogWarning(exception, "Could not remove the previous rendering component at {Path}", previousPath);
                 }
             }
         }
@@ -329,12 +369,12 @@ public sealed class PlaywrightComponentManager
         try
         {
             var active = ReadAndValidateComponent(GetActiveDirectory(), requireCompatibleVersion: false);
-            return string.Equals(active.Manifest.AppVersion, GetCompatibilityVersion(Constants.AppVersion), StringComparison.Ordinal)
+            return IsVersionCompatible(active.Manifest)
                 ? NewStatus(PlaywrightComponentState.Installed, installedVersion: active.Manifest.ComponentVersion)
                 : NewStatus(
                     PlaywrightComponentState.Incompatible,
                     installedVersion: active.Manifest.ComponentVersion,
-                    error: $"Component targets izBoard {active.Manifest.AppVersion}; {GetCompatibilityVersion(Constants.AppVersion)} is required.");
+                    error: $"Component version {active.Manifest.ComponentVersion} does not match izBoard {Constants.AppVersion}.");
         }
         catch (Exception exception)
         {
@@ -355,9 +395,9 @@ public sealed class PlaywrightComponentManager
         if (!string.Equals(manifest.RuntimeIdentifier, GetRuntimeIdentifier(), StringComparison.Ordinal))
             throw new InvalidOperationException(
                 $"The component targets {manifest.RuntimeIdentifier}, not {GetRuntimeIdentifier()}.");
-        var compatibilityVersion = GetCompatibilityVersion(Constants.AppVersion);
-        if (requireCompatibleVersion && !string.Equals(manifest.AppVersion, compatibilityVersion, StringComparison.Ordinal))
-            throw new InvalidOperationException($"The component targets izBoard {manifest.AppVersion}, not {compatibilityVersion}.");
+        if (requireCompatibleVersion && !IsVersionCompatible(manifest))
+            throw new InvalidOperationException(
+                $"Component version {manifest.ComponentVersion} does not match izBoard {Constants.AppVersion}.");
 
         var worker = ResolveComponentPath(root, manifest.WorkerAssembly);
         var browser = ResolveComponentPath(root, manifest.BrowserPath);
@@ -369,6 +409,10 @@ public sealed class PlaywrightComponentManager
 
         return new ActivePlaywrightComponent(root, worker, browser, libraries, data, fontConfig, manifest);
     }
+
+    private static bool IsVersionCompatible(PlaywrightComponentManifest manifest) =>
+        string.Equals(manifest.AppVersion, GetCompatibilityVersion(Constants.AppVersion), StringComparison.Ordinal)
+        && string.Equals(manifest.ComponentVersion, Constants.AppVersion, StringComparison.Ordinal);
 
     private static string ResolveComponentPath(string root, string relativePath)
     {
@@ -405,7 +449,7 @@ public sealed class PlaywrightComponentManager
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "Could not inspect interrupted Playwright component installations");
+            _logger.LogWarning(exception, "Could not inspect interrupted rendering component installations");
         }
     }
 
@@ -471,7 +515,7 @@ public sealed class PlaywrightComponentManager
         if (!Uri.TryCreate($"{value.TrimEnd('/')}/", UriKind.Absolute, out var uri)
             || (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException("PLAYWRIGHT_COMPONENT_BASE_URL must be an absolute HTTP or HTTPS URL.");
+            throw new InvalidOperationException("The rendering component base URL must be an absolute HTTP or HTTPS URL.");
 
         return uri;
     }

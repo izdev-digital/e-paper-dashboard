@@ -84,7 +84,7 @@ jobs:
     permissions:
       contents: read
 
-  playwright-component:
+  rendering-component:
     needs: [changes, software]
     if: |
       always() &&
@@ -111,7 +111,7 @@ jobs:
   
   # Update development release with latest artifacts
   update-dev-release:
-    needs: [firmware, software, playwright-component, packaging]
+    needs: [firmware, software, rendering-component, packaging]
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
       (github.event_name == 'workflow_dispatch')
@@ -163,12 +163,12 @@ jobs:
           name: freecad-stl-files
           path: ./artifacts/stl/
 
-      - name: Download Playwright component artifacts
-        if: needs.playwright-component.result == 'success'
+      - name: Download rendering component artifacts
+        if: needs.rendering-component.result == 'success'
         uses: actions/download-artifact@v4
         with:
-          pattern: playwright-component-*
-          path: ./artifacts/playwright/
+          pattern: rendering-component-*
+          path: ./artifacts/rendering/
           merge-multiple: true
 
       - name: Create versioned artifact zips
@@ -218,9 +218,9 @@ jobs:
           files: |
             firmware-${{ steps.version.outputs.version }}.zip
             stl-${{ steps.version.outputs.version }}.zip
-            artifacts/playwright/playwright-component-linux-x64.tar.gz
-            artifacts/playwright/playwright-component-linux-x64.tar.gz.sha256
-            artifacts/playwright/playwright-component-linux-arm64.tar.gz
-            artifacts/playwright/playwright-component-linux-arm64.tar.gz.sha256
+            artifacts/rendering/rendering-component-linux-x64.tar.gz
+            artifacts/rendering/rendering-component-linux-x64.tar.gz.sha256
+            artifacts/rendering/rendering-component-linux-arm64.tar.gz
+            artifacts/rendering/rendering-component-linux-arm64.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

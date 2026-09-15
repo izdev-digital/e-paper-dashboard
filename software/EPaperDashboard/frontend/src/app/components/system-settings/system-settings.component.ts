@@ -51,7 +51,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
   async uninstall(): Promise<void> {
     await this.dialogService.confirm({
-      title: 'Remove Playwright component?',
+      title: 'Remove rendering component?',
       message: 'Home Assistant dashboard rendering will stop working until the component is installed again.',
       confirmLabel: 'Remove component',
       isDangerous: true,
@@ -60,9 +60,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         try {
           const status = await firstValueFrom(this.componentService.uninstall());
           this.status.set(status);
-          this.toastService.success('Playwright component removed.');
+          this.toastService.success('Rendering component removed.');
         } catch (err: any) {
-          this.toastService.error(err.error?.message || 'Could not remove the Playwright component.');
+          this.toastService.error(err.error?.message || 'Could not remove the rendering component.');
         } finally {
           this.isUninstalling.set(false);
         }
@@ -78,7 +78,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         this.isTesting.set(false);
       },
       error: err => {
-        this.toastService.error(err.error?.message || 'Playwright component test failed.');
+        this.toastService.error(err.error?.message || 'Rendering component test failed.');
         this.isTesting.set(false);
       }
     });
@@ -99,9 +99,9 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         if (status.state === 'Installing') {
           this.schedulePoll();
         } else if (previousState === 'Installing' && status.state === 'Installed') {
-          this.toastService.success('Playwright component installed and ready.');
+          this.toastService.success('Rendering component installed and ready.');
         } else if (previousState === 'Installing' && status.state === 'Failed') {
-          this.toastService.error(status.error || 'Playwright component installation failed.');
+          this.toastService.error(status.error || 'Rendering component installation failed.');
         }
       },
       error: () => {
