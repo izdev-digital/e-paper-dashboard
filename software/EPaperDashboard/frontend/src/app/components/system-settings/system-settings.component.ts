@@ -23,6 +23,7 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
   readonly status = signal<PlaywrightComponentStatus | null>(null);
   readonly isLoading = signal(true);
   readonly isUninstalling = signal(false);
+  readonly isTesting = signal(false);
   readonly progress = computed(() => {
     const value = this.status();
     if (!value?.totalBytes || value.totalBytes <= 0) return undefined;
@@ -65,6 +66,20 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
         } finally {
           this.isUninstalling.set(false);
         }
+      }
+    });
+  }
+
+  test(): void {
+    this.isTesting.set(true);
+    this.componentService.test().subscribe({
+      next: response => {
+        this.toastService.success(response.message);
+        this.isTesting.set(false);
+      },
+      error: err => {
+        this.toastService.error(err.error?.message || 'Playwright component test failed.');
+        this.isTesting.set(false);
       }
     });
   }

@@ -1,4 +1,6 @@
+using EPaperDashboard.Models.Rendering;
 using EPaperDashboard.Services.Components.Playwright;
+using EPaperDashboard.Services.Rendering;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +9,9 @@ namespace EPaperDashboard.Controllers;
 [ApiController]
 [Route("api/system/components/playwright")]
 [Authorize]
-public sealed class PlaywrightComponentController(PlaywrightComponentManager componentManager) : ControllerBase
+public sealed class PlaywrightComponentController(
+    PlaywrightComponentManager componentManager,
+    IPageToImageRenderingService renderingService) : ControllerBase
 {
     [HttpGet]
     public ActionResult<PlaywrightComponentStatus> GetStatus() => Ok(componentManager.GetStatus());
@@ -26,6 +30,20 @@ public sealed class PlaywrightComponentController(PlaywrightComponentManager com
         {
             return BadRequest(new { message = exception.Message });
         }
+    }
+
+    [HttpPost("test")]
+    [Authorize(Policy = "SuperUserOnly")]
+    public async Task<IActionResult> Test()
+    {
+        var result = await renderingService.RenderHtmlAsync(
+            "<!doctype html><html><body style=\"margin:0;background:#fff;color:#000\">izBoard</body></html>",
+            new Size(200, 100));
+        if (result.IsFailure)
+            return StatusCode(500, new { message = result.Error });
+
+        using var image = result.Value;
+        return Ok(new { message = "Playwright component rendered successfully." });
     }
 
     [HttpDelete]

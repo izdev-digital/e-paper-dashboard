@@ -36,4 +36,8 @@ export class PlaywrightComponentService {
   uninstall(): Observable<PlaywrightComponentStatus> {
     return this.http.delete<PlaywrightComponentStatus>(this.endpoint);
   }
+
+  test(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.endpoint}/test`, {});
+  }
 }

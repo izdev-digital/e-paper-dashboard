@@ -47,6 +47,22 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
         manager.GetActiveComponent().Should().NotBeNull();
     }
 
+    [Fact]
+    public void Constructor_WhenComponentBaseUrlIsInvalid_Throws()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PLAYWRIGHT_COMPONENT_BASE_URL"] = "not-a-url"
+            })
+            .Build();
+
+        var action = () => CreateManager(configuration);
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*PLAYWRIGHT_COMPONENT_BASE_URL*");
+    }
+
     [Theory]
     [InlineData("0.4.1", "v0.4.1")]
     [InlineData("0.4.1.0", "v0.4.1")]
@@ -72,7 +88,7 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
             Directory.Delete(_dataDirectory, recursive: true);
     }
 
-    private PlaywrightComponentManager CreateManager()
+    private PlaywrightComponentManager CreateManager(IConfiguration? configuration = null)
     {
         var environment = new Mock<IEnvironmentConfiguration>();
         environment.SetupGet(value => value.ConfigDir).Returns(_dataDirectory);
@@ -80,7 +96,7 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
         return new PlaywrightComponentManager(
             Mock.Of<IHttpClientFactory>(),
             environment.Object,
-            new ConfigurationBuilder().Build(),
+            configuration ?? new ConfigurationBuilder().Build(),
             NullLogger<PlaywrightComponentManager>.Instance);
     }
 

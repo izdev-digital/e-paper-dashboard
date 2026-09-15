@@ -53,6 +53,7 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | `HOMEASSISTANT_HOST` | No | Home Assistant URL (auto-detected in add-on mode) |
 | `PLAYWRIGHT_COMPONENT_REPOSITORY` | No | GitHub repository that publishes the optional Playwright component (default: `izdev-digital/e-paper-dashboard`) |
 | `PLAYWRIGHT_COMPONENT_RELEASE_TAG` | No | Override the component release tag; normally set by the official image |
+| `PLAYWRIGHT_COMPONENT_BASE_URL` | No | Direct component artifact source for local or CI deployment testing; bypasses GitHub release lookup |
 
 ### Ports
 
@@ -76,6 +77,11 @@ To render an existing Home Assistant dashboard, sign in as a superuser, open **S
 izBoard downloads the version-matched component for the current CPU architecture from the project's GitHub release, verifies its
 SHA-256 checksum, and activates it immediately. The component is stored under `/data/components/playwright`, so it survives image
 updates when `/data` is mounted as documented above.
+
+Before publishing a release, CI serves the newly built component archives from an isolated local HTTP container, installs them
+through the application API into a freshly built slim image, runs a browser rendering test, and removes the component again.
+Developers can use the same path by setting `PLAYWRIGHT_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
+architecture-specific `.tar.gz` archive and its `.sha256` file.
 
 ## Building from Source
 

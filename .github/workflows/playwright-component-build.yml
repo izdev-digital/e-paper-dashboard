@@ -56,3 +56,127 @@ jobs:
             playwright-component-${{ matrix.runtime }}.tar.gz
             playwright-component-${{ matrix.runtime }}.tar.gz.sha256
           if-no-files-found: error
+
+  deployment-test:
+    needs: build
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runtime: linux-x64
+          - platform: linux/arm64
+            runtime: linux-arm64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Download unpublished component
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-component-${{ matrix.runtime }}
+          path: ./component-artifacts
+
+      - name: Build unpublished application image
+        run: |
+          docker buildx build \
+            --platform '${{ matrix.platform }}' \
+            --load \
+            --build-arg 'VERSION=${{ inputs.version }}' \
+            --build-arg 'BUILD_CONFIGURATION=Release' \
+            --build-arg 'COMPONENT_RELEASE_TAG=deployment-test' \
+            --tag 'izboard-component-test:${{ matrix.runtime }}' \
+            --file software/EPaperDashboard/Dockerfile \
+            software
+
+      - name: Start isolated deployment
+        run: |
+          docker run --detach --name playwright-component-assets \
+            --publish 18080:80 \
+            --volume "$PWD/component-artifacts:/usr/share/nginx/html:ro" \
+            nginx:alpine
+
+          docker volume create izboard-component-test-data
+          docker run --detach --name izboard-component-test \
+            --platform '${{ matrix.platform }}' \
+            --add-host host.docker.internal:host-gateway \
+            --publish 18128:8128 \
+            --env 'CLIENT_URL=http://127.0.0.1:18128' \
+            --env 'STATE_SIGNING_KEY=playwright-component-deployment-test-key' \
+            --env 'SUPERUSER_USERNAME=component-test' \
+            --env 'SUPERUSER_PASSWORD=component-test-password' \
+            --env 'PLAYWRIGHT_COMPONENT_BASE_URL=http://host.docker.internal:18080/' \
+            --volume izboard-component-test-data:/data \
+            'izboard-component-test:${{ matrix.runtime }}'
+
+      - name: Install, render, and uninstall component
+        run: |
+          ready=false
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent 'http://127.0.0.1:18128/api/app/version' >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            echo 'izBoard did not become ready'
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --cookie-jar /tmp/izboard-component-cookies \
+            --header 'Content-Type: application/json' \
+            --data '{"username":"component-test","password":"component-test-password"}' \
+            'http://127.0.0.1:18128/api/auth/login' >/dev/null
+
+          curl --fail --silent --show-error \
+            --cookie /tmp/izboard-component-cookies \
+            --request POST \
+            'http://127.0.0.1:18128/api/system/components/playwright/install' >/dev/null
+
+          installed=false
+          for attempt in $(seq 1 180); do
+            status="$(curl --fail --silent --show-error \
+              --cookie /tmp/izboard-component-cookies \
+              'http://127.0.0.1:18128/api/system/components/playwright')"
+            state="$(echo "$status" | jq --raw-output '.state')"
+            if [ "$state" = Installed ]; then
+              installed=true
+              break
+            fi
+            if [ "$state" = Failed ]; then
+              echo "$status"
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$installed" != true ]; then
+            echo 'Playwright component installation timed out'
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --cookie /tmp/izboard-component-cookies \
+            --request POST \
+            'http://127.0.0.1:18128/api/system/components/playwright/test' >/dev/null
+
+          status="$(curl --fail --silent --show-error \
+            --cookie /tmp/izboard-component-cookies \
+            --request DELETE \
+            'http://127.0.0.1:18128/api/system/components/playwright')"
+          test "$(echo "$status" | jq --raw-output '.state')" = NotInstalled
+
+      - name: Show application logs
+        if: failure()
+        run: docker logs izboard-component-test || true
+
+      - name: Clean up deployment
+        if: always()
+        run: |
+          docker rm --force izboard-component-test playwright-component-assets || true
+          docker volume rm izboard-component-test-data || true

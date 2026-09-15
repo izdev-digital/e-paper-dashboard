@@ -80,6 +80,16 @@
               {{ component.state === 'Incompatible' ? 'Install compatible version' : component.state === 'Failed' ? 'Retry installation' : 'Install component' }}
             </button>
           }
+          @if (component.state === 'Installed') {
+            <button type="button" class="btn btn-outline-primary" (click)="test()" [disabled]="isTesting()">
+              @if (isTesting()) {
+                <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              } @else {
+                <i class="fa-solid fa-vial me-1" aria-hidden="true"></i>
+              }
+              Test component
+            </button>
+          }
           @if (component.state === 'Installed' || component.state === 'Incompatible' || component.state === 'Failed') {
             <button type="button" class="btn btn-outline-danger" (click)="uninstall()" [disabled]="isUninstalling()">
               @if (isUninstalling()) {

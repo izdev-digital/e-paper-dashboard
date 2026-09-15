@@ -20,6 +20,7 @@ public sealed class PlaywrightComponentManager
     private readonly string _componentRoot;
     private readonly string _repository;
     private readonly string _releaseTag;
+    private readonly Uri? _componentBaseUri;
     private readonly object _statusLock = new();
     private Task? _installationTask;
     private PlaywrightComponentStatus _status;
@@ -35,6 +36,7 @@ public sealed class PlaywrightComponentManager
         _componentRoot = Path.Combine(environmentConfiguration.ConfigDir, "components", "playwright");
         _repository = configuration["PLAYWRIGHT_COMPONENT_REPOSITORY"] ?? DefaultRepository;
         _releaseTag = configuration["PLAYWRIGHT_COMPONENT_RELEASE_TAG"] ?? GetDefaultReleaseTag(Constants.AppVersion);
+        _componentBaseUri = ParseComponentBaseUri(configuration["PLAYWRIGHT_COMPONENT_BASE_URL"]);
         CleanupInterruptedInstallations();
         _status = ReadInstalledStatus();
     }
@@ -109,9 +111,7 @@ public sealed class PlaywrightComponentManager
             Directory.CreateDirectory(operationDirectory);
             var runtimeIdentifier = GetRuntimeIdentifier();
             var assetName = $"playwright-component-{runtimeIdentifier}.tar.gz";
-            var release = await GetReleaseAsync();
-            var archiveUrl = FindAssetUrl(release, assetName);
-            var checksumUrl = FindAssetUrl(release, $"{assetName}.sha256");
+            var (archiveUrl, checksumUrl) = await ResolveAssetUrlsAsync(assetName);
 
             var expectedChecksum = await DownloadChecksumAsync(checksumUrl);
             await DownloadArchiveAsync(archiveUrl, archivePath);
@@ -150,6 +150,22 @@ public sealed class PlaywrightComponentManager
                 }
             }
         }
+    }
+
+    private async Task<(string ArchiveUrl, string ChecksumUrl)> ResolveAssetUrlsAsync(string assetName)
+    {
+        if (_componentBaseUri is not null)
+        {
+            _logger.LogInformation("Installing the Playwright component from {BaseUri}", _componentBaseUri);
+            return (
+                new Uri(_componentBaseUri, Uri.EscapeDataString(assetName)).AbsoluteUri,
+                new Uri(_componentBaseUri, Uri.EscapeDataString($"{assetName}.sha256")).AbsoluteUri);
+        }
+
+        var release = await GetReleaseAsync();
+        return (
+            FindAssetUrl(release, assetName),
+            FindAssetUrl(release, $"{assetName}.sha256"));
     }
 
     private async Task<JsonElement> GetReleaseAsync()
@@ -445,6 +461,18 @@ public sealed class PlaywrightComponentManager
                 ? "osx"
                 : OperatingSystem.IsWindows() ? "windows" : "unsupported";
         return $"{os}-{architecture}";
+    }
+
+    private static Uri? ParseComponentBaseUri(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (!Uri.TryCreate($"{value.TrimEnd('/')}/", UriKind.Absolute, out var uri)
+            || uri.Scheme is not (Uri.UriSchemeHttp or Uri.UriSchemeHttps))
+            throw new InvalidOperationException("PLAYWRIGHT_COMPONENT_BASE_URL must be an absolute HTTP or HTTPS URL.");
+
+        return uri;
     }
 
     private static bool IsRuntimeSupported() =>
