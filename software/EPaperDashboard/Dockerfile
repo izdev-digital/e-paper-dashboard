@@ -45,7 +45,7 @@ RUN cp /src/LICENSE /app/publish/ && \
   cp /src/THIRD-PARTY-NOTICES.txt /app/publish/
 
 FROM base AS final
-ARG COMPONENT_RELEASE_TAG=dev
+ARG COMPONENT_RELEASE_TAG
 WORKDIR /app
 EXPOSE 8128 8129
 COPY --from=publish /app/publish .

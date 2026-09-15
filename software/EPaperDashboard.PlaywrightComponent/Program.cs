@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Playwright;
+using EPaperDashboard.RenderingComponent;
 
 var jsonOptions = new JsonSerializerOptions
 {
@@ -16,7 +17,9 @@ try
     var request = JsonSerializer.Deserialize<RenderRequest>(input, jsonOptions)
         ?? throw new InvalidOperationException("The render request was empty or invalid.");
 
-    Validate(request);
+    request.Validate();
+    if (string.IsNullOrWhiteSpace(request.OutputPath) || !Path.IsPathFullyQualified(request.OutputPath))
+        throw new InvalidOperationException("The output path must be absolute.");
 
     using var playwright = await Playwright.CreateAsync();
     await using var browser = await playwright.Chromium.LaunchAsync(GetLaunchOptions());
@@ -115,44 +118,9 @@ static BrowserTypeLaunchOptions GetLaunchOptions()
     var options = new BrowserTypeLaunchOptions { Headless = true };
     if (OperatingSystem.IsLinux())
     {
-        // The component is installed by the unprivileged app user, so Chromium's setuid sandbox
-        // cannot retain root ownership. Process isolation is still provided by the container and
-        // by running this renderer outside the izBoard web process.
+        // This compatibility mode is not a security boundary for untrusted dashboard content.
         options.Args = ["--no-sandbox", "--disable-setuid-sandbox"];
     }
 
     return options;
 }
-
-static void Validate(RenderRequest request)
-{
-    if (request.Mode is not ("dashboard" or "html"))
-        throw new InvalidOperationException("Unsupported render mode.");
-    if (request.Width <= 0 || request.Height <= 0)
-        throw new InvalidOperationException("The viewport dimensions must be positive.");
-    if (string.IsNullOrWhiteSpace(request.OutputPath) || !Path.IsPathFullyQualified(request.OutputPath))
-        throw new InvalidOperationException("The output path must be absolute.");
-    if (request.Mode == "html" && request.Html is null)
-        throw new InvalidOperationException("HTML content is required.");
-    if (request.Mode == "dashboard"
-        && (string.IsNullOrWhiteSpace(request.DashboardUri)
-            || string.IsNullOrWhiteSpace(request.AccessToken)
-            || string.IsNullOrWhiteSpace(request.TokenType)
-            || string.IsNullOrWhiteSpace(request.HassUrl)
-            || string.IsNullOrWhiteSpace(request.ClientId)))
-        throw new InvalidOperationException("Dashboard authorization details are incomplete.");
-}
-
-internal sealed record RenderRequest(
-    string Mode,
-    int Width,
-    int Height,
-    string OutputPath,
-    string? DashboardUri,
-    string? Html,
-    string? AccessToken,
-    string? TokenType,
-    string? HassUrl,
-    string? ClientId);
-
-internal sealed record RenderResponse(bool Success, string? Error);

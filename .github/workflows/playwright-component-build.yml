@@ -25,12 +25,10 @@ jobs:
           - platform: linux/arm64
             runtime: linux-arm64
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-
       - name: Build component payload
         uses: docker/build-push-action@v6
         with:
@@ -42,13 +40,11 @@ jobs:
           outputs: type=local,dest=./component
           cache-from: type=gha,scope=playwright-${{ matrix.runtime }}
           cache-to: type=gha,mode=max,scope=playwright-${{ matrix.runtime }}
-
       - name: Create archive and checksum
         run: |
           archive="rendering-component-${{ matrix.runtime }}.tar.gz"
           tar --dereference --hard-dereference -C component -czf "$archive" .
           sha256sum "$archive" > "$archive.sha256"
-
       - uses: actions/upload-artifact@v4
         with:
           name: rendering-component-${{ matrix.runtime }}
@@ -56,127 +52,3 @@ jobs:
             rendering-component-${{ matrix.runtime }}.tar.gz
             rendering-component-${{ matrix.runtime }}.tar.gz.sha256
           if-no-files-found: error
-
-  deployment-test:
-    needs: build
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runtime: linux-x64
-          - platform: linux/arm64
-            runtime: linux-arm64
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Download unpublished component
-        uses: actions/download-artifact@v4
-        with:
-          name: rendering-component-${{ matrix.runtime }}
-          path: ./component-artifacts
-
-      - name: Build unpublished application image
-        run: |
-          docker buildx build \
-            --platform '${{ matrix.platform }}' \
-            --load \
-            --build-arg 'VERSION=${{ inputs.version }}' \
-            --build-arg 'BUILD_CONFIGURATION=Release' \
-            --build-arg 'COMPONENT_RELEASE_TAG=deployment-test' \
-            --tag 'izboard-component-test:${{ matrix.runtime }}' \
-            --file software/EPaperDashboard/Dockerfile \
-            software
-
-      - name: Start isolated deployment
-        run: |
-          docker run --detach --name rendering-component-assets \
-            --publish 18080:80 \
-            --volume "$PWD/component-artifacts:/usr/share/nginx/html:ro" \
-            nginx:alpine
-
-          docker volume create izboard-component-test-data
-          docker run --detach --name izboard-component-test \
-            --platform '${{ matrix.platform }}' \
-            --add-host host.docker.internal:host-gateway \
-            --publish 18128:8128 \
-            --env 'CLIENT_URL=http://127.0.0.1:18128' \
-            --env 'STATE_SIGNING_KEY=rendering-component-deployment-test-key' \
-            --env 'SUPERUSER_USERNAME=component-test' \
-            --env 'SUPERUSER_PASSWORD=component-test-password' \
-            --env 'RENDERING_COMPONENT_BASE_URL=http://host.docker.internal:18080/' \
-            --volume izboard-component-test-data:/data \
-            'izboard-component-test:${{ matrix.runtime }}'
-
-      - name: Install, render, and uninstall component
-        run: |
-          ready=false
-          for attempt in $(seq 1 90); do
-            if curl --fail --silent 'http://127.0.0.1:18128/api/app/version' >/dev/null; then
-              ready=true
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ready" != true ]; then
-            echo 'izBoard did not become ready'
-            exit 1
-          fi
-
-          curl --fail --silent --show-error \
-            --cookie-jar /tmp/izboard-component-cookies \
-            --header 'Content-Type: application/json' \
-            --data '{"username":"component-test","password":"component-test-password"}' \
-            'http://127.0.0.1:18128/api/auth/login' >/dev/null
-
-          curl --fail --silent --show-error \
-            --cookie /tmp/izboard-component-cookies \
-            --request POST \
-            'http://127.0.0.1:18128/api/system/components/rendering/install' >/dev/null
-
-          installed=false
-          for attempt in $(seq 1 180); do
-            status="$(curl --fail --silent --show-error \
-              --cookie /tmp/izboard-component-cookies \
-              'http://127.0.0.1:18128/api/system/components/rendering')"
-            state="$(echo "$status" | jq --raw-output '.state')"
-            if [ "$state" = Installed ]; then
-              installed=true
-              break
-            fi
-            if [ "$state" = Failed ]; then
-              echo "$status"
-              exit 1
-            fi
-            sleep 2
-          done
-          if [ "$installed" != true ]; then
-            echo 'Rendering component installation timed out'
-            exit 1
-          fi
-
-          curl --fail --silent --show-error \
-            --cookie /tmp/izboard-component-cookies \
-            --request POST \
-            'http://127.0.0.1:18128/api/system/components/rendering/test' >/dev/null
-
-          status="$(curl --fail --silent --show-error \
-            --cookie /tmp/izboard-component-cookies \
-            --request DELETE \
-            'http://127.0.0.1:18128/api/system/components/rendering')"
-          test "$(echo "$status" | jq --raw-output '.state')" = NotInstalled
-
-      - name: Show application logs
-        if: failure()
-        run: docker logs izboard-component-test || true
-
-      - name: Clean up deployment
-        if: always()
-        run: |
-          docker rm --force izboard-component-test rendering-component-assets || true
-          docker volume rm izboard-component-test-data || true

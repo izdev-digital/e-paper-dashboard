@@ -82,21 +82,7 @@ jobs:
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
     permissions:
-      contents: read
-
-  rendering-component:
-    needs: [changes, software]
-    if: |
-      always() &&
-      needs.software.result == 'success' &&
-      (github.event_name == 'workflow_dispatch' && inputs.build_software ||
-       github.event_name == 'push' && github.ref == 'refs/heads/master' ||
-       github.event_name != 'workflow_dispatch' && github.event_name != 'push' && needs.changes.outputs.software == 'true')
-    uses: ./.github/workflows/playwright-component-build.yml
-    with:
-      version: ${{ needs.software.outputs.version }}
-    permissions:
-      contents: read
+      contents: write
       
   # Run FreeCAD STL export if changed or manually selected (or always on master push)
   packaging:
@@ -111,7 +97,7 @@ jobs:
   
   # Update development release with latest artifacts
   update-dev-release:
-    needs: [firmware, software, rendering-component, packaging]
+    needs: [firmware, software, packaging]
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/master') ||
       (github.event_name == 'workflow_dispatch')
@@ -164,7 +150,7 @@ jobs:
           path: ./artifacts/stl/
 
       - name: Download rendering component artifacts
-        if: needs.rendering-component.result == 'success'
+        if: needs.software.result == 'success'
         uses: actions/download-artifact@v4
         with:
           pattern: rendering-component-*

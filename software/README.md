@@ -53,7 +53,9 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | `HOMEASSISTANT_HOST` | No | Home Assistant URL (auto-detected in add-on mode) |
 | `RENDERING_COMPONENT_REPOSITORY` | No | GitHub repository that publishes the optional rendering component (default: `izdev-digital/e-paper-dashboard`) |
 | `RENDERING_COMPONENT_RELEASE_TAG` | No | Override the component release tag; normally set by the official image |
-| `RENDERING_COMPONENT_BASE_URL` | No | Direct component artifact source for local or CI deployment testing; bypasses GitHub release lookup |
+| `RENDERING_COMPONENT_BASE_URL` | No | Direct component artifact source for manual deployment testing; bypasses GitHub release lookup |
+| `RENDERING_MAX_CONCURRENT_RENDERS` | No | Concurrent worker limit, 1–16 (default: 2); increase only after measuring memory use |
+| `RENDERING_MAX_QUEUED_RENDERS` | No | Waiting request limit, 0–1000 (default: 100) |
 
 ### Ports
 
@@ -75,13 +77,17 @@ Application data (database, uploaded images, firmware cache) is stored in `/data
 The default image does not include the browser-rendering runtime or browser binaries. Custom layouts work without them.
 To render an existing Home Assistant dashboard, sign in as a superuser, open **System**, and select **Install component**.
 izBoard downloads the version-matched component for the current CPU architecture from the project's GitHub release, verifies its
-SHA-256 checksum, and activates it immediately. The component is stored in the persistent `/data` volume, so it survives image
+SHA-256 checksum, performs a browser readiness test, and activates it immediately. The component is stored in the persistent `/data` volume, so it survives image
 updates when `/data` is mounted as documented above. If izBoard is updated while the component is installed, izBoard automatically
-updates the component to a compatible version as well. Removing the component deletes all of its files from `/data`.
+updates the component to the exact application build as well. Custom layouts remain available while an offline update waits for
+the matching component; Home Assistant screenshots are unavailable until it is ready. Removing the component waits for running
+renders and deletes all of its files from `/data`. Activation atomically switches between version directories, and interrupted
+installation/removal cleanup is completed on startup.
 
-Before publishing a release, CI serves the newly built component archives from an isolated local HTTP container, installs them
-through the application API into a freshly built slim image, runs a browser rendering test, and removes the component again.
-Developers can use the same path by setting `RENDERING_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
+CI builds and publishes component archives, but does not run renderer deployment/browser tests. Each component has a retained,
+version-addressed GitHub release (`rendering-v<major.minor.patch.build>`) published before its application image. Existing component
+releases are never overwritten, so older installations do not depend on the mutable development release.
+Developers manually verify deployments by setting `RENDERING_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
 architecture-specific `.tar.gz` archive and its `.sha256` file.
 
 ### Local component deployment test
@@ -97,6 +103,20 @@ docker compose -f docker-compose.yml -f docker-compose.rendering.yml up --build 
 Open `http://localhost:8128`, sign in with the development credentials from `docker-compose.yml`, then open **System** and select
 **Install component** followed by **Test component**. Set `IZBOARD_VERSION` to override the default test version; the application
 and component builds always receive the same value.
+
+Before publishing, manually verify installation, **Test component**, a real Home Assistant dashboard (including authentication),
+and custom layouts. Restart the app and confirm rendering still works. Rebuild with a different `IZBOARD_VERSION` and confirm the
+installed component updates automatically. Repeat with the artifact server stopped: custom layouts must still work, and Home
+Assistant rendering must recover after the matching artifacts become reachable. Test simultaneous requests, cancelled requests,
+and removal during rendering; after removal inspect `/data/components` in the app container to confirm the files are gone.
+
+Rendering is limited to two simultaneous workers and 100 queued requests. Queue waiting and worker execution each time out after
+150 seconds. Viewports are limited to 4096 pixels per dimension and 16 million pixels, HTML to one million characters, images to
+64 MB, and worker responses to 64,000 characters. Workers receive only their request's credentials, not the app's environment secrets.
+
+The current in-container worker runs under the app account with the browser sandbox disabled for compatibility. It is **not** an
+isolation boundary for untrusted user-supplied dashboard content. Do not expose this mode to untrusted standalone users until a
+restricted renderer deployment or verified host sandbox is configured; environment filtering and request limits do not solve that risk.
 
 Stop the stack and remove its isolated test data and generated component artifacts with:
 

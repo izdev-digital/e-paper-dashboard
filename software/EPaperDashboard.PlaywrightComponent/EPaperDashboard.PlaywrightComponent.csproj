@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../RenderingComponentProtocol.cs" Link="RenderingComponentProtocol.cs" />
     <PackageReference Include="Microsoft.Playwright" Version="1.52.0" />
   </ItemGroup>
 

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using EPaperDashboard.Utilities;
+using EPaperDashboard.RenderingComponent;
 
 namespace EPaperDashboard.Services.Components.Playwright;
 
@@ -23,6 +24,9 @@ public sealed class PlaywrightComponentManager : BackgroundService
     private readonly string _releaseTag;
     private readonly Uri? _componentBaseUri;
     private readonly object _statusLock = new();
+    private readonly PlaywrightComponentRuntime _runtime;
+    private readonly CancellationTokenSource _shutdown = new();
+    private volatile bool _uninstalling;
     private Task? _installationTask;
     private PlaywrightComponentStatus _status;
 
@@ -30,17 +34,19 @@ public sealed class PlaywrightComponentManager : BackgroundService
         IHttpClientFactory httpClientFactory,
         IEnvironmentConfiguration environmentConfiguration,
         IConfiguration configuration,
-        ILogger<PlaywrightComponentManager> logger)
+        ILogger<PlaywrightComponentManager> logger,
+        PlaywrightComponentRuntime? runtime = null)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _runtime = runtime ?? new PlaywrightComponentRuntime();
         _componentRoot = Path.Combine(environmentConfiguration.ConfigDir, "components", "playwright");
         _repository = configuration["RENDERING_COMPONENT_REPOSITORY"]
             ?? configuration["PLAYWRIGHT_COMPONENT_REPOSITORY"]
             ?? DefaultRepository;
-        _releaseTag = configuration["RENDERING_COMPONENT_RELEASE_TAG"]
-            ?? configuration["PLAYWRIGHT_COMPONENT_RELEASE_TAG"]
-            ?? GetDefaultReleaseTag(Constants.AppVersion);
+        var releaseTag = configuration["RENDERING_COMPONENT_RELEASE_TAG"]
+            ?? configuration["PLAYWRIGHT_COMPONENT_RELEASE_TAG"];
+        _releaseTag = string.IsNullOrWhiteSpace(releaseTag) ? GetDefaultReleaseTag(Constants.AppVersion) : releaseTag;
         _componentBaseUri = ParseComponentBaseUri(
             configuration["RENDERING_COMPONENT_BASE_URL"]
             ?? configuration["PLAYWRIGHT_COMPONENT_BASE_URL"]);
@@ -63,7 +69,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
 
         lock (_statusLock)
         {
-            if (_installationTask is { IsCompleted: false })
+            if (_uninstalling || _installationTask is { IsCompleted: false })
                 return false;
 
             _status = NewStatus(PlaywrightComponentState.Installing);
@@ -72,27 +78,36 @@ public sealed class PlaywrightComponentManager : BackgroundService
         }
     }
 
-    public Task UninstallAsync()
+    public async Task UninstallAsync()
     {
         lock (_statusLock)
         {
-            if (_installationTask is { IsCompleted: false })
+            if (_uninstalling || _installationTask is { IsCompleted: false })
                 throw new InvalidOperationException("The rendering component is currently being installed.");
+            _uninstalling = true;
         }
-
-        if (Directory.Exists(_componentRoot))
-            Directory.Delete(_componentRoot, recursive: true);
-
-        SetStatus(NewStatus(PlaywrightComponentState.NotInstalled));
-        _logger.LogInformation("Uninstalled the rendering component");
-        return Task.CompletedTask;
+        try
+        {
+            using var lease = await _runtime.AcquireExclusiveAsync(_shutdown.Token);
+            // The rename records removal before deletion. A crash cannot resurrect the component.
+            var removedPath = _componentRoot + ".removing";
+            if (Directory.Exists(removedPath)) Directory.Delete(removedPath, recursive: true);
+            if (Directory.Exists(_componentRoot)) Directory.Move(_componentRoot, removedPath);
+            SetStatus(NewStatus(PlaywrightComponentState.NotInstalled));
+            if (Directory.Exists(removedPath)) Directory.Delete(removedPath, recursive: true);
+            _logger.LogInformation("Uninstalled the rendering component");
+        }
+        finally
+        {
+            lock (_statusLock) _uninstalling = false;
+        }
     }
 
     internal bool ShouldAutomaticallyUpdate()
     {
         var status = GetStatus();
         return IsRuntimeSupported()
-            && Directory.Exists(GetActiveDirectory())
+            && (File.Exists(Path.Combine(_componentRoot, "requested")) || Directory.Exists(GetActiveDirectory()))
             && status.State is PlaywrightComponentState.Incompatible or PlaywrightComponentState.Failed;
     }
 
@@ -121,10 +136,19 @@ public sealed class PlaywrightComponentManager : BackgroundService
         }
     }
 
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _shutdown.Cancel();
+        await base.StopAsync(cancellationToken);
+        Task? installation;
+        lock (_statusLock) installation = _installationTask;
+        if (installation is not null) await installation.WaitAsync(cancellationToken);
+    }
+
     internal ActivePlaywrightComponent? GetActiveComponent()
     {
         var status = GetStatus();
-        if (status.State != PlaywrightComponentState.Installed)
+        if (status.State != PlaywrightComponentState.Installed || _uninstalling)
             return null;
 
         try
@@ -141,6 +165,9 @@ public sealed class PlaywrightComponentManager : BackgroundService
 
     private async Task InstallCoreAsync()
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        timeout.CancelAfter(TimeSpan.FromMinutes(30));
+        var token = timeout.Token;
         var operationDirectory = Path.Combine(_componentRoot, $".install-{Guid.NewGuid():N}");
         var archivePath = Path.Combine(operationDirectory, "component.tar.gz");
         var extractPath = Path.Combine(operationDirectory, "extracted");
@@ -148,19 +175,27 @@ public sealed class PlaywrightComponentManager : BackgroundService
         try
         {
             Directory.CreateDirectory(_componentRoot);
+            await File.WriteAllTextAsync(Path.Combine(_componentRoot, "requested"), Constants.AppVersion, token);
             Directory.CreateDirectory(operationDirectory);
             var runtimeIdentifier = GetRuntimeIdentifier();
             var assetName = $"rendering-component-{runtimeIdentifier}.tar.gz";
-            var (archiveUrl, checksumUrl) = await ResolveAssetUrlsAsync(assetName);
+            var (archiveUrl, checksumUrl) = await ResolveAssetUrlsAsync(assetName, token);
 
-            var expectedChecksum = await DownloadChecksumAsync(checksumUrl);
-            await DownloadArchiveAsync(archiveUrl, archivePath);
-            await VerifyChecksumAsync(archivePath, expectedChecksum);
+            var expectedChecksum = await DownloadChecksumAsync(checksumUrl, token);
+            await DownloadArchiveAsync(archiveUrl, archivePath, token);
+            await VerifyChecksumAsync(archivePath, expectedChecksum, token);
 
             Directory.CreateDirectory(extractPath);
-            await ExtractArchiveAsync(archivePath, extractPath);
-            _ = ReadAndValidateComponent(extractPath);
-            Activate(extractPath);
+            await ExtractArchiveAsync(archivePath, extractPath, token);
+            var candidate = ReadAndValidateComponent(extractPath);
+            using (await _runtime.AcquireExclusiveAsync(token))
+            {
+                var image = await _runtime.RunAsync(candidate, new RenderRequest(
+                    "html", 200, 100, Html: "<!doctype html><html><body>izBoard</body></html>"), token);
+                if (image.Length < 8 || !image.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }))
+                    throw new InvalidOperationException("The rendering component readiness test failed.");
+                Activate(extractPath);
+            }
 
             var active = ReadAndValidateComponent(GetActiveDirectory());
             SetStatus(NewStatus(
@@ -174,7 +209,10 @@ public sealed class PlaywrightComponentManager : BackgroundService
         catch (Exception exception)
         {
             _logger.LogError(exception, "Failed to install the rendering component");
-            SetStatus(NewStatus(PlaywrightComponentState.Failed, error: exception.Message));
+            var previous = ReadInstalledStatus();
+            SetStatus(previous.State == PlaywrightComponentState.Installed
+                ? previous with { Error = "The replacement could not be installed; the existing component remains ready." }
+                : previous with { State = PlaywrightComponentState.Failed, Error = exception.Message });
         }
         finally
         {
@@ -192,7 +230,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
         }
     }
 
-    private async Task<(string ArchiveUrl, string ChecksumUrl)> ResolveAssetUrlsAsync(string assetName)
+    private async Task<(string ArchiveUrl, string ChecksumUrl)> ResolveAssetUrlsAsync(string assetName, CancellationToken token)
     {
         if (_componentBaseUri is not null)
         {
@@ -202,22 +240,22 @@ public sealed class PlaywrightComponentManager : BackgroundService
                 new Uri(_componentBaseUri, Uri.EscapeDataString($"{assetName}.sha256")).AbsoluteUri);
         }
 
-        var release = await GetReleaseAsync();
+        var release = await GetReleaseAsync(token);
         return (
             FindAssetUrl(release, assetName),
             FindAssetUrl(release, $"{assetName}.sha256"));
     }
 
-    private async Task<JsonElement> GetReleaseAsync()
+    private async Task<JsonElement> GetReleaseAsync(CancellationToken token)
     {
         var client = _httpClientFactory.CreateClient(Constants.PlaywrightComponentHttpClientName);
         var url = $"https://api.github.com/repos/{_repository}/releases/tags/{Uri.EscapeDataString(_releaseTag)}";
-        using var response = await client.GetAsync(url);
+        using var response = await client.GetAsync(url, token);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException($"GitHub release '{_releaseTag}' is unavailable ({(int)response.StatusCode}).");
 
-        await using var stream = await response.Content.ReadAsStreamAsync();
-        using var document = await JsonDocument.ParseAsync(stream);
+        await using var stream = await response.Content.ReadAsStreamAsync(token);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: token);
         return document.RootElement.Clone();
     }
 
@@ -238,20 +276,20 @@ public sealed class PlaywrightComponentManager : BackgroundService
         throw new InvalidOperationException($"Release '{release.GetProperty("tag_name").GetString()}' does not contain {assetName}.");
     }
 
-    private async Task<string> DownloadChecksumAsync(string url)
+    private async Task<string> DownloadChecksumAsync(string url, CancellationToken token)
     {
         var client = _httpClientFactory.CreateClient(Constants.PlaywrightComponentHttpClientName);
-        var checksumText = await client.GetStringAsync(url);
+        var checksumText = await client.GetStringAsync(url, token);
         var checksum = checksumText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         if (checksum is null || checksum.Length != 64 || !checksum.All(Uri.IsHexDigit))
             throw new InvalidOperationException("The component checksum is invalid.");
         return checksum.ToUpperInvariant();
     }
 
-    private async Task DownloadArchiveAsync(string url, string destination)
+    private async Task DownloadArchiveAsync(string url, string destination, CancellationToken token)
     {
         var client = _httpClientFactory.CreateClient(Constants.PlaywrightComponentHttpClientName);
-        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, token);
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength;
@@ -259,14 +297,14 @@ public sealed class PlaywrightComponentManager : BackgroundService
             throw new InvalidOperationException("The component archive exceeds the allowed size.");
 
         UpdateProgress(0, totalBytes);
-        await using var input = await response.Content.ReadAsStreamAsync();
+        await using var input = await response.Content.ReadAsStreamAsync(token);
         await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81_920, true);
         var buffer = new byte[81_920];
         long downloaded = 0;
 
         while (true)
         {
-            var read = await input.ReadAsync(buffer);
+            var read = await input.ReadAsync(buffer, token);
             if (read == 0)
                 break;
 
@@ -274,22 +312,22 @@ public sealed class PlaywrightComponentManager : BackgroundService
             if (downloaded > MaximumComponentBytes)
                 throw new InvalidOperationException("The component archive exceeds the allowed size.");
 
-            await output.WriteAsync(buffer.AsMemory(0, read));
+            await output.WriteAsync(buffer.AsMemory(0, read), token);
             UpdateProgress(downloaded, totalBytes);
         }
     }
 
-    private static async Task VerifyChecksumAsync(string path, string expectedChecksum)
+    private static async Task VerifyChecksumAsync(string path, string expectedChecksum, CancellationToken token)
     {
         await using var stream = File.OpenRead(path);
-        var actualChecksum = Convert.ToHexString(await SHA256.HashDataAsync(stream));
+        var actualChecksum = Convert.ToHexString(await SHA256.HashDataAsync(stream, token));
         if (!CryptographicOperations.FixedTimeEquals(
                 Convert.FromHexString(actualChecksum),
                 Convert.FromHexString(expectedChecksum)))
             throw new InvalidOperationException("The downloaded component failed checksum verification.");
     }
 
-    private static async Task ExtractArchiveAsync(string archivePath, string destination)
+    private static async Task ExtractArchiveAsync(string archivePath, string destination, CancellationToken token)
     {
         var destinationRoot = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         await using var file = File.OpenRead(archivePath);
@@ -297,7 +335,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
         using var reader = new TarReader(gzip);
         long extractedBytes = 0;
 
-        while (await reader.GetNextEntryAsync() is { } entry)
+        while (await reader.GetNextEntryAsync(cancellationToken: token) is { } entry)
         {
             var destinationPath = Path.GetFullPath(Path.Combine(destination, entry.Name));
             if (!string.Equals(destinationPath, destinationRoot.TrimEnd(Path.DirectorySeparatorChar), StringComparison.Ordinal)
@@ -318,7 +356,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
                     await using (var output = new FileStream(destinationPath, FileMode.CreateNew, FileAccess.Write))
                     {
                         if (entry.DataStream is not null)
-                            await entry.DataStream.CopyToAsync(output);
+                            await entry.DataStream.CopyToAsync(output, token);
                     }
                     if (!OperatingSystem.IsWindows())
                         File.SetUnixFileMode(destinationPath, entry.Mode);
@@ -332,42 +370,33 @@ public sealed class PlaywrightComponentManager : BackgroundService
     private void Activate(string extractedPath)
     {
         var activePath = GetActiveDirectory();
-        var previousPath = Path.Combine(_componentRoot, $".previous-{Guid.NewGuid():N}");
-        var hadPrevious = Directory.Exists(activePath);
-
-        if (hadPrevious)
-            Directory.Move(activePath, previousPath);
-
+        var versionDirectory = $".version-{NormalizeVersion(Constants.AppVersion)}-{Guid.NewGuid():N}";
+        var newPath = Path.Combine(_componentRoot, versionDirectory);
+        var pointerPath = Path.Combine(_componentRoot, $".active-{Guid.NewGuid():N}");
+        Directory.Move(extractedPath, newPath);
         try
         {
-            Directory.Move(extractedPath, activePath);
-            if (hadPrevious)
-            {
-                try
-                {
-                    Directory.Delete(previousPath, recursive: true);
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogWarning(exception, "Could not remove the previous rendering component at {Path}", previousPath);
-                }
-            }
+            File.WriteAllText(pointerPath, versionDirectory);
+            File.Move(pointerPath, Path.Combine(_componentRoot, "active"), overwrite: true);
         }
         catch
         {
-            if (!Directory.Exists(activePath) && Directory.Exists(previousPath))
-                Directory.Move(previousPath, activePath);
+            Directory.Delete(newPath, recursive: true);
             throw;
         }
+        // Pointer replacement is atomic; interrupted cleanup is completed at the next startup.
+        if (Directory.Exists(activePath) && activePath != newPath)
+            TryDeleteDirectory(activePath);
     }
 
     private PlaywrightComponentStatus ReadInstalledStatus()
     {
-        if (!Directory.Exists(GetActiveDirectory()))
-            return NewStatus(PlaywrightComponentState.NotInstalled);
-
         try
         {
+            if (!Directory.Exists(GetActiveDirectory()))
+                return File.Exists(Path.Combine(_componentRoot, "requested"))
+                    ? NewStatus(PlaywrightComponentState.Failed, error: "The requested rendering component is not ready. Installation will be retried.")
+                    : NewStatus(PlaywrightComponentState.NotInstalled);
             var active = ReadAndValidateComponent(GetActiveDirectory(), requireCompatibleVersion: false);
             return IsVersionCompatible(active.Manifest)
                 ? NewStatus(PlaywrightComponentState.Installed, installedVersion: active.Manifest.ComponentVersion)
@@ -404,7 +433,9 @@ public sealed class PlaywrightComponentManager : BackgroundService
         var libraries = ResolveComponentPath(root, manifest.LibraryPath);
         var data = manifest.DataPath is null ? null : ResolveComponentPath(root, manifest.DataPath);
         var fontConfig = manifest.FontConfigPath is null ? null : ResolveComponentPath(root, manifest.FontConfigPath);
-        if (!File.Exists(worker) || !Directory.Exists(browser) || !Directory.Exists(libraries))
+        if (!File.Exists(worker) || !Directory.Exists(browser) || !Directory.Exists(libraries)
+            || (data is not null && !Directory.Exists(data))
+            || (fontConfig is not null && !Directory.Exists(fontConfig)))
             throw new InvalidOperationException("The component payload is incomplete.");
 
         return new ActivePlaywrightComponent(root, worker, browser, libraries, data, fontConfig, manifest);
@@ -412,7 +443,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
 
     private static bool IsVersionCompatible(PlaywrightComponentManifest manifest) =>
         string.Equals(manifest.AppVersion, GetCompatibilityVersion(Constants.AppVersion), StringComparison.Ordinal)
-        && string.Equals(manifest.ComponentVersion, Constants.AppVersion, StringComparison.Ordinal);
+        && string.Equals(NormalizeVersion(manifest.ComponentVersion), NormalizeVersion(Constants.AppVersion), StringComparison.Ordinal);
 
     private static string ResolveComponentPath(string root, string relativePath)
     {
@@ -426,31 +457,50 @@ public sealed class PlaywrightComponentManager : BackgroundService
         return fullPath;
     }
 
-    private string GetActiveDirectory() => Path.Combine(_componentRoot, "current");
+    private string GetActiveDirectory()
+    {
+        var pointer = Path.Combine(_componentRoot, "active");
+        if (!File.Exists(pointer)) return Path.Combine(_componentRoot, "current");
+        var directory = File.ReadAllText(pointer).Trim();
+        if (!directory.StartsWith(".version-", StringComparison.Ordinal)
+            || directory != Path.GetFileName(directory) || directory.Contains('/') || directory.Contains('\\'))
+            throw new InvalidOperationException("The rendering component activation record is invalid.");
+        return Path.Combine(_componentRoot, directory);
+    }
 
     private void CleanupInterruptedInstallations()
     {
         try
         {
+            if (Directory.Exists(_componentRoot + ".removing"))
+                TryDeleteDirectory(_componentRoot + ".removing");
             if (!Directory.Exists(_componentRoot))
                 return;
-
-            foreach (var directory in Directory.EnumerateDirectories(_componentRoot, ".install-*"))
+            // Recover installations made by the older two-directory activation mechanism.
+            var active = GetActiveDirectory();
+            var previous = Directory.GetDirectories(_componentRoot, ".previous-*");
+            if (!Directory.Exists(active) && previous.Length == 1)
+                Directory.Move(previous[0], active);
+            foreach (var directory in Directory.EnumerateDirectories(_componentRoot))
             {
-                try
-                {
-                    Directory.Delete(directory, recursive: true);
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogWarning(exception, "Could not clean interrupted component installation at {Path}", directory);
-                }
+                var name = Path.GetFileName(directory);
+                if (directory != active && (name.StartsWith(".install-") || name.StartsWith(".previous-")
+                    || name.StartsWith(".version-") || name == "current"))
+                    TryDeleteDirectory(directory);
             }
+            foreach (var file in Directory.EnumerateFiles(_componentRoot, ".active-*")) File.Delete(file);
         }
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Could not inspect interrupted rendering component installations");
         }
+    }
+
+    private void TryDeleteDirectory(string directory)
+    {
+        try { Directory.Delete(directory, recursive: true); }
+        catch (Exception exception)
+        { _logger.LogWarning(exception, "Could not remove unused rendering component files at {Path}", directory); }
     }
 
     private void SetStatus(PlaywrightComponentStatus status)
@@ -477,10 +527,14 @@ public sealed class PlaywrightComponentManager : BackgroundService
 
     internal static string GetDefaultReleaseTag(string appVersion)
     {
-        var cleanVersion = appVersion.Split('+', 2)[0];
-        if (!Version.TryParse(cleanVersion, out var version))
-            return "dev";
-        return version.Revision > 0 ? "dev" : $"v{version.Major}.{version.Minor}.{version.Build}";
+        return $"rendering-v{NormalizeVersion(appVersion)}";
+    }
+
+    internal static string NormalizeVersion(string version)
+    {
+        var clean = version.Split('+', 2)[0];
+        return Version.TryParse(clean, out var parsed) && parsed.Build >= 0
+            ? $"{parsed.Major}.{parsed.Minor}.{parsed.Build}.{Math.Max(0, parsed.Revision)}" : clean;
     }
 
     internal static string GetCompatibilityVersion(string appVersion)

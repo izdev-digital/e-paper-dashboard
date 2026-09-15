@@ -7,6 +7,6 @@ namespace EPaperDashboard.Services.Rendering;
 public interface IPageToImageRenderingService
 {
 	Task<Health> GetHealth(Uri dashboardUri);
-	Task<Result<IImage>> RenderDashboardAsync(Uri dashboardUri, Size size, HassTokens hassTokens);
-	Task<Result<IImage>> RenderHtmlAsync(string html, Size size);
+	Task<Result<IImage>> RenderDashboardAsync(Uri dashboardUri, Size size, HassTokens hassTokens, CancellationToken cancellationToken = default);
+	Task<Result<IImage>> RenderHtmlAsync(string html, Size size, CancellationToken cancellationToken = default);
 }

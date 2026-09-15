@@ -33,6 +33,11 @@
   </ItemGroup>
 
   <!-- SPA Configuration -->
+  <ItemGroup>
+    <Compile Include="../RenderingComponentProtocol.cs" Link="RenderingComponentProtocol.cs" />
+  </ItemGroup>
+
+  <!-- SPA Configuration -->
   <PropertyGroup>
     <SpaRoot>frontend/</SpaRoot>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(SpaRoot)node_modules/**;$(SpaRoot).angular/**</DefaultItemExcludes>

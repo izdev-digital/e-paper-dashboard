@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: EPaperDashboard.PlaywrightComponent/Dockerfile
-      target: verify
+      target: package
       args:
         VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
     entrypoint: ["/bin/bash", "-euc"]

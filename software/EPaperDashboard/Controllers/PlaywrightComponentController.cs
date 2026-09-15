@@ -38,7 +38,7 @@ public sealed class PlaywrightComponentController(
     {
         var result = await renderingService.RenderHtmlAsync(
             "<!doctype html><html><body style=\"margin:0;background:#fff;color:#000\">izBoard</body></html>",
-            new Size(200, 100));
+            new Size(200, 100), HttpContext.RequestAborted);
         if (result.IsFailure)
             return StatusCode(500, new { message = result.Error });
 

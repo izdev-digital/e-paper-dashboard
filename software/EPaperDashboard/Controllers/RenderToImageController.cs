@@ -157,7 +157,7 @@ public sealed class RenderToImageController(
 
 		var (contentType, encoder) = GetEncoder(format);
 		var result = await renderingService
-			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, dashboardInfo.Value.Tokens)
+			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, dashboardInfo.Value.Tokens, HttpContext.RequestAborted)
 			.Map(image => transform?.Invoke(dashboard, image) ?? image);
 
 		if (result.IsSuccess)

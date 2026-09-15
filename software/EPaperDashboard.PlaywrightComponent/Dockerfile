@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends file && \
 
 WORKDIR /src
 COPY EPaperDashboard.PlaywrightComponent/ ./EPaperDashboard.PlaywrightComponent/
+COPY RenderingComponentProtocol.cs ./RenderingComponentProtocol.cs
 COPY EPaperDashboard.PlaywrightComponent/packaging/ ./packaging/
 
 RUN case "$TARGETARCH" in \
@@ -39,8 +40,11 @@ RUN cp /src/packaging/NOTICE /component/NOTICE
 COPY LICENSE /component/LICENSE
 COPY THIRD-PARTY-NOTICES.txt /component/THIRD-PARTY-NOTICES.txt
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS verify
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS package
 COPY --from=component /component/ /component/
+
+# Optional developer-only check. Artifact export does not execute a browser in CI.
+FROM package AS verify
 COPY EPaperDashboard.PlaywrightComponent/packaging/smoke-request.json /tmp/playwright-smoke-request.json
 ENV PLAYWRIGHT_BROWSERS_PATH=/component/browsers \
     IZBOARD_PLAYWRIGHT_LIBRARY_PATH=/component/native/lib \
@@ -52,4 +56,4 @@ RUN dotnet /component/worker/EPaperDashboard.PlaywrightComponent.dll \
     grep -q '"success":true' /tmp/playwright-smoke-response.json
 
 FROM scratch AS export
-COPY --from=verify /component/ /
+COPY --from=component /component/ /

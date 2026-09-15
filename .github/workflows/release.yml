@@ -20,22 +20,14 @@ jobs:
       is_release: true
     secrets: inherit
     permissions:
-      contents: read
-
-  build-rendering-component:
-    needs: build-software
-    uses: ./.github/workflows/playwright-component-build.yml
-    with:
-      version: ${{ needs.build-software.outputs.version }}
-    permissions:
-      contents: read
+      contents: write
       
   build-packaging:
     uses: ./.github/workflows/freecad-export.yml
     
   # Create unified release with all artifacts
   create-release:
-    needs: [build-firmware, build-software, build-rendering-component, build-packaging]
+    needs: [build-firmware, build-software, build-packaging]
     runs-on: ubuntu-latest
     
     steps:
