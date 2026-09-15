@@ -136,7 +136,7 @@ public sealed class PlaywrightComponentManagerTests : IDisposable
         File.WriteAllText(Path.Combine(root, "worker", "EPaperDashboard.PlaywrightComponent.dll"), "test");
         File.WriteAllText(Path.Combine(root, "component-manifest.json"), $$"""
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "appVersion": "{{appVersion}}",
               "componentVersion": "{{componentVersion}}",
               "runtimeIdentifier": "{{PlaywrightComponentManager.GetRuntimeIdentifier()}}",

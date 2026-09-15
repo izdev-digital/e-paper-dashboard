@@ -2,6 +2,9 @@ name: izboard-rendering-test
 
 services:
   app:
+    extends:
+      file: docker-compose.renderer.yml
+      service: app
     build:
       args:
         VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
@@ -15,6 +18,27 @@ services:
         condition: service_healthy
     volumes:
       - rendering-test-data:/data
+
+  rendering-storage:
+    extends:
+      file: docker-compose.renderer.yml
+      service: rendering-storage
+    image: izboard-rendering-test:dev
+    volumes:
+      - rendering-test-data:/data
+
+  renderer:
+    extends:
+      file: docker-compose.renderer.yml
+      service: renderer
+    image: izboard-rendering-test:dev
+    volumes:
+      - type: volume
+        source: rendering-test-data
+        target: /data/components
+        read_only: true
+        volume:
+          subpath: components
 
   rendering-component-packager:
     build:
@@ -54,5 +78,6 @@ services:
       - rendering-component-artifacts:/usr/share/nginx/html:ro
 
 volumes:
+  rendering-socket:
   rendering-component-artifacts:
   rendering-test-data:

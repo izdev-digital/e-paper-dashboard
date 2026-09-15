@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Net.Http.Json;
+using System.Net.Sockets;
 using EPaperDashboard.RenderingComponent;
+using EPaperDashboard.Utilities;
 
 namespace EPaperDashboard.Services.Components.Playwright;
 
@@ -11,14 +14,21 @@ public sealed class PlaywrightComponentRuntime
     private readonly int _concurrency;
     private readonly int _maximumQueuedRequests;
     private readonly SemaphoreSlim _slots;
+    private readonly SemaphoreSlim _exclusiveOperations = new(1, 1);
+    private readonly string _socketPath;
+    private readonly string _componentRoot;
+    private readonly bool _allowLocal;
     private int _queuedRequests;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public PlaywrightComponentRuntime(IConfiguration? configuration = null)
+    public PlaywrightComponentRuntime(IConfiguration? configuration = null, IEnvironmentConfiguration? environment = null)
     {
         _concurrency = ReadLimit(configuration, "RENDERING_MAX_CONCURRENT_RENDERS", 2, 1, 16);
         _maximumQueuedRequests = ReadLimit(configuration, "RENDERING_MAX_QUEUED_RENDERS", 100, 0, 1000);
         _slots = new SemaphoreSlim(_concurrency, _concurrency);
+        _socketPath = configuration?["RENDERING_COMPONENT_SOCKET"] ?? "/run/izboard-rendering/renderer.sock";
+        _componentRoot = Path.Combine(environment?.ConfigDir ?? "/data", "components", "playwright");
+        _allowLocal = environment?.IsAddonMode == true;
     }
 
     private static int ReadLimit(IConfiguration? configuration, string key, int fallback, int minimum, int maximum)
@@ -51,16 +61,18 @@ public sealed class PlaywrightComponentRuntime
 
     internal async Task<IDisposable> AcquireExclusiveAsync(CancellationToken cancellationToken)
     {
+        await _exclusiveOperations.WaitAsync(cancellationToken);
         var acquired = 0;
         try
         {
             for (; acquired < _concurrency; acquired++)
                 await _slots.WaitAsync(cancellationToken);
-            return new Lease(() => _slots.Release(_concurrency));
+            return new Lease(() => { _slots.Release(_concurrency); _exclusiveOperations.Release(); });
         }
         catch
         {
             if (acquired > 0) _slots.Release(acquired);
+            _exclusiveOperations.Release();
             throw;
         }
     }
@@ -68,6 +80,104 @@ public sealed class PlaywrightComponentRuntime
     // Caller holds either a render or exclusive lease for the entire operation.
     internal async Task<byte[]> RunAsync(
         ActivePlaywrightComponent component, RenderRequest request, CancellationToken cancellationToken)
+    {
+        if (_allowLocal) return await RunLocalAsync(component, request, cancellationToken, requireSandbox: false);
+        request.Validate();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(150));
+        using var client = CreateSocketClient(_socketPath);
+        await VerifyHostAsync(client, timeout.Token);
+        using var message = new HttpRequestMessage(HttpMethod.Post, "http://renderer/render")
+        {
+            Content = JsonContent.Create(new RemoteRenderRequest(
+                Path.GetRelativePath(_componentRoot, component.RootPath), Constants.AppVersion,
+                request with { OutputPath = null }))
+        };
+        HttpResponseMessage response;
+        try { response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token); }
+        catch
+        {
+            // Do not release the app's lifecycle lease while an aborted remote worker still runs.
+            await DrainRemoteAsync(CancellationToken.None);
+            throw;
+        }
+        using var responseLease = response;
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException("The isolated rendering component failed. Check renderer container logs.");
+        if (response.Content.Headers.ContentLength is not (> 0 and <= RenderRequest.MaximumImageBytes))
+            throw new InvalidOperationException("The rendering component produced a missing or oversized image.");
+        await using var input = await response.Content.ReadAsStreamAsync(timeout.Token);
+        using var output = new MemoryStream();
+        var buffer = new byte[81920];
+        int count;
+        while ((count = await input.ReadAsync(buffer, timeout.Token)) != 0)
+        {
+            if (output.Length + count > RenderRequest.MaximumImageBytes)
+                throw new InvalidOperationException("The rendering component image exceeds the allowed size.");
+            await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
+        }
+        return output.ToArray();
+    }
+
+    internal async Task DrainRemoteAsync(CancellationToken cancellationToken)
+    {
+        if (_allowLocal || !File.Exists(_socketPath)) return;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(160));
+        using var client = CreateSocketClient(_socketPath);
+        try
+        {
+            using var response = await client.PostAsync("http://renderer/drain", null, timeout.Token);
+            response.EnsureSuccessStatusCode();
+        }
+        catch (HttpRequestException exception) when (exception.InnerException is SocketException { SocketErrorCode: SocketError.ConnectionRefused })
+        {
+            // A stopped sidecar cannot execute new renders; Docker terminates its child processes.
+        }
+    }
+
+    internal async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
+    {
+        if (_allowLocal) return true;
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            using var client = CreateSocketClient(_socketPath);
+            await VerifyHostAsync(client, timeout.Token);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    internal static HttpClient CreateSocketClient(string socketPath) => new(new SocketsHttpHandler
+    {
+        ConnectCallback = async (_, token) =>
+        {
+            var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            try
+            {
+                await socket.ConnectAsync(new UnixDomainSocketEndPoint(socketPath), token);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch { socket.Dispose(); throw; }
+        },
+        UseProxy = false
+    }) { Timeout = Timeout.InfiniteTimeSpan, MaxResponseContentBufferSize = 64_000 };
+
+    private static async Task VerifyHostAsync(HttpClient client, CancellationToken token)
+    {
+        using var response = await client.GetAsync("http://renderer/health", token);
+        response.EnsureSuccessStatusCode();
+        var health = await response.Content.ReadFromJsonAsync<RenderingHostHealth>(token);
+        if (health is null || health.ProtocolVersion != 2 || !health.SandboxRequired
+            || health.RuntimeIdentifier != PlaywrightComponentManager.GetRuntimeIdentifier()
+            || PlaywrightComponentManager.NormalizeVersion(health.AppVersion) != PlaywrightComponentManager.NormalizeVersion(Constants.AppVersion))
+            throw new InvalidOperationException("The renderer container must match the application build and require browser sandboxing.");
+    }
+
+    internal async Task<byte[]> RunLocalAsync(
+        ActivePlaywrightComponent component, RenderRequest request, CancellationToken cancellationToken, bool requireSandbox)
     {
         request.Validate();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -78,7 +188,7 @@ public sealed class PlaywrightComponentRuntime
         if (!OperatingSystem.IsWindows())
             File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var outputPath = Path.Combine(directory, "image");
-        using var process = new Process { StartInfo = CreateStartInfo(component, directory) };
+        using var process = new Process { StartInfo = CreateStartInfo(component, directory, requireSandbox) };
         var started = false;
         Task<string>? output = null;
         Task<string>? error = null;
@@ -94,7 +204,7 @@ public sealed class PlaywrightComponentRuntime
             await process.WaitForExitAsync(token);
             var response = JsonSerializer.Deserialize<RenderResponse>(await output, JsonOptions);
             await error;
-            if (response?.ProtocolVersion != 1)
+            if (response?.ProtocolVersion != 2)
                 throw new InvalidOperationException("The rendering component protocol is incompatible.");
             if (process.ExitCode != 0 || response.Success != true)
                 throw new InvalidOperationException(response.Error ?? "The rendering component failed.");
@@ -143,7 +253,7 @@ public sealed class PlaywrightComponentRuntime
         return text.ToString();
     }
 
-    private static ProcessStartInfo CreateStartInfo(ActivePlaywrightComponent component, string temporaryDirectory)
+    private static ProcessStartInfo CreateStartInfo(ActivePlaywrightComponent component, string temporaryDirectory, bool requireSandbox)
     {
         var info = new ProcessStartInfo
         {
@@ -159,6 +269,7 @@ public sealed class PlaywrightComponentRuntime
         info.Environment["HOME"] = temporaryDirectory;
         info.Environment["TMPDIR"] = temporaryDirectory;
         info.Environment["DOTNET_EnableDiagnostics"] = "0";
+        info.Environment["IZBOARD_REQUIRE_BROWSER_SANDBOX"] = requireSandbox ? "1" : "0";
         info.Environment["PLAYWRIGHT_BROWSERS_PATH"] = component.BrowserPath;
         info.Environment["IZBOARD_PLAYWRIGHT_LIBRARY_PATH"] = component.LibraryPath;
         if (component.DataPath is not null) info.Environment["IZBOARD_PLAYWRIGHT_DATA_PATH"] = component.DataPath;

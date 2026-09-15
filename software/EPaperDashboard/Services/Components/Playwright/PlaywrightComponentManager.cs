@@ -10,7 +10,7 @@ namespace EPaperDashboard.Services.Components.Playwright;
 
 public sealed class PlaywrightComponentManager : BackgroundService
 {
-    private const int ManifestSchemaVersion = 1;
+    private const int ManifestSchemaVersion = 2;
     private const long MaximumComponentBytes = 1_500_000_000;
     private const long MaximumExtractedBytes = 3_000_000_000;
     private const string DefaultRepository = "izdev-digital/e-paper-dashboard";
@@ -89,6 +89,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
         try
         {
             using var lease = await _runtime.AcquireExclusiveAsync(_shutdown.Token);
+            await _runtime.DrainRemoteAsync(_shutdown.Token);
             // The rename records removal before deletion. A crash cannot resurrect the component.
             var removedPath = _componentRoot + ".removing";
             if (Directory.Exists(removedPath)) Directory.Delete(removedPath, recursive: true);
@@ -411,7 +412,7 @@ public sealed class PlaywrightComponentManager : BackgroundService
         }
     }
 
-    private static ActivePlaywrightComponent ReadAndValidateComponent(string root, bool requireCompatibleVersion = true)
+    internal static ActivePlaywrightComponent ReadAndValidateComponent(string root, bool requireCompatibleVersion = true)
     {
         var manifestPath = Path.Combine(root, "component-manifest.json");
         if (!File.Exists(manifestPath))

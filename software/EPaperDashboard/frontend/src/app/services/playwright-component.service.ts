@@ -14,6 +14,7 @@ export interface PlaywrightComponentStatus {
   appVersion: string;
   runtimeIdentifier: string;
   supported: boolean;
+  ready: boolean;
   installedVersion?: string;
   bytesDownloaded: number;
   totalBytes?: number;

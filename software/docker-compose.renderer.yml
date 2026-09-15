@@ -1,0 +1,65 @@
+services:
+  app:
+    image: ${IZBOARD_APP_IMAGE:-izdevdigital/e-paper-dashboard:latest}
+    environment:
+      RENDERING_COMPONENT_SOCKET: /run/izboard-rendering/renderer.sock
+      RENDERING_MAX_CONCURRENT_RENDERS: ${RENDERING_MAX_CONCURRENT_RENDERS:-2}
+      RENDERING_MAX_QUEUED_RENDERS: ${RENDERING_MAX_QUEUED_RENDERS:-100}
+    depends_on:
+      renderer:
+        condition: service_healthy
+    volumes:
+      - rendering-socket:/run/izboard-rendering
+
+  # Initialize the existing data volume before mounting only its components subdirectory.
+  # This preserves already-installed components without exposing app data to the renderer.
+  rendering-storage:
+    image: ${IZBOARD_APP_IMAGE:-izdevdigital/e-paper-dashboard:latest}
+    command: ["/bin/sh", "-ec", "mkdir -p /data/components"]
+    user: app
+    restart: "no"
+    network_mode: none
+    volumes:
+      - appdata:/data
+
+  renderer:
+    image: ${IZBOARD_APP_IMAGE:-izdevdigital/e-paper-dashboard:latest}
+    command: ["dotnet", "EPaperDashboard.dll", "--rendering-host"]
+    user: app
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./rendering-seccomp.json
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2
+    shm_size: 256mb
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    environment:
+      DOTNET_EnableDiagnostics: "0"
+      RENDERING_MAX_CONCURRENT_RENDERS: ${RENDERING_MAX_CONCURRENT_RENDERS:-2}
+      RENDERING_MAX_QUEUED_RENDERS: ${RENDERING_MAX_QUEUED_RENDERS:-100}
+    depends_on:
+      rendering-storage:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "dotnet", "EPaperDashboard.dll", "--rendering-health"]
+      interval: 10s
+      timeout: 8s
+      start_period: 10s
+      retries: 3
+    volumes:
+      - type: volume
+        source: appdata
+        target: /data/components
+        read_only: true
+        volume:
+          subpath: components
+      - rendering-socket:/run/izboard-rendering
+
+volumes:
+  rendering-socket:

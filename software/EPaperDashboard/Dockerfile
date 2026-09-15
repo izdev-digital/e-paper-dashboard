@@ -50,7 +50,8 @@ WORKDIR /app
 EXPOSE 8128 8129
 COPY --from=publish /app/publish .
 ENV RENDERING_COMPONENT_RELEASE_TAG=$COMPONENT_RELEASE_TAG
-RUN mkdir -p /data/DataProtection-Keys && chown -R app:app /data && chmod -R 770 /data
+RUN mkdir -p /data/DataProtection-Keys /data/components /run/izboard-rendering && \
+  chown -R app:app /data /run/izboard-rendering && chmod -R 770 /data /run/izboard-rendering
 USER app
 
 # Use CMD instead of ENTRYPOINT for better compatibility with HA addon wrappers

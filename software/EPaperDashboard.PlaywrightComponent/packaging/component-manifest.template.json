@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "appVersion": "__APP_VERSION__",
   "componentVersion": "__COMPONENT_VERSION__",
   "runtimeIdentifier": "__RUNTIME_IDENTIFIER__",

@@ -98,11 +98,12 @@ export class SystemSettingsComponent implements OnInit, OnDestroy {
 
         if (status.state === 'Installing') {
           this.schedulePoll();
-        } else if (previousState === 'Installing' && status.state === 'Installed') {
+        } else if (previousState === 'Installing' && status.state === 'Installed' && status.ready) {
           this.toastService.success('Rendering component installed and ready.');
         } else if (previousState === 'Installing' && status.state === 'Failed') {
           this.toastService.error(status.error || 'Rendering component installation failed.');
         }
+        if (status.state === 'Installed' && !status.ready) this.schedulePoll();
       },
       error: () => {
         this.isLoading.set(false);

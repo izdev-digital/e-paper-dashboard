@@ -20,7 +20,8 @@ public sealed record PlaywrightComponentStatus(
     string? InstalledVersion = null,
     long BytesDownloaded = 0,
     long? TotalBytes = null,
-    string? Error = null);
+    string? Error = null,
+    bool Ready = false);
 
 internal sealed record PlaywrightComponentManifest(
     int SchemaVersion,

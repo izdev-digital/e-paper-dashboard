@@ -25,7 +25,7 @@ internal sealed class PageToImageRenderingService(
         });
         dashboardHealth.TapError(error =>
             logger.LogError(error, "Dashboard health check failed for {DashboardUri}", dashboardUri));
-        return new Health(componentManager.GetActiveComponent() is not null, dashboardHealth.GetValueOrDefault());
+        return new Health(componentManager.GetActiveComponent() is not null && await runtime.IsAvailableAsync(), dashboardHealth.GetValueOrDefault());
     }
 
     public Task<Result<IImage>> RenderDashboardAsync(
@@ -56,6 +56,6 @@ internal sealed class PageToImageRenderingService(
             ?? throw new InvalidOperationException(
                 "The rendering component is not ready. An administrator can manage it from System settings.");
         var screenshot = await runtime.RunAsync(component, request, cancellationToken);
-        return imageFactory.Load(screenshot);
+        return imageFactory.Load(screenshot, new Size(request.Width, request.Height));
     }
 }

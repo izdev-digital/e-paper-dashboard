@@ -11,10 +11,23 @@ namespace EPaperDashboard.Controllers;
 [Authorize]
 public sealed class PlaywrightComponentController(
     PlaywrightComponentManager componentManager,
-    IPageToImageRenderingService renderingService) : ControllerBase
+    IPageToImageRenderingService renderingService,
+    PlaywrightComponentRuntime runtime) : ControllerBase
 {
     [HttpGet]
-    public ActionResult<PlaywrightComponentStatus> GetStatus() => Ok(componentManager.GetStatus());
+    public async Task<ActionResult<PlaywrightComponentStatus>> GetStatus()
+    {
+        var component = componentManager.GetActiveComponent();
+        var status = componentManager.GetStatus();
+        var ready = component is not null && await runtime.IsAvailableAsync(HttpContext.RequestAborted);
+        return Ok(status with
+        {
+            Ready = ready,
+            Error = status.State == PlaywrightComponentState.Installed && !ready
+                ? "The rendering host is unavailable or does not match the application build. Check deployment configuration."
+                : status.Error
+        });
+    }
 
     [HttpPost("install")]
     [Authorize(Policy = "SuperUserOnly")]

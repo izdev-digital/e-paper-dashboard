@@ -11,7 +11,7 @@ internal sealed record RenderRequest(
     string? TokenType = null,
     string? HassUrl = null,
     string? ClientId = null,
-    int ProtocolVersion = 1)
+    int ProtocolVersion = 2)
 {
     public const int MaximumDimension = 4096;
     public const int MaximumPixels = 16_000_000;
@@ -20,7 +20,7 @@ internal sealed record RenderRequest(
 
     public void Validate()
     {
-        if (ProtocolVersion != 1)
+        if (ProtocolVersion != 2)
             throw new InvalidOperationException("Unsupported rendering protocol version.");
         if (Mode is not ("dashboard" or "html"))
             throw new InvalidOperationException("Unsupported render mode.");
@@ -31,6 +31,9 @@ internal sealed record RenderRequest(
             throw new InvalidOperationException("HTML content is missing or exceeds the supported limit.");
         if (Mode == "dashboard")
         {
+            if (DashboardUri?.Length > 8192 || HassUrl?.Length > 8192 || ClientId?.Length > 8192
+                || AccessToken?.Length > 16384 || TokenType?.Length > 128)
+                throw new InvalidOperationException("Dashboard authorization details exceed the supported limits.");
             if (!Uri.TryCreate(DashboardUri, UriKind.Absolute, out var uri)
                 || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
                 throw new InvalidOperationException("Dashboard URLs must use HTTP or HTTPS.");
@@ -41,4 +44,7 @@ internal sealed record RenderRequest(
     }
 }
 
-internal sealed record RenderResponse(bool Success, string? Error, int ProtocolVersion = 1);
+internal sealed record RenderResponse(bool Success, string? Error, int ProtocolVersion = 0);
+
+internal sealed record RemoteRenderRequest(string ComponentDirectory, string AppVersion, RenderRequest Request);
+internal sealed record RenderingHostHealth(string AppVersion, string RuntimeIdentifier, int ProtocolVersion, bool SandboxRequired);

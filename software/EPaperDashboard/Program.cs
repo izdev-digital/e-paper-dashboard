@@ -23,6 +23,19 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 
+// The same slim image runs the restricted sidecar, keeping both hosts on the exact app build.
+// Exit before app configuration, databases, authentication, or application routes are initialized.
+if (args.Contains("--rendering-host"))
+{
+    await RenderingComponentHost.RunAsync();
+    return;
+}
+if (args.Contains("--rendering-health"))
+{
+    Environment.Exit(await new PlaywrightComponentRuntime().IsAvailableAsync() ? 0 : 1);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 var environmentConfiguration = new EnvironmentConfigurationWrapper();

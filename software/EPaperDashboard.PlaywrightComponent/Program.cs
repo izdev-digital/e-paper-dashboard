@@ -47,13 +47,13 @@ try
         });
     }
 
-    await Console.Out.WriteAsync(JsonSerializer.Serialize(new RenderResponse(true, null), jsonOptions));
+    await Console.Out.WriteAsync(JsonSerializer.Serialize(new RenderResponse(true, null, 2), jsonOptions));
     return 0;
 }
 catch (Exception exception)
 {
     await Console.Out.WriteAsync(JsonSerializer.Serialize(
-        new RenderResponse(false, exception.Message), jsonOptions));
+        new RenderResponse(false, exception.Message, 2), jsonOptions));
     return 1;
 }
 
@@ -116,6 +116,11 @@ static async Task WaitForPageAsync(IPage page)
 static BrowserTypeLaunchOptions GetLaunchOptions()
 {
     var options = new BrowserTypeLaunchOptions { Headless = true };
+    if (Environment.GetEnvironmentVariable("IZBOARD_REQUIRE_BROWSER_SANDBOX") == "1")
+    {
+        options.ChromiumSandbox = true;
+        return options;
+    }
     if (OperatingSystem.IsLinux())
     {
         // This compatibility mode is not a security boundary for untrusted dashboard content.

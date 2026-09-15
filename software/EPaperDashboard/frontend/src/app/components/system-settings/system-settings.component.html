@@ -14,12 +14,12 @@
             <h2 id="playwrightTitle" class="app-section-title mb-0">Home Assistant dashboard rendering</h2>
             @if (status(); as component) {
               <span class="badge" [ngClass]="{
-                'text-bg-success': component.state === 'Installed',
+                'text-bg-success': component.state === 'Installed' && component.ready,
                 'text-bg-primary': component.state === 'Installing',
-                'text-bg-warning': component.state === 'Incompatible',
+                'text-bg-warning': component.state === 'Incompatible' || (component.state === 'Installed' && !component.ready),
                 'text-bg-danger': component.state === 'Failed',
                 'text-bg-secondary': component.state === 'NotInstalled'
-              }">{{ component.state === 'NotInstalled' ? 'Not installed' : component.state }}</span>
+              }">{{ component.state === 'NotInstalled' ? 'Not installed' : component.state === 'Installed' ? (component.ready ? 'Ready' : 'Not ready') : component.state }}</span>
             }
           </div>
           <p class="app-section-description mb-0">
@@ -81,7 +81,7 @@
             </button>
           }
           @if (component.state === 'Installed') {
-            <button type="button" class="btn btn-outline-primary" (click)="test()" [disabled]="isTesting()">
+            <button type="button" class="btn btn-outline-primary" (click)="test()" [disabled]="isTesting() || !component.ready">
               @if (isTesting()) {
                 <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
               } @else {
