@@ -83,6 +83,26 @@ through the application API into a freshly built slim image, runs a browser rend
 Developers can use the same path by setting `PLAYWRIGHT_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
 architecture-specific `.tar.gz` archive and its `.sha256` file.
 
+### Local component deployment test
+
+Docker Compose can build the slim application and an unpublished Playwright component for the host architecture, serve the
+component inside the Compose network, and configure the application to install from that local source:
+
+```shell
+cd software
+docker compose -f docker-compose.yml -f docker-compose.playwright.yml up --build app
+```
+
+Open `http://localhost:8128`, sign in with the development credentials from `docker-compose.yml`, then open **System** and select
+**Install component** followed by **Test component**. Set `IZBOARD_VERSION` to override the default test version; the application
+and component builds always receive the same value.
+
+Stop the stack and remove its isolated test data and generated component artifacts with:
+
+```shell
+docker compose -f docker-compose.yml -f docker-compose.playwright.yml down --volumes
+```
+
 ## Building from Source
 
 ### Single Architecture Build

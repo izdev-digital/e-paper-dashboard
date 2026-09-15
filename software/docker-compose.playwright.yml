@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      args:
+        VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
+        COMPONENT_RELEASE_TAG: deployment-test
+    environment:
+      CLIENT_URL: http://localhost:8128
+      PLAYWRIGHT_COMPONENT_BASE_URL: http://playwright-component-artifacts/
+    depends_on:
+      playwright-component-artifacts:
+        condition: service_healthy
+    volumes:
+      - playwright-test-data:/data
+
+  playwright-component-packager:
+    build:
+      context: .
+      dockerfile: EPaperDashboard.PlaywrightComponent/Dockerfile
+      target: verify
+      args:
+        VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
+    entrypoint: ["/bin/bash", "-euc"]
+    command:
+      - |
+        case "$$(uname -m)" in
+          x86_64) runtime=linux-x64 ;;
+          aarch64) runtime=linux-arm64 ;;
+          *) echo "Unsupported architecture: $$(uname -m)" >&2; exit 1 ;;
+        esac
+        archive="playwright-component-$${runtime}.tar.gz"
+        tar --dereference --hard-dereference -C /component -czf "/artifacts/$${archive}" .
+        cd /artifacts
+        sha256sum "$${archive}" > "$${archive}.sha256"
+        touch ready
+    restart: "no"
+    volumes:
+      - playwright-component-artifacts:/artifacts
+
+  playwright-component-artifacts:
+    image: nginx:alpine
+    depends_on:
+      playwright-component-packager:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - playwright-component-artifacts:/usr/share/nginx/html:ro
+
+volumes:
+  playwright-component-artifacts:
+  playwright-test-data:
