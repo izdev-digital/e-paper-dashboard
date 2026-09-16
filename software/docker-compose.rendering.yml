@@ -1,0 +1,85 @@
+name: izboard-rendering-test
+
+services:
+  app:
+    extends:
+      file: docker-compose.renderer.yml
+      service: app
+    build:
+      context: .
+      dockerfile: EPaperDashboard/Dockerfile
+      args:
+        VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
+        COMPONENT_RELEASE_TAG: deployment-test
+    environment:
+      CLIENT_URL: http://localhost:8128
+      RENDERING_COMPONENT_BASE_URL: http://rendering-component-artifacts/
+    image: izboard-rendering-test:dev
+    depends_on:
+      rendering-component-artifacts:
+        condition: service_healthy
+    volumes:
+      - rendering-test-data:/data
+
+  rendering-storage:
+    extends:
+      file: docker-compose.renderer.yml
+      service: rendering-storage
+    image: izboard-rendering-test:dev
+    volumes:
+      - rendering-test-data:/data
+
+  renderer:
+    extends:
+      file: docker-compose.renderer.yml
+      service: renderer
+    image: izboard-rendering-test:dev
+    volumes:
+      - type: volume
+        source: rendering-test-data
+        target: /data/components
+        read_only: true
+        volume:
+          subpath: components
+
+  rendering-component-packager:
+    build:
+      context: .
+      dockerfile: EPaperDashboard.PlaywrightComponent/Dockerfile
+      target: package
+      args:
+        VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
+    entrypoint: ["/bin/bash", "-euc"]
+    command:
+      - |
+        case "$$(uname -m)" in
+          x86_64) runtime=linux-x64 ;;
+          aarch64) runtime=linux-arm64 ;;
+          *) echo "Unsupported architecture: $$(uname -m)" >&2; exit 1 ;;
+        esac
+        archive="rendering-component-$${runtime}.tar.gz"
+        tar --dereference --hard-dereference -C /component -czf "/artifacts/$${archive}" .
+        cd /artifacts
+        sha256sum "$${archive}" > "$${archive}.sha256"
+        touch ready
+    restart: "no"
+    volumes:
+      - rendering-component-artifacts:/artifacts
+
+  rendering-component-artifacts:
+    image: nginx:alpine
+    depends_on:
+      rendering-component-packager:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1/ready"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - rendering-component-artifacts:/usr/share/nginx/html:ro
+
+volumes:
+  rendering-socket:
+  rendering-component-artifacts:
+  rendering-test-data:

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed, ChangeDetectorRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -14,6 +14,7 @@ import { Dashboard, DashboardOrientation, DashboardSizePreset, DASHBOARD_SIZE_PR
 import { DashboardSelectorDialogComponent } from '../dashboard-selector-dialog/dashboard-selector-dialog.component';
 import { RenderedPreviewModalComponent } from '../rendered-preview-modal/rendered-preview-modal.component';
 import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
+import { PlaywrightComponentService, PlaywrightComponentStatus } from '../../services/playwright-component.service';
 
 @Component({
   selector: 'app-dashboard-edit',
@@ -224,6 +225,20 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
                 </div>
 
                 @if (previewModeValue === 'homeassistant') {
+                @if (playwrightStatus()?.state !== 'Installed') {
+                <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                  <i class="fa-solid fa-puzzle-piece mt-1" aria-hidden="true"></i>
+                  <div>
+                    <strong>Optional renderer required.</strong>
+                    The rendering component must be installed before this mode can render images.
+                    @if (authService.currentUser()?.isSuperUser) {
+                      <a routerLink="/system" target="_blank" class="alert-link">Install it in System settings.</a>
+                    } @else {
+                      Ask an administrator to install it from System settings.
+                    }
+                  </div>
+                </div>
+                }
                 <div class="mb-3">
                   <label class="form-label fw-semibold" for="editScreenSize">Screen size</label>
                   <select id="editScreenSize" class="form-select" [(ngModel)]="selectedSizeIndex" [ngModelOptions]="{standalone: true}" (change)="onSizeChange()">
@@ -374,7 +389,7 @@ import { HasUnsavedChanges } from '../../guards/unsaved-changes.guard';
 export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChanges {
   private readonly dashboardService = inject(DashboardService);
   private readonly homeAssistantService = inject(HomeAssistantService);
-  private readonly authService = inject(AuthService);
+  protected readonly authService = inject(AuthService);
   private readonly deviceService = inject(DeviceService);
   private readonly aiService = inject(AiService);
   private readonly router = inject(Router);
@@ -384,6 +399,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
   private readonly toastService = inject(ToastService);
   private readonly dialogService = inject(DialogService);
   private readonly location = inject(Location);
+  private readonly playwrightComponentService = inject(PlaywrightComponentService);
 
   readonly isAddonMode = this.authService.isAddonMode;
   readonly isHostMode = this.authService.isHostMode;
@@ -402,6 +418,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
   readonly previewImageUrl = signal('');
   readonly shouldClearAccessToken = signal(false);
   readonly previewMode = signal<'ssr' | 'homeassistant'>('ssr');
+  readonly playwrightStatus = signal<PlaywrightComponentStatus | null>(null);
   
   readonly devices = signal<Device[]>([]);
   readonly isLoadingDevices = signal(false);
@@ -431,6 +448,7 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
   private originalUpdateTimes: string[] = [];
 
   ngOnInit(): void {
+    this.loadPlaywrightStatus();
     const id = this.route.snapshot.paramMap.get('id');
 
     if (id) {
@@ -443,6 +461,17 @@ export class DashboardEditComponent implements OnInit, OnDestroy, HasUnsavedChan
 
       this.loadDashboard(id);
     }
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus(): void {
+    this.loadPlaywrightStatus();
+  }
+
+  private loadPlaywrightStatus(): void {
+    this.playwrightComponentService.getStatus().subscribe({
+      next: status => this.playwrightStatus.set(status)
+    });
   }
 
   loadDashboard(id: string): void {

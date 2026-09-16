@@ -20,7 +20,7 @@ jobs:
       is_release: true
     secrets: inherit
     permissions:
-      contents: read
+      contents: write
       
   build-packaging:
     uses: ./.github/workflows/freecad-export.yml
@@ -54,6 +54,13 @@ jobs:
       with:
         name: freecad-stl-files
         path: ./release/stl/
+
+    - name: Download rendering component artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: rendering-component-*
+        path: ./release/rendering/
+        merge-multiple: true
 
     - name: Create versioned artifact zips
       run: |
@@ -100,6 +107,10 @@ jobs:
         files: |
           firmware-${{ steps.tag.outputs.version }}.zip
           stl-${{ steps.tag.outputs.version }}.zip
+          release/rendering/rendering-component-linux-x64.tar.gz
+          release/rendering/rendering-component-linux-x64.tar.gz.sha256
+          release/rendering/rendering-component-linux-arm64.tar.gz
+          release/rendering/rendering-component-linux-arm64.tar.gz.sha256
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
@@ -113,6 +124,7 @@ jobs:
         echo "#### Artifacts:" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Firmware (ESP32) — attached as release/firmware.zip" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Docker Image: \`izdevdigital/e-paper-dashboard:${{ steps.tag.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Optional rendering components (amd64 + arm64)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ 3D Models (STL) — attached as release/stl.zip" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Complete Package (ZIP)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

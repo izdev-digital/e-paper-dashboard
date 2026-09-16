@@ -1,0 +1,10 @@
+izBoard Playwright Component
+Copyright (c) 2025 izdev-digital
+
+This optional component includes Microsoft.Playwright, licensed under the
+Apache License 2.0, and a Chromium browser distribution. Chromium and its
+bundled third-party software retain their respective licenses and notices in
+the browser payload.
+
+Microsoft.Playwright: https://github.com/microsoft/playwright-dotnet
+Chromium: https://www.chromium.org/

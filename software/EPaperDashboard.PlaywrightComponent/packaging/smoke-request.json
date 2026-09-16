@@ -1,0 +1,7 @@
+{
+  "mode": "html",
+  "width": 200,
+  "height": 100,
+  "outputPath": "/tmp/playwright-component-smoke.png",
+  "html": "<!doctype html><html><body>izBoard</body></html>"
+}

@@ -11,6 +11,7 @@ using EPaperDashboard.Services;
 using EPaperDashboard.Services.Firmware;
 using EPaperDashboard.Authentication;
 using EPaperDashboard.Services.Ai.DataSections;
+using EPaperDashboard.Services.Components.Playwright;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
@@ -21,6 +22,19 @@ using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+
+// The same slim image runs the restricted sidecar, keeping both hosts on the exact app build.
+// Exit before app configuration, databases, authentication, or application routes are initialized.
+if (args.Contains("--rendering-host"))
+{
+    await RenderingComponentHost.RunAsync();
+    return;
+}
+if (args.Contains("--rendering-health"))
+{
+    Environment.Exit(await new PlaywrightComponentRuntime().IsAvailableAsync() ? 0 : 1);
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +128,9 @@ builder.Services
 	.AddSingleton(TimeProvider.System)
 	.AddMemoryCache()
 	.AddTransient<IPageToImageRenderingService, PageToImageRenderingService>()
+	.AddSingleton<PlaywrightComponentManager>()
+	.AddSingleton<PlaywrightComponentRuntime>()
+	.AddHostedService(sp => sp.GetRequiredService<PlaywrightComponentManager>())
 	.AddSingleton<IImageFactory, ImageFactory>()
 	.AddSingleton<LiteDbContext>()
 	.AddSingleton<IUserRepository, LiteDbUserRepository>()
@@ -199,6 +216,12 @@ builder.Services.AddHttpClient(Constants.FirmwareHttpClientName, client =>
 	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");
 	client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
 	client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient(Constants.PlaywrightComponentHttpClientName, client =>
+{
+	client.DefaultRequestHeaders.Add("User-Agent", $"{Constants.AppName}/{Constants.AppVersion}");
+	client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+	client.Timeout = TimeSpan.FromMinutes(30);
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

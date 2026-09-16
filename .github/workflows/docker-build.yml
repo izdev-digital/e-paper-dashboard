@@ -4,104 +4,114 @@ on:
   workflow_call:
     inputs:
       platforms:
-        description: 'Comma-separated list of target platforms for buildx'
+        description: Comma-separated list of target platforms for buildx
         required: false
         type: string
-        default: 'linux/amd64,linux/arm64'
+        default: linux/amd64,linux/arm64
       is_release:
-        description: 'Whether this is a release build (affects Docker tags)'
+        description: Whether this is a release build
         required: false
         type: boolean
         default: false
     outputs:
       version:
-        description: 'Software version'
-        value: ${{ jobs.build-and-push.outputs.version }}
+        description: Software version
+        value: ${{ jobs.version.outputs.version }}
 
 jobs:
-  build-and-push:
+  version:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      digest: ${{ steps.build.outputs.digest }}
     permissions:
       contents: read
-      
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      base_version: ${{ steps.version.outputs.base_version }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-      
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Log in to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-    - name: Get version
-      id: version
-      run: |
-        # Extract major.minor.patch from csproj file (portable approach)
-        BASE_VERSION=$(grep '<Version>' software/EPaperDashboard/EPaperDashboard.csproj | sed -E 's/.*<Version>([^<]+)<\/Version>.*/\1/' | tr -d '[:space:]')
-        
-        # Validate base version format (major.minor.patch)
-        if [[ ! $BASE_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Error: Version in csproj must follow format {major}.{minor}.{patch}"
-          echo "Current value: $BASE_VERSION"
-          exit 1
-        fi
-        
-        # Use GitHub run number as build number
-        BUILD_NUMBER=${GITHUB_RUN_NUMBER}
-        
-        # Construct full version: major.minor.patch.build
-        VERSION="${BASE_VERSION}.${BUILD_NUMBER}"
-        
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
-        echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-        echo "Application version: $VERSION (${BASE_VERSION} + build ${BUILD_NUMBER})"
-        
-    - name: Extract metadata (release)
-      if: inputs.is_release
-      id: meta_release
-      uses: docker/metadata-action@v5
-      with:
-        images: izdevdigital/e-paper-dashboard
-        tags: |
-          # For releases: use clean version tag only
-          type=raw,value=${{ steps.version.outputs.base_version }}
-          
-    - name: Extract metadata (master/dev)
-      if: ${{ !inputs.is_release }}
-      id: meta_dev
-      uses: docker/metadata-action@v5
-      with:
-        images: izdevdigital/e-paper-dashboard
-        tags: |
-          # For master builds: publish only `latest` (do not create -dev tag)
-          type=raw,value=latest
-          
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: ./software
-        file: ./software/EPaperDashboard/Dockerfile
-        platforms: ${{ inputs.platforms }}
-        push: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
-        tags: ${{ inputs.is_release && steps.meta_release.outputs.tags || steps.meta_dev.outputs.tags }}
-        labels: ${{ inputs.is_release && steps.meta_release.outputs.labels || steps.meta_dev.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        build-args: |
-          VERSION=${{ steps.version.outputs.version }}
-          BUILD_CONFIGURATION=Release
+      - uses: actions/checkout@v4
+      - id: version
+        name: Get version
+        run: |
+          base=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' software/EPaperDashboard/EPaperDashboard.csproj | tr -d '[:space:]')
+          [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          echo "base_version=$base" >> "$GITHUB_OUTPUT"
+          echo "version=$base.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+  rendering-component:
+    needs: version
+    uses: ./.github/workflows/playwright-component-build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+    permissions:
+      contents: read
+
+  publish-component:
+    needs: [version, rendering-component]
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rendering-component-*
+          path: component-artifacts
+          merge-multiple: true
+      - name: Publish version-addressed component before the application image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPONENT_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          tag="rendering-v$COMPONENT_VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            # A rerun must never replace an existing version's downloadable payload.
+            commit=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq '.object.sha')
+            test "$commit" = "$GITHUB_SHA"
+            echo "Keeping existing component release $tag"
+          else
+            gh release create "$tag" component-artifacts/* \
+              --target "$GITHUB_SHA" --title "Rendering component $COMPONENT_VERSION" \
+              --notes "Optional rendering component for application build $COMPONENT_VERSION." \
+              --prerelease --latest=false
+          fi
+
+  build-and-push:
+    needs: [version, rendering-component, publish-component]
+    if: |
+      always() && needs.version.result == 'success' &&
+      needs.rendering-component.result == 'success' &&
+      (needs.publish-component.result == 'success' || needs.publish-component.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Extract image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: izdevdigital/e-paper-dashboard
+          tags: type=raw,value=${{ inputs.is_release && needs.version.outputs.base_version || 'latest' }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./software
+          file: ./software/EPaperDashboard/Dockerfile
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.version.outputs.version }}
+            BUILD_CONFIGURATION=Release
+            COMPONENT_RELEASE_TAG=rendering-v${{ needs.version.outputs.version }}

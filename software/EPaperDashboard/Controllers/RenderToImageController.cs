@@ -156,10 +156,8 @@ public sealed class RenderToImageController(
 		}
 
 		var (contentType, encoder) = GetEncoder(format);
-		var authStrategy = new HassAuthStrategy(dashboardInfo.Value.Tokens);
-
 		var result = await renderingService
-			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, authStrategy)
+			.RenderDashboardAsync(dashboardInfo.Value.DashboardUri, imageSize, dashboardInfo.Value.Tokens, HttpContext.RequestAborted)
 			.Map(image => transform?.Invoke(dashboard, image) ?? image);
 
 		if (result.IsSuccess)

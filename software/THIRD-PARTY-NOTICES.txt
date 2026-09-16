@@ -61,7 +61,7 @@ expressly granted herein, whether by implication, estoppel or otherwise.
 
 ================================================================================
 
-3. Microsoft.Playwright (version 1.52.0)
+3. Microsoft.Playwright (version 1.52.0) [optional component only]
    https://github.com/microsoft/playwright-dotnet
 
    Apache License 2.0

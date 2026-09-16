@@ -1,49 +1,16 @@
 # Multi-architecture support: linux/amd64, linux/arm64
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS base
 LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later" \
   org.opencontainers.image.source="https://github.com/izdev-digital/e-paper-dashboard" \
   org.opencontainers.image.title="izBoard" \
   org.opencontainers.image.description="Application for managing the dashboards for e-paper display"
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
-  curl \
-  wget \
   fonts-liberation \
-  libasound2t64 \
-  libgtk-3-0t64 \
-  libgbm1 \
-  libx11-6 \
-  libx11-xcb1 \
-  libxcb1 \
-  libxcomposite1 \
-  libxdamage1 \
-  libxext6 \
-  libxfixes3 \
-  libxrandr2 \
-  libxshmfence1 \
-  libxss1 \
-  libxtst6 \
-  libnss3 \
-  libnspr4 \
-  libdbus-1-3 \
-  libcups2t64 \
   && rm -rf /var/lib/apt/lists/*
-
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV DOTNET_EnableDiagnostics=0
-
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS playwright
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-  apt-get install -y --no-install-recommends nodejs ca-certificates curl wget && \
-  rm -rf /var/lib/apt/lists/*
-
-RUN npm install -g playwright@1.52.0 && \
-  PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS publish
 ARG TARGETARCH
@@ -78,14 +45,13 @@ RUN cp /src/LICENSE /app/publish/ && \
   cp /src/THIRD-PARTY-NOTICES.txt /app/publish/
 
 FROM base AS final
+ARG COMPONENT_RELEASE_TAG
 WORKDIR /app
 EXPOSE 8128 8129
 COPY --from=publish /app/publish .
-COPY --from=playwright /ms-playwright/ /.cache/ms-playwright/
-ENV PLAYWRIGHT_BROWSERS_PATH=/.cache/ms-playwright
-RUN chmod +x /app/.playwright/node/*/node
-RUN chmod -R 755 /.cache/ms-playwright
-RUN mkdir -p /data/DataProtection-Keys && chown -R app:app /data && chmod -R 770 /data
+ENV RENDERING_COMPONENT_RELEASE_TAG=$COMPONENT_RELEASE_TAG
+RUN mkdir -p /data/DataProtection-Keys /data/components /run/izboard-rendering && \
+  chown -R app:app /data /run/izboard-rendering && chmod -R 770 /data /run/izboard-rendering
 USER app
 
 # Use CMD instead of ENTRYPOINT for better compatibility with HA addon wrappers

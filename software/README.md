@@ -13,10 +13,18 @@ The server component of the izBoard system. An ASP.NET Core web application with
 - OTA firmware delivery to devices
 - Multi-user authentication (standalone mode)
 - Deployable as standalone Docker or Home Assistant Add-on
+- Optional Home Assistant dashboard screenshots through an on-demand rendering component
 
 ## Deployment
 
 ### Docker Compose
+
+For a standalone deployment, copy `.env.example` to `.env` in the `software` directory and fill in
+`CLIENT_URL`, `STATE_SIGNING_KEY`, and `SUPERUSER_PASSWORD` before starting. Generate a unique signing
+key with `openssl rand -hex 32`. Set `CLIENT_URL` to an address reachable by both the display and
+your Home Assistant OAuth browser; `localhost` is suitable only for local testing. The `.env` file
+and any personal `docker-compose.yml` are ignored by Git. The tracked `docker-compose.base.yml`
+contains no credentials and is used by the renderer deployment and manual test commands below.
 
 ```yaml
 services:
@@ -50,6 +58,12 @@ Install via the [izBoard Home Assistant Add-on repository](https://github.com/iz
 | `TZ` | Recommended | Timezone (e.g. `Europe/London`) |
 | `APP_MODE` | No | Deployment mode: `standalone` (default) or `addon` |
 | `HOMEASSISTANT_HOST` | No | Home Assistant URL (auto-detected in add-on mode) |
+| `RENDERING_COMPONENT_REPOSITORY` | No | GitHub repository that publishes the optional rendering component (default: `izdev-digital/e-paper-dashboard`) |
+| `RENDERING_COMPONENT_RELEASE_TAG` | No | Override the component release tag; normally set by the official image |
+| `RENDERING_COMPONENT_BASE_URL` | No | Direct component artifact source for manual deployment testing; bypasses GitHub release lookup |
+| `RENDERING_COMPONENT_SOCKET` | No | Standalone app's private renderer Unix socket (default: `/run/izboard-rendering/renderer.sock`) |
+| `RENDERING_MAX_CONCURRENT_RENDERS` | No | Concurrent worker limit, 1–16 (default: 2); increase only after measuring memory use |
+| `RENDERING_MAX_QUEUED_RENDERS` | No | Waiting request limit, 0–1000 (default: 100) |
 
 ### Ports
 
@@ -65,6 +79,91 @@ For HTTPS, the display verifies the server certificate against its embedded trus
 ### Data
 
 Application data (database, uploaded images, firmware cache) is stored in `/data`. Mount this path as a persistent volume.
+
+### Optional rendering component
+
+Standalone deployments run browser rendering in a restricted sidecar using the **same slim application image**. No separate
+heavy image or additional image version needs to be selected: the browser, worker, and native libraries are still installed
+from the UI. Start the standalone renderer with:
+
+```shell
+cd software
+docker compose -f docker-compose.base.yml -f docker-compose.renderer.yml up -d --no-build app
+```
+
+This uses the published application image, not a local rebuild. For unpublished source builds use the local component test
+stack below instead. The app and sidecar must use the same image build; set `IZBOARD_APP_IMAGE` to select a published image
+(preferably an immutable digest) for both. Update/recreate
+both containers together. A mismatched sidecar fails closed and System reports the component as not ready. Custom layouts do
+not require the sidecar. Home Assistant add-ons retain local execution for their single trusted user.
+
+The app writes component files into its existing persistent data volume. A one-shot storage initializer creates its `components`
+directory, and the sidecar mounts **only that subdirectory, read-only**, preserving existing installations without exposing
+the app database, tokens, configuration, or data-protection keys. This uses Docker volume subpath support; use a current Docker
+Engine and Compose. The app communicates through a private Unix socket volume, never a public HTTP/browser-control port.
+Each request carries its user's dashboard credentials; the sidecar validates the app build and manifest, starts a bounded,
+sandboxed worker, and returns image bytes. It has no Docker socket, elevated capabilities, or app secrets, and has a read-only
+root filesystem with limited temporary storage, CPU, memory, PIDs, and private shared memory.
+
+The sandbox seccomp profile in `rendering-seccomp.json` is vendored from
+[Microsoft's Playwright 1.62.0 profile](https://github.com/microsoft/playwright/blob/v1.62.0/utils/docker/seccomp_profile.json),
+under its [Apache 2.0 license](https://github.com/microsoft/playwright/blob/v1.62.0/LICENSE), included as `rendering-seccomp.LICENSE`. It additionally permits the `chroot`
+syscall required inside the browser's user namespace when all container capabilities are dropped; kernel permission checks still apply.
+Sandbox creation must be permitted by the host kernel/security policy; unsupported hosts fail readiness rather than silently
+disabling sandboxing. Do not use privileged mode or disable seccomp to bypass failures. The renderer needs network access to
+users' Home Assistant servers: operators should restrict outbound access to approved destinations and block cloud metadata
+and unrelated internal services. Container/browser isolation does not by itself provide an SSRF/network-access policy.
+
+The default image does not include the browser-rendering runtime or browser binaries. Custom layouts work without them.
+To render an existing Home Assistant dashboard, sign in as a superuser, open **System**, and select **Install component**.
+izBoard downloads the version-matched component for the current CPU architecture from the project's GitHub release, verifies its
+SHA-256 checksum, performs a browser readiness test, and activates it immediately. The component is stored in the persistent `/data` volume, so it survives image
+updates when `/data` is mounted as documented above. If izBoard is updated while the component is installed, izBoard automatically
+updates the component to the exact application build as well. Custom layouts remain available while an offline update waits for
+the matching component; Home Assistant screenshots are unavailable until it is ready. Removing the component waits for running
+renders and deletes all of its files from `/data`. Activation atomically switches between version directories, and interrupted
+installation/removal cleanup is completed on startup.
+
+CI builds and publishes component archives, but does not run renderer deployment/browser tests. Each component has a retained,
+version-addressed GitHub release (`rendering-v<major.minor.patch.build>`) published before its application image. Existing component
+releases are never overwritten, so older installations do not depend on the mutable development release.
+Developers manually verify deployments by setting `RENDERING_COMPONENT_BASE_URL` to a directory served over HTTP that contains the
+architecture-specific `.tar.gz` archive and its `.sha256` file.
+
+### Local component deployment test
+
+Docker Compose can build the slim application and an unpublished rendering component for the host architecture, serve the
+component inside the Compose network, and configure the application to install from that local source:
+
+```shell
+cd software
+docker compose -f docker-compose.base.yml -f docker-compose.rendering.yml up --build app
+```
+
+Set `CLIENT_URL=http://localhost:8128` in your local `.env` for this test. Open `http://localhost:8128`,
+sign in with the credentials you put in `.env`, then open **System** and select
+**Install component** followed by **Test component**. Set `IZBOARD_VERSION` to override the default test version; the application
+and component builds always receive the same value.
+
+Before publishing, keep the pinned browser-runtime dependency current and manually verify installation, **Test component**,
+a real Home Assistant dashboard (including authentication), and custom layouts. Old manifest/protocol revisions are replaced,
+not treated as ready. Restart the app and confirm rendering still works. Rebuild with a different `IZBOARD_VERSION` and confirm the
+installed component updates automatically. Repeat with the artifact server stopped: custom layouts must still work, and Home
+Assistant rendering must recover after the matching artifacts become reachable. Test simultaneous requests, cancelled requests,
+and removal during rendering; after removal inspect `/data/components` in the app container to confirm the files are gone.
+
+Rendering is limited to two simultaneous workers and 100 queued requests. Queue waiting and worker execution each time out after
+150 seconds. Viewports are limited to 4096 pixels per dimension and 16 million pixels, HTML to one million characters, images to
+64 MB, and worker responses to 64,000 characters. Workers receive only their request's credentials, not the app's environment secrets.
+
+Only the single-user Home Assistant add-on retains an in-app-container compatibility worker with browser sandboxing disabled.
+Standalone and host deployments require the isolated sidecar and browser sandboxing; they never fall back to compatibility mode.
+
+Stop the stack and remove its isolated test data and generated component artifacts with:
+
+```shell
+docker compose -f docker-compose.base.yml -f docker-compose.rendering.yml down --volumes
+```
 
 ## Building from Source
 

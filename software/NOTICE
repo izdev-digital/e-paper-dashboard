@@ -1,8 +1,8 @@
 izBoard - Software Component
 Copyright (c) 2025 izdev-digital
 
-This software component is built using ASP.NET Core and includes the
-following third-party dependencies:
+This software component is built using ASP.NET Core. The following list also
+identifies dependencies distributed in optional first-party components:
 
 ================================================================================
 
@@ -20,7 +20,7 @@ Licensed under the MIT License
 
 ================================================================================
 
-Microsoft.Playwright (version 1.52.0)
+Microsoft.Playwright (version 1.52.0) [optional component only]
 https://github.com/microsoft/playwright-dotnet
 Copyright (c) Microsoft Corporation
 Licensed under the Apache License 2.0
