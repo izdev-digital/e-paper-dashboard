@@ -19,6 +19,13 @@ The server component of the izBoard system. An ASP.NET Core web application with
 
 ### Docker Compose
 
+For a standalone deployment, copy `.env.example` to `.env` in the `software` directory and fill in
+`CLIENT_URL`, `STATE_SIGNING_KEY`, and `SUPERUSER_PASSWORD` before starting. Generate a unique signing
+key with `openssl rand -hex 32`. Set `CLIENT_URL` to an address reachable by both the display and
+your Home Assistant OAuth browser; `localhost` is suitable only for local testing. The `.env` file
+and any personal `docker-compose.yml` are ignored by Git. The tracked `docker-compose.base.yml`
+contains no credentials and is used by the renderer deployment and manual test commands below.
+
 ```yaml
 services:
   app:
@@ -81,7 +88,7 @@ from the UI. Start the standalone renderer with:
 
 ```shell
 cd software
-docker compose -f docker-compose.yml -f docker-compose.renderer.yml up -d --no-build app
+docker compose -f docker-compose.base.yml -f docker-compose.renderer.yml up -d --no-build app
 ```
 
 This uses the published application image, not a local rebuild. For unpublished source builds use the local component test
@@ -130,10 +137,11 @@ component inside the Compose network, and configure the application to install f
 
 ```shell
 cd software
-docker compose -f docker-compose.yml -f docker-compose.rendering.yml up --build app
+docker compose -f docker-compose.base.yml -f docker-compose.rendering.yml up --build app
 ```
 
-Open `http://localhost:8128`, sign in with the development credentials from `docker-compose.yml`, then open **System** and select
+Set `CLIENT_URL=http://localhost:8128` in your local `.env` for this test. Open `http://localhost:8128`,
+sign in with the credentials you put in `.env`, then open **System** and select
 **Install component** followed by **Test component**. Set `IZBOARD_VERSION` to override the default test version; the application
 and component builds always receive the same value.
 
@@ -154,7 +162,7 @@ Standalone and host deployments require the isolated sidecar and browser sandbox
 Stop the stack and remove its isolated test data and generated component artifacts with:
 
 ```shell
-docker compose -f docker-compose.yml -f docker-compose.rendering.yml down --volumes
+docker compose -f docker-compose.base.yml -f docker-compose.rendering.yml down --volumes
 ```
 
 ## Building from Source

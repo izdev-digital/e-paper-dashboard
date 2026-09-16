@@ -6,6 +6,8 @@ services:
       file: docker-compose.renderer.yml
       service: app
     build:
+      context: .
+      dockerfile: EPaperDashboard/Dockerfile
       args:
         VERSION: "${IZBOARD_VERSION:-0.4.1.999}"
         COMPONENT_RELEASE_TAG: deployment-test
